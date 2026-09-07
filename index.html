@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <!--
+      connect-src erlaubt bewusst nur 'self' plus localhost-WebSockets: Letzteres wird ausschließlich
+      vom Vite-Dev-Server für Hot-Module-Reload benötigt (kein Effekt in der gebauten Produktionsversion,
+      da dort kein Dev-Server läuft) und öffnet keine Verbindung zu externen/dritten Servern.
+    -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; connect-src 'self' ws://localhost:* wss://localhost:*; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; font-src 'self' data:"
+    />
+    <title>Personaleinsatzplanung</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
