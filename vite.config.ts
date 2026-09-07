@@ -3,6 +3,10 @@ import react from '@vitejs/plugin-react';
 import path from 'node:path';
 
 export default defineConfig({
+  // GitHub Pages serves this as a project site under /PersonalEinsatzPlanung/, not the domain
+  // root, so built asset URLs need that prefix. Only applied in CI (GITHUB_ACTIONS is set
+  // automatically by the Pages workflow) so local dev/build/preview stay at the root path.
+  base: process.env.GITHUB_ACTIONS ? '/PersonalEinsatzPlanung/' : '/',
   plugins: [react()],
   resolve: {
     alias: {
