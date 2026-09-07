@@ -15,6 +15,7 @@ import PrintOutlinedIcon from '@mui/icons-material/PrintOutlined';
 import { kalenderwocheDavor, kalenderwocheDanach, montagDerWoche, datumFuerWochentag } from '@domain/shared/Kalenderwoche';
 import type { MitarbeiterId } from '@domain/shared/ids';
 import { sollWochenstunden } from '@domain/mitarbeiter/Beschaeftigungsart';
+import { vergleicheNachname } from '@domain/mitarbeiter/Mitarbeiter';
 import { minutenZuDezimalstunden } from '@domain/wochenplan/wochenplanBerechnung';
 import { erstelleWochenAnsicht } from '@application/wochenplan/wochenplanAuswertung';
 import type { TagesAnsicht } from '@application/wochenplan/wochenplanAuswertung';
@@ -73,7 +74,18 @@ export function WochenplanView() {
     }
   };
 
-  const wochenAnsicht = useMemo(() => (plan ? erstelleWochenAnsicht(plan, abwesenheiten) : []), [plan, abwesenheiten]);
+  const wochenAnsicht = useMemo(() => {
+    if (!plan) return [];
+    const mitarbeiterNachId = new Map(mitarbeiterListe.map((m) => [m.id, m]));
+    // Drop einsätze whose mitarbeiterId no longer resolves to a known Mitarbeiter (orphaned
+    // leftovers from a hard delete before "deactivate instead of delete" existed) BEFORE sorting -
+    // WochenplanTabelle already skips these at render time, but leaving them in for the sort makes
+    // the comparator's "no data, treat as equal" fallback scramble the real rows around them.
+    // Row order (Nachname A-Z) is independent of plan.mitarbeiterEinsaetze's storage order.
+    return erstelleWochenAnsicht(plan, abwesenheiten)
+      .filter((e) => mitarbeiterNachId.has(e.mitarbeiterId))
+      .sort((a, b) => vergleicheNachname(mitarbeiterNachId.get(a.mitarbeiterId)!, mitarbeiterNachId.get(b.mitarbeiterId)!));
+  }, [plan, abwesenheiten, mitarbeiterListe]);
 
   const gesamtIstMinuten = wochenAnsicht.reduce((summe, e) => summe + e.gesamtNettoMinuten, 0);
   const gesamtSollStunden = mitarbeiterListe.reduce((summe, m) => summe + sollWochenstunden(m.beschaeftigungsart), 0);

@@ -46,3 +46,14 @@ export function neuerMitarbeiter(angaben: {
 export function vollerName(mitarbeiter: Pick<Mitarbeiter, 'nachname' | 'vorname'>): string {
   return `${mitarbeiter.nachname}, ${mitarbeiter.vorname}`;
 }
+
+/** Sorts by Nachname A-Z (Vorname as tiebreaker), German collation (so e.g. umlauts sort correctly).
+ * Single source of truth for the "Mitarbeiter always sorted by Nachname" rule - used for Stammdaten,
+ * Monatsübersicht, Abwesenheiten, the Wochenplan table, and the print export, so the order stays
+ * consistent everywhere the app lists employees. */
+export function vergleicheNachname(
+  a: Pick<Mitarbeiter, 'nachname' | 'vorname'>,
+  b: Pick<Mitarbeiter, 'nachname' | 'vorname'>,
+): number {
+  return a.nachname.localeCompare(b.nachname, 'de') || a.vorname.localeCompare(b.vorname, 'de');
+}

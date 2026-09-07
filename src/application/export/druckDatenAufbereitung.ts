@@ -1,6 +1,7 @@
 import { WOCHENTAGE } from '@domain/shared/Kalenderwoche';
 import type { Wochentag } from '@domain/shared/Kalenderwoche';
 import type { Mitarbeiter } from '@domain/mitarbeiter/Mitarbeiter';
+import { vergleicheNachname } from '@domain/mitarbeiter/Mitarbeiter';
 import type { Wochenplan } from '@domain/wochenplan/Wochenplan';
 import type { Abwesenheit } from '@domain/abwesenheit/Abwesenheit';
 import type { Pause } from '@domain/wochenplan/Pause';
@@ -176,6 +177,12 @@ export function bereiteDruckDatenAuf(
   const tagessummen = Object.fromEntries(
     WOCHENTAGE.map((tag) => [tag, minutenZuDezimalstunden(tagessummenMinuten[tag])]),
   ) as Record<Wochentag, number>;
+
+  // Column order on the printed form follows array order directly (see FormularVollTeilzeit /
+  // FormularMinijob), so sorting here is what actually controls the print layout, independent of
+  // the order employees happen to be stored in the Wochenplan aggregate.
+  vollTeilzeitZeilen.sort((a, b) => vergleicheNachname(a.mitarbeiter, b.mitarbeiter));
+  minijobZeilen.sort((a, b) => vergleicheNachname(a.mitarbeiter, b.mitarbeiter));
 
   return { vollTeilzeitZeilen, minijobZeilen, tagessummen };
 }

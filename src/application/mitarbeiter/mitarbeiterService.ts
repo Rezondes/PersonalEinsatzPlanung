@@ -1,12 +1,14 @@
 import type { FilialId, MitarbeiterId } from '@domain/shared/ids';
 import type { Mitarbeiter } from '@domain/mitarbeiter/Mitarbeiter';
-import { neuerMitarbeiter } from '@domain/mitarbeiter/Mitarbeiter';
+import { neuerMitarbeiter, vergleicheNachname } from '@domain/mitarbeiter/Mitarbeiter';
 import type { Beschaeftigungsart } from '@domain/mitarbeiter/Beschaeftigungsart';
 import type { MitarbeiterRepository } from '@application/ports/MitarbeiterRepository';
 
 export function erstelleMitarbeiterService(repo: MitarbeiterRepository) {
   return {
-    fuerFiliale: (filialeId: FilialId) => repo.findByFiliale(filialeId),
+    // Sorted by Nachname A-Z here (not left to callers) so every view listing employees for a
+    // Filiale is consistent by construction.
+    fuerFiliale: async (filialeId: FilialId) => (await repo.findByFiliale(filialeId)).sort(vergleicheNachname),
 
     finden: (id: MitarbeiterId) => repo.findById(id),
 

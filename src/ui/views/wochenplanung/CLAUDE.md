@@ -28,3 +28,12 @@ for the validation kontext.
   editing at normal laptop widths. The print views in `../export/print/` independently re-lay-out
   the same data with Mitarbeiter as columns to match the paper original. Never assume the two
   layouts should share table markup.
+- `WochenplanView.tsx`'s `wochenAnsicht` useMemo sorts rows by Nachname A-Z (`vergleicheNachname`
+  from `domain/mitarbeiter/Mitarbeiter.ts`, the single source of truth for employee ordering - also
+  used by `mitarbeiterService.fuerFiliale` and `druckDatenAufbereitung.ts`). It filters out any
+  einsatz whose `mitarbeiterId` no longer resolves to a known Mitarbeiter BEFORE sorting, not after:
+  `plan.mitarbeiterEinsaetze` can contain orphaned entries from a hard-deleted employee (from before
+  "deactivate instead of delete" existed), and a comparator that falls back to "treat as equal" for
+  unresolvable entries will scramble the real rows around those orphans if they're still in the
+  array during the sort. `WochenplanTabelle` also skips unresolvable entries at render time, but
+  that's not a substitute for filtering before sorting here.
