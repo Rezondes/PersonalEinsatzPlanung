@@ -8,6 +8,10 @@ export type Tageseintrag = { typ: 'Schicht'; schichten: Schicht[] } | { typ: 'Fr
 export interface MitarbeiterWocheneinsatz {
   mitarbeiterId: MitarbeiterId;
   tage: Record<Wochentag, Tageseintrag>;
+  /** Adjustment to this week's Soll-Stunden, carried forward from the previous week's Ist/Soll
+   * difference (see Wochenplan.mitSollAnpassung). Positive = more Soll expected this week (was
+   * behind), negative = less (was ahead). Absent/undefined is treated as 0 everywhere. */
+  sollAnpassungMinuten?: number;
 }
 
 export function leererWocheneinsatz(mitarbeiterId: MitarbeiterId): MitarbeiterWocheneinsatz {

@@ -13,3 +13,10 @@ Use-cases orchestrating domain logic + ports; no framework/browser dependencies 
   `erstelleMonatsUebersicht` (same file) also calls `erstelleWochenAnsicht` internally per week and
   sums its `gesamtNettoMinuten`, rather than re-walking days/Abwesenheiten itself - the per-day
   overlay logic (including halbtags handling) must only exist once.
+- `wochenplanAuswertung.effektiveSollMinuten` is the single place that combines a Mitarbeiter's
+  contract Soll-Stunden with a week's `sollAnpassungMinuten` carry-over (see
+  `ui/views/wochenplanung/CLAUDE.md` for the sign convention) - the UI never adds these two numbers
+  itself.
+- `wochenplanService.findenFuerWoche` is a **read-only** lookup (unlike `getOderErstelle`, it never
+  creates a plan) - used when a caller needs to look at another week (e.g. the previous one) without
+  side-effecting it into existence.

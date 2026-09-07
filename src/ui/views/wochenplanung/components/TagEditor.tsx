@@ -201,7 +201,7 @@ export function TagEditor({
           value={modus}
           onChange={(_, wert) => wert && setModus(wert)}
           size="small"
-          sx={{ mb: 2, flexWrap: 'wrap' }}
+          sx={{ mb: 2, display: 'flex', '& .MuiToggleButton-root': { flex: 1 } }}
         >
           <ToggleButton value="Frei">Frei</ToggleButton>
           <ToggleButton value="Schicht">Arbeitszeit</ToggleButton>

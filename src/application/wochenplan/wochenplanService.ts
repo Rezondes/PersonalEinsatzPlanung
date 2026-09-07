@@ -2,7 +2,7 @@ import type { FilialId, MitarbeiterId, WochenplanId } from '@domain/shared/ids';
 import type { Kalenderwoche, Wochentag } from '@domain/shared/Kalenderwoche';
 import { kalenderwocheDavor } from '@domain/shared/Kalenderwoche';
 import type { Wochenplan } from '@domain/wochenplan/Wochenplan';
-import { neuerWochenplan, mitTageseintrag } from '@domain/wochenplan/Wochenplan';
+import { neuerWochenplan, mitTageseintrag, mitSollAnpassung } from '@domain/wochenplan/Wochenplan';
 import type { Tageseintrag } from '@domain/wochenplan/MitarbeiterWocheneinsatz';
 import { leererWocheneinsatz } from '@domain/wochenplan/MitarbeiterWocheneinsatz';
 import type { WochenplanRepository } from '@application/ports/WochenplanRepository';
@@ -94,6 +94,24 @@ export function erstelleWochenplanService(repo: WochenplanRepository, mitarbeite
     fuerFiliale: (filialeId: FilialId) => repo.findByFiliale(filialeId),
 
     finden: (id: WochenplanId) => repo.findById(id),
+
+    /** Reads the plan for exactly (filialeId, kw) without creating one if it's missing - unlike
+     * getOderErstelle, used e.g. to look at the previous week's plan without side effects. */
+    findenFuerWoche: (filialeId: FilialId, kw: Kalenderwoche) => repo.findByFilialeUndWoche(filialeId, kw),
+
+    /** Applies a batch of Soll-Stunden carry-over adjustments (see mitSollAnpassung) and saves the
+     * plan once. */
+    sollAnpassungenUebernehmen: async (
+      plan: Wochenplan,
+      anpassungen: { mitarbeiterId: MitarbeiterId; minuten: number }[],
+    ): Promise<Wochenplan> => {
+      const aktualisiert = anpassungen.reduce(
+        (zwischenstand, { mitarbeiterId, minuten }) => mitSollAnpassung(zwischenstand, mitarbeiterId, minuten),
+        plan,
+      );
+      await repo.save(aktualisiert);
+      return aktualisiert;
+    },
   };
 }
 

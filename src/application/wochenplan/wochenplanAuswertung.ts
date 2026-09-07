@@ -6,6 +6,8 @@ import type { Wochenplan } from '@domain/wochenplan/Wochenplan';
 import type { Tageseintrag } from '@domain/wochenplan/MitarbeiterWocheneinsatz';
 import { tageseintragNettoMinuten } from '@domain/wochenplan/wochenplanBerechnung';
 import type { Abwesenheit } from '@domain/abwesenheit/Abwesenheit';
+import type { Mitarbeiter } from '@domain/mitarbeiter/Mitarbeiter';
+import { sollWochenstunden } from '@domain/mitarbeiter/Beschaeftigungsart';
 
 export interface TagesAnsicht {
   tag: Wochentag;
@@ -19,6 +21,18 @@ export interface MitarbeiterWochenAnsicht {
   mitarbeiterId: MitarbeiterId;
   tage: TagesAnsicht[];
   gesamtNettoMinuten: number;
+  /** Carried over from MitarbeiterWocheneinsatz.sollAnpassungMinuten (0 if not set) - see
+   * effektiveSollMinuten. */
+  sollAnpassungMinuten: number;
+}
+
+/** This week's effective Soll-Stunden for one employee: their contract Soll (sollWochenstunden),
+ * adjusted by any carry-over from the previous week (Punkt 6 der Wochenplanung-Feature-Liste). */
+export function effektiveSollMinuten(
+  mitarbeiter: Pick<Mitarbeiter, 'beschaeftigungsart'>,
+  wochenAnsichtEintrag: Pick<MitarbeiterWochenAnsicht, 'sollAnpassungMinuten'>,
+): number {
+  return sollWochenstunden(mitarbeiter.beschaeftigungsart) * 60 + wochenAnsichtEintrag.sollAnpassungMinuten;
 }
 
 function findeAbwesenheitFuerTag(
@@ -72,6 +86,7 @@ export function erstelleWochenAnsicht(plan: Wochenplan, abwesenheiten: Abwesenhe
       mitarbeiterId: einsatz.mitarbeiterId,
       tage,
       gesamtNettoMinuten: tage.reduce((summe, t) => summe + t.nettoMinuten, 0),
+      sollAnpassungMinuten: einsatz.sollAnpassungMinuten ?? 0,
     };
   });
 }

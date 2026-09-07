@@ -9,6 +9,7 @@ import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Tooltip from '@mui/material/Tooltip';
 import Stack from '@mui/material/Stack';
+import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import { WOCHENTAGE } from '@domain/shared/Kalenderwoche';
 import type { MitarbeiterId } from '@domain/shared/ids';
 import type { Mitarbeiter } from '@domain/mitarbeiter/Mitarbeiter';
@@ -16,12 +17,14 @@ import { vollerName } from '@domain/mitarbeiter/Mitarbeiter';
 import { minutenZuDezimalstunden, schichtPausenMinuten } from '@domain/wochenplan/wochenplanBerechnung';
 import type { ValidierungsErgebnis } from '@domain/validierung/ValidierungsErgebnis';
 import type { MitarbeiterWochenAnsicht, TagesAnsicht } from '@application/wochenplan/wochenplanAuswertung';
+import { effektiveSollMinuten } from '@application/wochenplan/wochenplanAuswertung';
 
 interface WochenplanTabelleProps {
   wochenAnsicht: MitarbeiterWochenAnsicht[];
   mitarbeiterListe: Mitarbeiter[];
   validierungsErgebnisse: ValidierungsErgebnis[];
   onZelleKlick: (mitarbeiterId: MitarbeiterId, tagesAnsicht: TagesAnsicht) => void;
+  onZelleKontextmenu: (mitarbeiterId: MitarbeiterId, tagesAnsicht: TagesAnsicht, x: number, y: number) => void;
 }
 
 function abwesenheitsText(art: string): string {
@@ -40,6 +43,7 @@ export function WochenplanTabelle({
   mitarbeiterListe,
   validierungsErgebnisse,
   onZelleKlick,
+  onZelleKontextmenu,
 }: WochenplanTabelleProps) {
   const ergebnisseFuer = (mitarbeiterId: MitarbeiterId, datum: string) =>
     validierungsErgebnisse.filter((e) => e.mitarbeiterId === mitarbeiterId && e.datum === datum);
@@ -55,6 +59,7 @@ export function WochenplanTabelle({
                 {tag}
               </TableCell>
             ))}
+            <TableCell align="center">Soll</TableCell>
             <TableCell align="center">Gesamt</TableCell>
           </TableRow>
         </TableHead>
@@ -62,6 +67,9 @@ export function WochenplanTabelle({
           {wochenAnsicht.map((einsatz) => {
             const mitarbeiter = mitarbeiterListe.find((m) => m.id === einsatz.mitarbeiterId);
             if (!mitarbeiter) return null;
+
+            const sollMinuten = effektiveSollMinuten(mitarbeiter, einsatz);
+            const differenzMinuten = einsatz.gesamtNettoMinuten - sollMinuten;
 
             return (
               <TableRow key={einsatz.mitarbeiterId} hover>
@@ -97,6 +105,10 @@ export function WochenplanTabelle({
                   const zelle = (
                     <Box
                       onClick={() => onZelleKlick(einsatz.mitarbeiterId, tagesAnsicht)}
+                      onContextMenu={(e) => {
+                        e.preventDefault();
+                        onZelleKontextmenu(einsatz.mitarbeiterId, tagesAnsicht, e.clientX, e.clientY);
+                      }}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter' || e.key === ' ') {
                           e.preventDefault();
@@ -169,9 +181,24 @@ export function WochenplanTabelle({
                 })}
 
                 <TableCell align="center">
-                  <Typography variant="body2" fontWeight={500}>
-                    {minutenZuDezimalstunden(einsatz.gesamtNettoMinuten).toLocaleString('de-DE')}
+                  <Typography variant="body2" color="text.secondary">
+                    {minutenZuDezimalstunden(sollMinuten).toLocaleString('de-DE')}
                   </Typography>
+                </TableCell>
+                <TableCell align="center">
+                  <Stack direction="row" spacing={0.5} alignItems="center" justifyContent="center">
+                    <Typography variant="body2" fontWeight={500}>
+                      {minutenZuDezimalstunden(einsatz.gesamtNettoMinuten).toLocaleString('de-DE')}
+                    </Typography>
+                    {differenzMinuten !== 0 && (
+                      <Tooltip
+                        title={`${differenzMinuten > 0 ? '+' : ''}${minutenZuDezimalstunden(differenzMinuten).toLocaleString('de-DE')} Std. ${differenzMinuten > 0 ? 'über' : 'unter'} Soll (${minutenZuDezimalstunden(sollMinuten).toLocaleString('de-DE')} Std.)`}
+                        arrow
+                      >
+                        <WarningAmberIcon fontSize="small" sx={{ color: '#c8973a' }} />
+                      </Tooltip>
+                    )}
+                  </Stack>
                 </TableCell>
               </TableRow>
             );

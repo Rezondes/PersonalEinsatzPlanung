@@ -63,3 +63,18 @@ export function mitTageseintrag(
 
   return { ...plan, mitarbeiterEinsaetze, aktualisiertAm: new Date().toISOString() };
 }
+
+/** Pure, immutable update: sets the Soll-Stunden adjustment (carried over from a previous week's
+ * Ist/Soll difference) for one employee. Same "find or create the einsatz" shape as
+ * mitTageseintrag. */
+export function mitSollAnpassung(plan: Wochenplan, mitarbeiterId: MitarbeiterId, minuten: number): Wochenplan {
+  const bestehenderEinsatz = einsatzFuerMitarbeiter(plan, mitarbeiterId) ?? leererWocheneinsatz(mitarbeiterId);
+  const neuerEinsatz: MitarbeiterWocheneinsatz = { ...bestehenderEinsatz, sollAnpassungMinuten: minuten };
+
+  const vorhanden = plan.mitarbeiterEinsaetze.some((e) => e.mitarbeiterId === mitarbeiterId);
+  const mitarbeiterEinsaetze = vorhanden
+    ? plan.mitarbeiterEinsaetze.map((e) => (e.mitarbeiterId === mitarbeiterId ? neuerEinsatz : e))
+    : [...plan.mitarbeiterEinsaetze, neuerEinsatz];
+
+  return { ...plan, mitarbeiterEinsaetze, aktualisiertAm: new Date().toISOString() };
+}

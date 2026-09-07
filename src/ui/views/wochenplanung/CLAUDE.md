@@ -37,3 +37,42 @@ for the validation kontext.
   unresolvable entries will scramble the real rows around those orphans if they're still in the
   array during the sort. `WochenplanTabelle` also skips unresolvable entries at render time, but
   that's not a substitute for filtering before sorting here.
+
+## Copy/Paste (Rechtsklick)
+
+Right-click on a day cell in `WochenplanTabelle.tsx` fires `onZelleKontextmenu`, but the clipboard
+state, the MUI `Menu`, and the `kopieren`/`einfuegen` handlers all live in `WochenplanView.tsx` -
+`WochenplanTabelle` itself stays a "dumb" renderer that only reports the event upward. Paste works
+between ANY two cells (any employee, any day), not just within one employee's row - a deliberate
+choice (e.g. to duplicate one employee's shift onto a colleague). Pasting regenerates `id`s for the
+copied Schicht/Pause objects (`crypto.randomUUID()`) so they never collide with the source's ids.
+Pasting onto a cell with a single-day Abwesenheit deletes that Abwesenheit first (same rule as
+`TagEditor.speichern()`); pasting is disabled (menu item greyed) for cells covered by a multi-day
+Abwesenheit, consistent with the read-only multi-day behavior above.
+
+## Soll vs. Ist (Punkt 3) and Vorwoche-Stundenübertrag (Punkt 6)
+
+`WochenplanTabelle.tsx`'s "Soll" column and the warning tooltip on "Gesamt" both use
+`effektiveSollMinuten` from `application/wochenplan/wochenplanAuswertung.ts` - contract
+Soll-Stunden (`sollWochenstunden`) plus `MitarbeiterWochenAnsicht.sollAnpassungMinuten` (0 unless a
+transfer was applied). No tolerance threshold: any nonzero difference shows the warning icon, as
+explicitly requested.
+
+`sollAnpassungMinuten` (on `MitarbeiterWocheneinsatz`, set via `domain/wochenplan/Wochenplan.ts`'s
+`mitSollAnpassung`) is the carry-over from exactly the ONE previous week's Ist/Soll difference, not
+a running multi-week ledger - re-transferring is a fresh action each time, it does not chain.
+Sign convention: **positive = this week needs MORE Soll** (was behind last week), **negative =
+LESS** (was ahead). `VorwocheUebertragenDialog.tsx` computes the suggestion as
+`vorherigeSoll - vorherigeIst` - do not flip this sign, it was worked out carefully (see the plan
+file's worked example) and getting it backwards silently makes the feature do the opposite of what
+a store manager expects. Re-opening the dialog prefers an already-stored current-week
+`sollAnpassungMinuten` over recomputing a fresh suggestion, so a manually edited value survives
+being looked at again (the freshly computed suggestion is still shown as read-only context in the
+"Vorschlag" column).
+
+## Wochenauswahl-Schnellauswahl (Punkt 5)
+
+`WochenauswahlDialog.tsx` deliberately does NOT run the ArbZG rest-period/Fehler check per week
+(that needs the async cross-week `ruhezeitPruefung` service, too expensive to run for a whole
+month of weeks at once) - it only shows each week's total Ist-Stunden via `erstelleWochenAnsicht`.
+Fehler stay visible only after actually opening a week, same as before this dialog existed.

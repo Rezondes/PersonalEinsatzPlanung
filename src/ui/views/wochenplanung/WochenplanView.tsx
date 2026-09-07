@@ -9,10 +9,23 @@ import Alert from '@mui/material/Alert';
 import Paper from '@mui/material/Paper';
 import TextField from '@mui/material/TextField';
 import InputAdornment from '@mui/material/InputAdornment';
+import Menu from '@mui/material/Menu';
+import MenuItem from '@mui/material/MenuItem';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import PrintOutlinedIcon from '@mui/icons-material/PrintOutlined';
-import { kalenderwocheDavor, kalenderwocheDanach, montagDerWoche, datumFuerWochentag } from '@domain/shared/Kalenderwoche';
+import TodayOutlinedIcon from '@mui/icons-material/TodayOutlined';
+import SwapHorizOutlinedIcon from '@mui/icons-material/SwapHorizOutlined';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
+import ContentPasteIcon from '@mui/icons-material/ContentPaste';
+import {
+  kalenderwocheDavor,
+  kalenderwocheDanach,
+  kalenderwocheVonDatum,
+  kalenderwochenGleich,
+  montagDerWoche,
+  datumFuerWochentag,
+} from '@domain/shared/Kalenderwoche';
 import type { MitarbeiterId } from '@domain/shared/ids';
 import { sollWochenstunden } from '@domain/mitarbeiter/Beschaeftigungsart';
 import { vergleicheNachname } from '@domain/mitarbeiter/Mitarbeiter';
@@ -31,6 +44,8 @@ import { FehlerSnackbar } from '@ui/components/FehlerSnackbar';
 import { WochenplanTabelle } from './components/WochenplanTabelle';
 import { TagEditor } from './components/TagEditor';
 import { ValidierungsHinweise } from './components/ValidierungsHinweise';
+import { WochenauswahlDialog } from './components/WochenauswahlDialog';
+import { VorwocheUebertragenDialog } from './components/VorwocheUebertragenDialog';
 import { useWochenplanValidierung } from './useWochenplanValidierung';
 
 export function WochenplanView() {
@@ -47,6 +62,16 @@ export function WochenplanView() {
     mitarbeiterId: MitarbeiterId;
     tagesAnsicht: TagesAnsicht;
   } | null>(null);
+
+  const [kontextMenu, setKontextMenu] = useState<{
+    mitarbeiterId: MitarbeiterId;
+    tagesAnsicht: TagesAnsicht;
+    x: number;
+    y: number;
+  } | null>(null);
+  const [kopiertesFeld, setKopiertesFeld] = useState<Tageseintrag | null>(null);
+  const [wochenauswahlOffen, setWochenauswahlOffen] = useState(false);
+  const [vorwocheUebertragenOffen, setVorwocheUebertragenOffen] = useState(false);
 
   const [wochenumsatzEingabe, setWochenumsatzEingabe] = useState('');
   const [wochenstundenEingabe, setWochenstundenEingabe] = useState('');
@@ -151,6 +176,56 @@ export function WochenplanView() {
     }
   };
 
+  const zelleKontextmenu = (mitarbeiterId: MitarbeiterId, tagesAnsicht: TagesAnsicht, x: number, y: number) => {
+    setKontextMenu({ mitarbeiterId, tagesAnsicht, x, y });
+  };
+
+  const kopieren = () => {
+    if (!kontextMenu) return;
+    setKopiertesFeld(kontextMenu.tagesAnsicht.eintrag);
+    setKontextMenu(null);
+  };
+
+  const einfuegen = async () => {
+    if (!plan || !kontextMenu || !kopiertesFeld) return;
+    const { mitarbeiterId, tagesAnsicht } = kontextMenu;
+    setKontextMenu(null);
+
+    // Fresh ids for the pasted shifts/breaks, so they never collide with the ids of the copied source.
+    const eintrag: Tageseintrag =
+      kopiertesFeld.typ === 'Schicht'
+        ? {
+            typ: 'Schicht',
+            schichten: kopiertesFeld.schichten.map((s) => ({
+              ...s,
+              id: crypto.randomUUID(),
+              pausen: s.pausen.map((p) => ({ ...p, id: crypto.randomUUID() })),
+            })),
+          }
+        : { typ: 'Frei' };
+
+    try {
+      const bestehendeAbwesenheit = tagesAnsicht.abwesenheit;
+      const istEinzeltag =
+        bestehendeAbwesenheit && bestehendeAbwesenheit.von === tagesAnsicht.datum && bestehendeAbwesenheit.bis === tagesAnsicht.datum;
+      // Same rule as TagEditor.speichern(): pasting a Schicht/Frei entry replaces a single-day
+      // Abwesenheit on that cell (multi-day ranges stay blocked, see einfuegenDeaktiviert below).
+      if (istEinzeltag && bestehendeAbwesenheit) {
+        await services.abwesenheit.loeschen(bestehendeAbwesenheit.id);
+        await abwesenheitenNeuLaden();
+      }
+      const aktualisiert = await services.wochenplan.tageseintragSetzenUndSpeichern(plan, mitarbeiterId, tagesAnsicht.tag, eintrag);
+      setPlan(aktualisiert);
+    } catch (e) {
+      melden(e, 'Eintrag konnte nicht eingefügt werden');
+    }
+  };
+
+  const einfuegenDeaktiviert =
+    !kopiertesFeld ||
+    !!(kontextMenu?.tagesAnsicht.abwesenheit &&
+      !(kontextMenu.tagesAnsicht.abwesenheit.von === kontextMenu.tagesAnsicht.datum && kontextMenu.tagesAnsicht.abwesenheit.bis === kontextMenu.tagesAnsicht.datum));
+
   if (!filiale) {
     return <Alert severity="info">Bitte zuerst oben eine Filiale auswählen oder anlegen.</Alert>;
   }
@@ -164,7 +239,12 @@ export function WochenplanView() {
           <Typography variant="h5" fontWeight={500}>
             {filiale.filialnummer} {filiale.name}
           </Typography>
-          <Typography variant="body2" color="text.secondary">
+          <Typography
+            variant="body2"
+            color="text.secondary"
+            onClick={() => setWochenauswahlOffen(true)}
+            sx={{ cursor: 'pointer', textDecoration: 'underline', textDecorationStyle: 'dotted', width: 'fit-content' }}
+          >
             KW {ausgewaehlteWoche.woche} · {montagDerWoche(ausgewaehlteWoche).toLocaleDateString('de-DE')} –{' '}
             {datumFuerWochentag(ausgewaehlteWoche, 'Sonntag').toLocaleDateString('de-DE')}
           </Typography>
@@ -173,9 +253,20 @@ export function WochenplanView() {
           <IconButton onClick={() => setAusgewaehlteWoche(kalenderwocheDavor(ausgewaehlteWoche))} aria-label="Vorherige Woche">
             <ChevronLeftIcon />
           </IconButton>
+          <Button
+            size="small"
+            startIcon={<TodayOutlinedIcon />}
+            onClick={() => setAusgewaehlteWoche(kalenderwocheVonDatum(new Date()))}
+            disabled={kalenderwochenGleich(ausgewaehlteWoche, kalenderwocheVonDatum(new Date()))}
+          >
+            Heute
+          </Button>
           <IconButton onClick={() => setAusgewaehlteWoche(kalenderwocheDanach(ausgewaehlteWoche))} aria-label="Nächste Woche">
             <ChevronRightIcon />
           </IconButton>
+          <Button variant="outlined" startIcon={<SwapHorizOutlinedIcon />} onClick={() => setVorwocheUebertragenOffen(true)}>
+            Vorwoche übertragen
+          </Button>
           {plan && (
             <Button variant="outlined" startIcon={<PrintOutlinedIcon />} onClick={() => navigate(`/druck/${plan.id}`)}>
               Drucken
@@ -246,6 +337,46 @@ export function WochenplanView() {
           mitarbeiterListe={mitarbeiterListe}
           validierungsErgebnisse={validierungsErgebnisse}
           onZelleKlick={zelleKlick}
+          onZelleKontextmenu={zelleKontextmenu}
+        />
+      )}
+
+      <Menu
+        open={!!kontextMenu}
+        onClose={() => setKontextMenu(null)}
+        anchorReference="anchorPosition"
+        anchorPosition={kontextMenu ? { top: kontextMenu.y, left: kontextMenu.x } : undefined}
+      >
+        <MenuItem onClick={kopieren}>
+          <ContentCopyIcon fontSize="small" sx={{ mr: 1 }} />
+          Kopieren
+        </MenuItem>
+        <MenuItem onClick={einfuegen} disabled={einfuegenDeaktiviert}>
+          <ContentPasteIcon fontSize="small" sx={{ mr: 1 }} />
+          Einfügen
+        </MenuItem>
+      </Menu>
+
+      <WochenauswahlDialog
+        open={wochenauswahlOffen}
+        onClose={() => setWochenauswahlOffen(false)}
+        filialeId={filiale.id}
+        abwesenheiten={abwesenheiten}
+        ausgewaehlteWoche={ausgewaehlteWoche}
+        onWocheAuswaehlen={setAusgewaehlteWoche}
+      />
+
+      {plan && (
+        <VorwocheUebertragenDialog
+          open={vorwocheUebertragenOffen}
+          onClose={() => setVorwocheUebertragenOffen(false)}
+          filialeId={filiale.id}
+          ausgewaehlteWoche={ausgewaehlteWoche}
+          plan={plan}
+          mitarbeiterListe={mitarbeiterListe}
+          abwesenheiten={abwesenheiten}
+          onUebernommen={setPlan}
+          onFehler={melden}
         />
       )}
 
