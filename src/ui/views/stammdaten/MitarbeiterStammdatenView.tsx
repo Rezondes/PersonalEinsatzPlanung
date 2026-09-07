@@ -36,6 +36,7 @@ import { useMitarbeiterListe } from '@ui/hooks/useMitarbeiterListe';
 import { useFehlerSnackbar } from '@ui/hooks/useFehlerSnackbar';
 import { FehlerSnackbar } from '@ui/components/FehlerSnackbar';
 import { BestaetigungsDialog } from '@ui/components/BestaetigungsDialog';
+import { DezimalTextField } from '@ui/components/DezimalTextField';
 
 type BeschaeftigungstypAuswahl = 'Vollzeit' | 'Teilzeit' | 'Minijob';
 
@@ -45,10 +46,10 @@ interface FormZustand {
   vorname: string;
   taetigkeit: string;
   typ: BeschaeftigungstypAuswahl;
-  wochenstunden: string;
-  minStunden: string;
-  maxStunden: string;
-  urlaubsanspruchProJahr: string;
+  wochenstunden: number | undefined;
+  minStunden: number | undefined;
+  maxStunden: number | undefined;
+  urlaubsanspruchProJahr: number | undefined;
   geburtsdatum: string;
 }
 
@@ -59,10 +60,10 @@ function leeresFormular(): FormZustand {
     vorname: '',
     taetigkeit: '',
     typ: 'Teilzeit',
-    wochenstunden: '',
-    minStunden: '',
-    maxStunden: '',
-    urlaubsanspruchProJahr: '28',
+    wochenstunden: undefined,
+    minStunden: undefined,
+    maxStunden: undefined,
+    urlaubsanspruchProJahr: 28,
     geburtsdatum: '',
   };
 }
@@ -75,10 +76,10 @@ function formularAusMitarbeiter(m: Mitarbeiter): FormZustand {
     vorname: m.vorname,
     taetigkeit: m.taetigkeit,
     typ: art.typ,
-    wochenstunden: art.typ !== 'Minijob' ? String(art.wochenstunden) : '',
-    minStunden: art.typ === 'Minijob' ? String(art.minStunden) : '',
-    maxStunden: art.typ === 'Minijob' ? String(art.maxStunden) : '',
-    urlaubsanspruchProJahr: String(m.urlaubsanspruchProJahr),
+    wochenstunden: art.typ !== 'Minijob' ? art.wochenstunden : undefined,
+    minStunden: art.typ === 'Minijob' ? art.minStunden : undefined,
+    maxStunden: art.typ === 'Minijob' ? art.maxStunden : undefined,
+    urlaubsanspruchProJahr: m.urlaubsanspruchProJahr,
     geburtsdatum: m.geburtsdatum ?? '',
   };
 }
@@ -109,8 +110,8 @@ export function MitarbeiterStammdatenView() {
 
     const beschaeftigungsart =
       formular.typ === 'Minijob'
-        ? { typ: 'Minijob' as const, minStunden: Number(formular.minStunden) || 0, maxStunden: Number(formular.maxStunden) || 0 }
-        : { typ: formular.typ, wochenstunden: Number(formular.wochenstunden) || 0 };
+        ? { typ: 'Minijob' as const, minStunden: formular.minStunden ?? 0, maxStunden: formular.maxStunden ?? 0 }
+        : { typ: formular.typ, wochenstunden: formular.wochenstunden ?? 0 };
 
     setWirdGespeichert(true);
     try {
@@ -123,7 +124,7 @@ export function MitarbeiterStammdatenView() {
             vorname: formular.vorname,
             taetigkeit: formular.taetigkeit,
             beschaeftigungsart,
-            urlaubsanspruchProJahr: Number(formular.urlaubsanspruchProJahr) || 0,
+            urlaubsanspruchProJahr: formular.urlaubsanspruchProJahr ?? 0,
             geburtsdatum: formular.geburtsdatum || undefined,
           });
         }
@@ -134,7 +135,7 @@ export function MitarbeiterStammdatenView() {
           vorname: formular.vorname,
           taetigkeit: formular.taetigkeit,
           beschaeftigungsart,
-          urlaubsanspruchProJahr: Number(formular.urlaubsanspruchProJahr) || 0,
+          urlaubsanspruchProJahr: formular.urlaubsanspruchProJahr ?? 0,
           geburtsdatum: formular.geburtsdatum || undefined,
         });
       }
@@ -219,10 +220,10 @@ export function MitarbeiterStammdatenView() {
                   </TableCell>
                   <TableCell>
                     {m.beschaeftigungsart.typ === 'Minijob'
-                      ? `${m.beschaeftigungsart.minStunden}-${m.beschaeftigungsart.maxStunden}`
-                      : m.beschaeftigungsart.wochenstunden}
+                      ? `${m.beschaeftigungsart.minStunden.toLocaleString('de-DE')}-${m.beschaeftigungsart.maxStunden.toLocaleString('de-DE')}`
+                      : m.beschaeftigungsart.wochenstunden.toLocaleString('de-DE')}
                   </TableCell>
-                  <TableCell>{m.urlaubsanspruchProJahr}</TableCell>
+                  <TableCell>{m.urlaubsanspruchProJahr.toLocaleString('de-DE')}</TableCell>
                   <TableCell>
                     <Chip size="small" label={m.aktiv ? 'Aktiv' : 'Inaktiv'} color={m.aktiv ? 'success' : 'default'} />
                   </TableCell>
@@ -285,37 +286,33 @@ export function MitarbeiterStammdatenView() {
 
             {formular.typ === 'Minijob' ? (
               <Stack direction="row" spacing={2}>
-                <TextField
+                <DezimalTextField
                   label="Min. Std./Woche"
-                  type="number"
                   value={formular.minStunden}
-                  onChange={(e) => setFormular((f) => ({ ...f, minStunden: e.target.value }))}
+                  onChange={(wert) => setFormular((f) => ({ ...f, minStunden: wert }))}
                   fullWidth
                 />
-                <TextField
+                <DezimalTextField
                   label="Max. Std./Woche"
-                  type="number"
                   value={formular.maxStunden}
-                  onChange={(e) => setFormular((f) => ({ ...f, maxStunden: e.target.value }))}
+                  onChange={(wert) => setFormular((f) => ({ ...f, maxStunden: wert }))}
                   fullWidth
                 />
               </Stack>
             ) : (
-              <TextField
+              <DezimalTextField
                 label="Wochenstunden"
-                type="number"
                 value={formular.wochenstunden}
-                onChange={(e) => setFormular((f) => ({ ...f, wochenstunden: e.target.value }))}
+                onChange={(wert) => setFormular((f) => ({ ...f, wochenstunden: wert }))}
                 fullWidth
               />
             )}
 
             <Stack direction="row" spacing={2}>
-              <TextField
+              <DezimalTextField
                 label="Urlaubsanspruch/Jahr (Tage)"
-                type="number"
                 value={formular.urlaubsanspruchProJahr}
-                onChange={(e) => setFormular((f) => ({ ...f, urlaubsanspruchProJahr: e.target.value }))}
+                onChange={(wert) => setFormular((f) => ({ ...f, urlaubsanspruchProJahr: wert }))}
                 fullWidth
               />
               <TextField

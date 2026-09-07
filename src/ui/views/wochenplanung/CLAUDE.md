@@ -38,17 +38,32 @@ for the validation kontext.
   array during the sort. `WochenplanTabelle` also skips unresolvable entries at render time, but
   that's not a substitute for filtering before sorting here.
 
-## Copy/Paste (Rechtsklick)
+## Copy/Paste/Frei (Rechtsklick)
 
-Right-click on a day cell in `WochenplanTabelle.tsx` fires `onZelleKontextmenu`, but the clipboard
-state, the MUI `Menu`, and the `kopieren`/`einfuegen` handlers all live in `WochenplanView.tsx` -
-`WochenplanTabelle` itself stays a "dumb" renderer that only reports the event upward. Paste works
-between ANY two cells (any employee, any day), not just within one employee's row - a deliberate
-choice (e.g. to duplicate one employee's shift onto a colleague). Pasting regenerates `id`s for the
-copied Schicht/Pause objects (`crypto.randomUUID()`) so they never collide with the source's ids.
-Pasting onto a cell with a single-day Abwesenheit deletes that Abwesenheit first (same rule as
-`TagEditor.speichern()`); pasting is disabled (menu item greyed) for cells covered by a multi-day
-Abwesenheit, consistent with the read-only multi-day behavior above.
+`WochenplanTabelle.tsx` does NOT have an `onContextMenu` handler on its cells - it only stamps each
+cell with `data-mitarbeiterid`/`data-tag` attributes. The context menu is driven entirely by a
+single **document-level** `contextmenu` listener in `WochenplanView.tsx`, using
+`document.elementsFromPoint(x, y)` (not `e.target`) to find the cell. This is deliberate, not
+incidental complexity: MUI's `Menu` renders a full-viewport backdrop while open, which is the
+topmost element at any point on screen and would swallow a per-cell `onContextMenu` handler,
+so right-clicking a SECOND cell while the menu is already open would fall back to the browser's
+native menu instead of reopening the custom one (a real reported bug). `elementsFromPoint` returns
+the whole element stack at that point, not just the topmost, so the actual cell underneath the
+backdrop can still be found via `.closest('[data-mitarbeiterid]')`. Right-clicking the open menu
+itself is special-cased (checks `[role="menu"]` in the stack) to just block the native menu without
+touching state, rather than closing/reopening. If you ever refactor this menu, keep it centralized
+here - reintroducing a per-cell handler reintroduces the bug.
+
+Clipboard state and the `kopieren`/`einfuegen`/`aufFreiSetzen` handlers live in `WochenplanView.tsx`.
+Paste works between ANY two cells (any employee, any day), not just within one employee's row - a
+deliberate choice (e.g. to duplicate one employee's shift onto a colleague). Pasting regenerates
+`id`s for the copied Schicht/Pause objects (`crypto.randomUUID()`) so they never collide with the
+source's ids. Both pasting and the "Frei" menu item (quick-resets a cell back to Frei) route through
+the shared `setzeEintragInZelle` helper, which deletes a single-day Abwesenheit on that cell first
+(same rule as `TagEditor.speichern()`) before writing the new Tageseintrag; both are disabled (menu
+item greyed) for cells covered by a multi-day Abwesenheit, consistent with the read-only multi-day
+behavior above. "Frei" is additionally disabled when the cell is already plain Frei with no
+Abwesenheit (`istBereitsFrei`).
 
 ## Soll vs. Ist (Punkt 3) and Vorwoche-Stundenübertrag (Punkt 6)
 

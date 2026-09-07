@@ -126,7 +126,7 @@ export function MonatsUebersichtView() {
               return (
                 <TableRow key={mitarbeiter.id} hover>
                   <TableCell>{vollerName(mitarbeiter)}</TableCell>
-                  <TableCell align="right">{sollWochenstunden(mitarbeiter.beschaeftigungsart)}</TableCell>
+                  <TableCell align="right">{sollWochenstunden(mitarbeiter.beschaeftigungsart).toLocaleString('de-DE')}</TableCell>
                   {alleWochen.map((kw) => {
                     const wochenWert = zeile?.wochen.find(
                       (w) => w.kalenderwoche.jahr === kw.jahr && w.kalenderwoche.woche === kw.woche,

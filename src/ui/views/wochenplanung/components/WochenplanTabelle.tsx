@@ -24,7 +24,6 @@ interface WochenplanTabelleProps {
   mitarbeiterListe: Mitarbeiter[];
   validierungsErgebnisse: ValidierungsErgebnis[];
   onZelleKlick: (mitarbeiterId: MitarbeiterId, tagesAnsicht: TagesAnsicht) => void;
-  onZelleKontextmenu: (mitarbeiterId: MitarbeiterId, tagesAnsicht: TagesAnsicht, x: number, y: number) => void;
 }
 
 function abwesenheitsText(art: string): string {
@@ -43,7 +42,6 @@ export function WochenplanTabelle({
   mitarbeiterListe,
   validierungsErgebnisse,
   onZelleKlick,
-  onZelleKontextmenu,
 }: WochenplanTabelleProps) {
   const ergebnisseFuer = (mitarbeiterId: MitarbeiterId, datum: string) =>
     validierungsErgebnisse.filter((e) => e.mitarbeiterId === mitarbeiterId && e.datum === datum);
@@ -104,11 +102,9 @@ export function WochenplanTabelle({
 
                   const zelle = (
                     <Box
+                      data-mitarbeiterid={einsatz.mitarbeiterId}
+                      data-tag={tagesAnsicht.tag}
                       onClick={() => onZelleKlick(einsatz.mitarbeiterId, tagesAnsicht)}
-                      onContextMenu={(e) => {
-                        e.preventDefault();
-                        onZelleKontextmenu(einsatz.mitarbeiterId, tagesAnsicht, e.clientX, e.clientY);
-                      }}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter' || e.key === ' ') {
                           e.preventDefault();

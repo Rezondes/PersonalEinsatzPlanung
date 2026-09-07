@@ -27,6 +27,7 @@ import ToggleOnOutlinedIcon from '@mui/icons-material/ToggleOnOutlined';
 import StoreOutlinedIcon from '@mui/icons-material/StoreOutlined';
 import type { Filiale, Bundesland } from '@domain/filiale/Filiale';
 import { BUNDESLAENDER } from '@domain/filiale/Filiale';
+import { formatISODatumDeutsch } from '@domain/shared/Zeitspanne';
 import { services } from '@infrastructure/services';
 import { useFilialenListe } from '@ui/hooks/useFiliale';
 import { useFehlerSnackbar } from '@ui/hooks/useFehlerSnackbar';
@@ -362,7 +363,7 @@ export function FilialeStammdatenView() {
                 </Typography>
               )}
               {formular.erlaubteVerkaufsoffeneSonntage.map((datum) => (
-                <Chip key={datum} label={datum} onDelete={() => sonntagEntfernen(datum)} size="small" />
+                <Chip key={datum} label={formatISODatumDeutsch(datum)} onDelete={() => sonntagEntfernen(datum)} size="small" />
               ))}
             </Stack>
           </Stack>

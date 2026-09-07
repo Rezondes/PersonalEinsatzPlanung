@@ -7,7 +7,6 @@ import IconButton from '@mui/material/IconButton';
 import Button from '@mui/material/Button';
 import Alert from '@mui/material/Alert';
 import Paper from '@mui/material/Paper';
-import TextField from '@mui/material/TextField';
 import InputAdornment from '@mui/material/InputAdornment';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
@@ -18,6 +17,7 @@ import TodayOutlinedIcon from '@mui/icons-material/TodayOutlined';
 import SwapHorizOutlinedIcon from '@mui/icons-material/SwapHorizOutlined';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import ContentPasteIcon from '@mui/icons-material/ContentPaste';
+import EventBusyOutlinedIcon from '@mui/icons-material/EventBusyOutlined';
 import {
   kalenderwocheDavor,
   kalenderwocheDanach,
@@ -26,6 +26,7 @@ import {
   montagDerWoche,
   datumFuerWochentag,
 } from '@domain/shared/Kalenderwoche';
+import { formatDatumDeutsch } from '@domain/shared/Zeitspanne';
 import type { MitarbeiterId } from '@domain/shared/ids';
 import { sollWochenstunden } from '@domain/mitarbeiter/Beschaeftigungsart';
 import { vergleicheNachname } from '@domain/mitarbeiter/Mitarbeiter';
@@ -41,6 +42,7 @@ import { useAbwesenheiten } from '@ui/hooks/useAbwesenheiten';
 import { useKalenderwocheStore } from '@ui/app/store/kalenderwocheStore';
 import { useFehlerSnackbar } from '@ui/hooks/useFehlerSnackbar';
 import { FehlerSnackbar } from '@ui/components/FehlerSnackbar';
+import { DezimalTextField } from '@ui/components/DezimalTextField';
 import { WochenplanTabelle } from './components/WochenplanTabelle';
 import { TagEditor } from './components/TagEditor';
 import { ValidierungsHinweise } from './components/ValidierungsHinweise';
@@ -73,14 +75,14 @@ export function WochenplanView() {
   const [wochenauswahlOffen, setWochenauswahlOffen] = useState(false);
   const [vorwocheUebertragenOffen, setVorwocheUebertragenOffen] = useState(false);
 
-  const [wochenumsatzEingabe, setWochenumsatzEingabe] = useState('');
-  const [wochenstundenEingabe, setWochenstundenEingabe] = useState('');
+  const [wochenumsatzEingabe, setWochenumsatzEingabe] = useState<number | undefined>(undefined);
+  const [wochenstundenEingabe, setWochenstundenEingabe] = useState<number | undefined>(undefined);
   const [kopfdatenGespeichert, setKopfdatenGespeichert] = useState(false);
   const { fehler, melden, zuruecksetzen } = useFehlerSnackbar();
 
   useEffect(() => {
-    setWochenumsatzEingabe(plan?.geplanterWochenumsatz != null ? String(plan.geplanterWochenumsatz) : '');
-    setWochenstundenEingabe(plan?.geplanteWochenstunden != null ? String(plan.geplanteWochenstunden) : '');
+    setWochenumsatzEingabe(plan?.geplanterWochenumsatz);
+    setWochenstundenEingabe(plan?.geplanteWochenstunden);
   }, [plan?.id, plan?.geplanterWochenumsatz, plan?.geplanteWochenstunden]);
 
   const planKopfdatenSpeichern = async () => {
@@ -88,8 +90,8 @@ export function WochenplanView() {
     try {
       const aktualisiert = await services.wochenplan.speichern({
         ...plan,
-        geplanterWochenumsatz: wochenumsatzEingabe.trim() === '' ? undefined : Number(wochenumsatzEingabe),
-        geplanteWochenstunden: wochenstundenEingabe.trim() === '' ? undefined : Number(wochenstundenEingabe),
+        geplanterWochenumsatz: wochenumsatzEingabe,
+        geplanteWochenstunden: wochenstundenEingabe,
       });
       setPlan(aktualisiert);
       setKopfdatenGespeichert(true);
@@ -176,9 +178,36 @@ export function WochenplanView() {
     }
   };
 
-  const zelleKontextmenu = (mitarbeiterId: MitarbeiterId, tagesAnsicht: TagesAnsicht, x: number, y: number) => {
-    setKontextMenu({ mitarbeiterId, tagesAnsicht, x, y });
-  };
+  // A document-level listener (not a per-cell onContextMenu) so right-clicking a DIFFERENT cell
+  // while the menu is already open still works: MUI's Menu renders a full-viewport backdrop while
+  // open, which is the topmost element at that point and would otherwise swallow the event before
+  // it ever reaches the cell underneath, falling back to the browser's native context menu.
+  // elementsFromPoint returns the whole stack at that point (not just the topmost), so the actual
+  // cell can be found even underneath the backdrop.
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      const stapel = document.elementsFromPoint(e.clientX, e.clientY);
+      // Right-clicking the open custom menu itself: just block the native menu, leave ours as-is.
+      if (stapel.some((el) => el.closest('[role="menu"]'))) {
+        e.preventDefault();
+        return;
+      }
+      const zelle = stapel.map((el) => el.closest<HTMLElement>('[data-mitarbeiterid]')).find((el) => el);
+      if (!zelle) {
+        setKontextMenu(null);
+        return;
+      }
+      e.preventDefault();
+      const mitarbeiterId = zelle.dataset.mitarbeiterid as MitarbeiterId;
+      const tag = zelle.dataset.tag;
+      const einsatz = wochenAnsicht.find((w) => w.mitarbeiterId === mitarbeiterId);
+      const tagesAnsicht = einsatz?.tage.find((t) => t.tag === tag);
+      if (!tagesAnsicht) return;
+      setKontextMenu({ mitarbeiterId, tagesAnsicht, x: e.clientX, y: e.clientY });
+    };
+    document.addEventListener('contextmenu', handler);
+    return () => document.removeEventListener('contextmenu', handler);
+  }, [wochenAnsicht]);
 
   const kopieren = () => {
     if (!kontextMenu) return;
@@ -186,8 +215,27 @@ export function WochenplanView() {
     setKontextMenu(null);
   };
 
+  const setzeEintragInZelle = async (mitarbeiterId: MitarbeiterId, tagesAnsicht: TagesAnsicht, eintrag: Tageseintrag) => {
+    if (!plan) return;
+    try {
+      const bestehendeAbwesenheit = tagesAnsicht.abwesenheit;
+      const istEinzeltag =
+        bestehendeAbwesenheit && bestehendeAbwesenheit.von === tagesAnsicht.datum && bestehendeAbwesenheit.bis === tagesAnsicht.datum;
+      // Same rule as TagEditor.speichern(): replacing a Schicht/Frei entry clears a single-day
+      // Abwesenheit on that cell (multi-day ranges stay blocked, see the *Deaktiviert checks below).
+      if (istEinzeltag && bestehendeAbwesenheit) {
+        await services.abwesenheit.loeschen(bestehendeAbwesenheit.id);
+        await abwesenheitenNeuLaden();
+      }
+      const aktualisiert = await services.wochenplan.tageseintragSetzenUndSpeichern(plan, mitarbeiterId, tagesAnsicht.tag, eintrag);
+      setPlan(aktualisiert);
+    } catch (e) {
+      melden(e, 'Eintrag konnte nicht geändert werden');
+    }
+  };
+
   const einfuegen = async () => {
-    if (!plan || !kontextMenu || !kopiertesFeld) return;
+    if (!kontextMenu || !kopiertesFeld) return;
     const { mitarbeiterId, tagesAnsicht } = kontextMenu;
     setKontextMenu(null);
 
@@ -204,27 +252,22 @@ export function WochenplanView() {
           }
         : { typ: 'Frei' };
 
-    try {
-      const bestehendeAbwesenheit = tagesAnsicht.abwesenheit;
-      const istEinzeltag =
-        bestehendeAbwesenheit && bestehendeAbwesenheit.von === tagesAnsicht.datum && bestehendeAbwesenheit.bis === tagesAnsicht.datum;
-      // Same rule as TagEditor.speichern(): pasting a Schicht/Frei entry replaces a single-day
-      // Abwesenheit on that cell (multi-day ranges stay blocked, see einfuegenDeaktiviert below).
-      if (istEinzeltag && bestehendeAbwesenheit) {
-        await services.abwesenheit.loeschen(bestehendeAbwesenheit.id);
-        await abwesenheitenNeuLaden();
-      }
-      const aktualisiert = await services.wochenplan.tageseintragSetzenUndSpeichern(plan, mitarbeiterId, tagesAnsicht.tag, eintrag);
-      setPlan(aktualisiert);
-    } catch (e) {
-      melden(e, 'Eintrag konnte nicht eingefügt werden');
-    }
+    await setzeEintragInZelle(mitarbeiterId, tagesAnsicht, eintrag);
   };
 
-  const einfuegenDeaktiviert =
-    !kopiertesFeld ||
-    !!(kontextMenu?.tagesAnsicht.abwesenheit &&
-      !(kontextMenu.tagesAnsicht.abwesenheit.von === kontextMenu.tagesAnsicht.datum && kontextMenu.tagesAnsicht.abwesenheit.bis === kontextMenu.tagesAnsicht.datum));
+  const aufFreiSetzen = async () => {
+    if (!kontextMenu) return;
+    const { mitarbeiterId, tagesAnsicht } = kontextMenu;
+    setKontextMenu(null);
+    await setzeEintragInZelle(mitarbeiterId, tagesAnsicht, { typ: 'Frei' });
+  };
+
+  const istMehrtaegigeAbwesenheit = (tagesAnsicht: TagesAnsicht) =>
+    !!(tagesAnsicht.abwesenheit && !(tagesAnsicht.abwesenheit.von === tagesAnsicht.datum && tagesAnsicht.abwesenheit.bis === tagesAnsicht.datum));
+
+  const einfuegenDeaktiviert = !kopiertesFeld || !!(kontextMenu && istMehrtaegigeAbwesenheit(kontextMenu.tagesAnsicht));
+  const istBereitsFrei = !!kontextMenu && kontextMenu.tagesAnsicht.eintrag.typ === 'Frei' && !kontextMenu.tagesAnsicht.abwesenheit;
+  const freiSetzenDeaktiviert = istBereitsFrei || !!(kontextMenu && istMehrtaegigeAbwesenheit(kontextMenu.tagesAnsicht));
 
   if (!filiale) {
     return <Alert severity="info">Bitte zuerst oben eine Filiale auswählen oder anlegen.</Alert>;
@@ -245,8 +288,8 @@ export function WochenplanView() {
             onClick={() => setWochenauswahlOffen(true)}
             sx={{ cursor: 'pointer', textDecoration: 'underline', textDecorationStyle: 'dotted', width: 'fit-content' }}
           >
-            KW {ausgewaehlteWoche.woche} · {montagDerWoche(ausgewaehlteWoche).toLocaleDateString('de-DE')} –{' '}
-            {datumFuerWochentag(ausgewaehlteWoche, 'Sonntag').toLocaleDateString('de-DE')}
+            KW {ausgewaehlteWoche.woche} · {formatDatumDeutsch(montagDerWoche(ausgewaehlteWoche))} –{' '}
+            {formatDatumDeutsch(datumFuerWochentag(ausgewaehlteWoche, 'Sonntag'))}
           </Typography>
         </Box>
         <Stack direction="row" gap={1} alignItems="center">
@@ -276,22 +319,20 @@ export function WochenplanView() {
       </Stack>
 
       <Stack direction="row" gap={2} flexWrap="wrap" sx={{ mb: 2 }}>
-        <TextField
+        <DezimalTextField
           label="Geplanter Wochenumsatz"
-          type="number"
           size="small"
           value={wochenumsatzEingabe}
-          onChange={(e) => setWochenumsatzEingabe(e.target.value)}
+          onChange={setWochenumsatzEingabe}
           onBlur={planKopfdatenSpeichern}
           InputProps={{ endAdornment: <InputAdornment position="end">€</InputAdornment> }}
           sx={{ width: 260 }}
         />
-        <TextField
+        <DezimalTextField
           label="Geplante Wochenstunden"
-          type="number"
           size="small"
           value={wochenstundenEingabe}
-          onChange={(e) => setWochenstundenEingabe(e.target.value)}
+          onChange={setWochenstundenEingabe}
           onBlur={planKopfdatenSpeichern}
           sx={{ width: 260 }}
         />
@@ -337,7 +378,6 @@ export function WochenplanView() {
           mitarbeiterListe={mitarbeiterListe}
           validierungsErgebnisse={validierungsErgebnisse}
           onZelleKlick={zelleKlick}
-          onZelleKontextmenu={zelleKontextmenu}
         />
       )}
 
@@ -354,6 +394,10 @@ export function WochenplanView() {
         <MenuItem onClick={einfuegen} disabled={einfuegenDeaktiviert}>
           <ContentPasteIcon fontSize="small" sx={{ mr: 1 }} />
           Einfügen
+        </MenuItem>
+        <MenuItem onClick={aufFreiSetzen} disabled={freiSetzenDeaktiviert}>
+          <EventBusyOutlinedIcon fontSize="small" sx={{ mr: 1 }} />
+          Frei
         </MenuItem>
       </Menu>
 

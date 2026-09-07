@@ -10,12 +10,12 @@ import TableCell from '@mui/material/TableCell';
 import TableContainer from '@mui/material/TableContainer';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
-import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import Alert from '@mui/material/Alert';
 import type { FilialId } from '@domain/shared/ids';
 import type { Kalenderwoche } from '@domain/shared/Kalenderwoche';
 import { kalenderwocheDavor, montagDerWoche, datumFuerWochentag } from '@domain/shared/Kalenderwoche';
+import { formatDatumDeutsch } from '@domain/shared/Zeitspanne';
 import type { Wochenplan } from '@domain/wochenplan/Wochenplan';
 import type { Mitarbeiter } from '@domain/mitarbeiter/Mitarbeiter';
 import { vollerName } from '@domain/mitarbeiter/Mitarbeiter';
@@ -23,6 +23,7 @@ import type { Abwesenheit } from '@domain/abwesenheit/Abwesenheit';
 import { minutenZuDezimalstunden } from '@domain/wochenplan/wochenplanBerechnung';
 import { erstelleWochenAnsicht, effektiveSollMinuten } from '@application/wochenplan/wochenplanAuswertung';
 import { services } from '@infrastructure/services';
+import { DezimalTextField } from '@ui/components/DezimalTextField';
 
 interface VorwocheUebertragenDialogProps {
   open: boolean;
@@ -47,12 +48,6 @@ function formatStd(minuten: number): string {
   return minutenZuDezimalstunden(minuten).toLocaleString('de-DE');
 }
 
-/** Std.-Eingabefeld -> Minuten, rundet auf ganze Minuten. Leere/ungültige Eingabe -> 0. */
-function stundenZuMinuten(eingabe: string): number {
-  const wert = Number(eingabe.replace(',', '.'));
-  return Number.isFinite(wert) ? Math.round(wert * 60) : 0;
-}
-
 /** Modal für die Übernahme von Mehr-/Minusstunden aus der Vorwoche (Punkt 6): berechnet je aktivem
  * Mitarbeiter den Vorschlag aus Vorwoche-Ist minus Vorwoche-Soll, zeigt ihn in einem editierbaren
  * Feld an (das editierbare Feld ist zugleich die manuelle Eingabe-Alternative aus der Anforderung -
@@ -69,7 +64,7 @@ export function VorwocheUebertragenDialog({
   onFehler,
 }: VorwocheUebertragenDialogProps) {
   const [zeilen, setZeilen] = useState<ZeileDaten[]>([]);
-  const [eingaben, setEingaben] = useState<Record<string, string>>({});
+  const [eingaben, setEingaben] = useState<Record<string, number | undefined>>({});
   const [laedt, setLaedt] = useState(true);
   const [wirdUebernommen, setWirdUebernommen] = useState(false);
 
@@ -96,12 +91,12 @@ export function VorwocheUebertragenDialog({
         };
       });
 
-      const neueEingaben: Record<string, string> = {};
+      const neueEingaben: Record<string, number | undefined> = {};
       for (const zeile of neueZeilen) {
         const bestehenderEinsatz = plan.mitarbeiterEinsaetze.find((e) => e.mitarbeiterId === zeile.mitarbeiter.id);
         const bestehendeAnpassung = bestehenderEinsatz?.sollAnpassungMinuten;
         const minuten = bestehendeAnpassung != null && bestehendeAnpassung !== 0 ? bestehendeAnpassung : zeile.vorschlagMinuten;
-        neueEingaben[zeile.mitarbeiter.id] = formatStd(minuten);
+        neueEingaben[zeile.mitarbeiter.id] = minutenZuDezimalstunden(minuten);
       }
 
       setZeilen(neueZeilen);
@@ -115,7 +110,7 @@ export function VorwocheUebertragenDialog({
     try {
       const anpassungen = zeilen.map((zeile) => ({
         mitarbeiterId: zeile.mitarbeiter.id,
-        minuten: stundenZuMinuten(eingaben[zeile.mitarbeiter.id] ?? '0'),
+        minuten: Math.round((eingaben[zeile.mitarbeiter.id] ?? 0) * 60),
       }));
       const aktualisiert = await services.wochenplan.sollAnpassungenUebernehmen(plan, anpassungen);
       onUebernommen(aktualisiert);
@@ -134,8 +129,8 @@ export function VorwocheUebertragenDialog({
       <DialogTitle>
         Mehr-/Minusstunden aus Vorwoche übertragen
         <Typography variant="body2" color="text.secondary">
-          KW {vorwoche.woche} · {montagDerWoche(vorwoche).toLocaleDateString('de-DE')} –{' '}
-          {datumFuerWochentag(vorwoche, 'Sonntag').toLocaleDateString('de-DE')}
+          KW {vorwoche.woche} · {formatDatumDeutsch(montagDerWoche(vorwoche))} –{' '}
+          {formatDatumDeutsch(datumFuerWochentag(vorwoche, 'Sonntag'))}
         </Typography>
       </DialogTitle>
       <DialogContent>
@@ -170,11 +165,10 @@ export function VorwocheUebertragenDialog({
                         : '–'}
                     </TableCell>
                     <TableCell align="center">
-                      <TextField
+                      <DezimalTextField
                         size="small"
-                        type="number"
-                        value={eingaben[zeile.mitarbeiter.id] ?? ''}
-                        onChange={(e) => setEingaben((v) => ({ ...v, [zeile.mitarbeiter.id]: e.target.value }))}
+                        value={eingaben[zeile.mitarbeiter.id]}
+                        onChange={(wert) => setEingaben((v) => ({ ...v, [zeile.mitarbeiter.id]: wert }))}
                         sx={{ width: 100 }}
                       />
                     </TableCell>

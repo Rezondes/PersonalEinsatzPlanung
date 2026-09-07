@@ -28,6 +28,7 @@ import { validierePausen } from '@domain/validierung/arbeitszeitgesetz/pausenVal
 import { validiereSchichtdauer } from '@domain/validierung/arbeitszeitgesetz/schichtdauerValidierung';
 import { validiereTagesarbeitszeit } from '@domain/validierung/arbeitszeitgesetz/hoechstarbeitszeitValidierung';
 import { BestaetigungsDialog } from '@ui/components/BestaetigungsDialog';
+import { DezimalTextField } from '@ui/components/DezimalTextField';
 
 type Modus = 'Frei' | 'Schicht' | 'Urlaub' | 'Krankheit' | 'Sonstige';
 
@@ -314,12 +315,11 @@ export function TagEditor({
                         InputLabelProps={{ shrink: true }}
                         sx={{ width: 170 }}
                       />
-                      <TextField
+                      <DezimalTextField
                         label="Dauer (Min.)"
-                        type="number"
                         size="small"
                         value={pause.dauerMinuten}
-                        onChange={(e) => pauseAendern(schicht.id, pause.id, { dauerMinuten: Number(e.target.value) || 0 })}
+                        onChange={(wert) => pauseAendern(schicht.id, pause.id, { dauerMinuten: wert ?? 0 })}
                         sx={{ width: 140 }}
                       />
                       <IconButton size="small" onClick={() => pauseEntfernen(schicht.id, pause.id)} aria-label="Pause entfernen">

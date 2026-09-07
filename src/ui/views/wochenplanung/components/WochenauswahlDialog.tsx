@@ -21,6 +21,7 @@ import {
   montagDerWoche,
   datumFuerWochentag,
 } from '@domain/shared/Kalenderwoche';
+import { formatDatumDeutsch } from '@domain/shared/Zeitspanne';
 import type { Wochenplan } from '@domain/wochenplan/Wochenplan';
 import type { Abwesenheit } from '@domain/abwesenheit/Abwesenheit';
 import { minutenZuDezimalstunden } from '@domain/wochenplan/wochenplanBerechnung';
@@ -122,8 +123,8 @@ export function WochenauswahlDialog({
                 <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ width: '100%' }}>
                   <Stack direction="row" spacing={1} alignItems="center">
                     <Typography variant="body2" fontWeight={istAusgewaehlt ? 600 : 400}>
-                      KW {kw.woche} · {montagDerWoche(kw).toLocaleDateString('de-DE')} –{' '}
-                      {datumFuerWochentag(kw, 'Sonntag').toLocaleDateString('de-DE')}
+                      KW {kw.woche} · {formatDatumDeutsch(montagDerWoche(kw))} –{' '}
+                      {formatDatumDeutsch(datumFuerWochentag(kw, 'Sonntag'))}
                     </Typography>
                     {istHeute && <Chip label="Heute" size="small" color="success" variant="outlined" />}
                   </Stack>

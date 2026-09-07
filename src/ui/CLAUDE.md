@@ -25,6 +25,27 @@ different design system.
 `app/router.tsx` uses react-router-dom. `/druck/:wochenplanId` is intentionally OUTSIDE the
 `AppShell` layout (no nav chrome) since it's a print-only view.
 
+## German number/date formatting (mandatory, no exceptions)
+
+- Every user-facing decimal number input MUST use `ui/components/DezimalTextField.tsx`, never a
+  plain `TextField type="number"`. A native `type="number"` input enforces the browser's
+  locale-invariant period decimal separator regardless of page locale - setting/typing a
+  comma-formatted value like "-0,5" into one simply fails (shows blank), which was a real reported
+  bug. `DezimalTextField` takes/returns a plain `number | undefined` and manages the comma-typing
+  UX (including a lone "-" or trailing "," while mid-typing) internally.
+- Every place a number is rendered as read-only text MUST call `.toLocaleString('de-DE')` - never
+  interpolate a raw `number` into JSX/template strings directly (`{m.wochenstunden}` renders via
+  JS's default period-based `toString()`, e.g. "37.5" instead of "37,5"). This bit multiple views
+  (Mitarbeiter table, Abwesenheiten Resturlaub, Monatsübersicht) before being swept and fixed.
+- Every displayed date MUST use `formatDatumDeutsch(date: Date)` or `formatISODatumDeutsch(isoString)`
+  from `domain/shared/Zeitspanne.ts` - never `Date.toLocaleDateString('de-DE')` (doesn't zero-pad,
+  e.g. "7.9.2026" instead of "07.09.2026") and never render an ISO date string directly. The one
+  exception is native `<input type="date">` pickers, whose display format is controlled by the
+  browser/OS, not the app - only the stored VALUE matters there and it must stay ISO
+  ("YYYY-MM-DD"). The print export's short "DD.MM." format (no year, `formatDatumKurz` in
+  `views/export/print/`) is a deliberate different, narrower format matching the paper form and is
+  not part of this rule.
+
 ## Gotchas
 
 - Print stylesheets need `!important` to reliably hide the `.druck-aktionsleiste` action bar

@@ -24,6 +24,7 @@ import Alert from '@mui/material/Alert';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import type { MitarbeiterId } from '@domain/shared/ids';
+import { formatISODatumDeutsch } from '@domain/shared/Zeitspanne';
 import type { Abwesenheit } from '@domain/abwesenheit/Abwesenheit';
 import { vollerName } from '@domain/mitarbeiter/Mitarbeiter';
 import { services } from '@infrastructure/services';
@@ -180,7 +181,8 @@ export function AbwesenheitenView() {
               {vollerName(m)}
             </Typography>
             <Typography variant="caption" color="text.secondary">
-              Resturlaub {jahr}: {resturlaub[m.id] ?? '–'} von {m.urlaubsanspruchProJahr} Tagen
+              Resturlaub {jahr}: {resturlaub[m.id]?.toLocaleString('de-DE') ?? '–'} von{' '}
+              {m.urlaubsanspruchProJahr.toLocaleString('de-DE')} Tagen
             </Typography>
           </Paper>
         ))}
@@ -225,8 +227,8 @@ export function AbwesenheitenView() {
                   <TableCell>
                     <Chip size="small" label={(a.art === 'Sonstige' ? a.bezeichnung : a.art) + halbtagsText} />
                   </TableCell>
-                  <TableCell>{a.von}</TableCell>
-                  <TableCell>{a.bis}</TableCell>
+                  <TableCell>{formatISODatumDeutsch(a.von)}</TableCell>
+                  <TableCell>{formatISODatumDeutsch(a.bis)}</TableCell>
                   <TableCell align="right">
                     <IconButton size="small" onClick={() => setLoeschZiel(a)} aria-label="Löschen">
                       <DeleteOutlineIcon fontSize="small" />
