@@ -5,6 +5,7 @@ import type { CalendarWeek, Weekday } from '@domain/shared/CalendarWeek';
 import type { Branch } from '@domain/branch/Branch';
 import { fullName } from '@domain/employee/Employee';
 import type { PrintRowMinijob } from '@application/export/printDataPreparation';
+import { PrintPageContent } from './PrintPageContent';
 
 interface MinijobFormProps {
   branch: Branch;
@@ -39,6 +40,7 @@ export function MinijobForm({ branch, calendarWeek, rows, dayTotals }: MinijobFo
 
   return (
     <div className="print-page">
+      <PrintPageContent>
       <div className="print-header">
         <div className="print-header-meta" />
         <p className="print-title">
@@ -187,6 +189,7 @@ export function MinijobForm({ branch, calendarWeek, rows, dayTotals }: MinijobFo
         <div className="field">Unterschrift ML</div>
         <div className="field">Unterschrift VL</div>
       </div>
+      </PrintPageContent>
     </div>
   );
 }

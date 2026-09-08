@@ -5,6 +5,7 @@ import type { CalendarWeek, Weekday } from '@domain/shared/CalendarWeek';
 import type { Branch } from '@domain/branch/Branch';
 import { fullName } from '@domain/employee/Employee';
 import type { PrintRowFullPartTime } from '@application/export/printDataPreparation';
+import { PrintPageContent } from './PrintPageContent';
 
 interface FullPartTimeFormProps {
   branch: Branch;
@@ -48,6 +49,7 @@ export function FullPartTimeForm({
 
   return (
     <div className="print-page">
+      <PrintPageContent>
       <div className="print-header">
         <div className="print-header-meta">
           <p className="print-meta">geplanter Wochenumsatz: {plannedWeeklyRevenue != null ? `${plannedWeeklyRevenue.toLocaleString('de-DE')} €` : ''}</p>
@@ -189,6 +191,7 @@ export function FullPartTimeForm({
         <div className="field">Unterschrift ML</div>
         <div className="field">Unterschrift VL</div>
       </div>
+      </PrintPageContent>
     </div>
   );
 }
