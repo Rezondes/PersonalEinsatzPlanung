@@ -1,7 +1,6 @@
 # Personaleinsatzplanung (PEP)
 
-Web-App zur digitalen Personaleinsatzplanung fuer Einzelhandelsfilialen (entwickelt fuer eine
-Filiale von Netto Marken-Discount). Ersetzt die bisherige papierbasierte Wochenplanung durch eine
+Web-App zur digitalen Personaleinsatzplanung fuer kleine Einzelhandelsfilialen. Ersetzt die bisherige papierbasierte Wochenplanung durch eine
 lokale, datenschutzfreundliche Anwendung ohne Server-Backend.
 
 > **Status: In aktiver Entwicklung.** Diese Software ist noch nicht fuer den produktiven Einsatz
