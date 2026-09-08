@@ -56,5 +56,20 @@ different design system.
   `ValidationNotices.tsx` deliberately renders its expanded panel as a `position: absolute`
   overlay (not `Collapse`) specifically so opening it never shifts the Wochenplan table underneath
   - a UX requirement from the user. Don't revert to `Collapse` there.
-- `public/favicon.svg` matches the app's own StoreOutlined-style icon/brand color; keep them in
-  sync if the icon or theme color changes.
+- `AppShell.tsx`'s header icon renders `public/favicon.svg` directly (`<img src={...}>`), the same
+  file as the browser-tab favicon - not a separate MUI icon kept visually in sync by hand, so the
+  two can never drift apart.
+- **Never hardcode a root-relative path (`/favicon.svg`, `/whatever.png`) to reference a file in
+  `public/` from application code.** This app is deployed to GitHub Pages as a project site under
+  `/PersonalEinsatzPlanung/`, not the domain root (see `vite.config.ts`'s conditional `base`). Vite
+  automatically rewrites asset URLs it processes through its own pipeline - `index.html`'s own
+  `<link rel="icon">`, imported modules - to include that prefix, but a raw string literal in a
+  `.tsx` file is just a string to Vite; it has no idea it's meant to be an asset path, so it's
+  never rewritten and 404s once deployed (this exact bug shipped once: `AppShell.tsx`'s header logo
+  broke on GitHub Pages while the identical browser-tab favicon worked fine, because only the tab
+  icon went through `index.html`). Always build the path from
+  `` `${import.meta.env.BASE_URL}favicon.svg` `` instead - Vite substitutes `BASE_URL` with the
+  configured `base` at build time (`/PersonalEinsatzPlanung/` in the GitHub Pages build, `/`
+  locally), so the same code works in both. Verify any future `public/`-asset reference by running
+  `GITHUB_ACTIONS=true npm run build` and grepping `dist/assets/*.js` for the filename - it must
+  show the `/PersonalEinsatzPlanung/` prefix, matching `dist/index.html`'s own reference.

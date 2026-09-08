@@ -38,7 +38,7 @@ export function AppShell() {
       <AppBar position="sticky" color="transparent" sx={{ top: 0, backgroundColor: '#ffffff' }}>
         <Toolbar sx={{ gap: 3, flexWrap: 'wrap', py: 1 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Box component="img" src="/favicon.svg" alt="" sx={{ width: 24, height: 24 }} />
+            <Box component="img" src={`${import.meta.env.BASE_URL}favicon.svg`} alt="" sx={{ width: 24, height: 24 }} />
             <Typography variant="subtitle1" fontWeight={500}>
               Personaleinsatzplanung
             </Typography>
