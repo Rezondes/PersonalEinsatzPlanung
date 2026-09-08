@@ -7,15 +7,15 @@ import Select from '@mui/material/Select';
 import MenuItem from '@mui/material/MenuItem';
 import Container from '@mui/material/Container';
 import StoreOutlinedIcon from '@mui/icons-material/StoreOutlined';
-import { useFilialenListe } from '@ui/hooks/useFiliale';
-import { useFilialeAuswahlStore } from '@ui/app/store/filialeAuswahlStore';
+import { useBranchList } from '@ui/hooks/useBranch';
+import { useBranchSelectionStore } from '@ui/app/store/branchSelectionStore';
 
 const NAV_LINKS = [
-  { pfad: '/wochenplan', label: 'Wochenplanung' },
-  { pfad: '/monat', label: 'Monatsübersicht' },
-  { pfad: '/mitarbeiter', label: 'Mitarbeiter' },
-  { pfad: '/abwesenheiten', label: 'Abwesenheiten' },
-  { pfad: '/filialen', label: 'Filialen' },
+  { path: '/schedule', label: 'Wochenplanung' },
+  { path: '/month', label: 'Monatsübersicht' },
+  { path: '/employees', label: 'Mitarbeiter' },
+  { path: '/absences', label: 'Abwesenheiten' },
+  { path: '/branches', label: 'Filialen' },
 ];
 
 const navLinkStyle = ({ isActive }: { isActive: boolean }) => ({
@@ -29,10 +29,10 @@ const navLinkStyle = ({ isActive }: { isActive: boolean }) => ({
 });
 
 export function AppShell() {
-  const { filialen } = useFilialenListe();
-  const aktiveFilialen = filialen.filter((f) => f.aktiv);
-  const ausgewaehlteFilialeId = useFilialeAuswahlStore((s) => s.ausgewaehlteFilialeId);
-  const setAusgewaehlteFiliale = useFilialeAuswahlStore((s) => s.setAusgewaehlteFiliale);
+  const { branches } = useBranchList();
+  const activeBranches = branches.filter((b) => b.active);
+  const selectedBranchId = useBranchSelectionStore((s) => s.selectedBranchId);
+  const setSelectedBranch = useBranchSelectionStore((s) => s.setSelectedBranch);
 
   return (
     <Box sx={{ minHeight: '100vh', backgroundColor: 'background.default' }}>
@@ -45,16 +45,16 @@ export function AppShell() {
             </Typography>
           </Box>
 
-          {aktiveFilialen.length > 0 && (
+          {activeBranches.length > 0 && (
             <Select
               size="small"
-              value={ausgewaehlteFilialeId ?? ''}
-              onChange={(e) => setAusgewaehlteFiliale(e.target.value as never)}
+              value={selectedBranchId ?? ''}
+              onChange={(e) => setSelectedBranch(e.target.value as never)}
               sx={{ minWidth: 220 }}
             >
-              {aktiveFilialen.map((f) => (
-                <MenuItem key={f.id} value={f.id}>
-                  {f.filialnummer} - {f.name}
+              {activeBranches.map((b) => (
+                <MenuItem key={b.id} value={b.id}>
+                  {b.branchNumber} - {b.name}
                 </MenuItem>
               ))}
             </Select>
@@ -62,16 +62,16 @@ export function AppShell() {
 
           <Box sx={{ display: 'flex', gap: 1, flexGrow: 1, flexWrap: 'wrap' }}>
             {NAV_LINKS.map((link) => (
-              <NavLink key={link.pfad} to={link.pfad} style={navLinkStyle}>
+              <NavLink key={link.path} to={link.path} style={navLinkStyle}>
                 {link.label}
               </NavLink>
             ))}
           </Box>
 
-          <NavLink to="/datenschutz" style={navLinkStyle}>
+          <NavLink to="/privacy" style={navLinkStyle}>
             Datenschutz
           </NavLink>
-          <NavLink to="/einstellungen" style={navLinkStyle}>
+          <NavLink to="/settings" style={navLinkStyle}>
             Einstellungen
           </NavLink>
         </Toolbar>

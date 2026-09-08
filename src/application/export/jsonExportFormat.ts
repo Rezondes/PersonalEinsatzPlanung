@@ -1,17 +1,17 @@
-import type { Filiale } from '@domain/filiale/Filiale';
-import type { Mitarbeiter } from '@domain/mitarbeiter/Mitarbeiter';
-import type { Wochenplan } from '@domain/wochenplan/Wochenplan';
-import type { Abwesenheit } from '@domain/abwesenheit/Abwesenheit';
+import type { Branch } from '@domain/branch/Branch';
+import type { Employee } from '@domain/employee/Employee';
+import type { WeeklySchedule } from '@domain/schedule/WeeklySchedule';
+import type { Absence } from '@domain/absence/Absence';
 
-export const AKTUELLE_FORMAT_VERSION = 1 as const;
+export const CURRENT_FORMAT_VERSION = 2 as const;
 
-export interface PepExportDatei {
-  formatVersion: typeof AKTUELLE_FORMAT_VERSION;
-  exportiertAm: string;
-  daten: {
-    filialen: Filiale[];
-    mitarbeiter: Mitarbeiter[];
-    wochenplaene: Wochenplan[];
-    abwesenheiten: Abwesenheit[];
+export interface PepExportFile {
+  formatVersion: typeof CURRENT_FORMAT_VERSION;
+  exportedAt: string;
+  data: {
+    branches: Branch[];
+    employees: Employee[];
+    weeklySchedules: WeeklySchedule[];
+    absences: Absence[];
   };
 }

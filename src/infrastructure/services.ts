@@ -1,20 +1,20 @@
-import { erstelleFilialeService } from '@application/filiale/filialeService';
-import { erstelleMitarbeiterService } from '@application/mitarbeiter/mitarbeiterService';
-import { erstelleWochenplanService } from '@application/wochenplan/wochenplanService';
-import { erstelleRuhezeitPruefungService } from '@application/wochenplan/ruhezeitPruefungService';
-import { erstelleAbwesenheitService } from '@application/abwesenheit/abwesenheitService';
-import { erstelleDatenExportService } from '@application/export/datenExportService';
+import { createBranchService } from '@application/branch/branchService';
+import { createEmployeeService } from '@application/employee/employeeService';
+import { createScheduleService } from '@application/schedule/scheduleService';
+import { createRestPeriodCheckService } from '@application/schedule/restPeriodCheckService';
+import { createAbsenceService } from '@application/absence/absenceService';
+import { createDataExportService } from '@application/export/dataExportService';
 import { repositories } from './repositories';
-import { transaktion } from './persistence/db';
+import { transaction } from './persistence/db';
 
 /** Composition of the application services with the concrete repository implementations - the only
  * place where application/* and infrastructure/* are wired together. The UI layer imports
  * exclusively from here, never a Dexie repository class directly. */
 export const services = {
-  filiale: erstelleFilialeService(repositories.filiale),
-  mitarbeiter: erstelleMitarbeiterService(repositories.mitarbeiter),
-  wochenplan: erstelleWochenplanService(repositories.wochenplan, repositories.mitarbeiter),
-  ruhezeitPruefung: erstelleRuhezeitPruefungService(repositories.wochenplan),
-  abwesenheit: erstelleAbwesenheitService(repositories.abwesenheit),
-  datenExport: erstelleDatenExportService({ ...repositories, transaktion }),
+  branch: createBranchService(repositories.branch),
+  employee: createEmployeeService(repositories.employee),
+  schedule: createScheduleService(repositories.weeklySchedule, repositories.employee),
+  restPeriodCheck: createRestPeriodCheckService(repositories.weeklySchedule),
+  absence: createAbsenceService(repositories.absence),
+  dataExport: createDataExportService({ ...repositories, transaction }),
 };

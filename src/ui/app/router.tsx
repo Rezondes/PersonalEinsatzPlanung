@@ -1,31 +1,31 @@
 import { createHashRouter, Navigate } from 'react-router-dom';
 import { AppShell } from './AppShell';
-import { WochenplanView } from '@ui/views/wochenplanung/WochenplanView';
-import { MonatsUebersichtView } from '@ui/views/monatsuebersicht/MonatsUebersichtView';
-import { FilialeStammdatenView } from '@ui/views/stammdaten/FilialeStammdatenView';
-import { MitarbeiterStammdatenView } from '@ui/views/stammdaten/MitarbeiterStammdatenView';
-import { AbwesenheitenView } from '@ui/views/abwesenheiten/AbwesenheitenView';
-import { DruckvorschauView } from '@ui/views/export/DruckvorschauView';
-import { EinstellungenView } from '@ui/views/einstellungen/EinstellungenView';
-import { DatenschutzView } from '@ui/views/einstellungen/DatenschutzView';
+import { ScheduleView } from '@ui/views/schedule/ScheduleView';
+import { MonthOverviewView } from '@ui/views/month/MonthOverviewView';
+import { BranchMasterDataView } from '@ui/views/masterdata/BranchMasterDataView';
+import { EmployeeMasterDataView } from '@ui/views/masterdata/EmployeeMasterDataView';
+import { AbsencesView } from '@ui/views/absences/AbsencesView';
+import { PrintPreviewView } from '@ui/views/print/PrintPreviewView';
+import { SettingsView } from '@ui/views/settings/SettingsView';
+import { PrivacyView } from '@ui/views/settings/PrivacyView';
 
 export const router = createHashRouter([
   {
-    path: '/druck/:wochenplanId',
-    element: <DruckvorschauView />,
+    path: '/print/:scheduleId',
+    element: <PrintPreviewView />,
   },
   {
     path: '/',
     element: <AppShell />,
     children: [
-      { index: true, element: <Navigate to="/wochenplan" replace /> },
-      { path: 'wochenplan', element: <WochenplanView /> },
-      { path: 'monat', element: <MonatsUebersichtView /> },
-      { path: 'filialen', element: <FilialeStammdatenView /> },
-      { path: 'mitarbeiter', element: <MitarbeiterStammdatenView /> },
-      { path: 'abwesenheiten', element: <AbwesenheitenView /> },
-      { path: 'einstellungen', element: <EinstellungenView /> },
-      { path: 'datenschutz', element: <DatenschutzView /> },
+      { index: true, element: <Navigate to="/schedule" replace /> },
+      { path: 'schedule', element: <ScheduleView /> },
+      { path: 'month', element: <MonthOverviewView /> },
+      { path: 'branches', element: <BranchMasterDataView /> },
+      { path: 'employees', element: <EmployeeMasterDataView /> },
+      { path: 'absences', element: <AbsencesView /> },
+      { path: 'settings', element: <SettingsView /> },
+      { path: 'privacy', element: <PrivacyView /> },
     ],
   },
 ]);
