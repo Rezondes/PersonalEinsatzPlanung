@@ -99,3 +99,55 @@ being looked at again (the freshly computed suggestion is still shown as read-on
 (that needs the async cross-week `restPeriodCheck` service, too expensive to run for a whole
 month of weeks at once) - it only shows each week's total Ist-Stunden via `createWeekView`.
 Errors stay visible only after actually opening a week, same as before this dialog existed.
+
+## Sichtbarkeit und Sperren (inaktive Mitarbeiter, Ein-/Austritt)
+
+`scheduleRows.ts` turns the week view into the rows the table renders, and it is the single place
+that decides who is shown and what may be edited:
+
+- An employee who may be scheduled this week (`active` **and** their employment period overlaps it)
+  is always shown and editable.
+- One who may not is shown **only while they still carry entries for that week**, and then the whole
+  row is read-only, greyed, with an "Inaktiv"/"Nicht beschäftigt" chip. Hiding them outright would
+  make already recorded hours look lost; leaving them editable would let the user keep planning
+  someone who has left.
+- Individual days outside `entryDate`/`exitDate` are locked inside an otherwise editable row
+  (`lockedDays`), so someone starting on Wednesday cannot be given a Monday shift.
+
+A locked cell is deliberately not a button at all: no `onClick`, no `tabIndex`, no `role="button"`,
+and `ScheduleView`'s context-menu handler checks the same `isCellLocked` predicate before opening.
+`scheduleService` applies the same rule when creating/expanding a schedule, so nobody outside their
+employment period is silently appended in the first place.
+
+## Undo/Redo (`useScheduleHistory.ts`)
+
+The hook owns both the undo stacks and the **write queue** every mutation goes through. The queue is
+not optional decoration: this view autosaves on every change with no save button, and the handlers
+used to read the schedule from their render closure, so two quick edits could both start from the
+same pre-edit aggregate and lose the first write. Every mutation now runs serialized and reads
+`scheduleRef.current` at execution time.
+
+Absences are recorded as **operations** (`created`/`deleted`), not as a snapshot of the absence
+list. That is deliberate: `useAbsences` loads every absence of the whole branch, for every week and
+year, so diffing two snapshots would let an undo in the Wochenplanung delete an unrelated absence
+that was edited in the Abwesenheiten tab meanwhile. Restoring goes through
+`absenceService.restore`, which writes the record back verbatim - re-creating it would mint a new
+id and the next undo/redo step would target something that no longer exists.
+
+Further rules that are load-bearing:
+
+- A step is keyed to `branchId|year|week`; the stacks are cleared when that key changes and a step
+  is never applied to a different week. `getOrCreate` writes on load (self-healing), and nothing
+  records a step for it, so that write is intentionally not undoable.
+- A failed mutation records nothing - otherwise Strg+Z would offer to undo a change that never
+  reached the database.
+- The Strg+Z/Strg+Y listener sits on `document`, next to the existing `contextmenu` one, and bails
+  out inside inputs/textareas (`DecimalTextField` manages its own in-progress typing state, so the
+  browser's field-level undo has to keep working) and while any dialog or the context menu is open.
+
+## Manuelle Netto-Stunden und angerechnete Stunden
+
+The Tageseditor has an optional "Netto-Stunden manuell" field per day; the Soll column shows a
+Minijob's full Min-Max band and the warning icon only fires outside it. See
+`application/CLAUDE.md` for the worked/credited split and `domain/schedule/CLAUDE.md` for why the
+override never reaches the ArbZG checks.

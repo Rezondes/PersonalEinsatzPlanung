@@ -9,6 +9,7 @@ function draft(overrides: Partial<EmployeeDraft> = {}): EmployeeDraft {
     jobTitle: 'Verkauf',
     employmentType: { type: 'PartTime', weeklyHours: 20 },
     vacationEntitlementPerYear: 28,
+    holidayVacationHours: 5,
     ...overrides,
   };
 }
@@ -82,5 +83,35 @@ describe('validateEmployee', () => {
     expect(messagesByField(validateEmployee(draft({ vacationEntitlementPerYear: Number.NaN })))).toEqual({
       vacationEntitlementPerYear: 'Bitte Urlaubsanspruch eingeben.',
     });
+  });
+});
+
+describe('validateEmployee - Feier-/Urlaubsstunden und Beschäftigungszeitraum', () => {
+  it('requires the holiday/vacation hours and rejects negative values but allows zero', () => {
+    expect(messagesByField(validateEmployee(draft({ holidayVacationHours: undefined })))).toEqual({
+      holidayVacationHours: 'Bitte Std. je Feier-/Urlaubstag eingeben.',
+    });
+    expect(messagesByField(validateEmployee(draft({ holidayVacationHours: -1 })))).toEqual({
+      holidayVacationHours: 'Darf nicht negativ sein.',
+    });
+    expect(validateEmployee(draft({ holidayVacationHours: 0 }))).toEqual([]);
+  });
+
+  it('rejects more than 24 hours for a single day', () => {
+    expect(messagesByField(validateEmployee(draft({ holidayVacationHours: 25 })))).toEqual({
+      holidayVacationHours: 'Höchstens 24 Stunden.',
+    });
+  });
+
+  it('reports an exit date before the entry date, on the exit field', () => {
+    expect(
+      messagesByField(validateEmployee(draft({ entryDate: '2026-03-01', exitDate: '2026-02-28' }))),
+    ).toEqual({ exitDate: 'Austrittsdatum darf nicht vor dem Eintrittsdatum liegen.' });
+  });
+
+  it('accepts either date on its own, and an exit date on the entry date itself', () => {
+    expect(validateEmployee(draft({ entryDate: '2026-03-01' }))).toEqual([]);
+    expect(validateEmployee(draft({ exitDate: '2026-03-01' }))).toEqual([]);
+    expect(validateEmployee(draft({ entryDate: '2026-03-01', exitDate: '2026-03-01' }))).toEqual([]);
   });
 });

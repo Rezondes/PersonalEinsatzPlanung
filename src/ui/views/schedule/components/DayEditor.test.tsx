@@ -13,14 +13,12 @@ function renderEditor(entry: DayEntry = { type: 'Off' }, absence?: Absence) {
   const onClose = vi.fn();
   const onSave = vi.fn();
   const onAbsenceSave = vi.fn();
-  const onAbsenceDelete = vi.fn();
   render(
     <DayEditor
       open
       onClose={onClose}
       onSave={onSave}
       onAbsenceSave={onAbsenceSave}
-      onAbsenceDelete={onAbsenceDelete}
       employeeId={m1}
       employeeName="Müller, Anna"
       day="Montag"
@@ -29,7 +27,7 @@ function renderEditor(entry: DayEntry = { type: 'Off' }, absence?: Absence) {
       absence={absence}
     />,
   );
-  return { onClose, onSave, onAbsenceSave, onAbsenceDelete };
+  return { onClose, onSave, onAbsenceSave };
 }
 
 const save = () => screen.getByRole('button', { name: 'Speichern' });
@@ -129,7 +127,7 @@ describe('DayEditor', () => {
     await user.type(screen.getByRole('textbox', { name: 'Bezeichnung' }), ' Fortbildung ');
     await user.click(save());
 
-    expect(onAbsenceSave).toHaveBeenCalledWith('Other', 'Fortbildung');
+    expect(onAbsenceSave).toHaveBeenCalledWith('Other', { label: 'Fortbildung', hoursPerDay: undefined });
     expect(onClose).toHaveBeenCalled();
   });
 

@@ -20,6 +20,7 @@ import AddIcon from '@mui/icons-material/Add';
 import type { Shift } from '@domain/schedule/Shift';
 import type { ShiftDraft, BreakDraft } from '@domain/schedule/shiftDraft';
 import {
+  NET_OVERRIDE_FIELD,
   SHIFT_LIST_FIELD,
   breakFieldKey,
   newBreakDraft,
@@ -27,6 +28,7 @@ import {
   shiftDraftsToShifts,
   shiftFieldKey,
   shiftToDraft,
+  validateNetMinutesOverride,
   validateShiftDrafts,
 } from '@domain/schedule/shiftDraft';
 import type { DayEntry } from '@domain/schedule/EmployeeWeekAssignment';
@@ -45,13 +47,21 @@ import { FormErrorNotice } from '@ui/components/FormErrorNotice';
 
 type Mode = 'Off' | 'Shift' | 'Vacation' | 'Illness' | 'Other';
 
+/** Extra fields only "Sonstige" carries. The label is always a non-empty, trimmed string here
+ * (validated before saving); hoursPerDay is optional and counts towards the employee's own weekly
+ * hours, never towards the branch total. */
+export interface AbsenceDetails {
+  label?: string;
+  hoursPerDay?: number;
+}
+
 interface DayEditorProps {
   open: boolean;
   onClose: () => void;
+  /** Saving a Shift/Off entry also clears a single-day Absence on that cell - handled by the
+   * parent, which records both as one undoable step. */
   onSave: (entry: DayEntry) => void;
-  /** For 'Other' the label is always a non-empty, trimmed string (validated before saving). */
-  onAbsenceSave: (type: 'Vacation' | 'Illness' | 'Other', label?: string) => void;
-  onAbsenceDelete: () => void;
+  onAbsenceSave: (type: 'Vacation' | 'Illness' | 'Other', details?: AbsenceDetails) => void;
   employeeId: EmployeeId;
   employeeName: string;
   day: string;
@@ -82,7 +92,6 @@ export function DayEditor({
   onClose,
   onSave,
   onAbsenceSave,
-  onAbsenceDelete,
   employeeId,
   employeeName,
   day,
@@ -95,14 +104,20 @@ export function DayEditor({
   // instead of being parsed away on every keystroke.
   const [drafts, setDrafts] = useState<ShiftDraft[]>([]);
   const [label, setLabel] = useState('');
+  const [hoursPerDay, setHoursPerDay] = useState<number | undefined>(undefined);
+  // Manual correction of the whole day's net hours. Empty means "use the calculated value".
+  const [netOverrideHours, setNetOverrideHours] = useState<number | undefined>(undefined);
   const [showConfirmation, setShowConfirmation] = useState(false);
 
   const isSingleDayAbsence = !!absence && absence.from === date && absence.to === date;
   const isMultiDayAbsence = !!absence && !isSingleDayAbsence;
 
   const validation = useFormValidation<string>(() => [
-    ...(mode === 'Other' ? validateAbsence({ employeeId, type: 'Other', from: date, to: date, label }) : []),
+    ...(mode === 'Other'
+      ? validateAbsence({ employeeId, type: 'Other', from: date, to: date, label, hoursPerDay })
+      : []),
     ...(mode === 'Shift' ? validateShiftDrafts(drafts) : []),
+    ...(mode === 'Shift' ? validateNetMinutesOverride(netOverrideHours) : []),
   ]);
   const { reset: resetValidation } = validation;
 
@@ -110,14 +125,22 @@ export function DayEditor({
     if (!open) return;
     resetValidation();
 
+    setNetOverrideHours(
+      entry.type === 'Shift' && entry.netMinutesOverride !== undefined
+        ? minutesToDecimalHours(entry.netMinutesOverride)
+        : undefined,
+    );
+
     if (isSingleDayAbsence && absence) {
       setMode(absence.type);
       setLabel(absence.type === 'Other' ? absence.label : '');
+      setHoursPerDay(absence.type === 'Other' ? absence.hoursPerDay : undefined);
       setDrafts(entry.type === 'Shift' ? entry.shifts.map(shiftToDraft) : []);
     } else if (entry.type === 'Shift' && entry.shifts.length > 0) {
       setMode('Shift');
       setDrafts(entry.shifts.map(shiftToDraft));
       setLabel('');
+      setHoursPerDay(undefined);
     } else {
       // Free day: suggest work time with a default shift right away instead of
       // showing "Off" first, saving a click for new entries. If the user cancels, the day stays
@@ -125,6 +148,7 @@ export function DayEditor({
       setMode('Shift');
       setDrafts([newShiftDraft()]);
       setLabel('');
+      setHoursPerDay(undefined);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, entry, absence, date, isSingleDayAbsence]);
@@ -170,14 +194,21 @@ export function DayEditor({
 
   const actuallySave = () => {
     if (mode === 'Off') {
-      if (isSingleDayAbsence) onAbsenceDelete();
       onSave({ type: 'Off' });
     } else if (mode === 'Shift') {
       if (!parsedShifts) return;
-      if (isSingleDayAbsence) onAbsenceDelete();
-      onSave({ type: 'Shift', shifts: parsedShifts });
+      onSave({
+        type: 'Shift',
+        shifts: parsedShifts,
+        // Spread instead of an explicit undefined, so a day without a correction stores no key at all.
+        ...(netOverrideHours !== undefined
+          ? { netMinutesOverride: Math.round(netOverrideHours * 60) }
+          : {}),
+      });
+    } else if (mode === 'Other') {
+      onAbsenceSave(mode, { label: label.trim(), hoursPerDay });
     } else {
-      onAbsenceSave(mode, mode === 'Other' ? label.trim() : undefined);
+      onAbsenceSave(mode);
     }
     onClose();
   };
@@ -217,6 +248,9 @@ export function DayEditor({
   }
 
   const shiftListError = validation.fieldProps(SHIFT_LIST_FIELD);
+  const calculatedNetText = parsedShifts
+    ? minutesToDecimalHours(parsedShifts.reduce((sum, shift) => sum + shiftNetMinutes(shift), 0)).toLocaleString('de-DE')
+    : '–';
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
@@ -265,16 +299,24 @@ export function DayEditor({
         )}
 
         {mode === 'Other' && (
-          <TextField
-            label="Bezeichnung"
-            required
-            placeholder="z. B. Fortbildung, Sonderurlaub"
-            value={label}
-            onChange={(e) => setLabel(e.target.value)}
-            fullWidth
-            sx={{ mb: 2 }}
-            {...validation.fieldProps('label', `Trägt eine ganztägige Abwesenheit für ${employeeName} am ${date} ein.`)}
-          />
+          <Stack direction="row" spacing={2} alignItems="flex-start" sx={{ mb: 2 }}>
+            <TextField
+              label="Bezeichnung"
+              required
+              placeholder="z. B. Fortbildung, Feiertag"
+              value={label}
+              onChange={(e) => setLabel(e.target.value)}
+              fullWidth
+              {...validation.fieldProps('label', `Trägt eine ganztägige Abwesenheit für ${employeeName} am ${date} ein.`)}
+            />
+            <DecimalTextField
+              label="Stunden (optional)"
+              value={hoursPerDay}
+              onChange={setHoursPerDay}
+              sx={{ width: 200 }}
+              {...validation.fieldProps('hoursPerDay', 'Zählen nur für diesen Mitarbeiter.')}
+            />
+          </Stack>
         )}
 
         {mode === 'Shift' && (
@@ -373,6 +415,18 @@ export function DayEditor({
             <Button size="small" startIcon={<AddIcon />} onClick={addShift} sx={{ alignSelf: 'flex-start' }}>
               {drafts.length === 0 ? 'Schicht hinzufügen' : 'Weitere Schicht hinzufügen (Split-Shift)'}
             </Button>
+
+            <Divider />
+            <DecimalTextField
+              label="Netto-Stunden manuell (optional)"
+              value={netOverrideHours}
+              onChange={setNetOverrideHours}
+              sx={{ maxWidth: 280 }}
+              {...validation.fieldProps(
+                NET_OVERRIDE_FIELD,
+                `Ersetzt die berechneten ${calculatedNetText} Std. für diesen Tag. Die Prüfung nach ArbZG bleibt bei den eingetragenen Zeiten.`,
+              )}
+            />
           </Stack>
         )}
       </DialogContent>

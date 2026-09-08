@@ -17,10 +17,11 @@ import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import type { WeeklySchedule } from '@domain/schedule/WeeklySchedule';
 import type { CalendarWeek } from '@domain/shared/CalendarWeek';
 import { fullName } from '@domain/employee/Employee';
-import { targetWeeklyHours } from '@domain/employee/EmploymentType';
+import { targetWeeklyHoursRange } from '@domain/employee/EmploymentType';
 import { createMonthOverview } from '@application/schedule/scheduleAssessment';
-import { minutesToDecimalHours } from '@domain/schedule/scheduleCalculation';
+import { formatHoursRangeGerman, minutesToDecimalHours } from '@domain/schedule/scheduleCalculation';
 import { services } from '@infrastructure/services';
+import { createHolidayCheck } from '@infrastructure/holidays/germanHolidays';
 import { useSelectedBranch } from '@ui/hooks/useBranch';
 import { useEmployeeList } from '@ui/hooks/useEmployeeList';
 import { useAbsences } from '@ui/hooks/useAbsences';
@@ -65,7 +66,10 @@ export function MonthOverviewView() {
     setYear(newYear);
   };
 
-  const rows = createMonthOverview(schedules, year, month, absences);
+  const rows = createMonthOverview(schedules, year, month, absences, {
+    employees: employeeList,
+    isHoliday: createHolidayCheck(branch.federalState),
+  });
   const allWeeks = rows[0]?.weeks.map((w) => w.calendarWeek) ?? [];
 
   const jumpToWeek = (cw: CalendarWeek) => {
@@ -126,7 +130,12 @@ export function MonthOverviewView() {
               return (
                 <TableRow key={employee.id} hover>
                   <TableCell>{fullName(employee)}</TableCell>
-                  <TableCell align="right">{targetWeeklyHours(employee.employmentType).toLocaleString('de-DE')}</TableCell>
+                  <TableCell align="right">
+                    {formatHoursRangeGerman(
+                      targetWeeklyHoursRange(employee.employmentType).min * 60,
+                      targetWeeklyHoursRange(employee.employmentType).max * 60,
+                    )}
+                  </TableCell>
                   {allWeeks.map((cw) => {
                     const weekValue = row?.weeks.find(
                       (w) => w.calendarWeek.year === cw.year && w.calendarWeek.week === cw.week,
@@ -147,7 +156,7 @@ export function MonthOverviewView() {
                         tabIndex={0}
                         aria-label={`${fullName(employee)}, KW ${cw.week} bearbeiten`}
                       >
-                        {weekValue ? minutesToDecimalHours(weekValue.netMinutes).toLocaleString('de-DE') : '–'}
+                        {weekValue ? minutesToDecimalHours(weekValue.totalNetMinutes).toLocaleString('de-DE') : '–'}
                       </TableCell>
                     );
                   })}

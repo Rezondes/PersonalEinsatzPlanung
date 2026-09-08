@@ -3,7 +3,12 @@ import type { Weekday } from '@domain/shared/CalendarWeek';
 import { WEEKDAYS } from '@domain/shared/CalendarWeek';
 import type { Shift } from './Shift';
 
-export type DayEntry = { type: 'Shift'; shifts: Shift[] } | { type: 'Off' };
+/** `netMinutesOverride` replaces the computed net minutes of the WHOLE day when the recorded
+ * times don't match what should be counted (see scheduleCalculation.dayEntryWorkedMinutes).
+ * It never influences the ArbZG checks: those go through dayEntryNetMinutes, which ignores it. */
+export type DayEntry =
+  | { type: 'Shift'; shifts: Shift[]; netMinutesOverride?: number }
+  | { type: 'Off' };
 
 export interface EmployeeWeekAssignment {
   employeeId: EmployeeId;

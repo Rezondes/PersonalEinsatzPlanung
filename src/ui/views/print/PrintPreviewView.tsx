@@ -12,6 +12,7 @@ import type { Branch } from '@domain/branch/Branch';
 import type { Employee } from '@domain/employee/Employee';
 import type { Absence } from '@domain/absence/Absence';
 import { preparePrintData } from '@application/export/printDataPreparation';
+import { createHolidayCheck } from '@infrastructure/holidays/germanHolidays';
 import { services } from '@infrastructure/services';
 import { FullPartTimeForm } from './FullPartTimeForm';
 import { MinijobForm } from './MinijobForm';
@@ -66,7 +67,12 @@ export function PrintPreviewView() {
     return <Alert severity="error">Wochenplan konnte nicht gefunden werden.</Alert>;
   }
 
-  const { fullPartTimeRows, minijobRows, dayTotals } = preparePrintData(schedule, employeeList, absences);
+  const { fullPartTimeRows, minijobRows, dayTotals } = preparePrintData(
+    schedule,
+    employeeList,
+    absences,
+    createHolidayCheck(branch.federalState),
+  );
   const fullPartTimeSheets = splitIntoGroups(fullPartTimeRows, EMPLOYEES_PER_SHEET);
   const minijobSheets = splitIntoGroups(minijobRows, EMPLOYEES_PER_SHEET);
 

@@ -5,6 +5,11 @@ deliberately has **no** free-text/diagnosis field at the type level - Privacy by
 the type system itself, not just convention (GDPR: no health-detail data is even representable, let
 alone stored). Do not add a notes field to `Illness`.
 
+Only the `Other` variant has `hoursPerDay` (optional): hours credited to the employee for **each
+day** of the range, e.g. a training day or a public holiday. It is the manual escape hatch, so it is
+credited exactly as entered - including on Sundays and public holidays, unlike a vacation day (see
+`application/schedule/scheduleAssessment.ts`).
+
 `AbsenceInput` uses a hand-written distributive conditional type instead of plain
 `Omit<Absence, 'id' | 'createdAt'>`, because plain `Omit` over a union collapses to the
 intersection of keys (a TS quirk) and would silently lose per-variant required fields (like

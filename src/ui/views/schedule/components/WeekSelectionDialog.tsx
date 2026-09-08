@@ -24,6 +24,7 @@ import {
 import { formatDateGerman } from '@domain/shared/DateFormat';
 import type { WeeklySchedule } from '@domain/schedule/WeeklySchedule';
 import type { Absence } from '@domain/absence/Absence';
+import type { EmployeeHoursInfo } from '@application/schedule/scheduleAssessment';
 import { minutesToDecimalHours } from '@domain/schedule/scheduleCalculation';
 import { createWeekView } from '@application/schedule/scheduleAssessment';
 import { services } from '@infrastructure/services';
@@ -38,6 +39,10 @@ interface WeekSelectionDialogProps {
   onClose: () => void;
   branchId: BranchId;
   absences: Absence[];
+  /** Passed down from ScheduleView rather than loaded here: the parent already holds the list, and
+   * createWeekView needs it to resolve per-employee credited hours. */
+  employeeList: EmployeeHoursInfo[];
+  isHoliday: (isoDate: string) => boolean;
   selectedWeek: CalendarWeek;
   onWeekSelect: (cw: CalendarWeek) => void;
 }
@@ -51,6 +56,8 @@ export function WeekSelectionDialog({
   onClose,
   branchId,
   absences,
+  employeeList,
+  isHoliday,
   selectedWeek,
   onWeekSelect,
 }: WeekSelectionDialogProps) {
@@ -104,8 +111,13 @@ export function WeekSelectionDialog({
             const schedule = schedules.find(
               (s) => s.calendarWeek.year === cw.year && s.calendarWeek.week === cw.week,
             );
+            // Worked hours: this is a branch figure, so hours credited without presence in the
+            // store (vacation days, "Sonstige" with hours) stay out of it.
             const totalMinutes = schedule
-              ? createWeekView(schedule, absences).reduce((sum, e) => sum + e.totalNetMinutes, 0)
+              ? createWeekView(schedule, absences, { employees: employeeList, isHoliday }).reduce(
+                  (sum, e) => sum + e.workedMinutes,
+                  0,
+                )
               : null;
             const isSelected = calendarWeeksEqual(cw, selectedWeek);
             const isToday = calendarWeeksEqual(cw, today);

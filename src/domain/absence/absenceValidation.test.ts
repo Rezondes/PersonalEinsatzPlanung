@@ -39,3 +39,36 @@ describe('validateAbsence', () => {
     expect(validateAbsence(draft({ from: '2026-09-07', to: '2026-09-07' }))).toEqual([]);
   });
 });
+
+describe('validateAbsence - Stunden und Beschäftigungszeitraum', () => {
+  const other = { employeeId: 'm1', type: 'Other' as const, from: '2026-03-04', to: '2026-03-04', label: 'Feiertag' };
+
+  it('accepts an absent or valid hours value', () => {
+    expect(validateAbsence(other)).toEqual([]);
+    expect(validateAbsence({ ...other, hoursPerDay: 0 })).toEqual([]);
+    expect(validateAbsence({ ...other, hoursPerDay: 7.5 })).toEqual([]);
+  });
+
+  it('rejects negative hours and more than a full day', () => {
+    expect(validateAbsence({ ...other, hoursPerDay: -1 })).toEqual([
+      { field: 'hoursPerDay', message: 'Darf nicht negativ sein.' },
+    ]);
+    expect(validateAbsence({ ...other, hoursPerDay: 25 })).toEqual([
+      { field: 'hoursPerDay', message: 'Höchstens 24 Stunden.' },
+    ]);
+  });
+
+  it('rejects a range that starts before the entry date or ends after the exit date', () => {
+    expect(validateAbsence({ ...other, employment: { entryDate: '2026-03-05' } })).toEqual([
+      { field: 'from', message: 'Liegt vor dem Eintrittsdatum des Mitarbeiters.' },
+    ]);
+    expect(validateAbsence({ ...other, employment: { exitDate: '2026-03-03' } })).toEqual([
+      { field: 'to', message: 'Liegt nach dem Austrittsdatum des Mitarbeiters.' },
+    ]);
+  });
+
+  it('accepts a range inside the employment period, and any range without one', () => {
+    expect(validateAbsence({ ...other, employment: { entryDate: '2026-03-01', exitDate: '2026-03-31' } })).toEqual([]);
+    expect(validateAbsence({ ...other, employment: {} })).toEqual([]);
+  });
+});

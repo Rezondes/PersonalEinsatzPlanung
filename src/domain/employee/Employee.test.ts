@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import type { BranchId } from '@domain/shared/ids';
 import { DomainValidationError } from '@domain/shared/DomainError';
-import { compareByLastName, createEmployee } from './Employee';
+import { compareByLastName, createEmployee, isEmployedDuring, isEmployedOn } from './Employee';
 
 function m(lastName: string, firstName: string) {
   return { lastName, firstName };
@@ -36,6 +36,7 @@ describe('createEmployee', () => {
     jobTitle: 'Verkauf',
     employmentType: { type: 'PartTime' as const, weeklyHours: 20 },
     vacationEntitlementPerYear: 28,
+    holidayVacationHours: 5,
   };
 
   it('creates an active employee with id and timestamps', () => {
@@ -53,5 +54,39 @@ describe('createEmployee', () => {
     expect(() => createEmployee({ ...details, employmentType: { type: 'FullTime', weeklyHours: 0 } })).toThrow(
       'Muss größer als 0 sein.',
     );
+  });
+});
+
+describe('isEmployedOn', () => {
+  it('is true for an employee without any dates (every record made before the fields existed)', () => {
+    expect(isEmployedOn({}, '2026-03-01')).toBe(true);
+  });
+
+  it('excludes days before the entry date and includes the entry date itself', () => {
+    expect(isEmployedOn({ entryDate: '2026-03-01' }, '2026-02-28')).toBe(false);
+    expect(isEmployedOn({ entryDate: '2026-03-01' }, '2026-03-01')).toBe(true);
+  });
+
+  it('excludes days after the exit date and includes the exit date itself', () => {
+    expect(isEmployedOn({ exitDate: '2026-03-31' }, '2026-04-01')).toBe(false);
+    expect(isEmployedOn({ exitDate: '2026-03-31' }, '2026-03-31')).toBe(true);
+  });
+});
+
+describe('isEmployedDuring', () => {
+  const period = { entryDate: '2026-03-04', exitDate: '2026-03-06' };
+
+  it('is true when the period overlaps the range at all', () => {
+    expect(isEmployedDuring(period, '2026-03-02', '2026-03-08')).toBe(true);
+    expect(isEmployedDuring(period, '2026-03-06', '2026-03-12')).toBe(true);
+  });
+
+  it('is false when the employment starts after or ended before the range', () => {
+    expect(isEmployedDuring(period, '2026-02-23', '2026-03-01')).toBe(false);
+    expect(isEmployedDuring(period, '2026-03-09', '2026-03-15')).toBe(false);
+  });
+
+  it('is true without any dates', () => {
+    expect(isEmployedDuring({}, '2026-03-02', '2026-03-08')).toBe(true);
   });
 });

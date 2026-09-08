@@ -3,13 +3,13 @@ import { DomainError } from '@domain/shared/DomainError';
 import { migrateToCurrentVersion } from './jsonMigrations';
 
 const validFile = {
-  formatVersion: 2,
+  formatVersion: 3,
   exportedAt: '2026-09-07T00:00:00.000Z',
   data: { branches: [], employees: [], weeklySchedules: [], absences: [] },
 };
 
 describe('migrateToCurrentVersion', () => {
-  it('accepts a valid v2 export file unchanged', () => {
+  it('accepts a valid current-version export file unchanged', () => {
     expect(migrateToCurrentVersion(validFile)).toEqual(validFile);
   });
 
@@ -48,7 +48,7 @@ describe('migrateToCurrentVersion', () => {
     ).toThrow(DomainError);
   });
 
-  it('migrates a v1 file (pre-rename German field names) into the current v2 structure', () => {
+  it('migrates a v1 file (pre-rename German field names) through to the current structure', () => {
     const fileV1 = {
       formatVersion: 1,
       exportiertAm: '2025-01-01T00:00:00.000Z',
@@ -154,7 +154,7 @@ describe('migrateToCurrentVersion', () => {
 
     const migrated = migrateToCurrentVersion(fileV1);
 
-    expect(migrated.formatVersion).toBe(2);
+    expect(migrated.formatVersion).toBe(3);
     expect(migrated.exportedAt).toBe('2025-01-01T00:00:00.000Z');
 
     expect(migrated.data.branches).toEqual([
@@ -180,6 +180,8 @@ describe('migrateToCurrentVersion', () => {
       jobTitle: 'Verkäufer/-in',
       employmentType: { type: 'FullTime', weeklyHours: 37.5 },
       vacationEntitlementPerYear: 28,
+      // Did not exist in v1/v2; backfilled from the contract hours over a 6-day week.
+      holidayVacationHours: 37.5 / 6,
       birthDate: '1990-05-01',
       active: true,
     });

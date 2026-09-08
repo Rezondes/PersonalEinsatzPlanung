@@ -1,6 +1,8 @@
 import type { BranchId, EmployeeId, WeeklyScheduleId } from '@domain/shared/ids';
 import type { CalendarWeek, Weekday } from '@domain/shared/CalendarWeek';
-import { previousCalendarWeek } from '@domain/shared/CalendarWeek';
+import { dateForWeekday, mondayOfWeek, previousCalendarWeek } from '@domain/shared/CalendarWeek';
+import { toISODate } from '@domain/shared/DateFormat';
+import { isEmployedDuring } from '@domain/employee/Employee';
 import type { WeeklySchedule } from '@domain/schedule/WeeklySchedule';
 import { createWeeklySchedule, withDayEntry, withTargetAdjustment } from '@domain/schedule/WeeklySchedule';
 import type { DayEntry } from '@domain/schedule/EmployeeWeekAssignment';
@@ -9,9 +11,14 @@ import type { WeeklyScheduleRepository } from '@application/ports/WeeklySchedule
 import type { EmployeeRepository } from '@application/ports/EmployeeRepository';
 
 export function createScheduleService(repo: WeeklyScheduleRepository, employeeRepo: EmployeeRepository) {
-  async function activeEmployeeIds(branchId: BranchId): Promise<EmployeeId[]> {
+  /** Who may be scheduled in that week: active, and their employment period actually overlaps it.
+   * Someone who left last year is not silently added to next year's schedules, and a new hire is
+   * not added to weeks before their first day. */
+  async function plannableEmployeeIds(branchId: BranchId, cw: CalendarWeek): Promise<EmployeeId[]> {
     const employeeList = await employeeRepo.findByBranch(branchId);
-    return employeeList.filter((e) => e.active).map((e) => e.id);
+    const from = toISODate(mondayOfWeek(cw));
+    const to = toISODate(dateForWeekday(cw, 'Sonntag'));
+    return employeeList.filter((e) => e.active && isEmployedDuring(e, from, to)).map((e) => e.id);
   }
 
   return {
@@ -21,7 +28,7 @@ export function createScheduleService(repo: WeeklyScheduleRepository, employeeRe
      * healing"), so newly hired employees don't have to be manually added to every existing
      * weekly schedule. */
     getOrCreate: async (branchId: BranchId, cw: CalendarWeek): Promise<WeeklySchedule> => {
-      const activeIds = await activeEmployeeIds(branchId);
+      const activeIds = await plannableEmployeeIds(branchId, cw);
 
       // find + conditional create must be one atomic unit: without the transaction, two concurrent
       // calls for the same (branchId, cw) could both read "not found" and each save a new schedule,
@@ -53,7 +60,7 @@ export function createScheduleService(repo: WeeklyScheduleRepository, employeeRe
     /** Creates a new weekly schedule and carries over the previous week's shifts as a starting point
      * (useful for recurring schedules). Existing schedules are never overwritten. */
     copyFromPreviousWeek: async (branchId: BranchId, cw: CalendarWeek): Promise<WeeklySchedule> => {
-      const activeIds = await activeEmployeeIds(branchId);
+      const activeIds = await plannableEmployeeIds(branchId, cw);
 
       return repo.transaction(async () => {
         const existing = await repo.findByBranchAndWeek(branchId, cw);

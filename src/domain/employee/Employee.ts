@@ -13,8 +13,16 @@ export interface Employee {
   jobTitle: string;
   employmentType: EmploymentType;
   vacationEntitlementPerYear: number;
+  /** Hours credited to this employee for one full holiday/vacation day. Counts towards the
+   * employee's own weekly actual hours but never towards a branch total (nobody was in the store),
+   * see application/schedule/scheduleAssessment.ts. */
+  holidayVacationHours: number;
   /** Optional, only relevant for the youth-labor-protection check (data minimization: only collect when needed). */
   birthDate?: string;
+  /** Optional ISO date ("YYYY-MM-DD"). Before it, the employee cannot be scheduled (see isEmployedOn). */
+  entryDate?: string;
+  /** Optional ISO date ("YYYY-MM-DD"). After it, the employee cannot be scheduled (see isEmployedOn). */
+  exitDate?: string;
   active: boolean;
   createdAt: string;
   updatedAt: string;
@@ -27,7 +35,10 @@ export function createEmployee(details: {
   jobTitle: string;
   employmentType: EmploymentType;
   vacationEntitlementPerYear: number;
+  holidayVacationHours: number;
   birthDate?: string;
+  entryDate?: string;
+  exitDate?: string;
 }): Employee {
   // Field rules live in employeeValidation.ts; enforced here too so no service or import path can
   // create an employee the dialog would refuse. Updates are deliberately not re-validated.
@@ -41,7 +52,10 @@ export function createEmployee(details: {
     jobTitle: details.jobTitle,
     employmentType: details.employmentType,
     vacationEntitlementPerYear: details.vacationEntitlementPerYear,
+    holidayVacationHours: details.holidayVacationHours,
     birthDate: details.birthDate,
+    entryDate: details.entryDate,
+    exitDate: details.exitDate,
     active: true,
     createdAt: now,
     updatedAt: now,
@@ -50,6 +64,28 @@ export function createEmployee(details: {
 
 export function fullName(employee: Pick<Employee, 'lastName' | 'firstName'>): string {
   return `${employee.lastName}, ${employee.firstName}`;
+}
+
+type EmploymentPeriod = Pick<Employee, 'entryDate' | 'exitDate'>;
+
+/** Whether the employee may be scheduled on that ISO date. Both bounds are inclusive and optional -
+ * an employee without dates is employable forever, which is what every record created before these
+ * fields existed looks like. Plain string comparison is correct for ISO dates (same reasoning as
+ * absenceValidation.ts and scheduleAssessment.findAbsenceForDay). */
+export function isEmployedOn(employee: EmploymentPeriod, isoDate: string): boolean {
+  if (employee.entryDate && isoDate < employee.entryDate) {
+    return false;
+  }
+  return !(employee.exitDate && isoDate > employee.exitDate);
+}
+
+/** Whether the employment period overlaps the inclusive range at all, i.e. whether there is at
+ * least one day in [fromISO, toISO] the employee may be scheduled on. */
+export function isEmployedDuring(employee: EmploymentPeriod, fromISO: string, toISO: string): boolean {
+  if (employee.entryDate && employee.entryDate > toISO) {
+    return false;
+  }
+  return !(employee.exitDate && employee.exitDate < fromISO);
 }
 
 /** Sorts by last name A-Z (first name as tiebreaker), German collation (so e.g. umlauts sort

@@ -47,7 +47,10 @@ describe('EmployeeDialog', () => {
     expect(screen.getByRole('combobox', { name: 'Tätigkeit' })).toBeRequired();
     expect(textbox('Wochenstunden')).toBeRequired();
     expect(textbox('Urlaubsanspruch/Jahr (Tage)')).toBeRequired();
+    expect(textbox('Std. je Feier-/Urlaubstag')).toBeRequired();
     expect(screen.getByLabelText('Geburtsdatum (optional)')).not.toBeRequired();
+    expect(screen.getByLabelText('Eintrittsdatum (optional)')).not.toBeRequired();
+    expect(screen.getByLabelText('Austrittsdatum (optional)')).not.toBeRequired();
   });
 
   it('shows every missing field, focuses the first one and saves nothing on an empty form', async () => {
@@ -104,6 +107,7 @@ describe('EmployeeDialog', () => {
     await user.type(textbox('Nachname'), 'Müller');
     await user.type(screen.getByRole('combobox', { name: 'Tätigkeit' }), 'Verkauf');
     await user.type(textbox('Wochenstunden'), '20');
+    await user.type(textbox('Std. je Feier-/Urlaubstag'), '5');
     await user.click(save());
 
     await waitFor(() => expect(onSaved).toHaveBeenCalledTimes(1));
@@ -114,7 +118,10 @@ describe('EmployeeDialog', () => {
       jobTitle: 'Verkauf',
       employmentType: { type: 'PartTime', weeklyHours: 20 },
       vacationEntitlementPerYear: 28,
+      holidayVacationHours: 5,
       birthDate: undefined,
+      entryDate: undefined,
+      exitDate: undefined,
     });
     expect(onClose).toHaveBeenCalled();
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
@@ -130,6 +137,7 @@ describe('EmployeeDialog', () => {
       jobTitle: '',
       employmentType: { type: 'FullTime', weeklyHours: 0 },
       vacationEntitlementPerYear: 30,
+      holidayVacationHours: 5,
       active: true,
       createdAt: '2020-01-01T00:00:00.000Z',
       updatedAt: '2020-01-01T00:00:00.000Z',
@@ -163,6 +171,7 @@ describe('EmployeeDialog', () => {
     await user.type(textbox('Nachname'), 'Müller');
     await user.type(screen.getByRole('combobox', { name: 'Tätigkeit' }), 'Verkauf');
     await user.type(textbox('Wochenstunden'), '20');
+    await user.type(textbox('Std. je Feier-/Urlaubstag'), '5');
     await user.click(save());
 
     await waitFor(() => expect(onError).toHaveBeenCalledWith(expect.any(Error), 'Mitarbeiter konnte nicht gespeichert werden'));

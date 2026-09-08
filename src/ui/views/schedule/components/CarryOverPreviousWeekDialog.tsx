@@ -33,6 +33,7 @@ interface CarryOverPreviousWeekDialogProps {
   schedule: WeeklySchedule;
   employeeList: Employee[];
   absences: Absence[];
+  isHoliday: (isoDate: string) => boolean;
   onApplied: (updatedSchedule: WeeklySchedule) => void;
   onError: (e: unknown, context?: string) => void;
 }
@@ -40,6 +41,10 @@ interface CarryOverPreviousWeekDialogProps {
 interface RowData {
   employee: Employee;
   previousActualMinutes: number | null;
+  /** Of previousActualMinutes, the part that was credited without presence in the store (vacation
+   * days, "Sonstige" with hours). Shown next to the Ist figure so it is obvious why a week full of
+   * vacation no longer produces a large carry-over suggestion. */
+  previousCreditedMinutes: number;
   previousTargetMinutes: number | null;
   suggestedMinutes: number;
 }
@@ -60,6 +65,7 @@ export function CarryOverPreviousWeekDialog({
   schedule,
   employeeList,
   absences,
+  isHoliday,
   onApplied,
   onError,
 }: CarryOverPreviousWeekDialogProps) {
@@ -74,18 +80,29 @@ export function CarryOverPreviousWeekDialog({
     (async () => {
       const previousWeek = previousCalendarWeek(selectedWeek);
       const previousSchedule = await services.schedule.findForWeek(branchId, previousWeek);
-      const previousView = previousSchedule ? createWeekView(previousSchedule, absences) : [];
+      const previousView = previousSchedule
+        ? createWeekView(previousSchedule, absences, { employees: employeeList, isHoliday })
+        : [];
 
       const activeEmployees = employeeList.filter((emp) => emp.active);
       const newRows: RowData[] = activeEmployees.map((employee) => {
         const previousEntry = previousView.find((e) => e.employeeId === employee.id);
         if (!previousEntry) {
-          return { employee, previousActualMinutes: null, previousTargetMinutes: null, suggestedMinutes: 0 };
+          return {
+            employee,
+            previousActualMinutes: null,
+            previousCreditedMinutes: 0,
+            previousTargetMinutes: null,
+            suggestedMinutes: 0,
+          };
         }
         const previousTargetMinutes = effectiveTargetMinutes(employee, previousEntry);
+        // totalNetMinutes, i.e. including credited hours: a week spent entirely on vacation is
+        // fulfilled, not a week of missing hours, so the suggestion collapses to roughly zero.
         return {
           employee,
           previousActualMinutes: previousEntry.totalNetMinutes,
+          previousCreditedMinutes: previousEntry.creditedMinutes,
           previousTargetMinutes,
           suggestedMinutes: previousTargetMinutes - previousEntry.totalNetMinutes,
         };
@@ -103,7 +120,7 @@ export function CarryOverPreviousWeekDialog({
       setInputs(newInputs);
       setLoading(false);
     })();
-  }, [open, branchId, selectedWeek, schedule, employeeList, absences]);
+  }, [open, branchId, selectedWeek, schedule, employeeList, absences, isHoliday]);
 
   const apply = async () => {
     setApplying(true);
@@ -155,6 +172,11 @@ export function CarryOverPreviousWeekDialog({
                     <TableCell>{fullName(row.employee)}</TableCell>
                     <TableCell align="center">
                       {row.previousActualMinutes != null ? formatHours(row.previousActualMinutes) : 'keine Daten'}
+                      {row.previousCreditedMinutes > 0 && (
+                        <Typography variant="caption" display="block" color="text.secondary">
+                          davon {formatHours(row.previousCreditedMinutes)} angerechnet
+                        </Typography>
+                      )}
                     </TableCell>
                     <TableCell align="center">
                       {row.previousTargetMinutes != null ? formatHours(row.previousTargetMinutes) : '–'}

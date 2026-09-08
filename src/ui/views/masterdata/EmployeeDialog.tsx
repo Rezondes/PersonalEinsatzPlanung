@@ -31,7 +31,10 @@ interface FormState {
   minHours: number | undefined;
   maxHours: number | undefined;
   vacationEntitlementPerYear: number | undefined;
+  holidayVacationHours: number | undefined;
   birthDate: string;
+  entryDate: string;
+  exitDate: string;
 }
 
 function emptyForm(): FormState {
@@ -44,7 +47,10 @@ function emptyForm(): FormState {
     minHours: undefined,
     maxHours: undefined,
     vacationEntitlementPerYear: 28,
+    holidayVacationHours: undefined,
     birthDate: '',
+    entryDate: '',
+    exitDate: '',
   };
 }
 
@@ -59,7 +65,10 @@ function formFromEmployee(emp: Employee): FormState {
     minHours: et.type === 'Minijob' ? et.minHours : undefined,
     maxHours: et.type === 'Minijob' ? et.maxHours : undefined,
     vacationEntitlementPerYear: emp.vacationEntitlementPerYear,
+    holidayVacationHours: emp.holidayVacationHours,
     birthDate: emp.birthDate ?? '',
+    entryDate: emp.entryDate ?? '',
+    exitDate: emp.exitDate ?? '',
   };
 }
 
@@ -98,6 +107,9 @@ export function EmployeeDialog({ branchId, employee, onClose, onSaved, onError }
       jobTitle: form.jobTitle,
       employmentType: employmentTypeDraft(form),
       vacationEntitlementPerYear: form.vacationEntitlementPerYear,
+      holidayVacationHours: form.holidayVacationHours,
+      entryDate: form.entryDate || undefined,
+      exitDate: form.exitDate || undefined,
     }),
   );
 
@@ -110,7 +122,10 @@ export function EmployeeDialog({ branchId, employee, onClose, onSaved, onError }
       jobTitle: form.jobTitle.trim(),
       employmentType: toEmploymentType(form),
       vacationEntitlementPerYear: form.vacationEntitlementPerYear!,
+      holidayVacationHours: form.holidayVacationHours!,
       birthDate: form.birthDate || undefined,
+      entryDate: form.entryDate || undefined,
+      exitDate: form.exitDate || undefined,
     };
 
     setSaving(true);
@@ -213,14 +228,47 @@ export function EmployeeDialog({ branchId, employee, onClose, onSaved, onError }
               fullWidth
               {...validation.fieldProps('vacationEntitlementPerYear')}
             />
-            <TextField
-              label="Geburtsdatum (optional)"
-              type="date"
-              value={form.birthDate}
-              onChange={(e) => setForm((f) => ({ ...f, birthDate: e.target.value }))}
-              InputLabelProps={{ shrink: true }}
-              helperText="Nur für Jugendarbeitsschutz relevant"
+            <DecimalTextField
+              label="Std. je Feier-/Urlaubstag"
+              required
+              value={form.holidayVacationHours}
+              onChange={(value) => setForm((f) => ({ ...f, holidayVacationHours: value }))}
               fullWidth
+              {...validation.fieldProps(
+                'holidayVacationHours',
+                'Zählt nur für diesen Mitarbeiter, nicht für die Filialstunden.',
+              )}
+            />
+          </Stack>
+
+          <TextField
+            label="Geburtsdatum (optional)"
+            type="date"
+            value={form.birthDate}
+            onChange={(e) => setForm((f) => ({ ...f, birthDate: e.target.value }))}
+            InputLabelProps={{ shrink: true }}
+            helperText="Nur für Jugendarbeitsschutz relevant"
+            fullWidth
+          />
+
+          <Stack direction="row" spacing={2}>
+            <TextField
+              label="Eintrittsdatum (optional)"
+              type="date"
+              value={form.entryDate}
+              onChange={(e) => setForm((f) => ({ ...f, entryDate: e.target.value }))}
+              InputLabelProps={{ shrink: true }}
+              helperText="Vorher nicht einplanbar"
+              fullWidth
+            />
+            <TextField
+              label="Austrittsdatum (optional)"
+              type="date"
+              value={form.exitDate}
+              onChange={(e) => setForm((f) => ({ ...f, exitDate: e.target.value }))}
+              InputLabelProps={{ shrink: true }}
+              fullWidth
+              {...validation.fieldProps('exitDate', 'Danach nicht mehr einplanbar')}
             />
           </Stack>
         </Stack>

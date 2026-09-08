@@ -7,8 +7,15 @@ allowed to touch browser APIs.
   mitarbeiter, wochenplaene, abwesenheiten) is the original pre-rename schema; version 2 renames
   every store to English (branches, employees, weeklySchedules, absences) and migrates existing
   records' field names via an `.upgrade()` step, so local data made before the German->English code
-  rename survives. Never edit an existing version's `.stores()` in place - any future structural
-  change goes through a new `this.version(n)` block with its own `.upgrade()` migration.
+  rename survives. Version 3 adds no index and therefore no
+  `.stores()` call at all - it only runs an `.upgrade()` that backfills the now-required
+  `Employee.holidayVacationHours` with `targetWeeklyHours / 6`. The divisor is 6, not 5, because
+  `vacationCalculation.countWorkDays` counts Mon-Sat as work days (BUrlG practice), so a full week
+  of vacation then credits exactly the contract's weekly hours; `defaultHolidayVacationHours` in
+  `domain/employee/EmploymentType.ts` is shared with the JSON v2->v3 migration so a restored backup
+  and a locally upgraded database cannot disagree. Never edit an existing version's `.stores()` in
+  place - any future structural change goes through a new `this.version(n)` block with its own
+  `.upgrade()` migration.
 - JSON backup format (`application/export/jsonExportFormat.ts` - note: lives in `application/`, not
   here, despite the name suggesting otherwise, because it's a pure DTO/versioning concern, not a
   browser-API concern) has its own independent `formatVersion` from the Dexie schema version;

@@ -97,3 +97,21 @@ export function shiftDraftsToShifts(drafts: ShiftDraft[]): Shift[] {
     ),
   }));
 }
+
+/** Field key for the manual net-hours override of the whole day (DayEntry.netMinutesOverride). */
+export const NET_OVERRIDE_FIELD = 'netMinutesOverride';
+
+/** The override is optional: an empty field simply means "use the calculated hours". Only a value
+ * that is actually entered has to be plausible. */
+export function validateNetMinutesOverride(hours: number | undefined): FieldError[] {
+  if (hours === undefined) {
+    return [];
+  }
+  if (!Number.isFinite(hours) || hours < 0) {
+    return [{ field: NET_OVERRIDE_FIELD, message: 'Darf nicht negativ sein.' }];
+  }
+  if (hours > 24) {
+    return [{ field: NET_OVERRIDE_FIELD, message: 'Höchstens 24 Stunden.' }];
+  }
+  return [];
+}

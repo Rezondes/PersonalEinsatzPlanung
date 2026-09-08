@@ -19,7 +19,10 @@ export function createEmployeeService(repo: EmployeeRepository) {
       jobTitle: string;
       employmentType: EmploymentType;
       vacationEntitlementPerYear: number;
+      holidayVacationHours: number;
       birthDate?: string;
+      entryDate?: string;
+      exitDate?: string;
     }) => {
       const employee = createEmployee(details);
       await repo.save(employee);

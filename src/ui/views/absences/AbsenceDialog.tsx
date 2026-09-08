@@ -17,6 +17,7 @@ import { validateAbsence } from '@domain/absence/absenceValidation';
 import type { AbsenceField } from '@domain/absence/absenceValidation';
 import { services } from '@infrastructure/services';
 import { useFormValidation } from '@ui/hooks/useFormValidation';
+import { DecimalTextField } from '@ui/components/DecimalTextField';
 import { RequiredLegend } from '@ui/components/RequiredLegend';
 import { FormErrorNotice } from '@ui/components/FormErrorNotice';
 
@@ -28,6 +29,7 @@ interface FormState {
   from: string;
   to: string;
   label: string;
+  hoursPerDay: number | undefined;
   note: string;
   halfDayAtStart: boolean;
   halfDayAtEnd: boolean;
@@ -35,7 +37,17 @@ interface FormState {
 
 function emptyForm(firstEmployeeId: string): FormState {
   const today = new Date().toISOString().slice(0, 10);
-  return { employeeId: firstEmployeeId, type: 'Vacation', from: today, to: today, label: '', note: '', halfDayAtStart: false, halfDayAtEnd: false };
+  return {
+    employeeId: firstEmployeeId,
+    type: 'Vacation',
+    from: today,
+    to: today,
+    label: '',
+    hoursPerDay: undefined,
+    note: '',
+    halfDayAtStart: false,
+    halfDayAtEnd: false,
+  };
 }
 
 interface AbsenceDialogProps {
@@ -50,8 +62,21 @@ interface AbsenceDialogProps {
  * "already tried to save" flag start fresh each time. Field rules come from validateAbsence. */
 export function AbsenceDialog({ employees, onClose, onSaved, onError }: AbsenceDialogProps) {
   const [form, setForm] = useState<FormState>(() => emptyForm(employees[0]?.id ?? ''));
+  const selectedEmployee = employees.find((emp) => emp.id === form.employeeId);
   const validation = useFormValidation<AbsenceField>(() =>
-    validateAbsence({ employeeId: form.employeeId, type: form.type, from: form.from, to: form.to, label: form.label }),
+    validateAbsence({
+      employeeId: form.employeeId,
+      type: form.type,
+      from: form.from,
+      to: form.to,
+      label: form.label,
+      hoursPerDay: form.hoursPerDay,
+      // Lets the domain reject a range outside the employee's Eintritt/Austritt at the field,
+      // instead of an inline guard here (see the forms section of src/ui/CLAUDE.md).
+      employment: selectedEmployee
+        ? { entryDate: selectedEmployee.entryDate, exitDate: selectedEmployee.exitDate }
+        : undefined,
+    }),
   );
 
   const singleDay = form.from === form.to;
@@ -74,6 +99,7 @@ export function AbsenceDialog({ employees, onClose, onSaved, onError }: AbsenceD
           from: form.from,
           to: form.to,
           label: form.label.trim(),
+          hoursPerDay: form.hoursPerDay,
           note: form.note || undefined,
         });
       }
@@ -118,15 +144,24 @@ export function AbsenceDialog({ employees, onClose, onSaved, onError }: AbsenceD
             <MenuItem value="Other">Sonstige</MenuItem>
           </TextField>
           {form.type === 'Other' && (
-            <TextField
-              label="Bezeichnung"
-              required
-              placeholder="z. B. Fortbildung, Sonderurlaub"
-              value={form.label}
-              onChange={(e) => setForm((f) => ({ ...f, label: e.target.value }))}
-              fullWidth
-              {...validation.fieldProps('label')}
-            />
+            <Stack direction="row" spacing={2} alignItems="flex-start">
+              <TextField
+                label="Bezeichnung"
+                required
+                placeholder="z. B. Fortbildung, Feiertag"
+                value={form.label}
+                onChange={(e) => setForm((f) => ({ ...f, label: e.target.value }))}
+                fullWidth
+                {...validation.fieldProps('label')}
+              />
+              <DecimalTextField
+                label="Stunden pro Tag (optional)"
+                value={form.hoursPerDay}
+                onChange={(value) => setForm((f) => ({ ...f, hoursPerDay: value }))}
+                sx={{ width: 220 }}
+                {...validation.fieldProps('hoursPerDay', 'Zählen nur für diesen Mitarbeiter.')}
+              />
+            </Stack>
           )}
           <Stack direction="row" spacing={2} alignItems="flex-start">
             <TextField

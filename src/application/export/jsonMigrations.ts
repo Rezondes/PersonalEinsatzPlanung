@@ -1,4 +1,6 @@
 import { DomainError } from '@domain/shared/DomainError';
+import type { Employee } from '@domain/employee/Employee';
+import { defaultHolidayVacationHours } from '@domain/employee/EmploymentType';
 import type { PepExportFile } from './jsonExportFormat';
 import { CURRENT_FORMAT_VERSION } from './jsonExportFormat';
 
@@ -131,6 +133,9 @@ function migrateEmployeeV1(m: MitarbeiterV1) {
     jobTitle: m.taetigkeit,
     employmentType: migrateEmploymentTypeV1(m.beschaeftigungsart),
     vacationEntitlementPerYear: m.urlaubsanspruchProJahr,
+    // Did not exist in v1; the v2->v3 step below would fill it anyway, this just keeps the
+    // intermediate v2 object complete.
+    holidayVacationHours: defaultHolidayVacationHours(migrateEmploymentTypeV1(m.beschaeftigungsart)),
     birthDate: m.geburtsdatum,
     active: m.aktiv,
     createdAt: m.erstelltAm,
@@ -185,12 +190,25 @@ function migrateAbsenceV1(a: AbwesenheitV1) {
   }
 }
 
-/** Migrates a formatVersion-1 file (German field names, pre-rename) to the current v2 structure
+/**
+ * Shape of a formatVersion-2 export file: identical to the current one except that Employee did not
+ * have holidayVacationHours yet. Only the fields the v2->v3 step touches are spelled out; the rest
+ * is copied through untouched.
+ */
+type EmployeeV2 = Omit<Employee, 'holidayVacationHours'> & { holidayVacationHours?: number };
+
+interface PepExportFileV2 {
+  formatVersion: 2;
+  exportedAt: string;
+  data: Omit<PepExportFile['data'], 'employees'> & { employees: EmployeeV2[] };
+}
+
+/** Migrates a formatVersion-1 file (German field names, pre-rename) to the v2 structure
  * (English field names). Only field renames - no value transformations, since the rename left every
  * stored value (dates, minutes, weekday keys, federal-state names) unchanged. */
-function migrateV1ToV2(fileV1: PepExportFileV1): PepExportFile {
+function migrateV1ToV2(fileV1: PepExportFileV1): PepExportFileV2 {
   return {
-    formatVersion: CURRENT_FORMAT_VERSION,
+    formatVersion: 2,
     exportedAt: fileV1.exportiertAm,
     data: {
       branches: fileV1.daten.filialen.map(migrateBranchV1),
@@ -198,7 +216,25 @@ function migrateV1ToV2(fileV1: PepExportFileV1): PepExportFile {
       weeklySchedules: fileV1.daten.wochenplaene.map(migrateWeeklyScheduleV1),
       absences: fileV1.daten.abwesenheiten.map(migrateAbsenceV1),
     },
-  } as PepExportFile;
+  } as PepExportFileV2;
+}
+
+/** Migrates a formatVersion-2 file to v3: Employee.holidayVacationHours became a required field.
+ * Backfills it with the same default as the Dexie version(3) upgrade, so a restored backup and a
+ * locally upgraded database end up with identical values. */
+function migrateV2ToV3(fileV2: PepExportFileV2): PepExportFile {
+  return {
+    formatVersion: CURRENT_FORMAT_VERSION,
+    exportedAt: fileV2.exportedAt,
+    data: {
+      ...fileV2.data,
+      employees: fileV2.data.employees.map((employee) => ({
+        ...employee,
+        holidayVacationHours:
+          employee.holidayVacationHours ?? defaultHolidayVacationHours(employee.employmentType),
+      })),
+    },
+  };
 }
 
 function isValidDataStructure(data: unknown): data is PepExportFile['data'] {
@@ -228,9 +264,9 @@ function isValidV1DataStructure(daten: unknown): daten is PepExportFileV1['daten
 }
 
 /**
- * Brings an imported export file up to the current formatVersion. Version 1 files (pre-rename,
- * German field names) are migrated to v2 via migrateV1ToV2. Future versions will add sequential
- * migrateVxToVy(data) functions here, before the data is written to Dexie.
+ * Brings an imported export file up to the current formatVersion by running the migrations in
+ * sequence: v1 (pre-rename, German field names) -> v2 -> v3. Future versions add another
+ * migrateVxToVy(data) step to the chain, before the data is written to Dexie.
  *
  * Only checks the top-level shape (formatVersion + the 4 data arrays exist and are arrays), not
  * every field of every record - deep per-record validation is out of scope (YAGNI, the file only
@@ -255,7 +291,7 @@ export function migrateToCurrentVersion(rawData: unknown): PepExportFile {
     if (typeof fileV1.exportiertAm !== 'string' || !isValidV1DataStructure(fileV1.daten)) {
       throw new DomainError('Die Datei enthält kein gültiges PEP-Exportformat (fehlende oder beschädigte Datenfelder).');
     }
-    return migrateV1ToV2(rawData as PepExportFileV1);
+    return migrateV2ToV3(migrateV1ToV2(rawData as PepExportFileV1));
   }
 
   if (rawFile.formatVersion > CURRENT_FORMAT_VERSION) {
@@ -268,6 +304,11 @@ export function migrateToCurrentVersion(rawData: unknown): PepExportFile {
 
   if (!isValidDataStructure(file.data)) {
     throw new DomainError('Die Datei enthält kein gültiges PEP-Exportformat (fehlende oder beschädigte Datenfelder).');
+  }
+
+  // v2 and v3 share the same top-level shape, so the check above covers both.
+  if (rawFile.formatVersion === 2) {
+    return migrateV2ToV3(rawData as unknown as PepExportFileV2);
   }
 
   return file;

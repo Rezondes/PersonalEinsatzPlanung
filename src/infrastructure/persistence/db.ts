@@ -1,6 +1,7 @@
 import Dexie, { type Table } from 'dexie';
 import type { Branch } from '@domain/branch/Branch';
 import type { Employee } from '@domain/employee/Employee';
+import { defaultHolidayVacationHours } from '@domain/employee/EmploymentType';
 import type { WeeklySchedule } from '@domain/schedule/WeeklySchedule';
 import type { Absence } from '@domain/absence/Absence';
 
@@ -118,6 +119,8 @@ function migrateEmployeeV1(m: MitarbeiterV1): Employee {
     jobTitle: m.taetigkeit,
     employmentType: migrateEmploymentTypeV1(m.beschaeftigungsart),
     vacationEntitlementPerYear: m.urlaubsanspruchProJahr,
+    // Did not exist in v1; gets the same default the version(3) upgrade applies.
+    holidayVacationHours: defaultHolidayVacationHours(migrateEmploymentTypeV1(m.beschaeftigungsart)),
     birthDate: m.geburtsdatum,
     active: m.aktiv,
     createdAt: m.erstelltAm,
@@ -218,8 +221,23 @@ export class PepDatabase extends Dexie {
           tx.table<Absence, string>('absences').bulkAdd(oldAbsences.map(migrateAbsenceV1)),
         ]);
       });
+    // v3: Employee.holidayVacationHours became a required field. No .stores() call, because no
+    // index changes - Dexie keeps the previous version's schema and only runs the upgrade. Records
+    // written before the field existed are backfilled so the type stays honest (update paths and
+    // the JSON import deliberately never re-validate, see domain/CLAUDE.md).
+    this.version(3).upgrade(async (tx) => {
+      await tx
+        .table<Employee, string>('employees')
+        .toCollection()
+        .modify((employee) => {
+          if (typeof employee.holidayVacationHours !== 'number') {
+            employee.holidayVacationHours = defaultHolidayVacationHours(employee.employmentType);
+          }
+        });
+    });
+
     // Further structural changes to the IndexedDB schema are added as their own version, e.g.:
-    // this.version(3).stores({ ... }).upgrade(tx => { ... });
+    // this.version(4).stores({ ... }).upgrade(tx => { ... });
   }
 }
 

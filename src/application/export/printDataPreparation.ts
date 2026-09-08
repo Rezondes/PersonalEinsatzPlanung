@@ -64,12 +64,10 @@ function breaksForDay(shifts: Shift[]): [PrintBreakCell, PrintBreakCell] {
 }
 
 function toPrintCell(dayView: DayView): PrintDayCell {
-  // A half-day vacation day still has real worked hours (dayView.netMinutes > 0, see
-  // scheduleAssessment.effectiveNetMinutes) - only a full-day Absence collapses to just the
-  // abbreviation with no shift data.
-  const isFullDayAbsent = !!dayView.absence && dayView.netMinutes === 0;
-
-  if (isFullDayAbsent && dayView.absence) {
+  // A half-day vacation day still has real worked hours - only a full-day Absence collapses to just
+  // the abbreviation with no shift data. Read from the explicit flag, not from "minutes === 0":
+  // a day whose hours were manually overridden to 0 is not an absence.
+  if (dayView.absenceCoversWholeDay && dayView.absence) {
     return {
       date: dayView.date,
       timeText: absenceAbbreviation(dayView.absence),
@@ -95,7 +93,7 @@ function toPrintCell(dayView: DayView): PrintDayCell {
   return {
     date: dayView.date,
     timeText,
-    hoursText: formatDecimalHours(dayView.netMinutes),
+    hoursText: formatDecimalHours(dayView.workedMinutes),
     breaks: breaksForDay(dayView.entry.shifts),
     isAbsent: false,
     absenceAbbreviation: dayView.absence ? absenceAbbreviation(dayView.absence) : undefined,
@@ -133,8 +131,9 @@ export function preparePrintData(
   schedule: WeeklySchedule,
   employeeList: Employee[],
   absences: Absence[],
+  isHoliday?: (isoDate: string) => boolean,
 ): PrintData {
-  const weekView = createWeekView(schedule, absences);
+  const weekView = createWeekView(schedule, absences, { employees: employeeList, isHoliday });
 
   const fullPartTimeRows: PrintRowFullPartTime[] = [];
   const minijobRows: PrintRowMinijob[] = [];
@@ -149,7 +148,7 @@ export function preparePrintData(
     }
 
     for (const dayView of assignment.days) {
-      dayTotalsMinutes[dayView.day] += dayView.netMinutes;
+      dayTotalsMinutes[dayView.day] += dayView.workedMinutes;
     }
 
     const days = Object.fromEntries(assignment.days.map((d) => [d.day, toPrintCell(d)])) as Record<
@@ -160,7 +159,11 @@ export function preparePrintData(
     const base: PrintRowBase = {
       employee,
       days,
-      totalHoursWeek: formatDecimalHours(assignment.totalNetMinutes),
+      // Worked hours only, deliberately: the paper form has to add up in both directions (the
+      // seven day cells sum to this figure, and the Summe row sums the columns). Hours credited
+      // without presence in the store - vacation days, "Sonstige" with hours - are an on-screen
+      // figure for the Marktleiter, not part of the printed schedule the staff receives.
+      totalHoursWeek: formatDecimalHours(assignment.workedMinutes),
     };
 
     if (employee.employmentType.type === 'Minijob') {

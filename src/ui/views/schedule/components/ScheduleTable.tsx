@@ -1,4 +1,5 @@
 import { memo, useMemo } from 'react';
+import type { KeyboardEvent } from 'react';
 import Table from '@mui/material/Table';
 import TableBody from '@mui/material/TableBody';
 import TableCell from '@mui/material/TableCell';
@@ -7,22 +8,27 @@ import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 import Paper from '@mui/material/Paper';
 import Box from '@mui/material/Box';
+import Chip from '@mui/material/Chip';
 import Typography from '@mui/material/Typography';
 import Tooltip from '@mui/material/Tooltip';
 import Stack from '@mui/material/Stack';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import { WEEKDAYS } from '@domain/shared/CalendarWeek';
 import type { EmployeeId } from '@domain/shared/ids';
-import type { Employee } from '@domain/employee/Employee';
 import { fullName } from '@domain/employee/Employee';
-import { minutesToDecimalHours, shiftBreakMinutes } from '@domain/schedule/scheduleCalculation';
+import {
+  formatHoursRangeGerman,
+  minutesToDecimalHours,
+  shiftBreakMinutes,
+} from '@domain/schedule/scheduleCalculation';
 import type { ValidationResult } from '@domain/validation/ValidationResult';
-import type { EmployeeWeekView, DayView } from '@application/schedule/scheduleAssessment';
-import { effectiveTargetMinutes } from '@application/schedule/scheduleAssessment';
+import type { DayView } from '@application/schedule/scheduleAssessment';
+import { effectiveTargetMinutesRange } from '@application/schedule/scheduleAssessment';
+import type { RowLockReason, ScheduleRow } from '../scheduleRows';
+import { isCellLocked } from '../scheduleRows';
 
 interface ScheduleTableProps {
-  weekView: EmployeeWeekView[];
-  employeeList: Employee[];
+  rows: ScheduleRow[];
   validationResults: ValidationResult[];
   onCellClick: (employeeId: EmployeeId, dayView: DayView) => void;
 }
@@ -38,23 +44,38 @@ function absenceText(type: 'Vacation' | 'Illness' | 'Other'): string {
   }
 }
 
+const LOCK_LABEL: Record<RowLockReason, string> = {
+  inactive: 'Inaktiv',
+  notEmployed: 'Nicht beschäftigt',
+};
+
 const NO_RESULTS: ValidationResult[] = [];
 
 function cellKey(employeeId: EmployeeId, date: string): string {
   return `${employeeId}|${date}`;
 }
 
+/** How far the actual hours fall outside the target band. Zero while they are inside it, which for
+ * a Minijob is the whole Min-Max range - FullTime/PartTime, whose min and max are the same number,
+ * still flag every deviation exactly as before. */
+function deviationFromTarget(actualMinutes: number, target: { min: number; max: number }): number {
+  if (actualMinutes < target.min) {
+    return actualMinutes - target.min;
+  }
+  if (actualMinutes > target.max) {
+    return actualMinutes - target.max;
+  }
+  return 0;
+}
+
 /** Memoized: ScheduleView re-renders on every context-menu/dialog/snackbar state change, and this
  * table is by far its most expensive subtree (seven styled cells per employee). With stable props
- * from the parent (memoized weekView, useCallback'd onCellClick) those re-renders skip it. */
+ * from the parent (memoized rows, useCallback'd onCellClick) those re-renders skip it. */
 export const ScheduleTable = memo(function ScheduleTable({
-  weekView,
-  employeeList,
+  rows,
   validationResults,
   onCellClick,
 }: ScheduleTableProps) {
-  const employeeById = useMemo(() => new Map(employeeList.map((e) => [e.id, e])), [employeeList]);
-
   // Grouped once per validation run instead of filtering the whole result list for every cell.
   // Week-level results (no date) belong to no cell; ValidationNotices lists them instead.
   const resultsByCell = useMemo(() => {
@@ -91,72 +112,96 @@ export const ScheduleTable = memo(function ScheduleTable({
           </TableRow>
         </TableHead>
         <TableBody>
-          {weekView.map((assignment) => {
-            const employee = employeeById.get(assignment.employeeId);
-            if (!employee) return null;
-
-            const targetMinutes = effectiveTargetMinutes(employee, assignment);
-            const differenceMinutes = assignment.totalNetMinutes - targetMinutes;
+          {rows.map((row) => {
+            const { employee, view } = row;
+            const target = effectiveTargetMinutesRange(employee, view);
+            const differenceMinutes = deviationFromTarget(view.totalNetMinutes, target);
 
             return (
-              <TableRow key={assignment.employeeId} hover>
+              <TableRow key={view.employeeId} hover sx={{ opacity: row.editable ? 1 : 0.55 }}>
                 <TableCell>
-                  <Typography variant="body2" fontWeight={500}>
-                    {fullName(employee)}
-                  </Typography>
+                  <Stack direction="row" spacing={0.5} alignItems="center">
+                    <Typography variant="body2" fontWeight={500}>
+                      {fullName(employee)}
+                    </Typography>
+                    {row.lockReason && <Chip size="small" label={LOCK_LABEL[row.lockReason]} />}
+                  </Stack>
                   <Typography variant="caption" color="text.secondary">
                     {employee.jobTitle}
                   </Typography>
                 </TableCell>
 
-                {assignment.days.map((dayView: DayView) => {
-                  const matches = resultsFor(assignment.employeeId, dayView.date);
+                {view.days.map((dayView: DayView) => {
+                  const matches = resultsFor(view.employeeId, dayView.date);
                   const hasError = matches.some((e) => e.severity === 'error');
                   const hasWarning = matches.some((e) => e.severity === 'warning');
-                  // A halbtags-Urlaub day still carries a real entered shift for its worked half
-                  // (netMinutes > 0, see scheduleAssessment.effectiveNetMinutes) - only a
-                  // full-day Absence hides the shift entirely.
-                  const isFullDayAbsent = !!dayView.absence && dayView.netMinutes === 0;
-                  const background = dayView.absence
-                    ? '#eef3f1'
-                    : hasError
-                      ? '#fbeaea'
-                      : hasWarning
-                        ? '#fdf3e0'
-                        : '#f7f7f5';
+                  const locked = isCellLocked(row, dayView.day);
+                  const hasOverride =
+                    dayView.entry.type === 'Shift' && dayView.entry.netMinutesOverride !== undefined;
+                  const background = locked
+                    ? '#f0f0ee'
+                    : dayView.absence
+                      ? '#eef3f1'
+                      : hasError
+                        ? '#fbeaea'
+                        : hasWarning
+                          ? '#fdf3e0'
+                          : '#f7f7f5';
                   const breakMinutes =
                     dayView.entry.type === 'Shift'
                       ? dayView.entry.shifts.reduce((sum, s) => sum + shiftBreakMinutes(s), 0)
                       : 0;
 
+                  // A locked cell is deliberately not a button: no click, no keyboard focus, and
+                  // ScheduleView checks the same predicate before opening the context menu. Its
+                  // content stays fully readable so nothing looks lost.
+                  const openEditor = () => onCellClick(view.employeeId, dayView);
+                  const interaction = locked
+                    ? { 'aria-disabled': true }
+                    : {
+                        role: 'button',
+                        tabIndex: 0,
+                        'aria-label': `${dayView.day} bearbeiten`,
+                        onClick: openEditor,
+                        onKeyDown: (e: KeyboardEvent) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            openEditor();
+                          }
+                        },
+                      };
+
                   const cell = (
                     <Box
-                      data-employeeid={assignment.employeeId}
+                      data-employeeid={view.employeeId}
                       data-day={dayView.day}
-                      onClick={() => onCellClick(assignment.employeeId, dayView)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault();
-                          onCellClick(assignment.employeeId, dayView);
-                        }
-                      }}
-                      role="button"
-                      tabIndex={0}
-                      aria-label={`${dayView.day} bearbeiten`}
+                      {...interaction}
                       sx={{
-                        cursor: 'pointer',
+                        cursor: locked ? 'default' : 'pointer',
                         borderRadius: 1.5,
                         p: 1,
                         backgroundColor: background,
-                        border: hasError ? '1px solid #e5a3a0' : hasWarning ? '1px solid #e6c988' : '1px solid transparent',
+                        border: hasError
+                          ? '1px solid #e5a3a0'
+                          : hasWarning
+                            ? '1px solid #e6c988'
+                            : '1px solid transparent',
                         minHeight: 48,
                         '&:focus-visible': { outline: '2px solid #2f5d50', outlineOffset: 2 },
                       }}
                     >
-                      {isFullDayAbsent && dayView.absence ? (
-                        <Typography variant="body2" color="#2f5d50" fontWeight={500}>
-                          {absenceText(dayView.absence.type)}
-                        </Typography>
+                      {dayView.absenceCoversWholeDay && dayView.absence ? (
+                        <>
+                          <Typography variant="body2" color="#2f5d50" fontWeight={500}>
+                            {absenceText(dayView.absence.type)}
+                          </Typography>
+                          {dayView.creditedMinutes > 0 && (
+                            <Typography variant="caption" color="text.secondary">
+                              {minutesToDecimalHours(dayView.creditedMinutes).toLocaleString('de-DE')} Std.
+                              angerechnet
+                            </Typography>
+                          )}
+                        </>
                       ) : dayView.entry.type === 'Shift' && dayView.entry.shifts.length > 0 ? (
                         <>
                           {dayView.absence && (
@@ -170,10 +215,17 @@ export const ScheduleTable = memo(function ScheduleTable({
                             </Typography>
                           ))}
                           <Typography variant="caption" color="text.secondary">
-                            {minutesToDecimalHours(dayView.netMinutes).toLocaleString('de-DE')} Std.
+                            {minutesToDecimalHours(dayView.workedMinutes).toLocaleString('de-DE')} Std.
+                            {hasOverride && ' (manuell)'}
                             {breakMinutes > 0 &&
                               ` · ${minutesToDecimalHours(breakMinutes).toLocaleString('de-DE')} Std. Pause`}
                           </Typography>
+                          {dayView.creditedMinutes > 0 && (
+                            <Typography variant="caption" display="block" color="text.secondary">
+                              + {minutesToDecimalHours(dayView.creditedMinutes).toLocaleString('de-DE')} Std.
+                              angerechnet
+                            </Typography>
+                          )}
                         </>
                       ) : (
                         <Typography variant="body2" color="text.secondary">
@@ -207,23 +259,29 @@ export const ScheduleTable = memo(function ScheduleTable({
 
                 <TableCell align="center">
                   <Typography variant="body2" color="text.secondary">
-                    {minutesToDecimalHours(targetMinutes).toLocaleString('de-DE')}
+                    {formatHoursRangeGerman(target.min, target.max)}
                   </Typography>
                 </TableCell>
                 <TableCell align="center">
                   <Stack direction="row" spacing={0.5} alignItems="center" justifyContent="center">
                     <Typography variant="body2" fontWeight={500}>
-                      {minutesToDecimalHours(assignment.totalNetMinutes).toLocaleString('de-DE')}
+                      {minutesToDecimalHours(view.totalNetMinutes).toLocaleString('de-DE')}
                     </Typography>
                     {differenceMinutes !== 0 && (
                       <Tooltip
-                        title={`${differenceMinutes > 0 ? '+' : ''}${minutesToDecimalHours(differenceMinutes).toLocaleString('de-DE')} Std. ${differenceMinutes > 0 ? 'über' : 'unter'} Soll (${minutesToDecimalHours(targetMinutes).toLocaleString('de-DE')} Std.)`}
+                        title={`${differenceMinutes > 0 ? '+' : ''}${minutesToDecimalHours(differenceMinutes).toLocaleString('de-DE')} Std. ${differenceMinutes > 0 ? 'über' : 'unter'} Soll (${formatHoursRangeGerman(target.min, target.max)} Std.)`}
                         arrow
                       >
                         <WarningAmberIcon fontSize="small" sx={{ color: '#c8973a' }} />
                       </Tooltip>
                     )}
                   </Stack>
+                  {view.creditedMinutes > 0 && (
+                    <Typography variant="caption" color="text.secondary">
+                      {minutesToDecimalHours(view.workedMinutes).toLocaleString('de-DE')} gearbeitet +{' '}
+                      {minutesToDecimalHours(view.creditedMinutes).toLocaleString('de-DE')} angerechnet
+                    </Typography>
+                  )}
                 </TableCell>
               </TableRow>
             );

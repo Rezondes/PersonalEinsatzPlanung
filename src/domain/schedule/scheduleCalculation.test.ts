@@ -7,6 +7,8 @@ import {
   shiftNetMinutes,
   minutesToDecimalHours,
   dayEntryNetMinutes,
+  dayEntryWorkedMinutes,
+  formatHoursRangeGerman,
   weekAssignmentNetMinutes,
 } from './scheduleCalculation';
 import { emptyWeekAssignment } from './EmployeeWeekAssignment';
@@ -69,5 +71,39 @@ describe('weekAssignmentNetMinutes', () => {
 describe('dayEntryNetMinutes', () => {
   it('returns 0 for a day off', () => {
     expect(dayEntryNetMinutes({ type: 'Off' })).toBe(0);
+  });
+});
+
+describe('dayEntryWorkedMinutes', () => {
+  const shifts = [createShift(clockTime('06:00'), clockTime('14:00'))];
+
+  it('equals the scheduled hours when no override is set', () => {
+    expect(dayEntryWorkedMinutes({ type: 'Shift', shifts })).toBe(8 * 60);
+  });
+
+  it('uses the override instead of the entered times', () => {
+    expect(dayEntryWorkedMinutes({ type: 'Shift', shifts, netMinutesOverride: 6 * 60 })).toBe(6 * 60);
+  });
+
+  it('honours an override of zero instead of falling back to the calculated hours', () => {
+    expect(dayEntryWorkedMinutes({ type: 'Shift', shifts, netMinutesOverride: 0 })).toBe(0);
+  });
+
+  it('leaves dayEntryNetMinutes untouched, so the ArbZG checks still see the real times', () => {
+    expect(dayEntryNetMinutes({ type: 'Shift', shifts, netMinutesOverride: 6 * 60 })).toBe(8 * 60);
+  });
+
+  it('is 0 on a free day', () => {
+    expect(dayEntryWorkedMinutes({ type: 'Off' })).toBe(0);
+  });
+});
+
+describe('formatHoursRangeGerman', () => {
+  it('renders a single number when both bounds are equal', () => {
+    expect(formatHoursRangeGerman(37.5 * 60, 37.5 * 60)).toBe('37,5');
+  });
+
+  it('renders a range when they differ', () => {
+    expect(formatHoursRangeGerman(6 * 60, 10 * 60)).toBe('6-10');
   });
 });

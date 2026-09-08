@@ -8,6 +8,7 @@ import { createWeeklySchedule, withDayEntry } from '@domain/schedule/WeeklySched
 import type { Employee } from '@domain/employee/Employee';
 import type { ValidationResult } from '@domain/validation/ValidationResult';
 import { createWeekView } from '@application/schedule/scheduleAssessment';
+import { buildScheduleRows } from '../scheduleRows';
 import { ScheduleTable } from './ScheduleTable';
 
 const branchId = 'b1' as BranchId;
@@ -23,6 +24,7 @@ function employee(id: EmployeeId, lastName: string): Employee {
     jobTitle: 'Verkauf',
     employmentType: { type: 'FullTime', weeklyHours: 40 },
     vacationEntitlementPerYear: 30,
+    holidayVacationHours: 5,
     active: true,
     createdAt: '2026-01-01T00:00:00.000Z',
     updatedAt: '2026-01-01T00:00:00.000Z',
@@ -36,12 +38,17 @@ const schedule = withDayEntry(
   'Montag',
   { type: 'Shift', shifts: [createShift(clockTime('06:00'), clockTime('14:00'))] },
 );
-const weekView = createWeekView(schedule, []);
 const employees = [employee(m1, 'Müller'), employee(m2, 'Schulz')];
+const weekView = createWeekView(schedule, [], { employees });
+
+/** KW 37/2026 runs Mon 2026-09-07 to Sun 2026-09-13. */
+function rowsFor(employeeList: Employee[]) {
+  return buildScheduleRows(weekView, employeeList, '2026-09-07', '2026-09-13');
+}
 
 describe('ScheduleTable', () => {
   it('renders one row per employee with their shift times', () => {
-    render(<ScheduleTable weekView={weekView} employeeList={employees} validationResults={[]} onCellClick={() => {}} />);
+    render(<ScheduleTable rows={rowsFor(employees)} validationResults={[]} onCellClick={() => {}} />);
 
     expect(screen.getByText('Müller, Anna')).toBeInTheDocument();
     expect(screen.getByText('Schulz, Anna')).toBeInTheDocument();
@@ -55,7 +62,7 @@ describe('ScheduleTable', () => {
       { rule: 'ArbZG_3_Tag', severity: 'error', message: 'Tagesarbeitszeit zu lang', employeeId: m1, date: '2026-09-07' },
       { rule: 'ArbZG_3_Woche', severity: 'warning', message: 'Wochenarbeitszeit hoch', employeeId: m1 },
     ];
-    render(<ScheduleTable weekView={weekView} employeeList={employees} validationResults={results} onCellClick={() => {}} />);
+    render(<ScheduleTable rows={rowsFor(employees)} validationResults={results} onCellClick={() => {}} />);
 
     const [mondayOfFirstRow] = screen.getAllByRole('button', { name: 'Montag bearbeiten' });
     await user.hover(mondayOfFirstRow);
@@ -67,7 +74,7 @@ describe('ScheduleTable', () => {
   it('reports the clicked cell with its employee and day', async () => {
     const user = userEvent.setup();
     const onCellClick = vi.fn();
-    render(<ScheduleTable weekView={weekView} employeeList={employees} validationResults={[]} onCellClick={onCellClick} />);
+    render(<ScheduleTable rows={rowsFor(employees)} validationResults={[]} onCellClick={onCellClick} />);
 
     const [, tuesdayOfSecondRow] = screen.getAllByRole('button', { name: 'Dienstag bearbeiten' });
     await user.click(tuesdayOfSecondRow);
@@ -76,7 +83,7 @@ describe('ScheduleTable', () => {
   });
 
   it('skips assignments whose employee is unknown', () => {
-    render(<ScheduleTable weekView={weekView} employeeList={[employee(m1, 'Müller')]} validationResults={[]} onCellClick={() => {}} />);
+    render(<ScheduleTable rows={rowsFor([employee(m1, 'Müller')])} validationResults={[]} onCellClick={() => {}} />);
 
     expect(screen.queryByText('Schulz, Anna')).not.toBeInTheDocument();
     expect(screen.getAllByRole('row')).toHaveLength(2);

@@ -9,10 +9,14 @@ lokale, datenschutzfreundliche Anwendung ohne Server-Backend.
 
 ## Kernfunktionen
 
-- Wochen- und Monatsplanung fuer Voll-/Teilzeitkraefte sowie Minijobber
+- Wochen- und Monatsplanung fuer Voll-/Teilzeitkraefte sowie Minijobber, mit Undo/Redo
+  (Strg+Z / Strg+Y), Mitarbeitersuche und manuell korrigierbaren Netto-Tagesstunden
 - Automatische Pruefung gesetzlicher Vorgaben (ArbZG): Pausenzeiten, Ruhezeiten,
   Hoechstarbeitszeit, Sonntags-/Feiertagsarbeit
-- Urlaubs- und Krankheitsverwaltung inkl. Resturlaubsberechnung
+- Urlaubs- und Krankheitsverwaltung inkl. Resturlaubsberechnung; sortier- und filterbare
+  Mitarbeiter- und Abwesenheitsuebersicht
+- Trennung von tatsaechlich geleisteten und angerechneten Stunden (Urlaubstage, "Sonstige"):
+  angerechnete Stunden zaehlen fuer den einzelnen Mitarbeiter, nicht fuer die Filialsumme
 - Druckexport im Layout der bisherigen Papierformulare
 - Unterstuetzung mehrerer Filialen
 - Keine Serveranbindung: alle Daten bleiben ausschliesslich lokal im Browser (IndexedDB), Transfer

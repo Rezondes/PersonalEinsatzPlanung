@@ -23,6 +23,7 @@ function employee(id: EmployeeId, lastName: string): Employee {
     jobTitle: 'Verkauf',
     employmentType: { type: 'FullTime', weeklyHours: 40 },
     vacationEntitlementPerYear: 30,
+    holidayVacationHours: 5,
     active: true,
     createdAt: '',
     updatedAt: '',

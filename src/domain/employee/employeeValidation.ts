@@ -8,7 +8,9 @@ export type EmployeeField =
   | 'weeklyHours'
   | 'minHours'
   | 'maxHours'
-  | 'vacationEntitlementPerYear';
+  | 'vacationEntitlementPerYear'
+  | 'holidayVacationHours'
+  | 'exitDate';
 
 /** EmploymentType with its numbers optional, so an unfinished form draft can be validated before
  * the numbers exist. A complete EmploymentType is assignable to this. */
@@ -22,6 +24,9 @@ export interface EmployeeDraft {
   jobTitle: string;
   employmentType: EmploymentTypeDraft;
   vacationEntitlementPerYear?: number;
+  holidayVacationHours?: number;
+  entryDate?: string;
+  exitDate?: string;
 }
 
 function isMissing(value: number | undefined): value is undefined {
@@ -71,6 +76,21 @@ export function validateEmployee(draft: EmployeeDraft): FieldError<EmployeeField
     errors.push({ field: 'vacationEntitlementPerYear', message: 'Bitte Urlaubsanspruch eingeben.' });
   } else if (draft.vacationEntitlementPerYear < 0) {
     errors.push({ field: 'vacationEntitlementPerYear', message: 'Darf nicht negativ sein.' });
+  }
+
+  // Required, because it decides how much a vacation day counts towards this employee's actual
+  // hours - 0 is a valid answer, but it has to be a deliberate one.
+  if (isMissing(draft.holidayVacationHours)) {
+    errors.push({ field: 'holidayVacationHours', message: 'Bitte Std. je Feier-/Urlaubstag eingeben.' });
+  } else if (draft.holidayVacationHours < 0) {
+    errors.push({ field: 'holidayVacationHours', message: 'Darf nicht negativ sein.' });
+  } else if (draft.holidayVacationHours > 24) {
+    errors.push({ field: 'holidayVacationHours', message: 'Höchstens 24 Stunden.' });
+  }
+
+  // Both dates are optional; only their order can be wrong. ISO strings compare correctly as text.
+  if (draft.entryDate && draft.exitDate && draft.exitDate < draft.entryDate) {
+    errors.push({ field: 'exitDate', message: 'Austrittsdatum darf nicht vor dem Eintrittsdatum liegen.' });
   }
 
   return errors;
