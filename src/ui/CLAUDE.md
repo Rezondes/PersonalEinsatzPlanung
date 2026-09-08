@@ -31,8 +31,10 @@ This applies to **every layer**, not just views: `ValidationResult.message` stri
 `domain/validation/arbzg/` are shown verbatim and follow the same rule (see
 `domain/validation/CLAUDE.md`). There are exactly three deliberate exceptions, all of them
 non-display values - do not "fix" them: the `value` of a native `<input type="date">`, the backup
-filename `pep-backup-YYYY-MM-DD.json` (sorts chronologically in a file manager), and the raw ISO
-build timestamp on the Einstellungen page (unambiguous and time-zone free for support questions).
+filename `pep-backup-YYYY-MM-DD_HH-MM-SS.json` (ISO order so it sorts chronologically in a file
+manager and in Google Drive; local time, not UTC, and hyphens in the time because Windows forbids
+":" in file names), and the raw ISO build timestamp on the Einstellungen page (unambiguous and
+time-zone free for support questions).
 
 - Every user-facing decimal number input MUST use `ui/components/DecimalTextField.tsx`, never a
   plain `TextField type="number"`. A native `type="number"` input enforces the browser's
@@ -106,6 +108,21 @@ Speichern. Every data-entry dialog follows the same pattern (see `EmployeeDialog
   locally), so the same code works in both. Verify any future `public/`-asset reference by running
   `GITHUB_ACTIONS=true npm run build` and grepping `dist/assets/*.js` for the filename - it must
   show the `/PersonalEinsatzPlanung/` prefix, matching `dist/index.html`'s own reference.
+
+## Google-Drive-Abschnitt in den Einstellungen
+
+`SettingsView`'s Drive section has three states, not two: restoring, connected, not connected. The
+restoring one exists because the access token is deliberately not persisted (see
+`infrastructure/CLAUDE.md`), so every reload - including the one `performImport` triggers right
+after an import - starts signed out and has to renew the authorisation silently on mount. Without
+the third state the user would see "Mit Google anmelden" for a moment and click it for nothing.
+
+Keep `restoreSession()` in the mount effect and `signIn()` in the click handler, never the other way
+round: the silent renewal needs no popup and would be blocked by nothing, while the visible dialog
+opens a popup and browsers only allow that inside a real click.
+
+A backup chosen from Drive is turned into a `File` and pushed through the **same** ConfirmDialog and
+`importAndReplace` path as a local file. There must stay exactly one place that replaces the dataset.
 
 ## Build-Kennung
 

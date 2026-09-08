@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
@@ -11,13 +11,18 @@ import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
 import TextField from '@mui/material/TextField';
+import Divider from '@mui/material/Divider';
 import Link from '@mui/material/Link';
 import DownloadOutlinedIcon from '@mui/icons-material/DownloadOutlined';
 import UploadOutlinedIcon from '@mui/icons-material/UploadOutlined';
 import DeleteForeverOutlinedIcon from '@mui/icons-material/DeleteForeverOutlined';
 import { services } from '@infrastructure/services';
 import { downloadFile, backupFilename, readDataFile } from '@infrastructure/export/fileAccess';
+import CloudUploadOutlinedIcon from '@mui/icons-material/CloudUploadOutlined';
+import CloudDownloadOutlinedIcon from '@mui/icons-material/CloudDownloadOutlined';
+import type { RemoteBackup } from '@application/ports/BackupStorage';
 import { ConfirmDialog } from '@ui/components/ConfirmDialog';
+import { DriveBackupDialog } from './DriveBackupDialog';
 import { APP_BUILD_TIME, APP_COMMIT, APP_VERSION } from '@ui/app/buildInfo';
 
 export function SettingsView() {
@@ -26,6 +31,97 @@ export function SettingsView() {
   const [confirmationText, setConfirmationText] = useState('');
   const [importFile, setImportFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [driveSignedIn, setDriveSignedIn] = useState(services.backupStorage.isSignedIn());
+  const [driveBusy, setDriveBusy] = useState(false);
+  const [drivePickerOpen, setDrivePickerOpen] = useState(false);
+  const driveAvailable = services.backupStorage.isConfigured();
+  // The token lives in memory only (see infrastructure/backup/googleIdentity.ts), so every reload
+  // starts signed out - including the one this very page triggers after an import. Renewing it
+  // silently here is what keeps the user from having to sign in again right after restoring a
+  // backup. Only "this user uses Drive" was remembered, never the token itself.
+  const [driveRestoring, setDriveRestoring] = useState(
+    () => driveAvailable && !services.backupStorage.isSignedIn() && services.backupStorage.wasConnected(),
+  );
+  // Whether the app still remembers this as a Drive user. Kept separately from driveSignedIn so the
+  // signed-out fallback can still offer a way out - otherwise someone who connected once and then
+  // let the authorisation lapse would have the Google script fetched on every single page load with
+  // no button anywhere to stop it.
+  const [driveRemembered, setDriveRemembered] = useState(() => services.backupStorage.wasConnected());
+
+  useEffect(() => {
+    if (!driveRestoring) {
+      return;
+    }
+    let cancelled = false;
+    void services.backupStorage
+      .restoreSession()
+      .catch(() => false)
+      .then((restored) => {
+        if (cancelled) {
+          return;
+        }
+        setDriveSignedIn(restored);
+        setDriveRestoring(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // Runs once: driveRestoring only ever goes from true to false, and the flag itself is the guard.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const reportDriveError = (error: unknown, fallback: string) =>
+    setMessage({ type: 'error', text: error instanceof Error ? error.message : fallback });
+
+  const connectDrive = async () => {
+    setDriveBusy(true);
+    try {
+      await services.backupStorage.signIn();
+      setDriveSignedIn(true);
+      setDriveRemembered(true);
+      setMessage({ type: 'success', text: 'Mit Google verbunden.' });
+    } catch (error) {
+      reportDriveError(error, 'Die Anmeldung bei Google ist fehlgeschlagen.');
+    } finally {
+      setDriveBusy(false);
+    }
+  };
+
+  const disconnectDrive = () => {
+    services.backupStorage.signOut();
+    setDriveSignedIn(false);
+    setDriveRemembered(false);
+    setMessage({ type: 'success', text: 'Verbindung zu Google getrennt.' });
+  };
+
+  const exportToDrive = async () => {
+    setDriveBusy(true);
+    try {
+      const file = await services.dataExport.export();
+      const saved = await services.backupStorage.upload(backupFilename(), file);
+      setMessage({ type: 'success', text: `„${saved.name}" wurde in Google Drive gesichert.` });
+    } catch (error) {
+      reportDriveError(error, 'Die Sicherung in Google Drive ist fehlgeschlagen.');
+    } finally {
+      setDriveBusy(false);
+    }
+  };
+
+  /** Downloads the chosen backup and routes it into the SAME confirmation and import path the
+   * local file uses, so there is only one place that replaces the dataset. */
+  const chooseDriveBackup = async (backup: RemoteBackup) => {
+    setDrivePickerOpen(false);
+    setDriveBusy(true);
+    try {
+      const rawData = await services.backupStorage.download(backup.id);
+      setImportFile(new File([JSON.stringify(rawData)], backup.name, { type: 'application/json' }));
+    } catch (error) {
+      reportDriveError(error, 'Die Sicherung konnte nicht geladen werden.');
+    } finally {
+      setDriveBusy(false);
+    }
+  };
+
 
   const exportData = async () => {
     const file = await services.dataExport.export();
@@ -97,6 +193,67 @@ export function SettingsView() {
             />
           </Button>
         </Stack>
+
+        {driveAvailable && (
+          <>
+            <Divider sx={{ my: 3 }} />
+            <Typography variant="subtitle1" fontWeight={500} sx={{ mb: 1 }}>
+              Google Drive
+            </Typography>
+            {driveRestoring ? (
+              <Typography variant="body2" color="text.secondary">
+                Verbindung zu Google wird wiederhergestellt…
+              </Typography>
+            ) : driveSignedIn ? (
+              <>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                  Sicherungen liegen in deinem Google Drive im Ordner „Personaleinsatzplanung“. Der Zugriff wird
+                  aus Sicherheitsgründen nicht gespeichert, sondern bei Bedarf still erneuert, solange du bei
+                  Google angemeldet bist.
+                </Typography>
+                <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap>
+                  <Button
+                    variant="outlined"
+                    startIcon={<CloudUploadOutlinedIcon />}
+                    onClick={exportToDrive}
+                    disabled={driveBusy}
+                  >
+                    In Google Drive sichern
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    startIcon={<CloudDownloadOutlinedIcon />}
+                    onClick={() => setDrivePickerOpen(true)}
+                    disabled={driveBusy}
+                  >
+                    Aus Google Drive laden
+                  </Button>
+                  <Button onClick={disconnectDrive} disabled={driveBusy}>
+                    Verbindung trennen
+                  </Button>
+                </Stack>
+              </>
+            ) : (
+              <>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                  {driveRemembered
+                    ? 'Google konnte den Zugriff nicht ohne Nachfrage erneuern. Melde dich einmal neu an, dann geht es wie gewohnt weiter. Willst du Google Drive gar nicht mehr nutzen, trenne die Verbindung: Danach nimmt die App von sich aus keine Verbindung mehr zu Google auf.'
+                    : 'Statt einer Datei kannst du dein Backup auch in deinem eigenen Google Drive ablegen und es auf einem anderen Gerät von dort laden. Erst beim Klick auf „Mit Google anmelden“ nimmt die App Verbindung zu Google auf. Die App sieht dabei ausschließlich die Sicherungen, die sie selbst angelegt hat.'}
+                </Typography>
+                <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap>
+                  <Button variant="outlined" onClick={connectDrive} disabled={driveBusy}>
+                    Mit Google anmelden
+                  </Button>
+                  {driveRemembered && (
+                    <Button onClick={disconnectDrive} disabled={driveBusy}>
+                      Google Drive nicht mehr verwenden
+                    </Button>
+                  )}
+                </Stack>
+              </>
+            )}
+          </>
+        )}
       </Paper>
 
       <Paper sx={{ p: 3, mb: 3 }}>
@@ -168,6 +325,10 @@ export function SettingsView() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {drivePickerOpen && (
+        <DriveBackupDialog onClose={() => setDrivePickerOpen(false)} onSelect={chooseDriveBackup} />
+      )}
 
       <ConfirmDialog
         open={!!importFile}

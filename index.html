@@ -8,10 +8,15 @@
       connect-src erlaubt bewusst nur 'self' plus localhost-WebSockets: Letzteres wird ausschließlich
       vom Vite-Dev-Server für Hot-Module-Reload benötigt (kein Effekt in der gebauten Produktionsversion,
       da dort kein Dev-Server läuft) und öffnet keine Verbindung zu externen/dritten Servern.
+
+      Die Einträge für accounts.google.com und googleapis.com öffnen ausschließlich die OPTIONALE
+      Sicherung in Google Drive. Ohne diese Funktion wird davon nichts benutzt: Das Google-Skript
+      wird erst geladen, wenn der Nutzer aktiv auf "Mit Google anmelden" klickt, siehe
+      infrastructure/backup/googleIdentity.ts. Bitte nicht weiter öffnen als hier nötig.
     -->
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; connect-src 'self' ws://localhost:* wss://localhost:*; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; font-src 'self' data:"
+      content="default-src 'self'; connect-src 'self' https://www.googleapis.com https://accounts.google.com ws://localhost:* wss://localhost:*; img-src 'self' data: https://*.googleusercontent.com; style-src 'self' 'unsafe-inline'; script-src 'self' https://accounts.google.com; frame-src https://accounts.google.com; font-src 'self' data:"
     />
     <title>Personaleinsatzplanung</title>
   </head>

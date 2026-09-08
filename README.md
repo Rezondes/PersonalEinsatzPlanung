@@ -23,6 +23,9 @@ lokale, datenschutzfreundliche Anwendung ohne Server-Backend.
 - Unterstuetzung mehrerer Filialen
 - Keine Serveranbindung: alle Daten bleiben ausschliesslich lokal im Browser (IndexedDB), Transfer
   nur per manuellem JSON-Export/-Import
+- Optionale Sicherung im eigenen Google Drive statt als Datei, fuer den Wechsel zwischen Geraeten.
+  Rein manuell und erst nach ausdruecklicher Anmeldung: ohne Klick auf "Mit Google anmelden" laedt
+  die App keinerlei Google-Code und nimmt keine Verbindung nach aussen auf
 
 - Automatische Build-Kennung (`DDMMYY.<Zeitstempel>`) unten rechts, damit jeder Screenshot den
   ausgelieferten Stand zeigt

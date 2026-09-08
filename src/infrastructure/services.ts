@@ -5,6 +5,7 @@ import { createRestPeriodCheckService } from '@application/schedule/restPeriodCh
 import { createAbsenceService } from '@application/absence/absenceService';
 import { createShiftTemplateService } from '@application/schedule/shiftTemplateService';
 import { createDataExportService } from '@application/export/dataExportService';
+import { GoogleDriveBackupStorage } from './backup/GoogleDriveBackupStorage';
 import { repositories } from './repositories';
 import { transaction } from './persistence/db';
 
@@ -19,4 +20,6 @@ export const services = {
   absence: createAbsenceService(repositories.absence),
   shiftTemplate: createShiftTemplateService(repositories.shiftTemplate),
   dataExport: createDataExportService({ ...repositories, transaction }),
+  // Optional remote destination for the backup, next to the local file download.
+  backupStorage: new GoogleDriveBackupStorage(),
 };

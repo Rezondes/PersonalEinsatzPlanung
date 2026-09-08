@@ -30,6 +30,32 @@ allowed to touch browser APIs.
 - German holidays are computed locally via the Meeus/Jones/Butcher Easter algorithm
   (`holidays/germanHolidays.ts`) plus a hardcoded federal-state table - deliberately no external
   holiday library/API (keeps the app fully offline, no network calls, GDPR-friendly).
-- CSP in `index.html` only allows `connect-src 'self' ws://localhost:*` - the websocket exception is
-  only for Vite's dev-server HMR and has zero effect in the production build. Do not widen this
-  without a real reason; it's load-bearing for the "no data leaves the browser" privacy guarantee.
+- `backup/` is the only outbound network code in the app: Google Drive as an **optional** second
+  destination for the very same JSON backup, behind the `application/ports/BackupStorage` port so
+  the UI never talks to Google and the whole flow is testable against a fake (`SettingsView.test.tsx`,
+  `DriveBackupDialog.test.tsx`). The real sign-in dialog cannot be automated - that one step is only
+  ever verified by hand. Four decisions here are load-bearing; none of them is an accident:
+  - **The Google script is loaded lazily**, on the first `requestAccessToken` call, i.e. when the
+    user actually clicks "Mit Google anmelden". Until then the app makes no request to Google at
+    all. This is what keeps `PrivacyView`'s promise true for everyone who does not use the feature -
+    do not move the `<script>` into `index.html` or preload it "for speed".
+  - **The access token lives in a module variable, never in `localStorage`.** A stored token is
+    readable by any XSS and is good for an hour of Drive access. What IS persisted is a single
+    boolean under `pep.drive.connected` ("this user uses Drive"), which is worth nothing to an
+    attacker but lets `restoreSession()` renew the authorisation silently after a reload. Without
+    that, the reload at the end of `SettingsView.performImport` would drop the user back to the
+    sign-in button immediately after they restored a backup - the exact bug this pair fixes.
+    `restoreSession()` is silent-only on purpose and therefore safe to call from an effect;
+    `signIn()` opens a popup and must stay inside a real click, or the browser blocks it.
+  - **Scope is `drive.file`**, the narrowest Drive scope: the app only ever sees files it created
+    itself, the rest of the Drive stays invisible to it. Anything wider drags in Google's expensive
+    security review. Backups go into a normal, visible folder `Personaleinsatzplanung`, not the
+    hidden app-data folder, so the user can see, tidy and download them by hand.
+  - **The client id in `googleConfig.ts` is public by design** (every browser app ships it) and may
+    stay in the repository. There is no client secret; this flow does not use one. An empty id makes
+    `isConfigured()` false and the feature disappears from the UI entirely.
+- CSP in `index.html` is `default-src 'self'` plus exactly what the Drive sign-in needs
+  (`accounts.google.com` for script and frame, `googleapis.com` for connect) and the localhost
+  websocket for Vite's dev-server HMR, which has zero effect in the production build. Do not widen
+  this without a real reason; it's load-bearing for the "no data leaves the browser" privacy
+  guarantee, which now reads "unless the user connects Drive themselves".
