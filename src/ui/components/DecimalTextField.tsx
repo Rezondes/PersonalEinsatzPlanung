@@ -2,8 +2,10 @@ import { useEffect, useState } from 'react';
 import TextField from '@mui/material/TextField';
 import type { TextFieldProps } from '@mui/material/TextField';
 
+/** Formats for the input box, not for display: no thousands grouping, because a grouped "25.000"
+ * contains a period that the input filter below would reject on the very next keystroke. */
 function formatComma(value: number): string {
-  return value.toLocaleString('de-DE');
+  return value.toLocaleString('de-DE', { useGrouping: false, maximumFractionDigits: 10 });
 }
 
 function parseCommaNumber(text: string): number | undefined {
@@ -30,7 +32,7 @@ type DecimalTextFieldProps = Omit<TextFieldProps, 'value' | 'onChange' | 'type'>
  * typed - otherwise a controlled round-trip would immediately strip a trailing "," or a lone "-"
  * the moment the parent re-renders with the parsed number.
  */
-export function DecimalTextField({ value, onChange, ...rest }: DecimalTextFieldProps) {
+export function DecimalTextField({ value, onChange, slotProps, ...rest }: DecimalTextFieldProps) {
   const [draft, setDraft] = useState(value != null ? formatComma(value) : '');
 
   useEffect(() => {
@@ -44,7 +46,9 @@ export function DecimalTextField({ value, onChange, ...rest }: DecimalTextFieldP
     <TextField
       {...rest}
       type="text"
-      inputMode="decimal"
+      // `inputMode` must reach the native <input>, not TextField's wrapper div, or mobile
+      // browsers never show the decimal keyboard.
+      slotProps={{ ...slotProps, htmlInput: { inputMode: 'decimal', ...slotProps?.htmlInput } }}
       value={draft}
       onChange={(e) => {
         const text = e.target.value;
