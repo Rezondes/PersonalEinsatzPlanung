@@ -9,6 +9,7 @@ import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import IconButton from '@mui/material/IconButton';
 import FormControlLabel from '@mui/material/FormControlLabel';
+import FormHelperText from '@mui/material/FormHelperText';
 import Checkbox from '@mui/material/Checkbox';
 import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
@@ -17,18 +18,30 @@ import Alert from '@mui/material/Alert';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import AddIcon from '@mui/icons-material/Add';
 import type { Shift } from '@domain/schedule/Shift';
-import { createShift } from '@domain/schedule/Shift';
-import { createBreak } from '@domain/schedule/Break';
-import { parseClockTime, clockTime } from '@domain/shared/ClockTime';
+import type { ShiftDraft, BreakDraft } from '@domain/schedule/shiftDraft';
+import {
+  SHIFT_LIST_FIELD,
+  breakFieldKey,
+  newBreakDraft,
+  newShiftDraft,
+  shiftDraftsToShifts,
+  shiftFieldKey,
+  shiftToDraft,
+  validateShiftDrafts,
+} from '@domain/schedule/shiftDraft';
 import type { DayEntry } from '@domain/schedule/EmployeeWeekAssignment';
 import { shiftNetMinutes, minutesToDecimalHours } from '@domain/schedule/scheduleCalculation';
 import type { Absence } from '@domain/absence/Absence';
+import { validateAbsence } from '@domain/absence/absenceValidation';
 import type { EmployeeId } from '@domain/shared/ids';
 import { validateBreaks } from '@domain/validation/arbzg/breakValidation';
 import { validateShiftDuration } from '@domain/validation/arbzg/shiftDurationValidation';
 import { validateDailyWorkingTime } from '@domain/validation/arbzg/maxWorkingTimeValidation';
+import { useFormValidation } from '@ui/hooks/useFormValidation';
 import { ConfirmDialog } from '@ui/components/ConfirmDialog';
 import { DecimalTextField } from '@ui/components/DecimalTextField';
+import { RequiredLegend } from '@ui/components/RequiredLegend';
+import { FormErrorNotice } from '@ui/components/FormErrorNotice';
 
 type Mode = 'Off' | 'Shift' | 'Vacation' | 'Illness' | 'Other';
 
@@ -36,6 +49,7 @@ interface DayEditorProps {
   open: boolean;
   onClose: () => void;
   onSave: (entry: DayEntry) => void;
+  /** For 'Other' the label is always a non-empty, trimmed string (validated before saving). */
   onAbsenceSave: (type: 'Vacation' | 'Illness' | 'Other', label?: string) => void;
   onAbsenceDelete: () => void;
   employeeId: EmployeeId;
@@ -57,6 +71,12 @@ function absenceTypeLabel(type: Absence['type']): string {
   }
 }
 
+/** A single draft parsed on its own, so each shift card can show its net hours while another
+ * card is still incomplete. */
+function parseShiftDraft(draft: ShiftDraft): Shift | null {
+  return validateShiftDrafts([draft]).length === 0 ? shiftDraftsToShifts([draft])[0] : null;
+}
+
 export function DayEditor({
   open,
   onClose,
@@ -71,104 +91,101 @@ export function DayEditor({
   absence,
 }: DayEditorProps) {
   const [mode, setMode] = useState<Mode>('Off');
-  const [shifts, setShifts] = useState<Shift[]>([]);
+  // Raw input values (see shiftDraft.ts): a cleared time field stays empty and gets marked,
+  // instead of being parsed away on every keystroke.
+  const [drafts, setDrafts] = useState<ShiftDraft[]>([]);
   const [label, setLabel] = useState('');
   const [showConfirmation, setShowConfirmation] = useState(false);
 
   const isSingleDayAbsence = !!absence && absence.from === date && absence.to === date;
   const isMultiDayAbsence = !!absence && !isSingleDayAbsence;
 
+  const validation = useFormValidation<string>(() => [
+    ...(mode === 'Other' ? validateAbsence({ employeeId, type: 'Other', from: date, to: date, label }) : []),
+    ...(mode === 'Shift' ? validateShiftDrafts(drafts) : []),
+  ]);
+  const { reset: resetValidation } = validation;
+
   useEffect(() => {
     if (!open) return;
+    resetValidation();
 
     if (isSingleDayAbsence && absence) {
       setMode(absence.type);
       setLabel(absence.type === 'Other' ? absence.label : '');
-      setShifts(entry.type === 'Shift' ? entry.shifts.map((s) => ({ ...s, breaks: [...s.breaks] })) : []);
+      setDrafts(entry.type === 'Shift' ? entry.shifts.map(shiftToDraft) : []);
     } else if (entry.type === 'Shift' && entry.shifts.length > 0) {
       setMode('Shift');
-      setShifts(entry.shifts.map((s) => ({ ...s, breaks: [...s.breaks] })));
+      setDrafts(entry.shifts.map(shiftToDraft));
       setLabel('');
     } else {
       // Free day: suggest work time with a default shift right away instead of
       // showing "Off" first, saving a click for new entries. If the user cancels, the day stays
       // free since nothing is saved here.
       setMode('Shift');
-      setShifts([createShift(clockTime('06:00'), clockTime('14:00'))]);
+      setDrafts([newShiftDraft()]);
       setLabel('');
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, entry, absence, date, isSingleDayAbsence]);
 
-  const addShift = () => {
-    setShifts((list) => [...list, createShift(parseClockTime('06:00')!, parseClockTime('14:00')!)]);
-  };
+  const addShift = () => setDrafts((list) => [...list, newShiftDraft()]);
+  const removeShift = (id: string) => setDrafts((list) => list.filter((s) => s.id !== id));
+  const updateShift = (id: string, change: Partial<ShiftDraft>) =>
+    setDrafts((list) => list.map((s) => (s.id === id ? { ...s, ...change } : s)));
 
-  const removeShift = (id: string) => {
-    setShifts((list) => list.filter((s) => s.id !== id));
-  };
-
-  const updateShift = (id: string, change: Partial<Shift>) => {
-    setShifts((list) => list.map((s) => (s.id === id ? { ...s, ...change } : s)));
-  };
-
-  const addBreak = (shiftId: string) => {
-    setShifts((list) =>
-      list.map((s) => (s.id === shiftId ? { ...s, breaks: [...s.breaks, createBreak(30)] } : s)),
-    );
-  };
-
-  const removeBreak = (shiftId: string, breakId: string) => {
-    setShifts((list) =>
+  const addBreak = (shiftId: string) =>
+    setDrafts((list) => list.map((s) => (s.id === shiftId ? { ...s, breaks: [...s.breaks, newBreakDraft()] } : s)));
+  const removeBreak = (shiftId: string, breakId: string) =>
+    setDrafts((list) =>
       list.map((s) => (s.id === shiftId ? { ...s, breaks: s.breaks.filter((b) => b.id !== breakId) } : s)),
     );
-  };
-
-  const updateBreak = (shiftId: string, breakId: string, change: { durationMinutes?: number; start?: string }) => {
-    setShifts((list) =>
+  const updateBreak = (shiftId: string, breakId: string, change: Partial<BreakDraft>) =>
+    setDrafts((list) =>
       list.map((s) =>
-        s.id === shiftId
-          ? {
-              ...s,
-              breaks: s.breaks.map((b) => {
-                if (b.id !== breakId) return b;
-                const start = change.start !== undefined ? parseClockTime(change.start) ?? undefined : b.start;
-                return { ...b, durationMinutes: change.durationMinutes ?? b.durationMinutes, start };
-              }),
-            }
-          : s,
+        s.id === shiftId ? { ...s, breaks: s.breaks.map((b) => (b.id === breakId ? { ...b, ...change } : b)) } : s,
       ),
     );
-  };
+
+  // Only complete drafts can be checked against ArbZG rules; while a field is still empty the
+  // field validation below blocks saving anyway.
+  const parsedShifts = useMemo(
+    () => (mode === 'Shift' && validateShiftDrafts(drafts).length === 0 ? shiftDraftsToShifts(drafts) : null),
+    [mode, drafts],
+  );
 
   // Live-validates the draft shifts against ArbZG rules before saving, so a clear legal violation
   // (severity "error") requires explicit confirmation - checked against the in-progress edit,
   // not the stale results from before the dialog opened.
   const liveErrors = useMemo(() => {
-    if (mode !== 'Shift') return [];
+    if (!parsedShifts) return [];
     const context = { employeeId, date };
-    const netMinutes = shifts.reduce((sum, s) => sum + shiftNetMinutes(s), 0);
+    const netMinutes = parsedShifts.reduce((sum, s) => sum + shiftNetMinutes(s), 0);
     return [
-      ...shifts.flatMap((s) => validateShiftDuration(s, context)),
-      ...validateBreaks(shifts, context),
+      ...parsedShifts.flatMap((s) => validateShiftDuration(s, context)),
+      ...validateBreaks(parsedShifts, context),
       ...validateDailyWorkingTime(netMinutes, context),
     ].filter((e) => e.severity === 'error');
-  }, [mode, shifts, employeeId, date]);
+  }, [parsedShifts, employeeId, date]);
 
   const actuallySave = () => {
     if (mode === 'Off') {
       if (isSingleDayAbsence) onAbsenceDelete();
       onSave({ type: 'Off' });
     } else if (mode === 'Shift') {
+      if (!parsedShifts) return;
       if (isSingleDayAbsence) onAbsenceDelete();
-      onSave({ type: 'Shift', shifts });
+      onSave({ type: 'Shift', shifts: parsedShifts });
     } else {
-      onAbsenceSave(mode, mode === 'Other' ? label || 'Sonstige Abwesenheit' : undefined);
+      onAbsenceSave(mode, mode === 'Other' ? label.trim() : undefined);
     }
     onClose();
   };
 
   const save = () => {
+    // Empty or invalid fields block saving and are shown at the field (unlike ArbZG results,
+    // which never block and only ask for confirmation below).
+    if (!validation.submit()) return;
     if (liveErrors.length > 0) {
       setShowConfirmation(true);
       return;
@@ -199,6 +216,8 @@ export function DayEditor({
     );
   }
 
+  const shiftListError = validation.fieldProps(SHIFT_LIST_FIELD);
+
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle>
@@ -207,7 +226,7 @@ export function DayEditor({
           {date}
         </Typography>
       </DialogTitle>
-      <DialogContent>
+      <DialogContent ref={validation.containerRef}>
         <ToggleButtonGroup
           exclusive
           value={mode}
@@ -221,6 +240,8 @@ export function DayEditor({
           <ToggleButton value="Illness">Krankheit</ToggleButton>
           <ToggleButton value="Other">Sonstige</ToggleButton>
         </ToggleButtonGroup>
+
+        {(mode === 'Shift' || mode === 'Other') && <RequiredLegend />}
 
         {mode === 'Off' && (
           <Typography variant="body2" color="text.secondary">
@@ -246,54 +267,54 @@ export function DayEditor({
         {mode === 'Other' && (
           <TextField
             label="Bezeichnung"
+            required
             placeholder="z. B. Fortbildung, Sonderurlaub"
             value={label}
             onChange={(e) => setLabel(e.target.value)}
-            helperText={`Trägt eine ganztägige Abwesenheit für ${employeeName} am ${date} ein.`}
             fullWidth
             sx={{ mb: 2 }}
+            {...validation.fieldProps('label', `Trägt eine ganztägige Abwesenheit für ${employeeName} am ${date} ein.`)}
           />
         )}
 
         {mode === 'Shift' && (
           <Stack spacing={2}>
-            {shifts.map((shift, index) => {
-              const netMinutes = shiftNetMinutes(shift);
+            {drafts.map((shift, index) => {
+              const parsed = parseShiftDraft(shift);
+              const netText = parsed ? minutesToDecimalHours(shiftNetMinutes(parsed)).toLocaleString('de-DE') : '–';
               return (
                 <Stack key={shift.id} spacing={1.5} sx={{ p: 2, border: '1px solid #e0e0dc', borderRadius: 2 }}>
                   <Stack direction="row" justifyContent="space-between" alignItems="center">
                     <Typography variant="subtitle2">
-                      Schicht {index + 1} · {minutesToDecimalHours(netMinutes).toLocaleString('de-DE')} Std. netto
+                      Schicht {index + 1} · {netText} Std. netto
                     </Typography>
-                    {shifts.length > 1 && (
+                    {drafts.length > 1 && (
                       <IconButton size="small" onClick={() => removeShift(shift.id)} aria-label="Schicht entfernen">
                         <DeleteOutlineIcon fontSize="small" />
                       </IconButton>
                     )}
                   </Stack>
 
-                  <Stack direction="row" spacing={2}>
+                  <Stack direction="row" spacing={2} alignItems="flex-start">
                     <TextField
                       label="Beginn"
                       type="time"
+                      required
                       value={shift.start}
-                      onChange={(e) => {
-                        const value = parseClockTime(e.target.value);
-                        if (value) updateShift(shift.id, { start: value });
-                      }}
+                      onChange={(e) => updateShift(shift.id, { start: e.target.value })}
                       InputLabelProps={{ shrink: true }}
                       fullWidth
+                      {...validation.fieldProps(shiftFieldKey(shift.id, 'start'))}
                     />
                     <TextField
                       label="Ende"
                       type="time"
+                      required
                       value={shift.end}
-                      onChange={(e) => {
-                        const value = parseClockTime(e.target.value);
-                        if (value) updateShift(shift.id, { end: value });
-                      }}
+                      onChange={(e) => updateShift(shift.id, { end: e.target.value })}
                       InputLabelProps={{ shrink: true }}
                       fullWidth
+                      {...validation.fieldProps(shiftFieldKey(shift.id, 'end'))}
                     />
                   </Stack>
                   <FormControlLabel
@@ -316,24 +337,27 @@ export function DayEditor({
                     </Typography>
                   )}
                   {shift.breaks.map((brk) => (
-                    <Stack key={brk.id} direction="row" spacing={1.5} alignItems="center">
+                    <Stack key={brk.id} direction="row" spacing={1.5} alignItems="flex-start">
                       <TextField
                         label="Beginn (optional)"
                         type="time"
                         size="small"
-                        value={brk.start ?? ''}
+                        value={brk.start}
                         onChange={(e) => updateBreak(shift.id, brk.id, { start: e.target.value })}
                         InputLabelProps={{ shrink: true }}
                         sx={{ width: 170 }}
+                        {...validation.fieldProps(breakFieldKey(brk.id, 'start'))}
                       />
                       <DecimalTextField
                         label="Dauer (Min.)"
                         size="small"
+                        required
                         value={brk.durationMinutes}
-                        onChange={(value) => updateBreak(shift.id, brk.id, { durationMinutes: value ?? 0 })}
+                        onChange={(value) => updateBreak(shift.id, brk.id, { durationMinutes: value })}
                         sx={{ width: 140 }}
+                        {...validation.fieldProps(breakFieldKey(brk.id, 'durationMinutes'))}
                       />
-                      <IconButton size="small" onClick={() => removeBreak(shift.id, brk.id)} aria-label="Pause entfernen">
+                      <IconButton size="small" onClick={() => removeBreak(shift.id, brk.id)} aria-label="Pause entfernen" sx={{ mt: 0.5 }}>
                         <DeleteOutlineIcon fontSize="small" />
                       </IconButton>
                     </Stack>
@@ -345,13 +369,15 @@ export function DayEditor({
               );
             })}
 
+            {shiftListError.error && <FormHelperText error>{shiftListError.helperText}</FormHelperText>}
             <Button size="small" startIcon={<AddIcon />} onClick={addShift} sx={{ alignSelf: 'flex-start' }}>
-              {shifts.length === 0 ? 'Schicht hinzufügen' : 'Weitere Schicht hinzufügen (Split-Shift)'}
+              {drafts.length === 0 ? 'Schicht hinzufügen' : 'Weitere Schicht hinzufügen (Split-Shift)'}
             </Button>
           </Stack>
         )}
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2 }}>
+        <FormErrorNotice errors={validation.errors} />
         <Button onClick={onClose}>Abbrechen</Button>
         <Button variant="contained" onClick={save}>
           Speichern

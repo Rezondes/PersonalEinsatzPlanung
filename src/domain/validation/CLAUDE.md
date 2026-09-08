@@ -49,5 +49,10 @@ federal-state knowledge of its own.
 
 ## Severity
 `"error"` = clear legal violation (UI red). `"warning"` = borderline/config-dependent (UI yellow).
-The app never hard-blocks saving - the Marktleiter stays responsible; violations are surfaced, not
-prevented.
+The app never hard-blocks saving on these results - the Marktleiter stays responsible; violations
+are surfaced, not prevented.
+
+This applies to ArbZG `ValidationResult`s only. Empty or implausible form fields are a different
+mechanism (`FieldError`, see `validation/FieldError.ts` and the per-aggregate `validate*` functions
+in `employee/`, `branch/`, `absence/`, `schedule/shiftDraft.ts`): those DO block saving and are
+shown at the field, because a missing Nachname is not a judgement call.

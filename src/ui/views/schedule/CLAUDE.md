@@ -12,6 +12,14 @@ saving if that produces any `severity: 'error'` result - matches the plan's "err
 explicit confirmation on save" rule. Needs `employeeId` (not just `employeeName`) as a prop
 for the validation context.
 
+Its state is `ShiftDraft[]` (`domain/schedule/shiftDraft.ts`), not `Shift[]`: time inputs are kept
+as the raw strings the user typed, so a cleared Beginn stays visibly empty and is flagged by
+`validateShiftDrafts` on Speichern (via `hooks/useFormValidation.ts`, see the "Forms and dialogs"
+section in `src/ui/CLAUDE.md`) instead of being silently discarded. Only complete drafts are
+parsed (`shiftDraftsToShifts`) for the ArbZG live check. Order in `save()`: field validation
+blocks first, then the ArbZG ConfirmDialog only asks. "Sonstige" requires a Bezeichnung; there is
+no "Sonstige Abwesenheit" fallback text anywhere anymore (`createAbsence` rejects an empty label).
+
 ## Gotchas
 
 - Clicking an empty ("Off") cell defaults straight into Arbeitszeit mode with one pre-filled

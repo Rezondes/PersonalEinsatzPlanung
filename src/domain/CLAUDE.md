@@ -14,6 +14,18 @@ Pure business rules for staff scheduling at a German supermarket chain - zero fr
 - Value objects are branded primitives (e.g. `ClockTime`, `BranchId`) or plain object literals + free
   functions, never classes. This keeps Dexie/JSON serialization ceremony-free.
 
+## Field validation
+- Form-level rules live next to their aggregate as pure functions returning `FieldError[]`
+  (`validation/FieldError.ts`): `employee/employeeValidation.ts`, `branch/branchValidation.ts`,
+  `absence/absenceValidation.ts`, `schedule/shiftDraft.ts`. `field` is the key the UI attaches the
+  German `message` to; keep messages short and plain ("Bitte Vornamen eingeben.").
+- The `create*` factories assert the same rules (`assertNoFieldErrors` -> `DomainValidationError`,
+  a `DomainError` subclass), so no service or import path can create what the dialog refuses.
+  Update paths and the JSON import deliberately do NOT re-validate: records stored before a rule
+  existed must stay editable, deactivatable and importable.
+- `shiftDraft.ts` is the DayEditor's in-progress shape (times as raw strings, numbers possibly
+  empty); `shiftDraftsToShifts` is the only way back to `Shift` and throws on invalid drafts.
+
 ## Language
 Code (types, functions, fields, file/folder names) is English. Comments are English. String
 **values** that are either shown verbatim in the UI with no separate label/translation function, or

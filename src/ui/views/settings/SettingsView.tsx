@@ -47,10 +47,16 @@ export function SettingsView() {
     }
   };
 
+  const closeDeleteDialog = () => {
+    setDeleteDialogOpen(false);
+    // Otherwise the typed confirmation would still be there the next time the dialog opens.
+    setConfirmationText('');
+  };
+
   const deleteAllData = async () => {
     if (confirmationText !== 'LÖSCHEN') return;
     await services.dataExport.deleteAllData();
-    setDeleteDialogOpen(false);
+    closeDeleteDialog();
     setMessage({ type: 'success', text: 'Alle Daten wurden gelöscht. Die Seite wird neu geladen.' });
     setTimeout(() => window.location.reload(), 1200);
   };
@@ -123,7 +129,7 @@ export function SettingsView() {
         </Button>
       </Paper>
 
-      <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)}>
+      <Dialog open={deleteDialogOpen} onClose={closeDeleteDialog}>
         <DialogTitle>Alle Daten wirklich löschen?</DialogTitle>
         <DialogContent>
           <Typography variant="body2" sx={{ mb: 2 }}>
@@ -137,7 +143,7 @@ export function SettingsView() {
           />
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={() => setDeleteDialogOpen(false)}>Abbrechen</Button>
+          <Button onClick={closeDeleteDialog}>Abbrechen</Button>
           <Button variant="contained" color="error" disabled={confirmationText !== 'LÖSCHEN'} onClick={deleteAllData}>
             Endgültig löschen
           </Button>

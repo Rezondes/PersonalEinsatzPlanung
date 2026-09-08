@@ -1,4 +1,6 @@
 import type { BranchId } from '@domain/shared/ids';
+import { assertNoFieldErrors } from '@domain/shared/DomainError';
+import { validateBranch } from './branchValidation';
 import { createId } from '@domain/shared/ids';
 import type { Address } from './Address';
 import { emptyAddress } from './Address';
@@ -45,6 +47,8 @@ export function createBranch(details: {
   address?: Address;
   logoBase64?: string | null;
 }): Branch {
+  // Same rules the dialog applies (branchValidation.ts); updates are deliberately not re-validated.
+  assertNoFieldErrors(validateBranch(details));
   const now = new Date().toISOString();
   return {
     id: createId<BranchId>(),

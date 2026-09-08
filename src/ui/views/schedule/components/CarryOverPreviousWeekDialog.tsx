@@ -170,6 +170,9 @@ export function CarryOverPreviousWeekDialog({
                         value={inputs[row.employee.id]}
                         onChange={(value) => setInputs((v) => ({ ...v, [row.employee.id]: value }))}
                         sx={{ width: 100 }}
+                        // No visible label (the column header is it), so name the field for
+                        // screen readers per row. Empty means 0 here, which is a valid choice.
+                        slotProps={{ htmlInput: { 'aria-label': `Übernehmen (Std.) ${fullName(row.employee)}` } }}
                       />
                     </TableCell>
                   </TableRow>

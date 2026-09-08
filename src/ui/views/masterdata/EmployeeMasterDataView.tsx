@@ -11,13 +11,6 @@ import TableRow from '@mui/material/TableRow';
 import Paper from '@mui/material/Paper';
 import IconButton from '@mui/material/IconButton';
 import Chip from '@mui/material/Chip';
-import Dialog from '@mui/material/Dialog';
-import DialogTitle from '@mui/material/DialogTitle';
-import DialogContent from '@mui/material/DialogContent';
-import DialogActions from '@mui/material/DialogActions';
-import TextField from '@mui/material/TextField';
-import MenuItem from '@mui/material/MenuItem';
-import Autocomplete from '@mui/material/Autocomplete';
 import Stack from '@mui/material/Stack';
 import Alert from '@mui/material/Alert';
 import AddIcon from '@mui/icons-material/Add';
@@ -28,7 +21,6 @@ import ChildCareOutlinedIcon from '@mui/icons-material/ChildCareOutlined';
 import type { Employee } from '@domain/employee/Employee';
 import { fullName } from '@domain/employee/Employee';
 import { employmentTypeLabel } from '@domain/employee/EmploymentType';
-import { JOB_TITLE_SUGGESTIONS } from '@domain/employee/jobTitleSuggestions';
 import { isMinor } from '@domain/validation/arbzg/youthProtection';
 import { services } from '@infrastructure/services';
 import { useSelectedBranch } from '@ui/hooks/useBranch';
@@ -36,117 +28,16 @@ import { useEmployeeList } from '@ui/hooks/useEmployeeList';
 import { useErrorSnackbar } from '@ui/hooks/useErrorSnackbar';
 import { ErrorSnackbar } from '@ui/components/ErrorSnackbar';
 import { ConfirmDialog } from '@ui/components/ConfirmDialog';
-import { DecimalTextField } from '@ui/components/DecimalTextField';
-
-type EmploymentTypeSelection = 'FullTime' | 'PartTime' | 'Minijob';
-
-interface FormState {
-  id: string | null;
-  lastName: string;
-  firstName: string;
-  jobTitle: string;
-  type: EmploymentTypeSelection;
-  weeklyHours: number | undefined;
-  minHours: number | undefined;
-  maxHours: number | undefined;
-  vacationEntitlementPerYear: number | undefined;
-  birthDate: string;
-}
-
-function emptyForm(): FormState {
-  return {
-    id: null,
-    lastName: '',
-    firstName: '',
-    jobTitle: '',
-    type: 'PartTime',
-    weeklyHours: undefined,
-    minHours: undefined,
-    maxHours: undefined,
-    vacationEntitlementPerYear: 28,
-    birthDate: '',
-  };
-}
-
-function formFromEmployee(emp: Employee): FormState {
-  const et = emp.employmentType;
-  return {
-    id: emp.id,
-    lastName: emp.lastName,
-    firstName: emp.firstName,
-    jobTitle: emp.jobTitle,
-    type: et.type,
-    weeklyHours: et.type !== 'Minijob' ? et.weeklyHours : undefined,
-    minHours: et.type === 'Minijob' ? et.minHours : undefined,
-    maxHours: et.type === 'Minijob' ? et.maxHours : undefined,
-    vacationEntitlementPerYear: emp.vacationEntitlementPerYear,
-    birthDate: emp.birthDate ?? '',
-  };
-}
+import { EmployeeDialog } from './EmployeeDialog';
 
 export function EmployeeMasterDataView() {
   const { branch } = useSelectedBranch();
   const { employeeList, loading, reload } = useEmployeeList(branch?.id ?? null);
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [form, setForm] = useState<FormState>(emptyForm());
-  const [saving, setSaving] = useState(false);
+  // null = closed; { employee: null } = "Neuer Mitarbeiter"; { employee } = edit. The dialog is
+  // mounted only while open so its form state starts fresh each time.
+  const [dialog, setDialog] = useState<{ employee: Employee | null } | null>(null);
   const [statusTarget, setStatusTarget] = useState<Employee | null>(null);
   const { error, report, reset } = useErrorSnackbar();
-
-  const openNewDialog = () => {
-    setForm(emptyForm());
-    setDialogOpen(true);
-  };
-
-  const openEditDialog = (emp: Employee) => {
-    setForm(formFromEmployee(emp));
-    setDialogOpen(true);
-  };
-
-  const save = async () => {
-    if (!branch || !form.lastName.trim() || !form.firstName.trim()) {
-      return;
-    }
-
-    const employmentType =
-      form.type === 'Minijob'
-        ? { type: 'Minijob' as const, minHours: form.minHours ?? 0, maxHours: form.maxHours ?? 0 }
-        : { type: form.type, weeklyHours: form.weeklyHours ?? 0 };
-
-    setSaving(true);
-    try {
-      if (form.id) {
-        const existing = employeeList.find((emp) => emp.id === form.id);
-        if (existing) {
-          await services.employee.update({
-            ...existing,
-            lastName: form.lastName,
-            firstName: form.firstName,
-            jobTitle: form.jobTitle,
-            employmentType,
-            vacationEntitlementPerYear: form.vacationEntitlementPerYear ?? 0,
-            birthDate: form.birthDate || undefined,
-          });
-        }
-      } else {
-        await services.employee.create({
-          branchId: branch.id,
-          lastName: form.lastName,
-          firstName: form.firstName,
-          jobTitle: form.jobTitle,
-          employmentType,
-          vacationEntitlementPerYear: form.vacationEntitlementPerYear ?? 0,
-          birthDate: form.birthDate || undefined,
-        });
-      }
-      setDialogOpen(false);
-      await reload();
-    } catch (e) {
-      report(e, 'Mitarbeiter konnte nicht gespeichert werden');
-    } finally {
-      setSaving(false);
-    }
-  };
 
   const changeStatus = async () => {
     if (!statusTarget) return;
@@ -170,7 +61,7 @@ export function EmployeeMasterDataView() {
         <Typography variant="h5" fontWeight={500}>
           Mitarbeiter · {branch.name}
         </Typography>
-        <Button variant="outlined" startIcon={<AddIcon />} onClick={openNewDialog}>
+        <Button variant="outlined" startIcon={<AddIcon />} onClick={() => setDialog({ employee: null })}>
           Neuer Mitarbeiter
         </Button>
       </Stack>
@@ -228,7 +119,7 @@ export function EmployeeMasterDataView() {
                     <Chip size="small" label={emp.active ? 'Aktiv' : 'Inaktiv'} color={emp.active ? 'success' : 'default'} />
                   </TableCell>
                   <TableCell align="right">
-                    <IconButton size="small" onClick={() => openEditDialog(emp)} aria-label={`${fullName(emp)} bearbeiten`}>
+                    <IconButton size="small" onClick={() => setDialog({ employee: emp })} aria-label={`${fullName(emp)} bearbeiten`}>
                       <EditOutlinedIcon fontSize="small" />
                     </IconButton>
                     <IconButton
@@ -246,94 +137,15 @@ export function EmployeeMasterDataView() {
         </Table>
       </TableContainer>
 
-      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>{form.id ? 'Mitarbeiter bearbeiten' : 'Neuer Mitarbeiter'}</DialogTitle>
-        <DialogContent>
-          <Stack spacing={2} sx={{ mt: 1 }}>
-            <Stack direction="row" spacing={2}>
-              <TextField
-                label="Vorname"
-                value={form.firstName}
-                onChange={(e) => setForm((f) => ({ ...f, firstName: e.target.value }))}
-                fullWidth
-              />
-              <TextField
-                label="Nachname"
-                value={form.lastName}
-                onChange={(e) => setForm((f) => ({ ...f, lastName: e.target.value }))}
-                fullWidth
-              />
-            </Stack>
-
-            <Autocomplete
-              freeSolo
-              options={[...JOB_TITLE_SUGGESTIONS]}
-              value={form.jobTitle}
-              onInputChange={(_, value) => setForm((f) => ({ ...f, jobTitle: value }))}
-              renderInput={(params) => <TextField {...params} label="Tätigkeit" />}
-            />
-
-            <TextField
-              select
-              label="Beschäftigungsart"
-              value={form.type}
-              onChange={(e) => setForm((f) => ({ ...f, type: e.target.value as EmploymentTypeSelection }))}
-            >
-              <MenuItem value="FullTime">Vollzeit</MenuItem>
-              <MenuItem value="PartTime">Teilzeit</MenuItem>
-              <MenuItem value="Minijob">Geringfügig beschäftigt (Minijob)</MenuItem>
-            </TextField>
-
-            {form.type === 'Minijob' ? (
-              <Stack direction="row" spacing={2}>
-                <DecimalTextField
-                  label="Min. Std./Woche"
-                  value={form.minHours}
-                  onChange={(value) => setForm((f) => ({ ...f, minHours: value }))}
-                  fullWidth
-                />
-                <DecimalTextField
-                  label="Max. Std./Woche"
-                  value={form.maxHours}
-                  onChange={(value) => setForm((f) => ({ ...f, maxHours: value }))}
-                  fullWidth
-                />
-              </Stack>
-            ) : (
-              <DecimalTextField
-                label="Wochenstunden"
-                value={form.weeklyHours}
-                onChange={(value) => setForm((f) => ({ ...f, weeklyHours: value }))}
-                fullWidth
-              />
-            )}
-
-            <Stack direction="row" spacing={2}>
-              <DecimalTextField
-                label="Urlaubsanspruch/Jahr (Tage)"
-                value={form.vacationEntitlementPerYear}
-                onChange={(value) => setForm((f) => ({ ...f, vacationEntitlementPerYear: value }))}
-                fullWidth
-              />
-              <TextField
-                label="Geburtsdatum (optional)"
-                type="date"
-                value={form.birthDate}
-                onChange={(e) => setForm((f) => ({ ...f, birthDate: e.target.value }))}
-                InputLabelProps={{ shrink: true }}
-                helperText="Nur für Jugendarbeitsschutz relevant"
-                fullWidth
-              />
-            </Stack>
-          </Stack>
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={() => setDialogOpen(false)}>Abbrechen</Button>
-          <Button variant="contained" onClick={save} disabled={saving}>
-            Speichern
-          </Button>
-        </DialogActions>
-      </Dialog>
+      {dialog && (
+        <EmployeeDialog
+          branchId={branch.id}
+          employee={dialog.employee}
+          onClose={() => setDialog(null)}
+          onSaved={reload}
+          onError={report}
+        />
+      )}
 
       <ConfirmDialog
         open={!!statusTarget}

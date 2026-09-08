@@ -1,6 +1,8 @@
 import type { BranchId, EmployeeId } from '@domain/shared/ids';
 import { createId } from '@domain/shared/ids';
 import type { EmploymentType } from './EmploymentType';
+import { assertNoFieldErrors } from '@domain/shared/DomainError';
+import { validateEmployee } from './employeeValidation';
 
 export interface Employee {
   id: EmployeeId;
@@ -27,6 +29,9 @@ export function createEmployee(details: {
   vacationEntitlementPerYear: number;
   birthDate?: string;
 }): Employee {
+  // Field rules live in employeeValidation.ts; enforced here too so no service or import path can
+  // create an employee the dialog would refuse. Updates are deliberately not re-validated.
+  assertNoFieldErrors(validateEmployee(details));
   const now = new Date().toISOString();
   return {
     id: createId<EmployeeId>(),

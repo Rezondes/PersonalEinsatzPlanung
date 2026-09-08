@@ -51,6 +51,8 @@ export function createDataExportService(repos: DataRepositories) {
         ]);
 
         await Promise.all([
+          // Saved through the repositories, not the create* factories, on purpose: a backup may
+          // predate today's field rules (e.g. an employee without job title) and must still import.
           ...file.data.branches.map((b) => repos.branch.save(b)),
           ...file.data.employees.map((e) => repos.employee.save(e)),
           ...file.data.weeklySchedules.map((w) => repos.weeklySchedule.save(w)),

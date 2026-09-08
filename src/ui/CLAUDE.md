@@ -46,6 +46,32 @@ different design system.
   `views/print/`) is a deliberate different, narrower format matching the paper form and is
   not part of this rule.
 
+## Forms and dialogs (required fields, validation)
+
+Primary users are not tech-savvy, so a dialog must never look like "nothing happened" after
+Speichern. Every data-entry dialog follows the same pattern (see `EmployeeDialog.tsx`,
+`BranchDialog.tsx`, `AbsenceDialog.tsx`, `DayEditor.tsx`):
+
+- Required fields get MUI's `required` prop (asterisk in the label); `components/RequiredLegend.tsx`
+  ("* Pflichtfeld") is rendered once as the first child of `DialogContent`. Optional fields say
+  "(optional)" in their label. A field is either one or the other, never unmarked.
+- The rules live in the domain layer next to the aggregate (`validateEmployee`, `validateBranch`,
+  `validateAbsence`, `validateShiftDrafts`) and return `FieldError[]`; the dialog only glues them
+  to inputs via `hooks/useFormValidation.ts`: `fieldProps(field)` spreads `error`/`helperText`
+  onto the field, `submit()` shows all errors, focuses the first invalid field and returns false.
+  Never write an inline guard like `if (!form.name) return;` - a silent return is exactly the bug
+  this pattern replaced.
+- Speichern stays enabled; it is never disabled because of missing input (a greyed-out button
+  gives no hint what is wrong). `components/FormErrorNotice.tsx` sits next to the buttons and
+  announces a failed attempt. Disable Speichern only while a save is in flight.
+- Errors appear only after the first Speichern attempt, then update live as the user types.
+  Dialogs are therefore mounted only while open (`{dialog && <XDialog … />}`), so the flag and
+  the form state reset by themselves; `DayEditor` stays mounted and calls `reset()` on open.
+- Legacy records that violate newer rules (e.g. an employee without Tätigkeit) still open
+  without errors; they are only flagged when the user presses Speichern.
+- ArbZG results are a different thing: they never block, they only ask for confirmation
+  (`DayEditor`'s ConfirmDialog). Empty/invalid fields do block.
+
 ## Gotchas
 
 - Print stylesheets need `!important` to reliably hide the `.print-action-bar` action bar

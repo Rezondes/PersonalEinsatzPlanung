@@ -1,6 +1,7 @@
 import type { AbsenceId, EmployeeId } from '@domain/shared/ids';
 import { createId } from '@domain/shared/ids';
-import { DomainError } from '@domain/shared/DomainError';
+import { assertNoFieldErrors } from '@domain/shared/DomainError';
+import { validateAbsence } from './absenceValidation';
 
 interface AbsenceBase {
   id: AbsenceId;
@@ -28,11 +29,18 @@ export type AbsenceInput = Absence extends infer U
     : never
   : never;
 
-/** Enforces the "to is not before from" invariant at the aggregate boundary, not only in UI forms -
- * a service-level or import-driven caller could otherwise construct an invalid date range. */
+/** Enforces the field rules (see absenceValidation.ts) at the aggregate boundary, not only in UI
+ * forms - a service-level or import-driven caller could otherwise construct an invalid date range
+ * or an "Other" absence without the label the schedule displays. */
 export function createAbsence(input: AbsenceInput): Absence {
-  if (input.to < input.from) {
-    throw new DomainError('"Bis" darf nicht vor "Von" liegen.');
-  }
+  assertNoFieldErrors(
+    validateAbsence({
+      employeeId: input.employeeId,
+      type: input.type,
+      from: input.from,
+      to: input.to,
+      label: input.type === 'Other' ? input.label : undefined,
+    }),
+  );
   return { ...input, id: createId<AbsenceId>(), createdAt: new Date().toISOString() } as Absence;
 }

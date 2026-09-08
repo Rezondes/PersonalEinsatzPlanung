@@ -133,7 +133,9 @@ export function ScheduleView() {
           type: 'Other',
           from: dayView.date,
           to: dayView.date,
-          label: label ?? 'Sonstige Abwesenheit',
+          // DayEditor only calls this with a non-empty label for 'Other'; createAbsence rejects an
+          // empty one, so nothing silently falls back to a placeholder text anymore.
+          label: label ?? '',
         });
       } else {
         await services.absence.create({ employeeId, type, from: dayView.date, to: dayView.date });
