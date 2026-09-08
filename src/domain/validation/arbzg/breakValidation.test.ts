@@ -86,3 +86,14 @@ describe('validateBreaks', () => {
     expect(errors(validateBreaks([morning, afternoon], context))).toHaveLength(0);
   });
 });
+
+describe('Meldungstexte (deutsche Schreibweise)', () => {
+  it('writes decimal hours with a German comma, never a point', () => {
+    // 6.5 h net without any break: over the 6 h threshold, so 30 min are required.
+    const shift = createShift(clockTime('06:00'), clockTime('12:30'));
+    const [error] = errors(validateBreaks([shift], context));
+    expect(error.message).toBe(
+      'Bei 6,5 Std. Arbeitszeit sind mind. 30 Min. Pause vorgeschrieben (angerechnet: 0 Min.).',
+    );
+  });
+});

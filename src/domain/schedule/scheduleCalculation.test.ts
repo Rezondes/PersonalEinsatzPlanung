@@ -8,6 +8,7 @@ import {
   minutesToDecimalHours,
   dayEntryNetMinutes,
   dayEntryWorkedMinutes,
+  formatHoursGerman,
   formatHoursRangeGerman,
   weekAssignmentNetMinutes,
 } from './scheduleCalculation';
@@ -105,5 +106,17 @@ describe('formatHoursRangeGerman', () => {
 
   it('renders a range when they differ', () => {
     expect(formatHoursRangeGerman(6 * 60, 10 * 60)).toBe('6-10');
+  });
+});
+
+describe('formatHoursGerman', () => {
+  it('uses a German comma for decimals', () => {
+    expect(formatHoursGerman(450)).toBe('7,5');
+    expect(formatHoursGerman(8 * 60 + 15)).toBe('8,25');
+  });
+
+  it('leaves whole hours and zero without a decimal part', () => {
+    expect(formatHoursGerman(8 * 60)).toBe('8');
+    expect(formatHoursGerman(0)).toBe('0');
   });
 });

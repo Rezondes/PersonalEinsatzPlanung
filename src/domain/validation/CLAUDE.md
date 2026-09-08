@@ -56,3 +56,22 @@ This applies to ArbZG `ValidationResult`s only. Empty or implausible form fields
 mechanism (`FieldError`, see `validation/FieldError.ts` and the per-aggregate `validate*` functions
 in `employee/`, `branch/`, `absence/`, `schedule/shiftDraft.ts`): those DO block saving and are
 shown at the field, because a missing Nachname is not a judgement call.
+
+## Formatierung in Meldungstexten
+
+The German number/date rule from `src/ui/CLAUDE.md` is **not a UI-only rule**. `ValidationResult.message`
+is shown to the user verbatim through three paths (the ValidationNotices panel, the per-cell tooltip in
+ScheduleTable, and the "Gesetzesverstoß trotzdem speichern?" dialog), so the same rule applies here:
+
+- Hours go through `formatHoursGerman` (`domain/schedule/scheduleCalculation.ts`), never a raw
+  `minutesToDecimalHours` - that renders `9.5` instead of `9,5`.
+- Dates go through `formatDateGerman`/`formatISODateGerman` (`domain/shared/DateFormat.ts`), never
+  `toISODate`. Both helpers live in the same layer, so there is no layering excuse for skipping them.
+
+`ValidationResult.date` is the one deliberate exception and stays ISO: it is a **key**, not a display
+value - `ScheduleTable` matches it against `` `${employeeId}|${date}` `` to find the right cell.
+
+This drifted once already: the rule was enforced in the views but never in `arbzg/`, and the ISO date
+in the shift-overlap message survived there until a user reported it. The message texts are pinned by
+tests now (`Meldungstexte (deutsche Schreibweise)` in each arbzg test file) - if you reword one, update
+the test with it.

@@ -1,8 +1,8 @@
 import { addDays, differenceInMinutes } from 'date-fns';
 import type { EmployeeId } from '@domain/shared/ids';
 import type { Shift } from '@domain/schedule/Shift';
-import { combineDateAndTime, toISODate } from '@domain/shared/DateFormat';
-import { minutesToDecimalHours } from '@domain/schedule/scheduleCalculation';
+import { combineDateAndTime, formatDateGerman, toISODate } from '@domain/shared/DateFormat';
+import { formatHoursGerman } from '@domain/schedule/scheduleCalculation';
 import type { ValidationResult } from '../ValidationResult';
 
 export const MIN_REST_PERIOD_MINUTES = 11 * 60;
@@ -46,7 +46,7 @@ export function validateRestPeriodSequence(
       results.push({
         rule: 'Schichtueberschneidung',
         severity: 'error',
-        message: `Schichten überschneiden sich am ${toISODate(current.start)}.`,
+        message: `Schichten überschneiden sich am ${formatDateGerman(current.start)}.`,
         employeeId: current.employeeId,
         date: toISODate(current.start),
       });
@@ -54,7 +54,7 @@ export function validateRestPeriodSequence(
       results.push({
         rule: 'ArbZG_5_Ruhezeit',
         severity: 'error',
-        message: `Nur ${minutesToDecimalHours(gap)} Std. Ruhezeit zwischen Schichtende (${formatClockTime(previous.end)}) und nächstem Schichtbeginn (${formatClockTime(current.start)}), gesetzlich vorgeschrieben sind mind. 11 Std.`,
+        message: `Nur ${formatHoursGerman(gap)} Std. Ruhezeit zwischen Schichtende (${formatClockTime(previous.end)}) und nächstem Schichtbeginn (${formatClockTime(current.start)}), gesetzlich vorgeschrieben sind mind. 11 Std.`,
         employeeId: current.employeeId,
         date: toISODate(current.start),
       });

@@ -11,6 +11,7 @@ import FormControlLabel from '@mui/material/FormControlLabel';
 import Checkbox from '@mui/material/Checkbox';
 import Alert from '@mui/material/Alert';
 import type { EmployeeId } from '@domain/shared/ids';
+import { toISODate } from '@domain/shared/DateFormat';
 import type { Employee } from '@domain/employee/Employee';
 import { fullName } from '@domain/employee/Employee';
 import { validateAbsence } from '@domain/absence/absenceValidation';
@@ -36,7 +37,9 @@ interface FormState {
 }
 
 function emptyForm(firstEmployeeId: string): FormState {
-  const today = new Date().toISOString().slice(0, 10);
+  // toISODate, not toISOString(): the latter is UTC, so during German summer time it would
+  // prefill tomorrow's date for anyone opening the dialog after 22:00 local.
+  const today = toISODate(new Date());
   return {
     employeeId: firstEmployeeId,
     type: 'Vacation',

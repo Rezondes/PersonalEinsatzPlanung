@@ -58,3 +58,24 @@ describe('validateRestPeriodSequence', () => {
     expect(validateRestPeriodSequence([friday, monday])).toHaveLength(0);
   });
 });
+
+describe('Meldungstexte (deutsche Schreibweise)', () => {
+  it('writes the date as DD.MM.YYYY and the hours with a comma', () => {
+    const yesterday = shiftToDated('2026-09-07', createShift(clockTime('06:00'), clockTime('14:00')), m1);
+    const today = shiftToDated('2026-09-08', createShift(clockTime('00:30'), clockTime('09:00')), m1);
+    const [result] = validateRestPeriodSequence([yesterday, today]);
+    expect(result.message).toBe(
+      'Nur 10,5 Std. Ruhezeit zwischen Schichtende (14:00) und nächstem Schichtbeginn (00:30), gesetzlich vorgeschrieben sind mind. 11 Std.',
+    );
+    // The date FIELD stays ISO on purpose - it is the key ScheduleTable matches a cell on.
+    expect(result.date).toBe('2026-09-08');
+  });
+
+  it('writes the overlap date in German, which is what the user reported as YYYY-MM-DD', () => {
+    const morning = shiftToDated('2026-09-07', createShift(clockTime('06:00'), clockTime('14:00')), m1);
+    const overlapping = shiftToDated('2026-09-07', createShift(clockTime('13:00'), clockTime('18:00')), m1);
+    const [result] = validateRestPeriodSequence([morning, overlapping]);
+    expect(result.message).toBe('Schichten überschneiden sich am 07.09.2026.');
+    expect(result.date).toBe('2026-09-07');
+  });
+});

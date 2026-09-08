@@ -27,6 +27,13 @@ different design system.
 
 ## German number/date formatting (mandatory, no exceptions)
 
+This applies to **every layer**, not just views: `ValidationResult.message` strings built in
+`domain/validation/arbzg/` are shown verbatim and follow the same rule (see
+`domain/validation/CLAUDE.md`). There are exactly three deliberate exceptions, all of them
+non-display values - do not "fix" them: the `value` of a native `<input type="date">`, the backup
+filename `pep-backup-YYYY-MM-DD.json` (sorts chronologically in a file manager), and the raw ISO
+build timestamp on the Einstellungen page (unambiguous and time-zone free for support questions).
+
 - Every user-facing decimal number input MUST use `ui/components/DecimalTextField.tsx`, never a
   plain `TextField type="number"`. A native `type="number"` input enforces the browser's
   locale-invariant period decimal separator regardless of page locale - setting/typing a

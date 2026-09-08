@@ -23,6 +23,7 @@ import {
 import type { DayEntry } from '@domain/schedule/EmployeeWeekAssignment';
 import { shiftNetMinutes, minutesToDecimalHours } from '@domain/schedule/scheduleCalculation';
 import type { Absence } from '@domain/absence/Absence';
+import { formatISODateGerman } from '@domain/shared/DateFormat';
 import { validateAbsence } from '@domain/absence/absenceValidation';
 import type { EmployeeId } from '@domain/shared/ids';
 import { validateBreaks } from '@domain/validation/arbzg/breakValidation';
@@ -196,13 +197,13 @@ export function DayEditor({
         <DialogTitle>
           {employeeName} · {day}
           <Typography variant="body2" color="text.secondary">
-            {date}
+            {formatISODateGerman(date)}
           </Typography>
         </DialogTitle>
         <DialogContent>
           <Alert severity="info">
             {employeeName} ist an diesem Tag im Rahmen eines mehrtägigen Eintrags ({absenceTypeLabel(absence.type)},{' '}
-            {absence.from} bis {absence.to}) abwesend. Bitte bearbeite oder lösche diesen Eintrag über den
+            {formatISODateGerman(absence.from)} bis {formatISODateGerman(absence.to)}) abwesend. Bitte bearbeite oder lösche diesen Eintrag über den
             Tab „Abwesenheiten“.
           </Alert>
         </DialogContent>
@@ -222,7 +223,7 @@ export function DayEditor({
       <DialogTitle>
         {employeeName} · {day}
         <Typography variant="body2" color="text.secondary">
-          {date}
+          {formatISODateGerman(date)}
         </Typography>
       </DialogTitle>
       <DialogContent ref={validation.containerRef}>
@@ -251,14 +252,14 @@ export function DayEditor({
 
         {mode === 'Vacation' && (
           <Alert severity="info" sx={{ mb: 2 }}>
-            Trägt für {employeeName} am {date} einen ganztägigen Urlaubstag ein. Halbtags-Urlaub oder
+            Trägt für {employeeName} am {formatISODateGerman(date)} einen ganztägigen Urlaubstag ein. Halbtags-Urlaub oder
             mehrtägige Zeiträume lassen sich im Tab „Abwesenheiten“ erfassen.
           </Alert>
         )}
 
         {mode === 'Illness' && (
           <Alert severity="info" sx={{ mb: 2 }}>
-            Trägt für {employeeName} am {date} einen Krankheitstag ein. Es werden bewusst keine Diagnose- oder
+            Trägt für {employeeName} am {formatISODateGerman(date)} einen Krankheitstag ein. Es werden bewusst keine Diagnose- oder
             Gesundheitsdetails erfasst.
           </Alert>
         )}
@@ -272,7 +273,7 @@ export function DayEditor({
               value={label}
               onChange={(e) => setLabel(e.target.value)}
               fullWidth
-              {...validation.fieldProps('label', `Trägt eine ganztägige Abwesenheit für ${employeeName} am ${date} ein.`)}
+              {...validation.fieldProps('label', `Trägt eine ganztägige Abwesenheit für ${employeeName} am ${formatISODateGerman(date)} ein.`)}
             />
             <DecimalTextField
               label="Stunden (optional)"

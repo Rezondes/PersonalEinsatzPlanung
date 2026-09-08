@@ -1,5 +1,5 @@
 import type { EmployeeId } from '@domain/shared/ids';
-import { minutesToDecimalHours } from '@domain/schedule/scheduleCalculation';
+import { formatHoursGerman } from '@domain/schedule/scheduleCalculation';
 import type { ValidationResult } from '../ValidationResult';
 
 export interface MaxWorkingTimeContext {
@@ -19,7 +19,7 @@ export function validateDailyWorkingTime(
       {
         rule: 'ArbZG_3_Hoechstarbeitszeit',
         severity: 'error',
-        message: `Tägliche Arbeitszeit von ${minutesToDecimalHours(netMinutes)} Std. überschreitet die gesetzlich zulässige Höchstgrenze von 10 Std.`,
+        message: `Tägliche Arbeitszeit von ${formatHoursGerman(netMinutes)} Std. überschreitet die gesetzlich zulässige Höchstgrenze von 10 Std.`,
         ...context,
       },
     ];
@@ -29,7 +29,7 @@ export function validateDailyWorkingTime(
       {
         rule: 'ArbZG_3_Hoechstarbeitszeit',
         severity: 'warning',
-        message: `Tägliche Arbeitszeit von ${minutesToDecimalHours(netMinutes)} Std. über 8 Std., muss innerhalb von 6 Kalendermonaten im Schnitt ausgeglichen werden (§3 ArbZG).`,
+        message: `Tägliche Arbeitszeit von ${formatHoursGerman(netMinutes)} Std. über 8 Std., muss innerhalb von 6 Kalendermonaten im Schnitt ausgeglichen werden (§3 ArbZG).`,
         ...context,
       },
     ];
@@ -47,7 +47,7 @@ export function validateWeeklyWorkingTime(
       {
         rule: 'ArbZG_Wochenarbeitszeit',
         severity: 'warning',
-        message: `Wochenarbeitszeit von ${minutesToDecimalHours(netMinutesWeek)} Std. über 48 Std.`,
+        message: `Wochenarbeitszeit von ${formatHoursGerman(netMinutesWeek)} Std. über 48 Std.`,
         ...context,
       },
     ];

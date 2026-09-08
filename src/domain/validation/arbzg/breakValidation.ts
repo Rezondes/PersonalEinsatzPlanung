@@ -1,6 +1,6 @@
 import type { EmployeeId } from '@domain/shared/ids';
 import type { Shift } from '@domain/schedule/Shift';
-import { shiftNetMinutes, minutesToDecimalHours } from '@domain/schedule/scheduleCalculation';
+import { shiftNetMinutes, formatHoursGerman } from '@domain/schedule/scheduleCalculation';
 import type { ValidationResult } from '../ValidationResult';
 
 export interface ArbZGConfiguration {
@@ -61,7 +61,7 @@ export function validateBreaks(
     results.push({
       rule: 'ArbZG_4_Mindestpause',
       severity: 'error',
-      message: `Bei ${minutesToDecimalHours(netMinutes)} Std. Arbeitszeit sind mind. ${requiredMinutes} Min. Pause vorgeschrieben (angerechnet: ${creditableMinutes} Min.).`,
+      message: `Bei ${formatHoursGerman(netMinutes)} Std. Arbeitszeit sind mind. ${requiredMinutes} Min. Pause vorgeschrieben (angerechnet: ${creditableMinutes} Min.).`,
       ...context,
     });
   }

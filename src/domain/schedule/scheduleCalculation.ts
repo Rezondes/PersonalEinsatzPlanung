@@ -48,13 +48,20 @@ export function minutesToDecimalHours(minutes: number): number {
   return Math.round((minutes / 60) * 100) / 100;
 }
 
+/** Minutes as German decimal hours: 450 -> "7,5". The single place that turns minutes into text,
+ * so a comma can never turn back into a point somewhere. Also used by the ArbZG messages in
+ * domain/validation/arbzg - the formatting rule in src/ui/CLAUDE.md is not a UI-only rule. */
+export function formatHoursGerman(minutes: number): string {
+  return minutesToDecimalHours(minutes).toLocaleString('de-DE');
+}
+
 /** Formats a minutes range as German decimal hours: a single number when both bounds are equal
  * (FullTime/PartTime), "6-10" when they differ (Minijob). Single place, so the Soll column, the
  * monthly overview and the branch tile can never drift apart in how they render a range. */
 export function formatHoursRangeGerman(minMinutes: number, maxMinutes: number): string {
-  const minText = minutesToDecimalHours(minMinutes).toLocaleString('de-DE');
+  const minText = formatHoursGerman(minMinutes);
   if (minMinutes === maxMinutes) {
     return minText;
   }
-  return `${minText}-${minutesToDecimalHours(maxMinutes).toLocaleString('de-DE')}`;
+  return `${minText}-${formatHoursGerman(maxMinutes)}`;
 }

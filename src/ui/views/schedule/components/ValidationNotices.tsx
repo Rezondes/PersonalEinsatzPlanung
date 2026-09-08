@@ -6,6 +6,7 @@ import AlertTitle from '@mui/material/AlertTitle';
 import Paper from '@mui/material/Paper';
 import Button from '@mui/material/Button';
 import ClickAwayListener from '@mui/material/ClickAwayListener';
+import { formatISODateGerman } from '@domain/shared/DateFormat';
 import type { ValidationResult } from '@domain/validation/ValidationResult';
 import type { Employee } from '@domain/employee/Employee';
 import { fullName } from '@domain/employee/Employee';
@@ -61,7 +62,7 @@ export function ValidationNotices({ results, employeeList }: ValidationNoticesPr
                 <Alert severity="error" key={`f-${i}`}>
                   <AlertTitle>
                     {employeeName(e.employeeId, employeeList)}
-                    {e.date ? ` · ${e.date}` : ''}
+                    {e.date ? ` · ${formatISODateGerman(e.date)}` : ''}
                   </AlertTitle>
                   {e.message}
                 </Alert>
@@ -70,7 +71,7 @@ export function ValidationNotices({ results, employeeList }: ValidationNoticesPr
                 <Alert severity="warning" key={`w-${i}`}>
                   <AlertTitle>
                     {employeeName(e.employeeId, employeeList)}
-                    {e.date ? ` · ${e.date}` : ''}
+                    {e.date ? ` · ${formatISODateGerman(e.date)}` : ''}
                   </AlertTitle>
                   {e.message}
                 </Alert>
