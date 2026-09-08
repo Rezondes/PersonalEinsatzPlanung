@@ -6,7 +6,6 @@ import Box from '@mui/material/Box';
 import Select from '@mui/material/Select';
 import MenuItem from '@mui/material/MenuItem';
 import Container from '@mui/material/Container';
-import StoreOutlinedIcon from '@mui/icons-material/StoreOutlined';
 import { useBranchList } from '@ui/hooks/useBranch';
 import { useBranchSelectionStore } from '@ui/app/store/branchSelectionStore';
 
@@ -36,10 +35,10 @@ export function AppShell() {
 
   return (
     <Box sx={{ minHeight: '100vh', backgroundColor: 'background.default' }}>
-      <AppBar position="static" color="transparent" sx={{ backgroundColor: '#ffffff' }}>
+      <AppBar position="sticky" color="transparent" sx={{ top: 0, backgroundColor: '#ffffff' }}>
         <Toolbar sx={{ gap: 3, flexWrap: 'wrap', py: 1 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <StoreOutlinedIcon sx={{ color: '#2f5d50' }} />
+            <Box component="img" src="/favicon.svg" alt="" sx={{ width: 24, height: 24 }} />
             <Typography variant="subtitle1" fontWeight={500}>
               Personaleinsatzplanung
             </Typography>

@@ -1,4 +1,5 @@
 import { Fragment } from 'react';
+import type { ReactNode } from 'react';
 import { WEEKDAYS, dateForWeekday } from '@domain/shared/CalendarWeek';
 import type { CalendarWeek, Weekday } from '@domain/shared/CalendarWeek';
 import type { Branch } from '@domain/branch/Branch';
@@ -22,6 +23,19 @@ function formatDateShort(date: Date): string {
   return `${String(date.getDate()).padStart(2, '0')}.${String(date.getMonth() + 1).padStart(2, '0')}.`;
 }
 
+function formatHours(value: number): string {
+  return value.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+/** Inserts a <wbr> right before every "/" so a long, space-less job title (e.g.
+ * "Filialverantwortliche/-r") gets a controlled wrap point there instead of overflowing its
+ * narrow print column - the break lands before the "/", so "/-r" wraps together onto the next line. */
+function renderJobTitle(jobTitle: string | undefined): ReactNode {
+  if (!jobTitle) return '';
+  const parts = jobTitle.split('/');
+  return parts.flatMap((part, i) => (i === 0 ? [part] : [<wbr key={i} />, `/${part}`]));
+}
+
 export function FullPartTimeForm({
   branch,
   calendarWeek,
@@ -37,7 +51,7 @@ export function FullPartTimeForm({
       <div className="print-header">
         <div className="print-header-meta">
           <p className="print-meta">geplanter Wochenumsatz: {plannedWeeklyRevenue != null ? `${plannedWeeklyRevenue.toLocaleString('de-DE')} €` : ''}</p>
-          <p className="print-meta">geplante Wochenstunden: {plannedWeeklyHours != null ? plannedWeeklyHours.toLocaleString('de-DE') : ''}</p>
+          <p className="print-meta">geplante Wochenstunden: {plannedWeeklyHours != null ? formatHours(plannedWeeklyHours) : ''}</p>
         </div>
         <p className="print-title">
           Personaleinsatzplanung (PEP): Voll- und Teilzeitkräfte (Aufbewahrungsfrist: nur aktueller Monat)
@@ -51,12 +65,12 @@ export function FullPartTimeForm({
 
       <table className="print-table">
         <colgroup>
-          <col style={{ width: '7%' }} />
-          <col style={{ width: '7%' }} />
+          <col style={{ width: '4%' }} />
+          <col style={{ width: '4%' }} />
           {slots.map((_, i) => (
             <Fragment key={i}>
-              <col style={{ width: `${86 / (COLUMNS_PER_SHEET * 2)}%` }} />
-              <col style={{ width: `${86 / (COLUMNS_PER_SHEET * 2)}%` }} />
+              <col style={{ width: `${92 / (COLUMNS_PER_SHEET * 2)}%` }} />
+              <col style={{ width: `${92 / (COLUMNS_PER_SHEET * 2)}%` }} />
             </Fragment>
           ))}
         </colgroup>
@@ -85,7 +99,7 @@ export function FullPartTimeForm({
             </th>
             {slots.map((s, i) => (
               <th key={i} colSpan={2}>
-                {s?.employee.jobTitle ?? ''}
+                {renderJobTitle(s?.employee.jobTitle)}
               </th>
             ))}
           </tr>
@@ -95,7 +109,7 @@ export function FullPartTimeForm({
             </th>
             {slots.map((s, i) => (
               <th key={i} colSpan={2}>
-                {s ? s.weeklyHours.toLocaleString('de-DE') : ''}
+                {s ? formatHours(s.weeklyHours) : ''}
               </th>
             ))}
           </tr>
@@ -115,7 +129,7 @@ export function FullPartTimeForm({
             <Fragment key={day}>
               <tr>
                 <td className="column-label">{formatDateShort(dateForWeekday(calendarWeek, day))}</td>
-                <td className="column-label">{dayTotals[day] > 0 ? dayTotals[day].toLocaleString('de-DE') : ''}</td>
+                <td className="column-label">{dayTotals[day] > 0 ? formatHours(dayTotals[day]) : ''}</td>
                 {slots.map((_, i) => (
                   <Fragment key={i}>
                     <td />
@@ -124,7 +138,7 @@ export function FullPartTimeForm({
                 ))}
               </tr>
               <tr>
-                <td className="column-label" colSpan={2}>
+                <td className="column-label weekday-label" colSpan={2}>
                   {day}
                 </td>
                 {slots.map((s, i) => (
@@ -135,7 +149,7 @@ export function FullPartTimeForm({
                 ))}
               </tr>
               <tr className="break-row">
-                <td className="column-label" colSpan={2}>
+                <td className="column-label pause-label" colSpan={2}>
                   Pause
                 </td>
                 {slots.map((s, i) => (
@@ -146,7 +160,7 @@ export function FullPartTimeForm({
                 ))}
               </tr>
               <tr className="break-row">
-                <td className="column-label" colSpan={2}>
+                <td className="column-label pause-label" colSpan={2}>
                   Pause
                 </td>
                 {slots.map((s, i) => (

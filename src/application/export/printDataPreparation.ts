@@ -14,7 +14,7 @@ export function formatDecimalHours(minutes: number): string {
   if (minutes === 0) {
     return '';
   }
-  return minutesToDecimalHours(minutes).toLocaleString('de-DE', { maximumFractionDigits: 2 });
+  return minutesToDecimalHours(minutes).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 function absenceAbbreviation(absence: Absence): string {
