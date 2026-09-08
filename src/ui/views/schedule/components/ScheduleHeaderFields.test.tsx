@@ -56,7 +56,7 @@ describe('ScheduleHeaderFields', () => {
     await waitFor(() => expect(onSaved).toHaveBeenCalledTimes(1));
     expect(saveMock).toHaveBeenCalledWith(expect.objectContaining({ plannedWeeklyRevenue: 25000, plannedWeeklyHours: 40 }));
     expect(onSaved).toHaveBeenCalledWith(expect.objectContaining({ plannedWeeklyRevenue: 25000, plannedWeeklyHours: 40 }));
-    expect(await screen.findByText('Gespeichert')).toBeInTheDocument();
+    expect(await screen.findByRole('status')).toHaveTextContent('Gespeichert');
   });
 
   it('reports a failed save with context instead of showing "Gespeichert"', async () => {
@@ -71,7 +71,7 @@ describe('ScheduleHeaderFields', () => {
     await waitFor(() =>
       expect(onError).toHaveBeenCalledWith(expect.any(Error), 'Kopfdaten konnten nicht gespeichert werden'),
     );
-    expect(screen.queryByText('Gespeichert')).not.toBeInTheDocument();
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
   });
 
   it('re-syncs its drafts when a different schedule is shown', () => {

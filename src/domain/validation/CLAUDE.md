@@ -29,9 +29,11 @@ already-assembled chronological list.
   (out of scope, too complex).
 
 Rest-period validation across week boundaries DOES account for absences as of the "deactivate
-not delete" fix round: `restPeriodCheckService.checkForEmployee` takes an `absences`
-parameter and runs `scheduleWithoutAbsentDays` on each loaded neighboring week before extracting
-shifts, so a stale shift next to a since-added vacation/sick day is no longer counted.
+not delete" fix round: `restPeriodCheckService.checkWeek(schedule, absences)` runs
+`scheduleWithoutAbsentDays` on the current week and on each loaded neighboring week before
+extracting shifts, so a stale shift next to a since-added vacation/sick day is no longer counted.
+It runs once per weekly schedule (loading the previous/next week a single time) and validates
+every employee from that in-memory data - not once per employee.
 
 ## Shift-duration sanity check
 `shiftDurationValidation.ts` is not an ArbZG paragraph - it catches a shift where end is at or

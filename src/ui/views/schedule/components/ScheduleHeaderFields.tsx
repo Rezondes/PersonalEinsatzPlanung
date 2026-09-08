@@ -66,7 +66,7 @@ export function ScheduleHeaderFields({ schedule, onSaved, onError }: ScheduleHea
         sx={{ width: 260 }}
       />
       {savedAt !== null && (
-        <Typography variant="caption" color="success.main" sx={{ alignSelf: 'center' }}>
+        <Typography role="status" variant="caption" color="success.main" sx={{ alignSelf: 'center' }}>
           Gespeichert
         </Typography>
       )}
