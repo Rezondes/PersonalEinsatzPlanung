@@ -18,6 +18,7 @@ import DeleteForeverOutlinedIcon from '@mui/icons-material/DeleteForeverOutlined
 import { services } from '@infrastructure/services';
 import { downloadFile, backupFilename, readDataFile } from '@infrastructure/export/fileAccess';
 import { ConfirmDialog } from '@ui/components/ConfirmDialog';
+import { APP_BUILD_TIME, APP_COMMIT, APP_VERSION } from '@ui/app/buildInfo';
 
 export function SettingsView() {
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -116,7 +117,8 @@ export function SettingsView() {
           Alle Daten löschen
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          Entfernt unwiderruflich alle Filialen, Mitarbeiter, Wochenpläne und Abwesenheiten aus diesem Browser.
+          Entfernt unwiderruflich alle Filialen, Mitarbeiter, Wochenpläne, Abwesenheiten und Schichtvorlagen aus
+          diesem Browser.
           Erstelle vorher ein Backup, falls du die Daten noch benötigst.
         </Typography>
         <Button
@@ -127,6 +129,23 @@ export function SettingsView() {
         >
           Alle Daten löschen
         </Button>
+      </Paper>
+
+      <Paper sx={{ p: 3, mt: 3 }}>
+        <Typography variant="subtitle1" fontWeight={500} sx={{ mb: 1 }}>
+          Version
+        </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          Kennung des installierten Stands. Sie steht auch klein unten rechts in der Ecke, damit sie auf
+          Screenshots mitkommt. Bei einer Rückfrage bitte diese Angaben mitschicken.
+        </Typography>
+        <Stack spacing={0.5} sx={{ fontFamily: 'monospace', fontSize: 14, userSelect: 'all' }}>
+          <span>Version: {APP_VERSION}</span>
+          {/* The raw ISO timestamp on purpose: unambiguous, time-zone free, and it sidesteps the
+              German date-format rules that apply to user-facing dates. */}
+          <span>Build: {APP_BUILD_TIME}</span>
+          <span>Commit: {APP_COMMIT || '-'}</span>
+        </Stack>
       </Paper>
 
       <Dialog open={deleteDialogOpen} onClose={closeDeleteDialog}>

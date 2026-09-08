@@ -1,6 +1,7 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'node:path';
+import { buildDefines } from './build/buildDefines';
 
 export default defineConfig({
   // GitHub Pages serves this as a project site under /PersonalEinsatzPlanung/, not the domain
@@ -10,6 +11,7 @@ export default defineConfig({
   // path from `import.meta.env.BASE_URL`, never a hardcoded root-relative string - see the
   // "Never hardcode a root-relative path" gotcha in src/ui/CLAUDE.md for why (a real bug once).
   base: process.env.GITHUB_ACTIONS ? '/PersonalEinsatzPlanung/' : '/',
+  define: buildDefines(),
   plugins: [react()],
   resolve: {
     alias: {

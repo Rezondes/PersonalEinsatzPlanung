@@ -24,6 +24,9 @@ lokale, datenschutzfreundliche Anwendung ohne Server-Backend.
 - Keine Serveranbindung: alle Daten bleiben ausschliesslich lokal im Browser (IndexedDB), Transfer
   nur per manuellem JSON-Export/-Import
 
+- Automatische Build-Kennung (`DDMMYY.<Zeitstempel>`) unten rechts, damit jeder Screenshot den
+  ausgelieferten Stand zeigt
+
 ## Tech-Stack
 
 React, TypeScript, Vite, Material UI, Dexie (IndexedDB), Zustand

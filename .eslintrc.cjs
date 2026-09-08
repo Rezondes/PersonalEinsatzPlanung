@@ -1,6 +1,12 @@
 module.exports = {
   root: true,
   env: { browser: true, es2022: true, node: true },
+  // Injected by vite.config.ts (see the define block there); without this no-undef flags them.
+  globals: {
+    __APP_BUILD_TIME__: 'readonly',
+    __APP_COMMIT__: 'readonly',
+    __APP_IS_CI__: 'readonly',
+  },
   extends: [
     'eslint:recommended',
     'plugin:@typescript-eslint/recommended',

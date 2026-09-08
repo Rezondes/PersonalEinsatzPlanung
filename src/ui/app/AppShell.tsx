@@ -1,5 +1,6 @@
 import { useLayoutEffect, useRef } from 'react';
 import { Outlet, NavLink } from 'react-router-dom';
+import { BuildVersionBadge } from '@ui/components/BuildVersionBadge';
 import AppBar from '@mui/material/AppBar';
 import Toolbar from '@mui/material/Toolbar';
 import Typography from '@mui/material/Typography';
@@ -102,6 +103,8 @@ export function AppShell() {
       <Container maxWidth="xl" sx={{ py: 3 }}>
         <Outlet />
       </Container>
+
+      <BuildVersionBadge />
     </Box>
   );
 }

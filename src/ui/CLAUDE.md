@@ -99,3 +99,28 @@ Speichern. Every data-entry dialog follows the same pattern (see `EmployeeDialog
   locally), so the same code works in both. Verify any future `public/`-asset reference by running
   `GITHUB_ACTIONS=true npm run build` and grepping `dist/assets/*.js` for the filename - it must
   show the `/PersonalEinsatzPlanung/` prefix, matching `dist/index.html`'s own reference.
+
+## Build-Kennung
+
+Every build carries an identity, generated automatically - `DDMMYY.<stamp>` in a real build
+(e.g. `080926.1ct3`), `dev.<stamp>` locally. The stamp is the second of the UTC day in base36,
+always exactly four characters, so it is unique within a day and sorts chronologically. Deliberately
+not semver: it names a build, it claims nothing about scope or compatibility. Nothing in
+`.github/workflows/deploy.yml` has to be maintained for it - the timestamp is taken while building,
+so every deploy gets a new one by itself.
+
+`build/buildDefines.ts` holds the injected values and is shared by `vite.config.ts` **and**
+`vitest.config.ts`; without it in the test config, importing `ui/app/buildInfo.ts` throws
+`__APP_BUILD_TIME__ is not defined`. Only RAW data is injected - the formatting lives in
+`ui/app/buildInfo.ts`, where Vitest can reach it, instead of in a config file outside the test run.
+
+**A new injected constant has to be made known in three places** or either the build or the lint
+breaks: `build/buildDefines.ts`, `src/vite-env.d.ts` (`tsc` runs before Vite in `npm run build`) and
+`.eslintrc.cjs` under `globals` (otherwise `no-undef` flags it). `ui/app/buildInfo.ts` is the only
+module that reads them.
+
+`components/BuildVersionBadge.tsx` pins the version to the bottom right corner so it is in frame on
+any screenshot, with `pointer-events: none` and `aria-hidden` so it never intercepts a click and
+never interrupts a screen reader. It renders from `AppShell`, which is why the print export at
+`/print/:scheduleId` (its own route outside the shell) stays clean. The readable copy, plus build
+time and commit, is on the Einstellungen page.
