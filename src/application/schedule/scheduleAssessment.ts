@@ -202,6 +202,15 @@ export function createWeekView(
   });
 }
 
+/** Whether this employee has anything recorded for the week: a shift, or an absence. Decides
+ * whether someone who may no longer be scheduled (inactive, or outside their employment period) is
+ * still shown - on screen read-only, in the print export as a column. */
+export function hasAnyEntry(view: Pick<EmployeeWeekView, 'days'>): boolean {
+  return view.days.some(
+    (day) => day.absence !== undefined || (day.entry.type === 'Shift' && day.entry.shifts.length > 0),
+  );
+}
+
 /** Returns a copy of the weekly schedule where days with an Absence are set to "Off". Used as the
  * basis for validation (ArbZG rules shouldn't check against leftover shifts on vacation/sick days). */
 export function scheduleWithoutAbsentDays(schedule: WeeklySchedule, absences: Absence[]): WeeklySchedule {

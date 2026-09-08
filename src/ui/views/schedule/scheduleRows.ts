@@ -2,6 +2,7 @@ import type { Weekday } from '@domain/shared/CalendarWeek';
 import type { Employee } from '@domain/employee/Employee';
 import { compareByLastName, isEmployedDuring, isEmployedOn } from '@domain/employee/Employee';
 import type { EmployeeWeekView } from '@application/schedule/scheduleAssessment';
+import { hasAnyEntry } from '@application/schedule/scheduleAssessment';
 
 /** Why a row cannot be edited. Drives the chip next to the name; `undefined` means editable. */
 export type RowLockReason = 'inactive' | 'notEmployed';
@@ -16,12 +17,6 @@ export interface ScheduleRow {
   /** Individual days outside the Eintritts-/Austrittsdatum, locked even inside an editable row
    * (e.g. someone who starts on Wednesday). */
   lockedDays: Weekday[];
-}
-
-function hasAnyEntry(view: EmployeeWeekView): boolean {
-  return view.days.some(
-    (day) => day.absence !== undefined || (day.entry.type === 'Shift' && day.entry.shifts.length > 0),
-  );
 }
 
 /**

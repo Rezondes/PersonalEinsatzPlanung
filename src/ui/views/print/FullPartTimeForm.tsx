@@ -176,7 +176,7 @@ export function FullPartTimeForm({
           ))}
           <tr>
             <td className="column-label" colSpan={2}>
-              <strong>Gesamtstunden</strong>
+              <strong>Gesamtstunden (gearbeitet)</strong>
             </td>
             {slots.map((s, i) => (
               <td key={i} colSpan={2}>

@@ -1,13 +1,14 @@
-import { WEEKDAYS } from '@domain/shared/CalendarWeek';
+import { WEEKDAYS, dateForWeekday, mondayOfWeek } from '@domain/shared/CalendarWeek';
 import type { Weekday } from '@domain/shared/CalendarWeek';
+import { toISODate } from '@domain/shared/DateFormat';
 import type { Employee } from '@domain/employee/Employee';
-import { compareByLastName } from '@domain/employee/Employee';
+import { compareByLastName, isEmployedDuring } from '@domain/employee/Employee';
 import type { WeeklySchedule } from '@domain/schedule/WeeklySchedule';
 import type { Absence } from '@domain/absence/Absence';
 import type { Break } from '@domain/schedule/Break';
 import type { Shift } from '@domain/schedule/Shift';
 import { minutesToDecimalHours } from '@domain/schedule/scheduleCalculation';
-import { createWeekView } from '@application/schedule/scheduleAssessment';
+import { createWeekView, hasAnyEntry } from '@application/schedule/scheduleAssessment';
 import type { DayView } from '@application/schedule/scheduleAssessment';
 
 export function formatDecimalHours(minutes: number): string {
@@ -141,9 +142,21 @@ export function preparePrintData(
     WEEKDAYS.map((day) => [day, 0]),
   ) as Record<Weekday, number>;
 
+  const weekStart = toISODate(mondayOfWeek(schedule.calendarWeek));
+  const weekEnd = toISODate(dateForWeekday(schedule.calendarWeek, 'Sonntag'));
+
   for (const assignment of weekView) {
     const employee = employeeList.find((e) => e.id === assignment.employeeId);
     if (!employee) {
+      continue;
+    }
+
+    // Same visibility rule as the on-screen grid (see ui/views/schedule/scheduleRows.ts): someone
+    // who may no longer be scheduled is only printed while they still carry entries. Without this,
+    // every deactivated employee would occupy one of the nine columns per sheet with an empty
+    // column and push real staff onto another sheet.
+    const plannable = employee.active && isEmployedDuring(employee, weekStart, weekEnd);
+    if (!plannable && !hasAnyEntry(assignment)) {
       continue;
     }
 

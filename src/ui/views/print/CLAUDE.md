@@ -28,3 +28,20 @@ divs when editing, removing them re-breaks title centering.
 `EMPLOYEES_PER_SHEET` pagination (chunks of 9) lives in `PrintPreviewView.tsx`; the two
 form components independently pad up to 9 again internally - both numbers must stay in sync
 at 9.
+
+## Welche Stunden auf dem Papier stehen
+
+The printed figures are **worked** hours throughout - the day cells, the per-weekday `dayTotals`
+row and the per-employee total. Hours credited without presence in the store (a vacation day worth
+`Employee.holidayVacationHours`, a "Sonstige" entry with `hoursPerDay`) are deliberately left out,
+for two reasons: this sheet is a duty roster of clock times, so a paid-but-absent figure in a time
+column would claim presence that did not happen; and the sheet has to add up in both directions,
+seven day cells to the row total and the columns to the Summe row. The row label therefore says
+"Gesamtstunden (gearbeitet)". The employee's full Ist-Wochenstunden including credited hours are an
+on-screen figure (weekly grid and Monatsübersicht), see `application/CLAUDE.md`.
+
+`preparePrintData` applies the same visibility rule as the on-screen grid (`hasAnyEntry` in
+`application/schedule/scheduleAssessment.ts`): an employee who may no longer be scheduled is only
+printed while they still carry entries for that week. Otherwise every deactivated employee would
+occupy one of the nine columns per sheet with an empty column and push real staff onto a second
+sheet. Covered by `application/export/printDataPreparation.test.ts`.
