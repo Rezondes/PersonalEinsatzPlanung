@@ -30,7 +30,9 @@ export function ConfirmDialog({
     <Dialog open={open} onClose={onCancel} maxWidth="xs" fullWidth>
       <DialogTitle>{title}</DialogTitle>
       <DialogContent>
-        <DialogContentText>{text}</DialogContentText>
+        {/* Freigegeben, weil hier die ArbZG-Verstoesse des DayEditors und die Warnungen vor
+            Import und Loeschung stehen - Text, den man beim Nachfragen kopieren koennen muss. */}
+        <DialogContentText data-selectable>{text}</DialogContentText>
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2 }}>
         <Button onClick={onCancel}>Abbrechen</Button>

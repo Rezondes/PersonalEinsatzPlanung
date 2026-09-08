@@ -19,6 +19,14 @@ const NAV_LINKS = [
   { path: '/branches', label: 'Filialen' },
 ];
 
+/**
+ * The class exists only so theme.ts can give these links a :active state. The global
+ * -webkit-tap-highlight-color: transparent removes the browser's own touch feedback, and these are
+ * bare anchors without MUI's ripple - without a replacement, tapping a nav entry on a tablet gives
+ * no feedback at all until the route swaps. Inline styles cannot carry a pseudo-class, hence a class.
+ */
+export const NAV_LINK_CLASS = 'pep-nav-link';
+
 const navLinkStyle = ({ isActive }: { isActive: boolean }) => ({
   color: isActive ? '#2f5d50' : '#4b4b47',
   fontWeight: isActive ? 500 : 400,
@@ -85,16 +93,16 @@ export function AppShell() {
 
           <Box sx={{ display: 'flex', gap: 1, flexGrow: 1, flexWrap: 'wrap' }}>
             {NAV_LINKS.map((link) => (
-              <NavLink key={link.path} to={link.path} style={navLinkStyle}>
+              <NavLink key={link.path} to={link.path} className={NAV_LINK_CLASS} style={navLinkStyle}>
                 {link.label}
               </NavLink>
             ))}
           </Box>
 
-          <NavLink to="/privacy" style={navLinkStyle}>
+          <NavLink to="/privacy" className={NAV_LINK_CLASS} style={navLinkStyle}>
             Datenschutz
           </NavLink>
-          <NavLink to="/settings" style={navLinkStyle}>
+          <NavLink to="/settings" className={NAV_LINK_CLASS} style={navLinkStyle}>
             Einstellungen
           </NavLink>
         </Toolbar>

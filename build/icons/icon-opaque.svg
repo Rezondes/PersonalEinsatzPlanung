@@ -1,0 +1,10 @@
+<!-- Erzeugungsvorlage, wird NICHT ausgeliefert. Siehe build/icons/README.md - Vorlage fuer apple-touch-icon. Die weissen Pfade sind woertlich aus public/favicon.svg uebernommen. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <!-- Randlos und ohne rx: iOS kann keine Transparenz im apple-touch-icon und legt sonst
+       Schwarz unter die abgerundeten Ecken. Die Rundung macht iOS selbst. -->
+  <rect width="24" height="24" fill="#2f5d50" />
+  <path d="M5 8.5 6 5h12l1 3.5" fill="none" stroke="#ffffff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+  <path d="M5 8.5a1.6 1.6 0 0 0 3.2 0 1.6 1.6 0 0 0 3.2 0 1.6 1.6 0 0 0 3.2 0 1.6 1.6 0 0 0 3.2 0" fill="none" stroke="#ffffff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+  <path d="M6 9v9.5h12V9" fill="none" stroke="#ffffff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+  <path d="M10 18.5v-4.5h4v4.5" fill="none" stroke="#ffffff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+</svg>

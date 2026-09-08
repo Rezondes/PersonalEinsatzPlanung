@@ -16,7 +16,18 @@ import Link from '@mui/material/Link';
 import DownloadOutlinedIcon from '@mui/icons-material/DownloadOutlined';
 import UploadOutlinedIcon from '@mui/icons-material/UploadOutlined';
 import DeleteForeverOutlinedIcon from '@mui/icons-material/DeleteForeverOutlined';
+import InstallMobileOutlinedIcon from '@mui/icons-material/InstallMobileOutlined';
 import { services } from '@infrastructure/services';
+import {
+  requestPersistentStorage,
+  storageDurability,
+  storageUsage,
+  type StorageDurability,
+  type StorageUsage,
+} from '@infrastructure/persistence/storagePersistence';
+import { useOnlineStatus } from '@ui/hooks/useOnlineStatus';
+import { useInstallPrompt } from '@ui/hooks/useInstallPrompt';
+import { isManualInstallPlatform, isStandalone, promptInstall } from '@ui/app/installPrompt';
 import { downloadFile, backupFilename, readDataFile } from '@infrastructure/export/fileAccess';
 import CloudUploadOutlinedIcon from '@mui/icons-material/CloudUploadOutlined';
 import CloudDownloadOutlinedIcon from '@mui/icons-material/CloudDownloadOutlined';
@@ -47,9 +58,36 @@ export function SettingsView() {
   // let the authorisation lapse would have the Google script fetched on every single page load with
   // no button anywhere to stop it.
   const [driveRemembered, setDriveRemembered] = useState(() => services.backupStorage.wasConnected());
+  const online = useOnlineStatus();
+  const installable = useInstallPrompt();
+  const [durability, setDurability] = useState<StorageDurability>('unsupported');
+  const [usage, setUsage] = useState<StorageUsage | null>(null);
+  const [installed] = useState(() => isStandalone());
 
   useEffect(() => {
-    if (!driveRestoring) {
+    void storageDurability().then(setDurability);
+    void storageUsage().then(setUsage);
+  }, []);
+
+  const askForDurableStorage = async () => {
+    const result = await requestPersistentStorage();
+    setDurability(result);
+    setMessage(
+      result === 'persistent'
+        ? { type: 'success', text: 'Der Browser bewahrt die Daten dieser App jetzt dauerhaft auf.' }
+        : {
+            type: 'error',
+            text: 'Der Browser hat den dauerhaften Speicher nicht gewährt. Installiere die App auf dem Startbildschirm, das genügt den meisten Browsern als Nachweis.',
+          },
+    );
+  };
+
+  useEffect(() => {
+    // Ohne Netz wuerde das Google-Skript ins Leere laufen und die Anzeige landete bei "Melde dich
+    // einmal neu an", was offline unmoeglich ist. driveRestoring bleibt der Wiederholungsschutz -
+    // es geht nur einmal von true auf false -, also ist ein erneuter Lauf beim Wiederverbinden
+    // genau der gewuenschte zweite Versuch.
+    if (!driveRestoring || !online) {
       return;
     }
     let cancelled = false;
@@ -66,9 +104,7 @@ export function SettingsView() {
     return () => {
       cancelled = true;
     };
-    // Runs once: driveRestoring only ever goes from true to false, and the flag itself is the guard.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [driveRestoring, online]);
 
   const reportDriveError = (error: unknown, fallback: string) =>
     setMessage({ type: 'error', text: error instanceof Error ? error.message : fallback });
@@ -200,6 +236,12 @@ export function SettingsView() {
             <Typography variant="subtitle1" fontWeight={500} sx={{ mb: 1 }}>
               Google Drive
             </Typography>
+            {!online && (
+              <Alert severity="info" sx={{ mb: 2 }}>
+                Ohne Internetverbindung ist Google Drive nicht erreichbar. Alles andere in dieser App
+                funktioniert weiter, auch der Export als Datei.
+              </Alert>
+            )}
             {driveRestoring ? (
               <Typography variant="body2" color="text.secondary">
                 Verbindung zu Google wird wiederhergestellt…
@@ -216,7 +258,7 @@ export function SettingsView() {
                     variant="outlined"
                     startIcon={<CloudUploadOutlinedIcon />}
                     onClick={exportToDrive}
-                    disabled={driveBusy}
+                    disabled={driveBusy || !online}
                   >
                     In Google Drive sichern
                   </Button>
@@ -224,7 +266,7 @@ export function SettingsView() {
                     variant="outlined"
                     startIcon={<CloudDownloadOutlinedIcon />}
                     onClick={() => setDrivePickerOpen(true)}
-                    disabled={driveBusy}
+                    disabled={driveBusy || !online}
                   >
                     Aus Google Drive laden
                   </Button>
@@ -241,7 +283,7 @@ export function SettingsView() {
                     : 'Statt einer Datei kannst du dein Backup auch in deinem eigenen Google Drive ablegen und es auf einem anderen Gerät von dort laden. Erst beim Klick auf „Mit Google anmelden“ nimmt die App Verbindung zu Google auf. Die App sieht dabei ausschließlich die Sicherungen, die sie selbst angelegt hat.'}
                 </Typography>
                 <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap>
-                  <Button variant="outlined" onClick={connectDrive} disabled={driveBusy}>
+                  <Button variant="outlined" onClick={connectDrive} disabled={driveBusy || !online}>
                     Mit Google anmelden
                   </Button>
                   {driveRemembered && (
@@ -256,6 +298,64 @@ export function SettingsView() {
         )}
       </Paper>
 
+
+      <Paper sx={{ p: 3, mb: 3 }}>
+        <Typography variant="subtitle1" fontWeight={500} sx={{ mb: 1 }}>
+          App & Speicher
+        </Typography>
+
+        {installed ? (
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Die App ist auf diesem Gerät installiert. Sie startet vom Startbildschirm aus und funktioniert auch
+            ohne Internetverbindung.
+          </Typography>
+        ) : (
+          <>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              Du kannst die Planung als App auf dem Gerät installieren. Sie startet dann ohne Browserleiste, ist
+              über ein eigenes Symbol erreichbar und funktioniert vollständig ohne Internetverbindung.
+              {isManualInstallPlatform() && !installable
+                ? ' Auf iPhone und iPad geht das über Safari: unten auf das Teilen-Symbol tippen und „Zum Home-Bildschirm“ wählen.'
+                : ''}
+            </Typography>
+            {installable && (
+              <Button
+                variant="outlined"
+                startIcon={<InstallMobileOutlinedIcon />}
+                onClick={() => void promptInstall()}
+                sx={{ mb: 2 }}
+              >
+                App installieren
+              </Button>
+            )}
+          </>
+        )}
+
+        <Divider sx={{ my: 2 }} />
+
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+          Dauerhafter Speicher:{' '}
+          {durability === 'persistent'
+            ? 'Ja. Der Browser bewahrt die Daten dieser App auf.'
+            : durability === 'best-effort'
+              ? 'Nein. Der Browser darf die Daten löschen, wenn der Speicher knapp wird.'
+              : 'Vom Browser nicht unterstützt.'}
+          {usage &&
+            ` Belegt: ${Math.max(1, Math.round(usage.usedBytes / 1024)).toLocaleString('de-DE')} KB.`}
+        </Typography>
+        {durability === 'best-effort' && (
+          <>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              Das ist wichtiger, als es klingt: Die Daten dieser App liegen nur auf diesem Gerät. Auf iPhone und
+              iPad räumt Safari den Speicher gewöhnlicher Webseiten nach sieben Tagen ohne Besuch weg,
+              installierte Apps sind davon ausgenommen. Erstelle unabhängig davon regelmäßig ein Backup.
+            </Typography>
+            <Button variant="outlined" onClick={askForDurableStorage}>
+              Dauerhaften Speicher anfordern
+            </Button>
+          </>
+        )}
+      </Paper>
       <Paper sx={{ p: 3, mb: 3 }}>
         <Typography variant="subtitle1" fontWeight={500} sx={{ mb: 1 }}>
           Datenschutz
@@ -296,7 +396,14 @@ export function SettingsView() {
           Kennung des installierten Stands. Sie steht auch klein unten rechts in der Ecke, damit sie auf
           Screenshots mitkommt. Bei einer Rückfrage bitte diese Angaben mitschicken.
         </Typography>
-        <Stack spacing={0.5} sx={{ fontFamily: 'monospace', fontSize: 14, userSelect: 'all' }}>
+        {/* data-selectable zusaetzlich zu userSelect: Es haelt auch das native Rechtsklick-Menue
+            offen, das sonst app-weit unterdrueckt wird - und "Kopieren" per Rechtsklick ist genau
+            der Griff, zu dem der Satz darueber auffordert. */}
+        <Stack
+          data-selectable
+          spacing={0.5}
+          sx={{ fontFamily: 'monospace', fontSize: 14, userSelect: 'all' }}
+        >
           <span>Version: {APP_VERSION}</span>
           {/* The raw ISO timestamp on purpose: unambiguous, time-zone free, and it sidesteps the
               German date-format rules that apply to user-facing dates. */}

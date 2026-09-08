@@ -23,6 +23,8 @@ lokale, datenschutzfreundliche Anwendung ohne Server-Backend.
 - Unterstuetzung mehrerer Filialen
 - Keine Serveranbindung: alle Daten bleiben ausschliesslich lokal im Browser (IndexedDB), Transfer
   nur per manuellem JSON-Export/-Import
+- Installierbar als App (Android, iOS, Windows) und danach vollstaendig offline nutzbar: Programm
+  und Schriftart liegen auf dem Geraet, es wird nichts nachgeladen
 - Optionale Sicherung im eigenen Google Drive statt als Datei, fuer den Wechsel zwischen Geraeten.
   Rein manuell und erst nach ausdruecklicher Anmeldung: ohne Klick auf "Mit Google anmelden" laedt
   die App keinerlei Google-Code und nimmt keine Verbindung nach aussen auf

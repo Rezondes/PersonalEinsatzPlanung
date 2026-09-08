@@ -6,7 +6,7 @@ import Stack from '@mui/material/Stack';
 const SECTIONS = [
   {
     title: 'Wo werden die Daten gespeichert?',
-    text: 'Alle Daten (Filialen, Mitarbeiter, Wochenpläne, Abwesenheiten, Schichtvorlagen) werden ausschließlich lokal im Browser dieses Geräts gespeichert (IndexedDB). Es gibt keinen Server der App, an den Daten übertragen werden, und die App funktioniert vollständig offline. Die einzige Ausnahme ist die optionale Sicherung in deinem eigenen Google Drive, die du unter „Einstellungen“ selbst auslöst.',
+    text: 'Alle Daten (Filialen, Mitarbeiter, Wochenpläne, Abwesenheiten, Schichtvorlagen) werden ausschließlich lokal im Browser dieses Geräts gespeichert (IndexedDB). Es gibt keinen Server der App, an den Daten übertragen werden, und die App funktioniert vollständig offline. Die einzige Ausnahme ist die optionale Sicherung in deinem eigenen Google Drive, die du unter „Einstellungen“ selbst auslöst. Wenn du die App auf dem Startbildschirm installierst, wird nur das Programm selbst auf dem Gerät abgelegt, damit es ohne Internetverbindung startet. Deine Daten sind davon nicht betroffen: Sie liegen ohnehin schon lokal und werden dabei nirgendwohin übertragen.',
   },
   {
     title: 'Wann verlassen Daten dieses Gerät?',
@@ -26,7 +26,7 @@ const SECTIONS = [
   },
   {
     title: 'Werden Nutzungsdaten oder Tracking-Informationen erhoben?',
-    text: 'Nein. Die App bindet keine Analyse- oder Tracking-Dienste ein und lädt keine externen Schriftarten nach. Der Anmeldecode von Google wird erst in dem Moment geladen, in dem du auf „Mit Google anmelden“ klickst. Ohne diesen Klick nimmt die App zu keinem fremden Server Verbindung auf.',
+    text: 'Nein. Die App bindet keine Analyse- oder Tracking-Dienste ein. Auch die Schriftart wird nicht nachgeladen, sondern ist Teil der App selbst, damit kein Schriftanbieter erfährt, wann du sie benutzt. Der Anmeldecode von Google wird erst in dem Moment geladen, in dem du auf „Mit Google anmelden“ klickst. Ohne diesen Klick nimmt die App zu keinem fremden Server Verbindung auf.',
   },
 ];
 
@@ -36,7 +36,9 @@ export function PrivacyView() {
       <Typography variant="h5" fontWeight={500} sx={{ mb: 3 }}>
         Datenschutzhinweise
       </Typography>
-      <Stack spacing={2}>
+      {/* Freigegeben: eine Datenschutzauskunft muss man kopieren, zitieren und weitergeben
+          koennen, ohne sie abzutippen. */}
+      <Stack spacing={2} data-selectable>
         {SECTIONS.map((section) => (
           <Paper key={section.title} sx={{ p: 3 }}>
             <Typography variant="subtitle1" fontWeight={500} sx={{ mb: 1 }}>

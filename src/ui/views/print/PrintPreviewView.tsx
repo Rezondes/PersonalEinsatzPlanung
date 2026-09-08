@@ -77,7 +77,9 @@ export function PrintPreviewView() {
   const minijobSheets = splitIntoGroups(minijobRows, EMPLOYEES_PER_SHEET);
 
   return (
-    <Box>
+    // Freigegeben: Die Druckansicht ist ein Dokument. Wer Zahlen daraus in eine Mail uebernimmt,
+    // soll sie markieren koennen statt sie abzuschreiben.
+    <Box data-selectable>
       <Stack direction="row" gap={2} className="print-action-bar" sx={{ p: 2 }}>
         <Button startIcon={<ArrowBackIcon />} onClick={() => navigate(-1)}>
           Zurück

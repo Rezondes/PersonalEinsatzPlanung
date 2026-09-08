@@ -4,6 +4,26 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+
+    <!--
+      PWA-Angaben. Das Manifest selbst erzeugt vite-plugin-pwa und hängt den <link> hier ein.
+      Die Farbe ist weiß, weil die Kopfleiste der App weiß ist: Eine grüne Android-Statusleiste
+      direkt über einem weißen Header sieht aus wie ein Darstellungsfehler.
+
+      iOS liest bis 16.4 kein display aus dem Manifest, deshalb zusätzlich die apple-Angaben.
+      mobile-web-app-capable ist der Nachfolger; apple-mobile-web-app-capable gilt als veraltet,
+      wird aber von älteren iOS-Versionen noch gebraucht, also beide.
+
+      Die Pfade dürfen hier ausnahmsweise mit / beginnen: Vite schreibt href von <link rel="icon">
+      und <link rel="apple-touch-icon"> durch die Asset-Pipeline auf base um. In .tsx-Dateien gilt
+      das NICHT, siehe die Regel in src/ui/CLAUDE.md.
+    -->
+    <meta name="theme-color" content="#ffffff" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Einsatzplan" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon-180x180.png" />
     <!--
       connect-src erlaubt bewusst nur 'self' plus localhost-WebSockets: Letzteres wird ausschließlich
       vom Vite-Dev-Server für Hot-Module-Reload benötigt (kein Effekt in der gebauten Produktionsversion,
@@ -13,6 +33,11 @@
       Sicherung in Google Drive. Ohne diese Funktion wird davon nichts benutzt: Das Google-Skript
       wird erst geladen, wenn der Nutzer aktiv auf "Mit Google anmelden" klickt, siehe
       infrastructure/backup/googleIdentity.ts. Bitte nicht weiter öffnen als hier nötig.
+
+      Für den Service Worker musste hier NICHTS geöffnet werden, das ist kein Versehen:
+      navigator.serviceWorker.register() fällt über worker-src auf script-src zurück, wo 'self'
+      bereits steht, und <link rel="manifest"> über manifest-src auf default-src 'self'. Ein
+      http-equiv-CSP gilt ohnehin nur für dieses Dokument, nicht für den Service Worker selbst.
     -->
     <meta
       http-equiv="Content-Security-Policy"

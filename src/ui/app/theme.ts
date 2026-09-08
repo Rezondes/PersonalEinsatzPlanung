@@ -1,5 +1,6 @@
 import { createTheme } from '@mui/material/styles';
 import { deDE } from '@mui/material/locale';
+import { SELECTABLE_SELECTOR } from './selectableText';
 
 /**
  * Custom, understated theme instead of MUI defaults: reduced elevation (no shadows), muted
@@ -18,10 +19,50 @@ export const theme = createTheme(
     },
     shape: { borderRadius: 8 },
     typography: {
-      fontFamily: '"Inter", "Roboto", "Helvetica", "Arial", sans-serif',
+      // "Inter Variable" ist der Familienname aus app/inter.css, wo die Schrift lokal deklariert
+      // wird. Der Rest ist die Notfallkette, falls die Datei einmal nicht laedt.
+      fontFamily: '"Inter Variable", "Inter", "Roboto", "Helvetica", "Arial", sans-serif',
       button: { textTransform: 'none', fontWeight: 500 },
     },
     components: {
+      /**
+       * What makes this feel like an app rather than a web page. CssBaseline is mounted in
+       * App.tsx above the router, so these rules also reach the print route, which lives outside
+       * AppShell.
+       */
+      MuiCssBaseline: {
+        styleOverrides: {
+          html: {
+            // Stops Chrome's pull-to-refresh from reloading the whole app mid-entry. It has to sit
+            // on html: the scrolling root is documentElement, and Chrome only propagates body's
+            // value to the viewport under conditions that do not hold here.
+            overscrollBehaviorY: 'contain',
+            // Removes the double-tap-to-zoom delay. NEVER 'none' - that would kill sideways
+            // scrolling on the wide weekly table and on the tool palette.
+            touchAction: 'manipulation',
+            WebkitTapHighlightColor: 'transparent',
+          },
+          body: {
+            overscrollBehaviorY: 'contain',
+            userSelect: 'none',
+            WebkitUserSelect: 'none',
+            // The iOS counterpart of the context menu (long press).
+            WebkitTouchCallout: 'none',
+          },
+          // The opt-out, see app/selectableText.ts. Both the prefixed and unprefixed property are
+          // required, and the value must be 'text', not 'auto': on iOS Safari 'auto' can resolve
+          // back to the inherited 'none', which leaves text fields impossible to type into.
+          [SELECTABLE_SELECTOR]: {
+            userSelect: 'text',
+            WebkitUserSelect: 'text',
+            WebkitTouchCallout: 'default',
+          },
+          // Prose we deliberately released reads as selectable before the user tries.
+          '[data-selectable]': { cursor: 'text' },
+          // Replaces the tap highlight we just removed; see NAV_LINK_CLASS in app/AppShell.tsx.
+          '.pep-nav-link:active': { backgroundColor: '#e0e8e5' },
+        },
+      },
       MuiPaper: {
         defaultProps: { elevation: 0 },
         styleOverrides: { root: { backgroundImage: 'none', border: '1px solid #e0e0dc' } },

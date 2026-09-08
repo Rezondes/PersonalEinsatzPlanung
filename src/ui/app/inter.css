@@ -1,0 +1,34 @@
+/*
+ * Inter, mitgeliefert statt nachgeladen.
+ *
+ * Warum ueberhaupt: theme.ts nennt "Inter" seit jeher als erste Schrift, geladen hat sie nie
+ * jemand - die App lief faktisch mit der jeweiligen Systemschrift und sah auf jedem Geraet anders
+ * aus. Eine Schrift von fonts.googleapis.com kommt nicht in Frage: Das waere ein Aufruf an einen
+ * fremden Server bei jedem Seitenaufruf, waere offline nicht verfuegbar und wuerde die Zusage in
+ * PrivacyView ("laedt keine externen Schriftarten nach") brechen.
+ *
+ * Warum eine eigene Regel statt der CSS-Datei des Pakets: Jede mitgelieferte CSS-Datei von
+ * @fontsource-variable/inter deklariert alle sieben Subsets (kyrillisch, griechisch,
+ * vietnamesisch, latin, latin-ext ...), zusammen 218 KB. Der Browser laedt davon zur Laufzeit dank
+ * unicode-range zwar nur latin, aber der Service Worker cacht beim Installieren alles vorab. Fuer
+ * eine rein deutsche App waeren das 170 KB Ballast bei der Installation. Geprueft: Der latin-Bereich
+ * unten deckt jedes einzelne der nicht-ASCII-Zeichen ab, die in den deutschen Texten dieser App
+ * vorkommen (Umlaute, scharfes s, die typografischen Anfuehrungszeichen und die Gedankenstriche).
+ *
+ * Der Pfad ist ein Paket-Specifier, keine Kopie unter public/: So laeuft die Datei durch Vites
+ * Asset-Pipeline, bekommt einen Hash und das base-Praefix. Eine Kopie unter public/ muesste
+ * absolut referenziert werden und waere auf GitHub Pages unter /PersonalEinsatzPlanung/ ein 404 -
+ * genau der Fehler, den src/ui/CLAUDE.md unter "Never hardcode a root-relative path" beschreibt.
+ *
+ * Ein einziger variabler Font deckt alle Schnitte ab (die App nutzt 400 und 500), deshalb genau
+ * eine Datei statt einer pro Gewicht. font-display: swap, damit Text sofort lesbar ist.
+ */
+@font-face {
+  font-family: 'Inter Variable';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url('@fontsource-variable/inter/files/inter-latin-wght-normal.woff2') format('woff2-variations');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304,
+    U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}

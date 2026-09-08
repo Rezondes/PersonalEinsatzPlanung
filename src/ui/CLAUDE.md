@@ -108,6 +108,17 @@ Speichern. Every data-entry dialog follows the same pattern (see `EmployeeDialog
   locally), so the same code works in both. Verify any future `public/`-asset reference by running
   `GITHUB_ACTIONS=true npm run build` and grepping `dist/assets/*.js` for the filename - it must
   show the `/PersonalEinsatzPlanung/` prefix, matching `dist/index.html`'s own reference.
+  **The same trap has two more shapes**, both of them silent:
+  - **Web app manifest.** `vite.config.ts`'s `manifest` block is written into
+    `manifest.webmanifest` verbatim; nothing rewrites it. `start_url`, `scope` and every icon `src`
+    are therefore **relative with no leading slash**, which resolves against the manifest's own URL
+    and is correct under both bases with one string. A leading `/` resolves against the origin and
+    404s in production - and it fails quietly: the app still installs, just with a blank icon.
+    Only `id` carries `base`, because it is defined to resolve against the origin.
+  - **`@font-face` src.** `app/inter.css` points at a package path
+    (`@fontsource-variable/inter/files/...`), so Vite hashes the file and prefixes it. A woff2
+    copied into `public/` could only be referenced absolutely, and CSS has no `BASE_URL` escape
+    hatch, so it would 404 on Pages and silently fall back to a system font.
 
 ## Google-Drive-Abschnitt in den Einstellungen
 
@@ -123,6 +134,47 @@ opens a popup and browsers only allow that inside a real click.
 
 A backup chosen from Drive is turned into a `File` and pushed through the **same** ConfirmDialog and
 `importAndReplace` path as a local file. There must stay exactly one place that replaces the dataset.
+
+## Progressive Web App
+
+The app is installable and runs fully offline; `vite-plugin-pwa` (Workbox) precaches the whole
+bundle. What matters when touching any of it:
+
+- **`app/UpdatePrompt.tsx` and the contextmenu hook are mounted from `App.tsx`, not `AppShell`.**
+  `/print/:scheduleId` is a top-level route outside the shell, so anything mounted in `AppShell`
+  unmounts on the way there - which for the update prompt would drop a pending update, and for the
+  right-click rule would leave a hole in a rule that is supposed to hold everywhere.
+- **The update is never applied on its own.** `registerType: 'prompt'` plus `skipWaiting: false`
+  and `clientsClaim: false` leave the new worker waiting until the user presses "Jetzt laden". This
+  is a data-entry app: a reload during an open DayEditor destroys what was typed. Do not "simplify"
+  those flags; the prompt becomes a lie the moment either is true.
+- **MUI's `Alert` renders its own close icon only when `action` is empty.** An `onClose` next to an
+  `action` is silently dead. `UpdatePrompt` therefore puts "Später" and "Jetzt laden" both inside
+  `action`.
+- **Right-click contract.** `hooks/useSuppressBrowserContextMenu.ts` calls `preventDefault()` and
+  nothing else. `views/schedule/ScheduleView.tsx` has its own document-level `contextmenu` listener
+  for the Kopieren/Einfügen menu, and the two coexist only because `preventDefault()` does not stop
+  other listeners. Never add `stopImmediatePropagation()` (what most "disable right click" snippets
+  do) - it would kill the schedule menu, and only sometimes, since the registration order of the
+  two flips at runtime. `return false` does nothing with `addEventListener` either.
+- **Selection and right-click share one list**, `app/selectableText.ts`. Released today: form
+  fields, anything with `role="alert"` (which covers every MUI Alert and `FormErrorNotice`), and
+  `[data-selectable]` (the privacy page, the version block, `ConfirmDialog`'s text, the print view).
+  On inputs the value must be `text` and must carry the `-webkit-` prefix: on iOS Safari a
+  `-webkit-user-select: none` on an ancestor makes fields **untypeable**, and `auto` can resolve
+  back to the inherited `none`.
+- **`printView.css` is no longer the only CSS file** - `app/inter.css` is the other one.
+- **`vite preview --port 5173` poisons the dev server.** The production service worker registers
+  for the origin, and afterwards `npm run dev` serves the stale precached bundle while HMR appears
+  broken for no visible reason. `npm run preview` uses 4173 for exactly that reason. Way out:
+  DevTools, Application, Service Workers, Unregister.
+- **Comments in `index.html` are for the source, not for visitors.** Vite ships them verbatim, so
+  anything written there is one "view source" away, internal file paths included. They still belong
+  next to what they explain (the CSP is exactly the line someone loosens without thinking, and the
+  reasoning beside it is what prevents that), so `build/stripHtmlComments.ts` removes them from the
+  built page instead. Write comments there freely; just do not expect them to stay private, and do
+  not move the plugin ahead of vite-plugin-pwa - it has to run after the manifest link is injected.
+- Icons are generated by hand, not at build time; see `build/icons/README.md`.
 
 ## Build-Kennung
 
