@@ -1,7 +1,14 @@
 import { describe, it, expect } from 'vitest';
 import type { EmployeeId } from '@domain/shared/ids';
 import { createAbsence } from './Absence';
-import { countWorkDays, countVacationDaysInYear, calculateRemainingVacation } from './vacationCalculation';
+import type { AbsenceId } from '@domain/shared/ids';
+import type { Absence } from './Absence';
+import {
+  countWorkDays,
+  countVacationDaysInYear,
+  calculateRemainingVacation,
+  remainingVacationByEmployee,
+} from './vacationCalculation';
 
 const m1 = 'm1' as EmployeeId;
 
@@ -71,5 +78,47 @@ describe('countVacationDaysInYear', () => {
 describe('calculateRemainingVacation', () => {
   it('subtracts taken days from the yearly entitlement', () => {
     expect(calculateRemainingVacation({ vacationEntitlementPerYear: 28 }, 10)).toBe(18);
+  });
+});
+
+describe('remainingVacationByEmployee', () => {
+  const m1 = 'm1' as EmployeeId;
+  const m2 = 'm2' as EmployeeId;
+
+  function vacation(employeeId: EmployeeId, from: string, to: string): Absence {
+    return { id: `${employeeId}-${from}` as AbsenceId, employeeId, type: 'Vacation', from, to, createdAt: '2026-01-01T00:00:00.000Z' };
+  }
+
+  it('attributes each absence to its own employee', () => {
+    const result = remainingVacationByEmployee(
+      [
+        { id: m1, vacationEntitlementPerYear: 30 },
+        { id: m2, vacationEntitlementPerYear: 28 },
+      ],
+      [
+        vacation(m1, '2026-03-02', '2026-03-06'), // Mon-Fri: 5 work days
+        vacation(m2, '2026-07-06', '2026-07-07'), // Mon-Tue: 2 work days
+        { ...vacation(m2, '2026-08-03', '2026-08-03'), type: 'Illness' }, // not vacation
+      ],
+      2026,
+    );
+
+    expect(result.get(m1)).toBe(25);
+    expect(result.get(m2)).toBe(26);
+  });
+
+  it('yields the full entitlement for an employee without absences', () => {
+    const result = remainingVacationByEmployee([{ id: m1, vacationEntitlementPerYear: 30 }], [], 2026);
+    expect(result.get(m1)).toBe(30);
+  });
+
+  it('ignores absences of employees that are not in the list', () => {
+    const result = remainingVacationByEmployee(
+      [{ id: m1, vacationEntitlementPerYear: 30 }],
+      [vacation(m2, '2026-03-02', '2026-03-06')],
+      2026,
+    );
+    expect(result.size).toBe(1);
+    expect(result.get(m1)).toBe(30);
   });
 });

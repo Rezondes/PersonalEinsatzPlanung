@@ -1,5 +1,6 @@
 import { eachDayOfInterval, getDay, parseISO } from 'date-fns';
 import type { Employee } from '@domain/employee/Employee';
+import type { EmployeeId } from '@domain/shared/ids';
 import { toISODate } from '@domain/shared/DateFormat';
 import type { Absence } from './Absence';
 
@@ -71,4 +72,35 @@ export function calculateRemainingVacation(
   daysTaken: number,
 ): number {
   return employee.vacationEntitlementPerYear - daysTaken;
+}
+
+/** Remaining vacation for many employees at once, from an already-loaded list of absences that may
+ * mix employees (e.g. everything for a Branch). Groups the list by employee first, so a view that
+ * already holds the Branch's absences in memory derives every employee's remaining days
+ * synchronously instead of issuing one repository query per employee. */
+export function remainingVacationByEmployee(
+  employees: Pick<Employee, 'id' | 'vacationEntitlementPerYear'>[],
+  absences: Absence[],
+  year: number,
+  isHoliday?: (isoDate: string) => boolean,
+): Map<EmployeeId, number> {
+  const absencesByEmployee = new Map<EmployeeId, Absence[]>();
+  for (const absence of absences) {
+    const list = absencesByEmployee.get(absence.employeeId);
+    if (list) {
+      list.push(absence);
+    } else {
+      absencesByEmployee.set(absence.employeeId, [absence]);
+    }
+  }
+
+  return new Map(
+    employees.map((employee) => [
+      employee.id,
+      calculateRemainingVacation(
+        employee,
+        countVacationDaysInYear(absencesByEmployee.get(employee.id) ?? [], year, isHoliday),
+      ),
+    ]),
+  );
 }

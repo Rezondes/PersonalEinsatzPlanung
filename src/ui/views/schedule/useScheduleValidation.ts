@@ -78,19 +78,12 @@ export function useScheduleValidation(
         sync.push(...validateWeeklyWorkingTime(weekNetMinutes, { employeeId: assignment.employeeId }));
       }
 
-      const restPeriodResults = await Promise.all(
-        schedule.employeeAssignments.map((assignment) =>
-          services.restPeriodCheck.checkForEmployee(
-            assignment.employeeId,
-            schedule.branchId,
-            schedule.calendarWeek,
-            absences,
-          ),
-        ),
-      );
+      // One call for the whole week: the service loads the neighbouring weeks once and validates
+      // every employee from in-memory data (see restPeriodCheckService).
+      const restPeriodResults = await services.restPeriodCheck.checkWeek(schedule, absences);
 
       if (!cancelled) {
-        setResults([...sync, ...restPeriodResults.flat()]);
+        setResults([...sync, ...restPeriodResults]);
       }
     }
 

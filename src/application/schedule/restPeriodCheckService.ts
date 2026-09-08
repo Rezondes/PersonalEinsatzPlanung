@@ -1,5 +1,4 @@
-import type { BranchId, EmployeeId } from '@domain/shared/ids';
-import type { CalendarWeek } from '@domain/shared/CalendarWeek';
+import type { EmployeeId } from '@domain/shared/ids';
 import { WEEKDAYS, dateForWeekday, previousCalendarWeek, nextCalendarWeek } from '@domain/shared/CalendarWeek';
 import { toISODate } from '@domain/shared/DateFormat';
 import type { WeeklySchedule } from '@domain/schedule/WeeklySchedule';
@@ -26,28 +25,36 @@ function extractDatedShifts(schedule: WeeklySchedule, employeeId: EmployeeId): D
   });
 }
 
-/** Checks the minimum rest period (§5 ArbZG) for an employee across week boundaries by
- * loading the previous/current/next week (a weekend night shift can extend
- * into the next week). `absences` clears out leftover Shift data on days now covered by an
- * Absence (same reasoning as scheduleWithoutAbsentDays's callers elsewhere) - without this, a
- * stale shift next to a since-added vacation/sick day would wrongly count toward the rest period. */
+/** Checks the minimum rest period (§5 ArbZG) across week boundaries for every employee of one
+ * weekly schedule - a weekend night shift can extend into the next week, so the previous and next
+ * week are consulted as well.
+ *
+ * Deliberately one call per week, not per employee: the neighbouring weeks are loaded from the
+ * repository exactly once and the absence overlay is applied once per schedule, then every
+ * employee's shift sequence is validated from that in-memory data. The earlier per-employee API
+ * re-read the same three schedules for each employee, so a branch with N employees cost 3N
+ * repository reads per validation run. `schedule` is the caller's current in-memory week rather
+ * than a fresh read, so the check never lags behind what is shown on screen.
+ *
+ * `absences` clears out leftover Shift data on days now covered by an Absence (same reasoning as
+ * scheduleWithoutAbsentDays's other callers) - without this, a stale shift next to a since-added
+ * vacation/sick day would wrongly count toward the rest period. */
 export function createRestPeriodCheckService(repo: WeeklyScheduleRepository) {
   return {
-    checkForEmployee: async (
-      employeeId: EmployeeId,
-      branchId: BranchId,
-      cw: CalendarWeek,
-      absences: Absence[] = [],
-    ): Promise<ValidationResult[]> => {
-      const weeks = [previousCalendarWeek(cw), cw, nextCalendarWeek(cw)];
-      const schedules = await Promise.all(weeks.map((w) => repo.findByBranchAndWeek(branchId, w)));
+    checkWeek: async (schedule: WeeklySchedule, absences: Absence[] = []): Promise<ValidationResult[]> => {
+      const { branchId, calendarWeek } = schedule;
+      const [previous, next] = await Promise.all([
+        repo.findByBranchAndWeek(branchId, previousCalendarWeek(calendarWeek)),
+        repo.findByBranchAndWeek(branchId, nextCalendarWeek(calendarWeek)),
+      ]);
 
-      const datedShifts = schedules
+      const cleaned = [previous, schedule, next]
         .filter((s): s is WeeklySchedule => s !== null)
-        .map((schedule) => scheduleWithoutAbsentDays(schedule, absences))
-        .flatMap((schedule) => extractDatedShifts(schedule, employeeId));
+        .map((s) => scheduleWithoutAbsentDays(s, absences));
 
-      return validateRestPeriodSequence(datedShifts);
+      return schedule.employeeAssignments.flatMap((assignment) =>
+        validateRestPeriodSequence(cleaned.flatMap((s) => extractDatedShifts(s, assignment.employeeId))),
+      );
     },
   };
 }

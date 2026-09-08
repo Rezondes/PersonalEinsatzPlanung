@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
@@ -7,7 +7,6 @@ import IconButton from '@mui/material/IconButton';
 import Button from '@mui/material/Button';
 import Alert from '@mui/material/Alert';
 import Paper from '@mui/material/Paper';
-import InputAdornment from '@mui/material/InputAdornment';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
@@ -42,8 +41,8 @@ import { useAbsences } from '@ui/hooks/useAbsences';
 import { useCalendarWeekStore } from '@ui/app/store/calendarWeekStore';
 import { useErrorSnackbar } from '@ui/hooks/useErrorSnackbar';
 import { ErrorSnackbar } from '@ui/components/ErrorSnackbar';
-import { DecimalTextField } from '@ui/components/DecimalTextField';
 import { ScheduleTable } from './components/ScheduleTable';
+import { ScheduleHeaderFields } from './components/ScheduleHeaderFields';
 import { DayEditor } from './components/DayEditor';
 import { ValidationNotices } from './components/ValidationNotices';
 import { WeekSelectionDialog } from './components/WeekSelectionDialog';
@@ -75,31 +74,7 @@ export function ScheduleView() {
   const [weekSelectionOpen, setWeekSelectionOpen] = useState(false);
   const [carryOverOpen, setCarryOverOpen] = useState(false);
 
-  const [weeklyRevenueInput, setWeeklyRevenueInput] = useState<number | undefined>(undefined);
-  const [weeklyHoursInput, setWeeklyHoursInput] = useState<number | undefined>(undefined);
-  const [headerSaved, setHeaderSaved] = useState(false);
   const { error, report, reset } = useErrorSnackbar();
-
-  useEffect(() => {
-    setWeeklyRevenueInput(schedule?.plannedWeeklyRevenue);
-    setWeeklyHoursInput(schedule?.plannedWeeklyHours);
-  }, [schedule?.id, schedule?.plannedWeeklyRevenue, schedule?.plannedWeeklyHours]);
-
-  const saveScheduleHeader = async () => {
-    if (!schedule) return;
-    try {
-      const updated = await services.schedule.save({
-        ...schedule,
-        plannedWeeklyRevenue: weeklyRevenueInput,
-        plannedWeeklyHours: weeklyHoursInput,
-      });
-      setSchedule(updated);
-      setHeaderSaved(true);
-      setTimeout(() => setHeaderSaved(false), 2000);
-    } catch (e) {
-      report(e, 'Kopfdaten konnten nicht gespeichert werden');
-    }
-  };
 
   const weekView = useMemo(() => {
     if (!schedule) return [];
@@ -118,9 +93,11 @@ export function ScheduleView() {
   const totalTargetHours = employeeList.reduce((sum, emp) => sum + targetWeeklyHours(emp.employmentType), 0);
   const absentCount = new Set(absences.filter((a) => weekView.some((w) => w.employeeId === a.employeeId)).map((a) => a.employeeId)).size;
 
-  const cellClick = (employeeId: EmployeeId, dayView: DayView) => {
+  // Stable identity so the memoized ScheduleTable is not re-rendered by unrelated state changes
+  // here (context menu, dialogs, error snackbar).
+  const cellClick = useCallback((employeeId: EmployeeId, dayView: DayView) => {
     setEditorState({ employeeId, dayView });
-  };
+  }, []);
 
   const saveEntry = async (entry: DayEntry) => {
     if (!schedule || !editorState) return;
@@ -318,30 +295,7 @@ export function ScheduleView() {
         </Stack>
       </Stack>
 
-      <Stack direction="row" gap={2} flexWrap="wrap" sx={{ mb: 2 }}>
-        <DecimalTextField
-          label="Geplanter Wochenumsatz"
-          size="small"
-          value={weeklyRevenueInput}
-          onChange={setWeeklyRevenueInput}
-          onBlur={saveScheduleHeader}
-          InputProps={{ endAdornment: <InputAdornment position="end">€</InputAdornment> }}
-          sx={{ width: 260 }}
-        />
-        <DecimalTextField
-          label="Geplante Wochenstunden"
-          size="small"
-          value={weeklyHoursInput}
-          onChange={setWeeklyHoursInput}
-          onBlur={saveScheduleHeader}
-          sx={{ width: 260 }}
-        />
-        {headerSaved && (
-          <Typography variant="caption" color="success.main" sx={{ alignSelf: 'center' }}>
-            Gespeichert
-          </Typography>
-        )}
-      </Stack>
+      <ScheduleHeaderFields schedule={schedule} onSaved={setSchedule} onError={report} />
 
       <Stack direction="row" gap={2} flexWrap="wrap" sx={{ mb: 3 }}>
         {[

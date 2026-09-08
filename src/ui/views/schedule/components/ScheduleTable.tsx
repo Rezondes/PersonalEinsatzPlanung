@@ -1,3 +1,4 @@
+import { memo, useMemo } from 'react';
 import Table from '@mui/material/Table';
 import TableBody from '@mui/material/TableBody';
 import TableCell from '@mui/material/TableCell';
@@ -37,14 +38,42 @@ function absenceText(type: 'Vacation' | 'Illness' | 'Other'): string {
   }
 }
 
-export function ScheduleTable({
+const NO_RESULTS: ValidationResult[] = [];
+
+function cellKey(employeeId: EmployeeId, date: string): string {
+  return `${employeeId}|${date}`;
+}
+
+/** Memoized: ScheduleView re-renders on every context-menu/dialog/snackbar state change, and this
+ * table is by far its most expensive subtree (seven styled cells per employee). With stable props
+ * from the parent (memoized weekView, useCallback'd onCellClick) those re-renders skip it. */
+export const ScheduleTable = memo(function ScheduleTable({
   weekView,
   employeeList,
   validationResults,
   onCellClick,
 }: ScheduleTableProps) {
+  const employeeById = useMemo(() => new Map(employeeList.map((e) => [e.id, e])), [employeeList]);
+
+  // Grouped once per validation run instead of filtering the whole result list for every cell.
+  // Week-level results (no date) belong to no cell; ValidationNotices lists them instead.
+  const resultsByCell = useMemo(() => {
+    const map = new Map<string, ValidationResult[]>();
+    for (const result of validationResults) {
+      if (!result.employeeId || !result.date) continue;
+      const key = cellKey(result.employeeId, result.date);
+      const list = map.get(key);
+      if (list) {
+        list.push(result);
+      } else {
+        map.set(key, [result]);
+      }
+    }
+    return map;
+  }, [validationResults]);
+
   const resultsFor = (employeeId: EmployeeId, date: string) =>
-    validationResults.filter((e) => e.employeeId === employeeId && e.date === date);
+    resultsByCell.get(cellKey(employeeId, date)) ?? NO_RESULTS;
 
   return (
     <TableContainer component={Paper}>
@@ -63,7 +92,7 @@ export function ScheduleTable({
         </TableHead>
         <TableBody>
           {weekView.map((assignment) => {
-            const employee = employeeList.find((e) => e.id === assignment.employeeId);
+            const employee = employeeById.get(assignment.employeeId);
             if (!employee) return null;
 
             const targetMinutes = effectiveTargetMinutes(employee, assignment);
@@ -203,4 +232,4 @@ export function ScheduleTable({
       </Table>
     </TableContainer>
   );
-}
+});

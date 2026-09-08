@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useMemo, useState } from 'react';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
@@ -26,6 +26,7 @@ import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import type { EmployeeId } from '@domain/shared/ids';
 import { formatISODateGerman } from '@domain/shared/DateFormat';
 import type { Absence } from '@domain/absence/Absence';
+import { remainingVacationByEmployee } from '@domain/absence/vacationCalculation';
 import { fullName } from '@domain/employee/Employee';
 import { services } from '@infrastructure/services';
 import { createHolidayCheck } from '@infrastructure/holidays/germanHolidays';
@@ -82,26 +83,22 @@ export function AbsencesView() {
   const { absences, reload } = useAbsences(employeeIds);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState<FormState>(emptyForm(''));
-  const [remainingVacation, setRemainingVacation] = useState<Record<string, number>>({});
   const [deleteTarget, setDeleteTarget] = useState<Absence | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const { error, report, reset } = useErrorSnackbar();
 
   const year = new Date().getFullYear();
 
-  useEffect(() => {
-    if (!branch) return;
-    const isHoliday = createHolidayCheck(branch.federalState);
-    (async () => {
-      const entries = await Promise.all(
-        employeeList.map(
-          async (emp) => [emp.id, await services.absence.calculateRemainingVacation(emp, year, isHoliday)] as const,
-        ),
-      );
-      setRemainingVacation(Object.fromEntries(entries));
-    })();
-    // absences as a dependency: remaining vacation must be recalculated after adding/deleting an absence.
-  }, [branch, employeeList, year, absences]);
+  // Derived synchronously from the absences this view already holds - no repository round trip
+  // per employee. Recomputes after adding/deleting an absence, since `absences` changes identity
+  // on reload.
+  const remainingVacation = useMemo(
+    () =>
+      branch
+        ? remainingVacationByEmployee(employeeList, absences, year, createHolidayCheck(branch.federalState))
+        : new Map<EmployeeId, number>(),
+    [branch, employeeList, absences, year],
+  );
 
   const openDialog = () => {
     setForm(emptyForm(activeEmployees[0]?.id ?? ''));
@@ -192,7 +189,7 @@ export function AbsencesView() {
               {fullName(emp)}
             </Typography>
             <Typography variant="caption" color="text.secondary">
-              Resturlaub {year}: {remainingVacation[emp.id]?.toLocaleString('de-DE') ?? '–'} von{' '}
+              Resturlaub {year}: {remainingVacation.get(emp.id)?.toLocaleString('de-DE') ?? '–'} von{' '}
               {emp.vacationEntitlementPerYear.toLocaleString('de-DE')} Tagen
             </Typography>
           </Paper>

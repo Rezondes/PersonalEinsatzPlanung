@@ -1,8 +1,6 @@
 import type { AbsenceId, EmployeeId } from '@domain/shared/ids';
 import type { AbsenceInput } from '@domain/absence/Absence';
 import { createAbsence } from '@domain/absence/Absence';
-import { countVacationDaysInYear, calculateRemainingVacation } from '@domain/absence/vacationCalculation';
-import type { Employee } from '@domain/employee/Employee';
 import type { AbsenceRepository } from '@application/ports/AbsenceRepository';
 
 export function createAbsenceService(repo: AbsenceRepository) {
@@ -18,16 +16,6 @@ export function createAbsenceService(repo: AbsenceRepository) {
     },
 
     delete: (id: AbsenceId) => repo.delete(id),
-
-    calculateRemainingVacation: async (
-      employee: Employee,
-      year: number,
-      isHoliday?: (isoDate: string) => boolean,
-    ): Promise<number> => {
-      const absences = await repo.findByEmployee(employee.id);
-      const daysTaken = countVacationDaysInYear(absences, year, isHoliday);
-      return calculateRemainingVacation(employee, daysTaken);
-    },
   };
 }
 
