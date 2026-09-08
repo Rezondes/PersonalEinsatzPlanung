@@ -1,0 +1,69 @@
+import { describe, it, expect } from 'vitest';
+import type { BranchId } from '@domain/shared/ids';
+import { clockTime } from '@domain/shared/ClockTime';
+import { createShift } from '@domain/schedule/Shift';
+import { createBreak } from '@domain/schedule/Break';
+import { createShiftTemplate } from '@domain/schedule/ShiftTemplate';
+import type { DayEntry } from '@domain/schedule/EmployeeWeekAssignment';
+import { OFF_TOOL, toolKey, toolLabel, toolSummary, toolToDayEntry } from './scheduleTools';
+
+const branchId = 'b1' as BranchId;
+
+function shiftWithBreak() {
+  const shift = createShift(clockTime('06:00'), clockTime('14:00'));
+  return { ...shift, breaks: [createBreak(30, clockTime('10:00'))] };
+}
+
+const template = createShiftTemplate({ branchId, name: 'Frühschicht', shifts: [shiftWithBreak()] });
+
+describe('toolToDayEntry', () => {
+  it('empties the day for the Frei tool', () => {
+    expect(toolToDayEntry(OFF_TOOL)).toEqual({ type: 'Off' });
+  });
+
+  it('writes a template as a shift entry', () => {
+    const entry = toolToDayEntry({ kind: 'template', template });
+    expect(entry.type).toBe('Shift');
+    expect(entry.type === 'Shift' && entry.shifts[0].start).toBe('06:00');
+  });
+
+  it('gives every application fresh shift and break ids, so two cells never share one', () => {
+    const first = toolToDayEntry({ kind: 'template', template });
+    const second = toolToDayEntry({ kind: 'template', template });
+    if (first.type !== 'Shift' || second.type !== 'Shift') throw new Error('expected shifts');
+
+    expect(first.shifts[0].id).not.toBe(template.shifts[0].id);
+    expect(first.shifts[0].id).not.toBe(second.shifts[0].id);
+    expect(first.shifts[0].breaks[0].id).not.toBe(second.shifts[0].breaks[0].id);
+    // The template itself is untouched.
+    expect(template.shifts[0].breaks).toHaveLength(1);
+  });
+
+  it('never carries a manual day override along', () => {
+    const source: DayEntry = { type: 'Shift', shifts: [shiftWithBreak()], netMinutesOverride: 90 };
+    const entry = toolToDayEntry({ kind: 'clipboard', entry: source });
+    expect(entry.type === 'Shift' && entry.netMinutesOverride).toBeUndefined();
+  });
+
+  it('copies an Off day from the clipboard as an empty day', () => {
+    expect(toolToDayEntry({ kind: 'clipboard', entry: { type: 'Off' } })).toEqual({ type: 'Off' });
+  });
+});
+
+describe('tool labels', () => {
+  it('names each kind for the toolbar', () => {
+    expect(toolLabel(OFF_TOOL)).toBe('Frei');
+    expect(toolLabel({ kind: 'template', template })).toBe('Frühschicht');
+    expect(toolLabel({ kind: 'clipboard', entry: { type: 'Off' } })).toBe('Zwischenablage');
+  });
+
+  it('summarises the times and net hours behind the name', () => {
+    expect(toolSummary({ kind: 'template', template })).toBe('06:00-14:00 · 7,5 Std.');
+    expect(toolSummary(OFF_TOOL)).toBe('Tag leeren');
+  });
+
+  it('keys a template by its id, so tiles stay stable across reloads', () => {
+    expect(toolKey({ kind: 'template', template })).toBe(`template:${template.id}`);
+    expect(toolKey(OFF_TOOL)).toBe('off');
+  });
+});

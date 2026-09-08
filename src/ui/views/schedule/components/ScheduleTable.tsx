@@ -1,5 +1,5 @@
-import { memo, useMemo } from 'react';
-import type { KeyboardEvent } from 'react';
+import { memo, useMemo, useState } from 'react';
+import type { DragEvent, KeyboardEvent } from 'react';
 import Table from '@mui/material/Table';
 import TableBody from '@mui/material/TableBody';
 import TableCell from '@mui/material/TableCell';
@@ -25,12 +25,16 @@ import type { ValidationResult } from '@domain/validation/ValidationResult';
 import type { DayView } from '@application/schedule/scheduleAssessment';
 import { effectiveTargetMinutesRange } from '@application/schedule/scheduleAssessment';
 import type { RowLockReason, ScheduleRow } from '../scheduleRows';
-import { isCellLocked } from '../scheduleRows';
+import { canReceiveEntry, isCellLocked } from '../scheduleRows';
+import { TOOL_MIME } from '../scheduleTools';
 
 interface ScheduleTableProps {
   rows: ScheduleRow[];
   validationResults: ValidationResult[];
   onCellClick: (employeeId: EmployeeId, dayView: DayView) => void;
+  /** A toolbar tool was dropped on this cell. Which tool it was comes from the drag payload the
+   * parent holds - the table stays free of any knowledge about tools. */
+  onToolDrop: (employeeId: EmployeeId, dayView: DayView) => void;
 }
 
 function absenceText(type: 'Vacation' | 'Illness' | 'Other'): string {
@@ -75,7 +79,12 @@ export const ScheduleTable = memo(function ScheduleTable({
   rows,
   validationResults,
   onCellClick,
+  onToolDrop,
 }: ScheduleTableProps) {
+  // Kept HERE and not in ScheduleView on purpose: dragover fires continuously, and a highlight in
+  // the parent would re-render it (and defeat this component's memo) many times per second. As
+  // cell state it only changes when the pointer crosses a cell boundary.
+  const [dropTargetKey, setDropTargetKey] = useState<string | null>(null);
   // Grouped once per validation run instead of filtering the whole result list for every cell.
   // Week-level results (no date) belong to no cell; ValidationNotices lists them instead.
   const resultsByCell = useMemo(() => {
@@ -136,9 +145,14 @@ export const ScheduleTable = memo(function ScheduleTable({
                   const hasError = matches.some((e) => e.severity === 'error');
                   const hasWarning = matches.some((e) => e.severity === 'warning');
                   const locked = isCellLocked(row, dayView.day);
+                  const droppable = canReceiveEntry(row, dayView);
+                  const cellId = cellKey(view.employeeId, dayView.date);
+                  const isDropTarget = dropTargetKey === cellId;
                   const hasOverride =
                     dayView.entry.type === 'Shift' && dayView.entry.netMinutesOverride !== undefined;
-                  const background = locked
+                  const background = isDropTarget
+                    ? '#dce9e3'
+                    : locked
                     ? '#f0f0ee'
                     : dayView.absence
                       ? '#eef3f1'
@@ -171,11 +185,44 @@ export const ScheduleTable = memo(function ScheduleTable({
                         },
                       };
 
+                  // A cell that cannot receive an entry gets no drag handlers at all - the browser
+                  // then shows the "no drop" cursor by itself, no extra code needed. getData() is
+                  // blanked during dragover by every browser, so only the marker type can be checked
+                  // there; the payload itself is read from the parent on drop.
+                  const dropHandlers = droppable
+                    ? {
+                        onDragEnter: (e: DragEvent) => {
+                          if (!e.dataTransfer.types.includes(TOOL_MIME)) return;
+                          e.preventDefault();
+                          setDropTargetKey(cellId);
+                        },
+                        onDragOver: (e: DragEvent) => {
+                          if (!e.dataTransfer.types.includes(TOOL_MIME)) return;
+                          // Without this the drop event never fires at all.
+                          e.preventDefault();
+                          e.dataTransfer.dropEffect = 'copy';
+                        },
+                        onDragLeave: (e: DragEvent<HTMLElement>) => {
+                          // Moving onto a child element also fires dragleave; only a real exit counts.
+                          if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
+                            setDropTargetKey(null);
+                          }
+                        },
+                        onDrop: (e: DragEvent) => {
+                          e.preventDefault();
+                          setDropTargetKey(null);
+                          if (!e.dataTransfer.types.includes(TOOL_MIME)) return;
+                          onToolDrop(view.employeeId, dayView);
+                        },
+                      }
+                    : {};
+
                   const cell = (
                     <Box
                       data-employeeid={view.employeeId}
                       data-day={dayView.day}
                       {...interaction}
+                      {...dropHandlers}
                       sx={{
                         cursor: locked ? 'default' : 'pointer',
                         borderRadius: 1.5,

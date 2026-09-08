@@ -3,9 +3,9 @@ import { DomainError } from '@domain/shared/DomainError';
 import { migrateToCurrentVersion } from './jsonMigrations';
 
 const validFile = {
-  formatVersion: 3,
+  formatVersion: 4,
   exportedAt: '2026-09-07T00:00:00.000Z',
-  data: { branches: [], employees: [], weeklySchedules: [], absences: [] },
+  data: { branches: [], employees: [], weeklySchedules: [], absences: [], shiftTemplates: [] },
 };
 
 describe('migrateToCurrentVersion', () => {
@@ -22,6 +22,26 @@ describe('migrateToCurrentVersion', () => {
 
   it('rejects an object without formatVersion', () => {
     expect(() => migrateToCurrentVersion({ data: validFile.data })).toThrow(DomainError);
+  });
+
+  it('adds an empty shift-template list to a v3 file', () => {
+    const fileV3 = {
+      formatVersion: 3,
+      exportedAt: '2026-09-07T00:00:00.000Z',
+      data: { branches: [], employees: [], weeklySchedules: [], absences: [] },
+    };
+    const migrated = migrateToCurrentVersion(fileV3);
+    expect(migrated.formatVersion).toBe(4);
+    expect(migrated.data.shiftTemplates).toEqual([]);
+  });
+
+  it('tolerates a current-version file whose shift-template list is missing', () => {
+    const withoutTemplates = {
+      formatVersion: 4,
+      exportedAt: '2026-09-07T00:00:00.000Z',
+      data: { branches: [], employees: [], weeklySchedules: [], absences: [] },
+    };
+    expect(migrateToCurrentVersion(withoutTemplates).data.shiftTemplates).toEqual([]);
   });
 
   it('rejects a newer, unknown formatVersion', () => {
@@ -154,7 +174,7 @@ describe('migrateToCurrentVersion', () => {
 
     const migrated = migrateToCurrentVersion(fileV1);
 
-    expect(migrated.formatVersion).toBe(3);
+    expect(migrated.formatVersion).toBe(4);
     expect(migrated.exportedAt).toBe('2025-01-01T00:00:00.000Z');
 
     expect(migrated.data.branches).toEqual([
@@ -186,6 +206,8 @@ describe('migrateToCurrentVersion', () => {
       active: true,
     });
     expect(migrated.data.employees[1].employmentType).toEqual({ type: 'Minijob', minHours: 6, maxHours: 10 });
+    // Shift templates did not exist before v4, so a v1 backup carries none.
+    expect(migrated.data.shiftTemplates).toEqual([]);
 
     const schedule = migrated.data.weeklySchedules[0];
     expect(schedule.branchId).toBe('f1');

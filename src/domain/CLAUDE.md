@@ -7,6 +7,8 @@ Pure business rules for staff scheduling at a German supermarket chain - zero fr
 - **Employee** - employment type, vacation entitlement, optional birth date.
 - **WeeklySchedule** - one weekly schedule per (branchId, CalendarWeek).
 - **Absence** - vacation/sick/other absence, a separate aggregate from WeeklySchedule.
+- **ShiftTemplate** - a named, reusable working time per Branch, applied to days from the
+  Wochenplanung toolbar. Holds `Shift[]`, never a whole DayEntry.
 
 ## Hard rules
 - `domain/` must never import from `application/`, `infrastructure/`, or `ui/`. Enforced by

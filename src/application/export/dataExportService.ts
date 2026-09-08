@@ -2,6 +2,7 @@ import type { BranchRepository } from '@application/ports/BranchRepository';
 import type { EmployeeRepository } from '@application/ports/EmployeeRepository';
 import type { WeeklyScheduleRepository } from '@application/ports/WeeklyScheduleRepository';
 import type { AbsenceRepository } from '@application/ports/AbsenceRepository';
+import type { ShiftTemplateRepository } from '@application/ports/ShiftTemplateRepository';
 import type { PepExportFile } from './jsonExportFormat';
 import { CURRENT_FORMAT_VERSION } from './jsonExportFormat';
 import { migrateToCurrentVersion } from './jsonMigrations';
@@ -11,6 +12,7 @@ export interface DataRepositories {
   employee: EmployeeRepository;
   weeklySchedule: WeeklyScheduleRepository;
   absence: AbsenceRepository;
+  shiftTemplate: ShiftTemplateRepository;
   /** Runs a block of repository calls atomically (all-or-nothing). Needed so a full-dataset
    * replace (import) can never fail halfway through and leave some stores cleared, others not. */
   transaction: <T>(fn: () => Promise<T>) => Promise<T>;
@@ -23,17 +25,18 @@ export interface DataRepositories {
 export function createDataExportService(repos: DataRepositories) {
   return {
     export: async (): Promise<PepExportFile> => {
-      const [branches, employees, weeklySchedules, absences] = await Promise.all([
+      const [branches, employees, weeklySchedules, absences, shiftTemplates] = await Promise.all([
         repos.branch.findAll(),
         repos.employee.findAll(),
         repos.weeklySchedule.findAll(),
         repos.absence.findAll(),
+        repos.shiftTemplate.findAll(),
       ]);
 
       return {
         formatVersion: CURRENT_FORMAT_VERSION,
         exportedAt: new Date().toISOString(),
-        data: { branches, employees, weeklySchedules, absences },
+        data: { branches, employees, weeklySchedules, absences, shiftTemplates },
       };
     },
 
@@ -48,6 +51,7 @@ export function createDataExportService(repos: DataRepositories) {
           repos.employee.deleteAll(),
           repos.weeklySchedule.deleteAll(),
           repos.absence.deleteAll(),
+          repos.shiftTemplate.deleteAll(),
         ]);
 
         await Promise.all([
@@ -57,6 +61,7 @@ export function createDataExportService(repos: DataRepositories) {
           ...file.data.employees.map((e) => repos.employee.save(e)),
           ...file.data.weeklySchedules.map((w) => repos.weeklySchedule.save(w)),
           ...file.data.absences.map((a) => repos.absence.save(a)),
+          ...file.data.shiftTemplates.map((t) => repos.shiftTemplate.save(t)),
         ]);
       });
     },
@@ -67,6 +72,7 @@ export function createDataExportService(repos: DataRepositories) {
         repos.employee.deleteAll(),
         repos.weeklySchedule.deleteAll(),
         repos.absence.deleteAll(),
+        repos.shiftTemplate.deleteAll(),
       ]);
     },
   };

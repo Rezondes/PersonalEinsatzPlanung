@@ -4,6 +4,7 @@ import type { Employee } from '@domain/employee/Employee';
 import { defaultHolidayVacationHours } from '@domain/employee/EmploymentType';
 import type { WeeklySchedule } from '@domain/schedule/WeeklySchedule';
 import type { Absence } from '@domain/absence/Absence';
+import type { ShiftTemplate } from '@domain/schedule/ShiftTemplate';
 
 // --- v1 -> v2 record shapes (pre-rename, German field names) -------------------------------
 // Kept only so the version(2) upgrade below can transform existing local IndexedDB records from
@@ -180,6 +181,7 @@ export class PepDatabase extends Dexie {
   employees!: Table<Employee, string>;
   weeklySchedules!: Table<WeeklySchedule, string>;
   absences!: Table<Absence, string>;
+  shiftTemplates!: Table<ShiftTemplate, string>;
 
   constructor() {
     super('pep-datenbank');
@@ -236,8 +238,15 @@ export class PepDatabase extends Dexie {
         });
     });
 
+    // v4: adds the reusable shift templates (Werkzeugleiste der Wochenplanung). A brand new,
+    // initially empty store needs a .stores() declaration (unlike version 3, which only backfilled
+    // a field) but no .upgrade(): there is nothing to migrate into it.
+    this.version(4).stores({
+      shiftTemplates: 'id, branchId',
+    });
+
     // Further structural changes to the IndexedDB schema are added as their own version, e.g.:
-    // this.version(4).stores({ ... }).upgrade(tx => { ... });
+    // this.version(5).stores({ ... }).upgrade(tx => { ... });
   }
 }
 
@@ -247,5 +256,13 @@ export const db = new PepDatabase();
  * JSON import replace) either fully applies or fully rolls back - a failure partway through can
  * never leave the database with some stores cleared and others not yet repopulated. */
 export function transaction<T>(fn: () => Promise<T>): Promise<T> {
-  return db.transaction('rw', db.branches, db.employees, db.weeklySchedules, db.absences, fn);
+  return db.transaction(
+    'rw',
+    db.branches,
+    db.employees,
+    db.weeklySchedules,
+    db.absences,
+    db.shiftTemplates,
+    fn,
+  );
 }

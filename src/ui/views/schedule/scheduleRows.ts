@@ -1,7 +1,7 @@
 import type { Weekday } from '@domain/shared/CalendarWeek';
 import type { Employee } from '@domain/employee/Employee';
 import { compareByLastName, isEmployedDuring, isEmployedOn } from '@domain/employee/Employee';
-import type { EmployeeWeekView } from '@application/schedule/scheduleAssessment';
+import type { DayView, EmployeeWeekView } from '@application/schedule/scheduleAssessment';
 import { hasAnyEntry } from '@application/schedule/scheduleAssessment';
 
 /** Why a row cannot be edited. Drives the chip next to the name; `undefined` means editable. */
@@ -69,4 +69,20 @@ export function buildScheduleRows(
  * falls outside the employee's Eintritt/Austritt. */
 export function isCellLocked(row: ScheduleRow, day: Weekday): boolean {
   return !row.editable || row.lockedDays.includes(day);
+}
+
+/**
+ * Whether a cell may receive a new entry at all - the single rule behind "Einfügen", the "Frei"
+ * menu item and a drag-and-drop drop.
+ *
+ * Beyond the row/day lock it also rules out cells covered by a MULTI-day absence: those can only be
+ * edited in the Abwesenheiten tab (see the read-only branch in DayEditor), and drag and drop must
+ * not become the one path that writes a shift onto a vacation week.
+ */
+export function canReceiveEntry(row: ScheduleRow, dayView: DayView): boolean {
+  if (isCellLocked(row, dayView.day)) {
+    return false;
+  }
+  const absence = dayView.absence;
+  return !absence || (absence.from === dayView.date && absence.to === dayView.date);
 }

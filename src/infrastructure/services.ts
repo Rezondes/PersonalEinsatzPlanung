@@ -3,6 +3,7 @@ import { createEmployeeService } from '@application/employee/employeeService';
 import { createScheduleService } from '@application/schedule/scheduleService';
 import { createRestPeriodCheckService } from '@application/schedule/restPeriodCheckService';
 import { createAbsenceService } from '@application/absence/absenceService';
+import { createShiftTemplateService } from '@application/schedule/shiftTemplateService';
 import { createDataExportService } from '@application/export/dataExportService';
 import { repositories } from './repositories';
 import { transaction } from './persistence/db';
@@ -16,5 +17,6 @@ export const services = {
   schedule: createScheduleService(repositories.weeklySchedule, repositories.employee),
   restPeriodCheck: createRestPeriodCheckService(repositories.weeklySchedule),
   absence: createAbsenceService(repositories.absence),
+  shiftTemplate: createShiftTemplateService(repositories.shiftTemplate),
   dataExport: createDataExportService({ ...repositories, transaction }),
 };

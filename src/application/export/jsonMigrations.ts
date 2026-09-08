@@ -200,7 +200,19 @@ type EmployeeV2 = Omit<Employee, 'holidayVacationHours'> & { holidayVacationHour
 interface PepExportFileV2 {
   formatVersion: 2;
   exportedAt: string;
-  data: Omit<PepExportFile['data'], 'employees'> & { employees: EmployeeV2[] };
+  // Expressed relative to v3, not to the current file: otherwise this shape would start demanding
+  // the shiftTemplates array that a v2 file cannot possibly have.
+  data: Omit<PepExportFileV3['data'], 'employees'> & { employees: EmployeeV2[] };
+}
+
+/**
+ * Shape of a formatVersion-3 export file: identical to the current one except that the reusable
+ * shift templates did not exist yet.
+ */
+interface PepExportFileV3 {
+  formatVersion: 3;
+  exportedAt: string;
+  data: Omit<PepExportFile['data'], 'shiftTemplates'>;
 }
 
 /** Migrates a formatVersion-1 file (German field names, pre-rename) to the v2 structure
@@ -222,9 +234,9 @@ function migrateV1ToV2(fileV1: PepExportFileV1): PepExportFileV2 {
 /** Migrates a formatVersion-2 file to v3: Employee.holidayVacationHours became a required field.
  * Backfills it with the same default as the Dexie version(3) upgrade, so a restored backup and a
  * locally upgraded database end up with identical values. */
-function migrateV2ToV3(fileV2: PepExportFileV2): PepExportFile {
+function migrateV2ToV3(fileV2: PepExportFileV2): PepExportFileV3 {
   return {
-    formatVersion: CURRENT_FORMAT_VERSION,
+    formatVersion: 3,
     exportedAt: fileV2.exportedAt,
     data: {
       ...fileV2.data,
@@ -237,7 +249,20 @@ function migrateV2ToV3(fileV2: PepExportFileV2): PepExportFile {
   };
 }
 
-function isValidDataStructure(data: unknown): data is PepExportFile['data'] {
+/** Migrates a formatVersion-3 file to v4, which added the reusable shift templates. There is
+ * nothing to derive from older data: a backup taken before the feature existed simply has none. */
+function migrateV3ToV4(fileV3: PepExportFileV3): PepExportFile {
+  return {
+    formatVersion: CURRENT_FORMAT_VERSION,
+    exportedAt: fileV3.exportedAt,
+    data: { ...fileV3.data, shiftTemplates: [] },
+  };
+}
+
+/** Checks the four data arrays every version from 2 on has in common. It deliberately does NOT
+ * require `shiftTemplates`: files older than v4 cannot have it, and demanding it here would reject
+ * them before their migration ever ran. */
+function isValidDataStructure(data: unknown): data is PepExportFileV3['data'] {
   if (typeof data !== 'object' || data === null) {
     return false;
   }
@@ -265,7 +290,7 @@ function isValidV1DataStructure(daten: unknown): daten is PepExportFileV1['daten
 
 /**
  * Brings an imported export file up to the current formatVersion by running the migrations in
- * sequence: v1 (pre-rename, German field names) -> v2 -> v3. Future versions add another
+ * sequence: v1 (pre-rename, German field names) -> v2 -> v3 -> v4. Future versions add another
  * migrateVxToVy(data) step to the chain, before the data is written to Dexie.
  *
  * Only checks the top-level shape (formatVersion + the 4 data arrays exist and are arrays), not
@@ -291,7 +316,7 @@ export function migrateToCurrentVersion(rawData: unknown): PepExportFile {
     if (typeof fileV1.exportiertAm !== 'string' || !isValidV1DataStructure(fileV1.daten)) {
       throw new DomainError('Die Datei enthält kein gültiges PEP-Exportformat (fehlende oder beschädigte Datenfelder).');
     }
-    return migrateV2ToV3(migrateV1ToV2(rawData as PepExportFileV1));
+    return migrateV3ToV4(migrateV2ToV3(migrateV1ToV2(rawData as PepExportFileV1)));
   }
 
   if (rawFile.formatVersion > CURRENT_FORMAT_VERSION) {
@@ -300,16 +325,22 @@ export function migrateToCurrentVersion(rawData: unknown): PepExportFile {
     );
   }
 
-  const file = rawData as PepExportFile;
+  const raw = rawData as unknown as { data: unknown };
 
-  if (!isValidDataStructure(file.data)) {
+  // Every version from 2 on shares the same four data arrays, so one shape check covers them all.
+  if (!isValidDataStructure(raw.data)) {
     throw new DomainError('Die Datei enthält kein gültiges PEP-Exportformat (fehlende oder beschädigte Datenfelder).');
   }
 
-  // v2 and v3 share the same top-level shape, so the check above covers both.
   if (rawFile.formatVersion === 2) {
-    return migrateV2ToV3(rawData as unknown as PepExportFileV2);
+    return migrateV3ToV4(migrateV2ToV3(rawData as unknown as PepExportFileV2));
+  }
+  if (rawFile.formatVersion === 3) {
+    return migrateV3ToV4(rawData as unknown as PepExportFileV3);
   }
 
-  return file;
+  // Already current. The fallback keeps a hand-edited file without the array from crashing the
+  // import, which walks data.shiftTemplates directly.
+  const file = rawData as PepExportFile;
+  return { ...file, data: { ...file.data, shiftTemplates: file.data.shiftTemplates ?? [] } };
 }

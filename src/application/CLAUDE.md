@@ -45,6 +45,9 @@ Use-cases orchestrating domain logic + ports; no framework/browser dependencies 
 - `absenceService.restore` writes an Absence back verbatim (id and `createdAt` preserved),
   deliberately past `createAbsence` - the same exception the JSON import makes. It exists solely for
   the Wochenplanung's undo/redo, which would otherwise mint new ids and break the next step.
+- `shiftTemplateService` is the fifth aggregate's service, wired like every other one. Its `delete`
+  is a real delete (see `domain/schedule/CLAUDE.md`), and `forBranch` sorts by name so the toolbar
+  order is the same everywhere by construction.
 - `scheduleService.findForWeek` is a **read-only** lookup (unlike `getOrCreate`, it never
   creates a schedule) - used when a caller needs to look at another week (e.g. the previous one) without
   side-effecting it into existence.

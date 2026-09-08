@@ -7,26 +7,15 @@ import Button from '@mui/material/Button';
 import TextField from '@mui/material/TextField';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
-import IconButton from '@mui/material/IconButton';
-import FormControlLabel from '@mui/material/FormControlLabel';
-import FormHelperText from '@mui/material/FormHelperText';
-import Checkbox from '@mui/material/Checkbox';
 import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import Divider from '@mui/material/Divider';
 import Alert from '@mui/material/Alert';
-import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
-import AddIcon from '@mui/icons-material/Add';
-import type { Shift } from '@domain/schedule/Shift';
-import type { ShiftDraft, BreakDraft } from '@domain/schedule/shiftDraft';
+import type { ShiftDraft } from '@domain/schedule/shiftDraft';
 import {
   NET_OVERRIDE_FIELD,
-  SHIFT_LIST_FIELD,
-  breakFieldKey,
-  newBreakDraft,
   newShiftDraft,
   shiftDraftsToShifts,
-  shiftFieldKey,
   shiftToDraft,
   validateNetMinutesOverride,
   validateShiftDrafts,
@@ -44,6 +33,7 @@ import { ConfirmDialog } from '@ui/components/ConfirmDialog';
 import { DecimalTextField } from '@ui/components/DecimalTextField';
 import { RequiredLegend } from '@ui/components/RequiredLegend';
 import { FormErrorNotice } from '@ui/components/FormErrorNotice';
+import { ShiftListEditor } from './ShiftListEditor';
 
 type Mode = 'Off' | 'Shift' | 'Vacation' | 'Illness' | 'Other';
 
@@ -79,12 +69,6 @@ function absenceTypeLabel(type: Absence['type']): string {
     case 'Other':
       return 'Sonstige';
   }
-}
-
-/** A single draft parsed on its own, so each shift card can show its net hours while another
- * card is still incomplete. */
-function parseShiftDraft(draft: ShiftDraft): Shift | null {
-  return validateShiftDrafts([draft]).length === 0 ? shiftDraftsToShifts([draft])[0] : null;
 }
 
 export function DayEditor({
@@ -152,24 +136,6 @@ export function DayEditor({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, entry, absence, date, isSingleDayAbsence]);
-
-  const addShift = () => setDrafts((list) => [...list, newShiftDraft()]);
-  const removeShift = (id: string) => setDrafts((list) => list.filter((s) => s.id !== id));
-  const updateShift = (id: string, change: Partial<ShiftDraft>) =>
-    setDrafts((list) => list.map((s) => (s.id === id ? { ...s, ...change } : s)));
-
-  const addBreak = (shiftId: string) =>
-    setDrafts((list) => list.map((s) => (s.id === shiftId ? { ...s, breaks: [...s.breaks, newBreakDraft()] } : s)));
-  const removeBreak = (shiftId: string, breakId: string) =>
-    setDrafts((list) =>
-      list.map((s) => (s.id === shiftId ? { ...s, breaks: s.breaks.filter((b) => b.id !== breakId) } : s)),
-    );
-  const updateBreak = (shiftId: string, breakId: string, change: Partial<BreakDraft>) =>
-    setDrafts((list) =>
-      list.map((s) =>
-        s.id === shiftId ? { ...s, breaks: s.breaks.map((b) => (b.id === breakId ? { ...b, ...change } : b)) } : s,
-      ),
-    );
 
   // Only complete drafts can be checked against ArbZG rules; while a field is still empty the
   // field validation below blocks saving anyway.
@@ -247,7 +213,6 @@ export function DayEditor({
     );
   }
 
-  const shiftListError = validation.fieldProps(SHIFT_LIST_FIELD);
   const calculatedNetText = parsedShifts
     ? minutesToDecimalHours(parsedShifts.reduce((sum, shift) => sum + shiftNetMinutes(shift), 0)).toLocaleString('de-DE')
     : '–';
@@ -321,100 +286,7 @@ export function DayEditor({
 
         {mode === 'Shift' && (
           <Stack spacing={2}>
-            {drafts.map((shift, index) => {
-              const parsed = parseShiftDraft(shift);
-              const netText = parsed ? minutesToDecimalHours(shiftNetMinutes(parsed)).toLocaleString('de-DE') : '–';
-              return (
-                <Stack key={shift.id} spacing={1.5} sx={{ p: 2, border: '1px solid #e0e0dc', borderRadius: 2 }}>
-                  <Stack direction="row" justifyContent="space-between" alignItems="center">
-                    <Typography variant="subtitle2">
-                      Schicht {index + 1} · {netText} Std. netto
-                    </Typography>
-                    {drafts.length > 1 && (
-                      <IconButton size="small" onClick={() => removeShift(shift.id)} aria-label="Schicht entfernen">
-                        <DeleteOutlineIcon fontSize="small" />
-                      </IconButton>
-                    )}
-                  </Stack>
-
-                  <Stack direction="row" spacing={2} alignItems="flex-start">
-                    <TextField
-                      label="Beginn"
-                      type="time"
-                      required
-                      value={shift.start}
-                      onChange={(e) => updateShift(shift.id, { start: e.target.value })}
-                      InputLabelProps={{ shrink: true }}
-                      fullWidth
-                      {...validation.fieldProps(shiftFieldKey(shift.id, 'start'))}
-                    />
-                    <TextField
-                      label="Ende"
-                      type="time"
-                      required
-                      value={shift.end}
-                      onChange={(e) => updateShift(shift.id, { end: e.target.value })}
-                      InputLabelProps={{ shrink: true }}
-                      fullWidth
-                      {...validation.fieldProps(shiftFieldKey(shift.id, 'end'))}
-                    />
-                  </Stack>
-                  <FormControlLabel
-                    control={
-                      <Checkbox
-                        checked={shift.endsNextDay}
-                        onChange={(e) => updateShift(shift.id, { endsNextDay: e.target.checked })}
-                      />
-                    }
-                    label="Ende liegt am Folgetag (Nachtschicht)"
-                  />
-
-                  <Divider />
-                  <Typography variant="body2" fontWeight={500}>
-                    Pausen
-                  </Typography>
-                  {shift.breaks.length === 0 && (
-                    <Typography variant="body2" color="text.secondary">
-                      Keine Pause eingetragen.
-                    </Typography>
-                  )}
-                  {shift.breaks.map((brk) => (
-                    <Stack key={brk.id} direction="row" spacing={1.5} alignItems="flex-start">
-                      <TextField
-                        label="Beginn (optional)"
-                        type="time"
-                        size="small"
-                        value={brk.start}
-                        onChange={(e) => updateBreak(shift.id, brk.id, { start: e.target.value })}
-                        InputLabelProps={{ shrink: true }}
-                        sx={{ width: 170 }}
-                        {...validation.fieldProps(breakFieldKey(brk.id, 'start'))}
-                      />
-                      <DecimalTextField
-                        label="Dauer (Min.)"
-                        size="small"
-                        required
-                        value={brk.durationMinutes}
-                        onChange={(value) => updateBreak(shift.id, brk.id, { durationMinutes: value })}
-                        sx={{ width: 140 }}
-                        {...validation.fieldProps(breakFieldKey(brk.id, 'durationMinutes'))}
-                      />
-                      <IconButton size="small" onClick={() => removeBreak(shift.id, brk.id)} aria-label="Pause entfernen" sx={{ mt: 0.5 }}>
-                        <DeleteOutlineIcon fontSize="small" />
-                      </IconButton>
-                    </Stack>
-                  ))}
-                  <Button size="small" startIcon={<AddIcon />} onClick={() => addBreak(shift.id)} sx={{ alignSelf: 'flex-start' }}>
-                    Pause hinzufügen
-                  </Button>
-                </Stack>
-              );
-            })}
-
-            {shiftListError.error && <FormHelperText error>{shiftListError.helperText}</FormHelperText>}
-            <Button size="small" startIcon={<AddIcon />} onClick={addShift} sx={{ alignSelf: 'flex-start' }}>
-              {drafts.length === 0 ? 'Schicht hinzufügen' : 'Weitere Schicht hinzufügen (Split-Shift)'}
-            </Button>
+            <ShiftListEditor drafts={drafts} onChange={setDrafts} fieldProps={validation.fieldProps} />
 
             <Divider />
             <DecimalTextField

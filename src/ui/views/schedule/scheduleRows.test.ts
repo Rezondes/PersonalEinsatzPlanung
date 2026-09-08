@@ -5,7 +5,9 @@ import { createShift } from '@domain/schedule/Shift';
 import { createWeeklySchedule, withDayEntry } from '@domain/schedule/WeeklySchedule';
 import type { Employee } from '@domain/employee/Employee';
 import { createWeekView } from '@application/schedule/scheduleAssessment';
-import { buildScheduleRows, isCellLocked } from './scheduleRows';
+import type { AbsenceId } from '@domain/shared/ids';
+import type { Absence } from '@domain/absence/Absence';
+import { buildScheduleRows, canReceiveEntry, isCellLocked } from './scheduleRows';
 
 const branchId = 'b1' as BranchId;
 const m1 = 'm1' as EmployeeId;
@@ -113,5 +115,56 @@ describe('isCellLocked', () => {
     const row = rows.find((r) => r.employee.id === m1)!;
     expect(isCellLocked(row, 'Dienstag')).toBe(true);
     expect(isCellLocked(row, 'Mittwoch')).toBe(false);
+  });
+});
+
+describe('canReceiveEntry', () => {
+  const employees = [employee(m1), employee(m2)];
+
+  function rowsWithAbsences(absences: Absence[]) {
+    const schedule = withDayEntry(createWeeklySchedule(branchId, cw, [m1, m2]), m1, 'Montag', monday);
+    return buildScheduleRows(createWeekView(schedule, absences, { employees }), employees, WEEK_START, WEEK_END);
+  }
+
+  function absence(from: string, to: string): Absence {
+    return {
+      id: 'a1' as AbsenceId,
+      employeeId: m1,
+      type: 'Vacation',
+      from,
+      to,
+      createdAt: '2026-01-01T00:00:00.000Z',
+    };
+  }
+
+  it('accepts a plain editable cell', () => {
+    const row = rowsWithAbsences([]).find((r) => r.employee.id === m1)!;
+    expect(canReceiveEntry(row, row.view.days[0])).toBe(true);
+  });
+
+  it('accepts a cell carrying a single-day absence, which gets replaced', () => {
+    const row = rowsWithAbsences([absence('2026-09-07', '2026-09-07')]).find((r) => r.employee.id === m1)!;
+    expect(canReceiveEntry(row, row.view.days[0])).toBe(true);
+  });
+
+  it('refuses a cell inside a multi-day absence - those are only editable in the Abwesenheiten tab', () => {
+    const row = rowsWithAbsences([absence('2026-09-07', '2026-09-09')]).find((r) => r.employee.id === m1)!;
+    expect(canReceiveEntry(row, row.view.days[0])).toBe(false);
+    expect(canReceiveEntry(row, row.view.days[2])).toBe(false);
+    // Thursday is outside the range again.
+    expect(canReceiveEntry(row, row.view.days[3])).toBe(true);
+  });
+
+  it('refuses every cell of a locked row', () => {
+    const inactive = [employee(m1, { active: false }), employee(m2)];
+    const schedule = withDayEntry(createWeeklySchedule(branchId, cw, [m1, m2]), m1, 'Montag', monday);
+    const rows = buildScheduleRows(
+      createWeekView(schedule, [], { employees: inactive }),
+      inactive,
+      WEEK_START,
+      WEEK_END,
+    );
+    const row = rows.find((r) => r.employee.id === m1)!;
+    expect(row.view.days.every((day) => !canReceiveEntry(row, day))).toBe(true);
   });
 });

@@ -2,6 +2,7 @@ import { DexieBranchRepository } from './persistence/DexieBranchRepository';
 import { DexieEmployeeRepository } from './persistence/DexieEmployeeRepository';
 import { DexieWeeklyScheduleRepository } from './persistence/DexieWeeklyScheduleRepository';
 import { DexieAbsenceRepository } from './persistence/DexieAbsenceRepository';
+import { DexieShiftTemplateRepository } from './persistence/DexieShiftTemplateRepository';
 
 /**
  * Simple manual composition (no DI framework needed): the application layer only knows the
@@ -12,4 +13,5 @@ export const repositories = {
   employee: new DexieEmployeeRepository(),
   weeklySchedule: new DexieWeeklyScheduleRepository(),
   absence: new DexieAbsenceRepository(),
+  shiftTemplate: new DexieShiftTemplateRepository(),
 };

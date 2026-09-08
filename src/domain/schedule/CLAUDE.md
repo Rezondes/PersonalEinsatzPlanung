@@ -31,3 +31,17 @@ WeeklySchedule is keyed by `(branchId, CalendarWeek)` - one aggregate per branch
   schedule already existed are automatically appended with an empty DayEntry the next time that week
   is loaded - otherwise newly hired staff would silently be missing from already-created weekly
   schedules. This was a bug found and fixed during implementation.
+
+`ShiftTemplate` is the reusable working time behind the Wochenplanung toolbar. Three decisions are
+load-bearing:
+
+- It holds `Shift[]`, **not** a `DayEntry`. An empty day is the fixed "Frei" tool in the toolbar, not
+  something the user creates, so `shifts` is guaranteed non-empty - and a per-day
+  `netMinutesOverride` cannot even be represented in a template, which is exactly right: an override
+  corrects one specific day.
+- Applying a template **copies** its shifts with fresh ids (`ui/views/schedule/scheduleTools.ts`).
+  A weekly schedule never references a template, so renaming or deleting one later can never change
+  hours that were already planned. This is why the template service may hard-delete, unlike
+  Branch/Employee which are soft-deleted.
+- It belongs to a Branch: opening hours differ per store, so another branch's shifts would only be
+  noise in the toolbar.

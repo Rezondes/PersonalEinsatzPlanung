@@ -11,6 +11,8 @@ lokale, datenschutzfreundliche Anwendung ohne Server-Backend.
 
 - Wochen- und Monatsplanung fuer Voll-/Teilzeitkraefte sowie Minijobber, mit Undo/Redo
   (Strg+Z / Strg+Y), Mitarbeitersuche und manuell korrigierbaren Netto-Tagesstunden
+- Werkzeugleiste mit eigenen Schichtvorlagen je Filiale: per Drag and Drop oder ueber das
+  Kontextmenue auf einen Tag anwenden
 - Automatische Pruefung gesetzlicher Vorgaben (ArbZG): Pausenzeiten, Ruhezeiten,
   Hoechstarbeitszeit, Sonntags-/Feiertagsarbeit
 - Urlaubs- und Krankheitsverwaltung inkl. Resturlaubsberechnung; sortier- und filterbare

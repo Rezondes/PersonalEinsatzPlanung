@@ -6,7 +6,7 @@ import Stack from '@mui/material/Stack';
 const SECTIONS = [
   {
     title: 'Wo werden die Daten gespeichert?',
-    text: 'Alle Daten (Filialen, Mitarbeiter, Wochenpläne, Abwesenheiten) werden ausschließlich lokal im Browser dieses Geräts gespeichert (IndexedDB). Es gibt keinen Server, an den Daten übertragen werden. Die App funktioniert vollständig offline.',
+    text: 'Alle Daten (Filialen, Mitarbeiter, Wochenpläne, Abwesenheiten, Schichtvorlagen) werden ausschließlich lokal im Browser dieses Geräts gespeichert (IndexedDB). Es gibt keinen Server, an den Daten übertragen werden. Die App funktioniert vollständig offline.',
   },
   {
     title: 'Wann verlassen Daten dieses Gerät?',

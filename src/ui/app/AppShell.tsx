@@ -1,3 +1,4 @@
+import { useLayoutEffect, useRef } from 'react';
 import { Outlet, NavLink } from 'react-router-dom';
 import AppBar from '@mui/material/AppBar';
 import Toolbar from '@mui/material/Toolbar';
@@ -28,14 +29,36 @@ const navLinkStyle = ({ isActive }: { isActive: boolean }) => ({
 });
 
 export function AppShell() {
+  const rootRef = useRef<HTMLDivElement>(null);
+  const headerRef = useRef<HTMLElement>(null);
+
+  // The header's toolbar wraps at narrow widths, so its height is not a constant. Publishing it as
+  // a CSS custom property lets a sticky element below it (the Wochenplanung toolbar) dock exactly
+  // underneath without hardcoding 64px. Written straight to the DOM, deliberately not via state:
+  // a resize must not re-render the whole shell.
+  useLayoutEffect(() => {
+    const root = rootRef.current;
+    const header = headerRef.current;
+    if (!root || !header) return;
+
+    const publish = () => root.style.setProperty('--pep-header-height', `${header.offsetHeight}px`);
+    publish();
+
+    // jsdom has no ResizeObserver and the app must still render in tests.
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(publish);
+    observer.observe(header);
+    return () => observer.disconnect();
+  }, []);
+
   const { branches } = useBranchList();
   const activeBranches = branches.filter((b) => b.active);
   const selectedBranchId = useBranchSelectionStore((s) => s.selectedBranchId);
   const setSelectedBranch = useBranchSelectionStore((s) => s.setSelectedBranch);
 
   return (
-    <Box sx={{ minHeight: '100vh', backgroundColor: 'background.default' }}>
-      <AppBar position="sticky" color="transparent" sx={{ top: 0, backgroundColor: '#ffffff' }}>
+    <Box ref={rootRef} sx={{ minHeight: '100vh', backgroundColor: 'background.default' }}>
+      <AppBar ref={headerRef} position="sticky" color="transparent" sx={{ top: 0, backgroundColor: '#ffffff' }}>
         <Toolbar sx={{ gap: 3, flexWrap: 'wrap', py: 1 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <Box component="img" src={`${import.meta.env.BASE_URL}favicon.svg`} alt="" sx={{ width: 24, height: 24 }} />

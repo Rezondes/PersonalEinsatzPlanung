@@ -15,7 +15,10 @@ allowed to touch browser APIs.
   `domain/employee/EmploymentType.ts` is shared with the JSON v2->v3 migration so a restored backup
   and a locally upgraded database cannot disagree. Never edit an existing version's `.stores()` in
   place - any future structural change goes through a new `this.version(n)` block with its own
-  `.upgrade()` migration.
+  `.upgrade()` migration. Version 4 adds the `shiftTemplates` store; a brand-new, initially empty
+  store needs a `.stores()` declaration but no `.upgrade()`, since there is nothing to migrate into
+  it. **When a store is added, `transaction()` at the bottom of the file has to list it too** -
+  otherwise the JSON import writes into a store outside its own transaction and Dexie throws.
 - JSON backup format (`application/export/jsonExportFormat.ts` - note: lives in `application/`, not
   here, despite the name suggesting otherwise, because it's a pure DTO/versioning concern, not a
   browser-API concern) has its own independent `formatVersion` from the Dexie schema version;

@@ -20,6 +20,7 @@ import SwapHorizOutlinedIcon from '@mui/icons-material/SwapHorizOutlined';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import ContentPasteIcon from '@mui/icons-material/ContentPaste';
 import EventBusyOutlinedIcon from '@mui/icons-material/EventBusyOutlined';
+import BookmarkAddOutlinedIcon from '@mui/icons-material/BookmarkAddOutlined';
 import SearchOutlinedIcon from '@mui/icons-material/SearchOutlined';
 import UndoIcon from '@mui/icons-material/Undo';
 import RedoIcon from '@mui/icons-material/Redo';
@@ -49,6 +50,7 @@ import { useAbsences } from '@ui/hooks/useAbsences';
 import { useCalendarWeekStore } from '@ui/app/store/calendarWeekStore';
 import { useErrorSnackbar } from '@ui/hooks/useErrorSnackbar';
 import { ErrorSnackbar } from '@ui/components/ErrorSnackbar';
+import { ConfirmDialog } from '@ui/components/ConfirmDialog';
 import { ScheduleTable } from './components/ScheduleTable';
 import { ScheduleHeaderFields } from './components/ScheduleHeaderFields';
 import { DayEditor } from './components/DayEditor';
@@ -57,7 +59,16 @@ import { ValidationNotices } from './components/ValidationNotices';
 import { WeekSelectionDialog } from './components/WeekSelectionDialog';
 import { CarryOverPreviousWeekDialog } from './components/CarryOverPreviousWeekDialog';
 import { useScheduleValidation } from './useScheduleValidation';
-import { buildScheduleRows, isCellLocked } from './scheduleRows';
+import { buildScheduleRows, canReceiveEntry, isCellLocked } from './scheduleRows';
+import type { ScheduleRow } from './scheduleRows';
+import type { ScheduleTool } from './scheduleTools';
+import { toolToDayEntry } from './scheduleTools';
+import { ScheduleToolbar } from './components/ScheduleToolbar';
+import { ShiftTemplateDialog } from './components/ShiftTemplateDialog';
+import type { ShiftTemplate } from '@domain/schedule/ShiftTemplate';
+import type { ShiftDraft } from '@domain/schedule/shiftDraft';
+import { shiftToDraft } from '@domain/schedule/shiftDraft';
+import { useShiftTemplates } from '@ui/hooks/useShiftTemplates';
 import { useScheduleHistory } from './useScheduleHistory';
 import type { AbsenceOp, HistoryDirection, HistoryStep } from './useScheduleHistory';
 
@@ -68,6 +79,7 @@ export function ScheduleView() {
   const setSelectedWeek = useCalendarWeekStore((s) => s.setSelectedWeek);
   const { schedule, loading, setSchedule } = useSchedule(branch?.id ?? null, selectedWeek);
   const { absences, reload: reloadAbsences } = useAbsences(employeeList.map((emp) => emp.id));
+  const { templates, reload: reloadTemplates } = useShiftTemplates(branch?.id ?? null);
   const validationResults = useScheduleValidation(schedule, branch, absences);
   const navigate = useNavigate();
 
@@ -79,10 +91,22 @@ export function ScheduleView() {
   const [contextMenu, setContextMenu] = useState<{
     employeeId: EmployeeId;
     dayView: DayView;
+    row: ScheduleRow;
     x: number;
     y: number;
   } | null>(null);
-  const [copiedEntry, setCopiedEntry] = useState<DayEntry | null>(null);
+  // The clipboard and the toolbar are the same thing: whatever is active here is what "Einfügen"
+  // pastes and what a dropped tile writes.
+  const [activeTool, setActiveTool] = useState<ScheduleTool | null>(null);
+  // null = closed, otherwise the template being edited (or drafts prefilled from a day).
+  const [templateDialog, setTemplateDialog] = useState<
+    { template: ShiftTemplate | null; drafts?: ShiftDraft[] } | null
+  >(null);
+  // The dragged tool travels in a ref, not in dataTransfer: getData() is blanked during dragover,
+  // and a ref keeps the real Shift objects instead of an id that would have to be resolved again.
+  // dataTransfer only carries a marker type so foreign drags (files, text) can be told apart.
+  const draggedToolRef = useRef<ScheduleTool | null>(null);
+  const [templateDeleteTarget, setTemplateDeleteTarget] = useState<ShiftTemplate | null>(null);
   const [weekSelectionOpen, setWeekSelectionOpen] = useState(false);
   const [carryOverOpen, setCarryOverOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -281,7 +305,7 @@ export function ScheduleView() {
         setContextMenu(null);
         return;
       }
-      setContextMenu({ employeeId, dayView, x: e.clientX, y: e.clientY });
+      setContextMenu({ employeeId, dayView, row, x: e.clientX, y: e.clientY });
     };
     document.addEventListener('contextmenu', handler);
     return () => document.removeEventListener('contextmenu', handler);
@@ -289,31 +313,43 @@ export function ScheduleView() {
 
   const copy = () => {
     if (!contextMenu) return;
-    setCopiedEntry(contextMenu.dayView.entry);
+    setActiveTool({ kind: 'clipboard', entry: contextMenu.dayView.entry });
     setContextMenu(null);
   };
 
+  /** Opens the template dialog prefilled with this day's shifts, so a working time that was just
+   * built by hand can be kept without rebuilding it. */
+  const saveAsTemplate = () => {
+    if (!contextMenu) return;
+    const { entry } = contextMenu.dayView;
+    setContextMenu(null);
+    if (entry.type !== 'Shift') return;
+    setTemplateDialog({ template: null, drafts: entry.shifts.map(shiftToDraft) });
+  };
+
+  const applyTool = useCallback(
+    (tool: ScheduleTool, employeeId: EmployeeId, dayView: DayView) =>
+      setEntryInCell(employeeId, dayView, toolToDayEntry(tool)),
+    [setEntryInCell],
+  );
+
+  const toolDrop = useCallback(
+    (employeeId: EmployeeId, dayView: DayView) => {
+      const tool = draggedToolRef.current;
+      draggedToolRef.current = null;
+      if (!tool) return;
+      applyTool(tool, employeeId, dayView);
+    },
+    [applyTool],
+  );
+
+  // Fresh ids for the pasted shifts/breaks and the dropped override rule both live in
+  // scheduleTools.toolToDayEntry now, shared by the clipboard and the templates.
   const paste = async () => {
-    if (!contextMenu || !copiedEntry) return;
+    if (!contextMenu || !activeTool) return;
     const { employeeId, dayView } = contextMenu;
     setContextMenu(null);
-
-    // Fresh ids for the pasted shifts/breaks, so they never collide with the ids of the copied
-    // source. A manual netMinutesOverride is deliberately NOT carried along: it corrects one
-    // specific day, and silently copying someone else's corrected hours would be surprising.
-    const entry: DayEntry =
-      copiedEntry.type === 'Shift'
-        ? {
-            type: 'Shift',
-            shifts: copiedEntry.shifts.map((s) => ({
-              ...s,
-              id: crypto.randomUUID(),
-              breaks: s.breaks.map((b) => ({ ...b, id: crypto.randomUUID() })),
-            })),
-          }
-        : { type: 'Off' };
-
-    await setEntryInCell(employeeId, dayView, entry);
+    await applyTool(activeTool, employeeId, dayView);
   };
 
   const setToOff = async () => {
@@ -323,12 +359,18 @@ export function ScheduleView() {
     await setEntryInCell(employeeId, dayView, { type: 'Off' });
   };
 
-  const isMultiDayAbsence = (dayView: DayView) =>
-    !!(dayView.absence && !(dayView.absence.from === dayView.date && dayView.absence.to === dayView.date));
-
-  const pasteDisabled = !copiedEntry || !!(contextMenu && isMultiDayAbsence(contextMenu.dayView));
+  // One rule for every way of writing into a cell (see scheduleRows.canReceiveEntry).
+  const cellWritable = !!contextMenu && canReceiveEntry(contextMenu.row, contextMenu.dayView);
+  const pasteDisabled = !activeTool || !cellWritable;
   const isAlreadyOff = !!contextMenu && contextMenu.dayView.entry.type === 'Off' && !contextMenu.dayView.absence;
-  const setToOffDisabled = isAlreadyOff || !!(contextMenu && isMultiDayAbsence(contextMenu.dayView));
+  const setToOffDisabled = isAlreadyOff || !cellWritable;
+  // Saving a day as a template needs real, visible shifts: an Off day has none, and on a full-day
+  // absence the entry may still hold stale shifts the grid does not show.
+  const saveAsTemplateDisabled =
+    !contextMenu ||
+    contextMenu.dayView.entry.type !== 'Shift' ||
+    contextMenu.dayView.entry.shifts.length === 0 ||
+    contextMenu.dayView.absenceCoversWholeDay;
 
   if (!branch) {
     return <Alert severity="info">Bitte zuerst oben eine Filiale auswählen oder anlegen.</Alert>;
@@ -447,8 +489,25 @@ export function ScheduleView() {
         />
       )}
 
+      <ScheduleToolbar
+        templates={templates}
+        activeTool={activeTool}
+        onSelect={setActiveTool}
+        onDragTool={(tool) => {
+          draggedToolRef.current = tool;
+        }}
+        onCreate={() => setTemplateDialog({ template: null })}
+        onEdit={(template) => setTemplateDialog({ template })}
+        onDelete={setTemplateDeleteTarget}
+      />
+
       {schedule && visibleRows.length > 0 && (
-        <ScheduleTable rows={visibleRows} validationResults={validationResults} onCellClick={cellClick} />
+        <ScheduleTable
+          rows={visibleRows}
+          validationResults={validationResults}
+          onCellClick={cellClick}
+          onToolDrop={toolDrop}
+        />
       )}
 
       {schedule && rows.length > 0 && visibleRows.length === 0 && (
@@ -472,6 +531,10 @@ export function ScheduleView() {
         <MenuItem onClick={setToOff} disabled={setToOffDisabled}>
           <EventBusyOutlinedIcon fontSize="small" sx={{ mr: 1 }} />
           Frei
+        </MenuItem>
+        <MenuItem onClick={saveAsTemplate} disabled={saveAsTemplateDisabled}>
+          <BookmarkAddOutlinedIcon fontSize="small" sx={{ mr: 1 }} />
+          Als Vorlage speichern
         </MenuItem>
       </Menu>
 
@@ -515,6 +578,40 @@ export function ScheduleView() {
           absence={editorState.dayView.absence}
         />
       )}
+
+      {templateDialog && (
+        <ShiftTemplateDialog
+          branchId={branch.id}
+          template={templateDialog.template}
+          initialDrafts={templateDialog.drafts}
+          onClose={() => setTemplateDialog(null)}
+          onSaved={reloadTemplates}
+          onError={report}
+        />
+      )}
+
+      <ConfirmDialog
+        open={!!templateDeleteTarget}
+        title="Vorlage löschen?"
+        text={`Die Vorlage „${templateDeleteTarget?.name ?? ''}" wird entfernt. Bereits eingetragene Arbeitszeiten bleiben unverändert, sie sind Kopien der Vorlage.`}
+        confirmText="Löschen"
+        dangerous
+        onConfirm={async () => {
+          if (!templateDeleteTarget) return;
+          try {
+            await services.shiftTemplate.delete(templateDeleteTarget.id);
+            if (activeTool?.kind === 'template' && activeTool.template.id === templateDeleteTarget.id) {
+              setActiveTool(null);
+            }
+            await reloadTemplates();
+          } catch (e) {
+            report(e, 'Vorlage konnte nicht gelöscht werden');
+          } finally {
+            setTemplateDeleteTarget(null);
+          }
+        }}
+        onCancel={() => setTemplateDeleteTarget(null)}
+      />
 
       <ErrorSnackbar error={error} onClose={reset} />
     </Box>

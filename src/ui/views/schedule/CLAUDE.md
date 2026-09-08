@@ -151,3 +151,44 @@ The Tageseditor has an optional "Netto-Stunden manuell" field per day; the Soll 
 Minijob's full Min-Max band and the warning icon only fires outside it. See
 `application/CLAUDE.md` for the worked/credited split and `domain/schedule/CLAUDE.md` for why the
 override never reaches the ArbZG checks.
+
+## Werkzeugleiste und Drag and Drop
+
+`ScheduleToolbar.tsx` is the always-visible tool palette. `scheduleTools.ts` gives all three kinds of
+tool one type (`off`, `clipboard`, `template`), so the toolbar, the clipboard and the drop target do
+not each grow a three-way branch. `toolToDayEntry` is the single place that turns a tool into a day
+entry, and the only place that regenerates shift/break ids - the inline copy that used to live in
+`ScheduleView.paste` is gone.
+
+The clipboard **is** the active tool: clicking a tile makes it active, "Kopieren" on a cell makes the
+copied entry active, and "Einfügen" applies whatever is active. There is deliberately no second
+mechanism next to the clipboard.
+
+Drag and drop is native HTML5, no library:
+
+- The tile sets `dataTransfer.setData(TOOL_MIME, ...)` (Firefox refuses to start a drag otherwise)
+  and `effectAllowed = 'copy'`; the cell sets `dropEffect = 'copy'`. Mismatched effects make Firefox
+  cancel the drop silently.
+- `onDragOver` **must** `preventDefault()`, or `drop` never fires. `onDragEnter` does the same.
+- The dragged tool travels in a **ref** in `ScheduleView`, not in `dataTransfer`: `getData()` is
+  blanked during dragover by every browser, so a payload there could not be inspected while hovering.
+  `dataTransfer` carries only the marker type, which `types.includes(...)` **can** read - that is what
+  tells our tools apart from a dragged file or text.
+- The drop highlight lives in `ScheduleTable`, not in `ScheduleView`: dragover fires continuously and
+  a highlight in the parent would re-render it (and defeat the table's `memo`) many times per second.
+- `dragleave` also fires when the pointer moves onto a child element, so it only clears the highlight
+  when `!currentTarget.contains(relatedTarget)`.
+
+`scheduleRows.canReceiveEntry` is the ONE rule behind "Einfügen", "Frei" and a drop: it rules out
+locked cells **and** cells inside a multi-day absence. Without the second half, drag and drop would
+become the single path that writes a shift onto a vacation week, which the Tageseditor and the menu
+both refuse. A cell that cannot receive an entry gets no drag handlers at all - the browser then
+shows the "no drop" cursor by itself.
+
+The template tiles use an explicit menu button, not right-click: the document-level `contextmenu`
+listener leaves the native browser menu alone outside the table.
+
+The bar is sticky under the app header, whose height varies because its toolbar wraps - `AppShell`
+measures it into the `--pep-header-height` custom property (written straight to the DOM, no state, so
+resizing does not re-render the shell). Its `zIndex` stays at 2 on purpose: `ValidationNotices`
+renders its expanded panel at `zIndex: 10` right across this area and has to stay on top.
