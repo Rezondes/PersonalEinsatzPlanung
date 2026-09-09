@@ -1,50 +1,28 @@
 import { useLayoutEffect, useRef } from 'react';
-import { Outlet, NavLink } from 'react-router-dom';
-import { BuildVersionBadge } from '@ui/components/BuildVersionBadge';
-import AppBar from '@mui/material/AppBar';
-import Toolbar from '@mui/material/Toolbar';
-import Typography from '@mui/material/Typography';
+import { Outlet } from 'react-router-dom';
 import Box from '@mui/material/Box';
-import Select from '@mui/material/Select';
-import MenuItem from '@mui/material/MenuItem';
 import Container from '@mui/material/Container';
-import { useBranchList } from '@ui/hooks/useBranch';
-import { useBranchSelectionStore } from '@ui/app/store/branchSelectionStore';
-
-const NAV_LINKS = [
-  { path: '/schedule', label: 'Wochenplanung' },
-  { path: '/month', label: 'Monatsübersicht' },
-  { path: '/employees', label: 'Mitarbeiter' },
-  { path: '/absences', label: 'Abwesenheiten' },
-  { path: '/branches', label: 'Filialen' },
-];
-
-/**
- * The class exists only so theme.ts can give these links a :active state. The global
- * -webkit-tap-highlight-color: transparent removes the browser's own touch feedback, and these are
- * bare anchors without MUI's ripple - without a replacement, tapping a nav entry on a tablet gives
- * no feedback at all until the route swaps. Inline styles cannot carry a pseudo-class, hence a class.
- */
-export const NAV_LINK_CLASS = 'pep-nav-link';
-
-const navLinkStyle = ({ isActive }: { isActive: boolean }) => ({
-  color: isActive ? '#2f5d50' : '#4b4b47',
-  fontWeight: isActive ? 500 : 400,
-  textDecoration: 'none',
-  fontSize: 14,
-  padding: '6px 10px',
-  borderRadius: 8,
-  backgroundColor: isActive ? '#eef3f1' : 'transparent',
-});
+import { BuildVersionBadge } from '@ui/components/BuildVersionBadge';
+import { useBreakpoint } from '@ui/hooks/useBreakpoint';
+import { AppHeader } from './AppHeader';
+import { PageActionsProvider } from './PageActionsContext';
+import { LaptopNav } from './nav/LaptopNav';
+import { NavRail } from './nav/NavRail';
+import { BottomTabBar } from './nav/BottomTabBar';
+import { MobileFab } from './nav/MobileFab';
+import { mobileSafeBottom } from './nav/mobileChromeOffset';
 
 export function AppShell() {
+  const layout = useBreakpoint();
   const rootRef = useRef<HTMLDivElement>(null);
   const headerRef = useRef<HTMLElement>(null);
 
   // The header's toolbar wraps at narrow widths, so its height is not a constant. Publishing it as
   // a CSS custom property lets a sticky element below it (the Wochenplanung toolbar) dock exactly
   // underneath without hardcoding 64px. Written straight to the DOM, deliberately not via state:
-  // a resize must not re-render the whole shell.
+  // a resize must not re-render the whole shell. AppHeader is mounted at every breakpoint (its
+  // `nav` slot varies; navigation itself moves to BottomTabBar/NavRail where applicable), so the
+  // observed element never disappears and this needs no per-layout branch.
   useLayoutEffect(() => {
     const root = rootRef.current;
     const header = headerRef.current;
@@ -60,59 +38,42 @@ export function AppShell() {
     return () => observer.disconnect();
   }, []);
 
-  const { branches } = useBranchList();
-  const activeBranches = branches.filter((b) => b.active);
-  const selectedBranchId = useBranchSelectionStore((s) => s.selectedBranchId);
-  const setSelectedBranch = useBranchSelectionStore((s) => s.setSelectedBranch);
+  // Mobile -> bottom tab bar; tablet (portrait AND landscape) -> the sidebar rail; only once
+  // there's room for a full horizontal row (laptop) does navigation move into the top bar. Not
+  // three separate nav chromes in sequence - the rail covers both tablet widths.
+  const showRail = layout === 'tabletPortrait' || layout === 'tabletLandscape';
+  const nav = layout === 'laptop' ? <LaptopNav /> : undefined;
 
   return (
-    <Box ref={rootRef} sx={{ minHeight: '100vh', backgroundColor: 'background.default' }}>
-      <AppBar ref={headerRef} position="sticky" color="transparent" sx={{ top: 0, backgroundColor: '#ffffff' }}>
-        <Toolbar sx={{ gap: 3, flexWrap: 'wrap', py: 1 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Box component="img" src={`${import.meta.env.BASE_URL}favicon.svg`} alt="" sx={{ width: 24, height: 24 }} />
-            <Typography variant="subtitle1" fontWeight={500}>
-              Personaleinsatzplanung
-            </Typography>
-          </Box>
+    <PageActionsProvider>
+      <Box ref={rootRef} sx={{ minHeight: '100vh', backgroundColor: 'background.default', display: 'flex' }}>
+        {showRail && <NavRail />}
 
-          {activeBranches.length > 0 && (
-            <Select
-              size="small"
-              value={selectedBranchId ?? ''}
-              onChange={(e) => setSelectedBranch(e.target.value as never)}
-              sx={{ minWidth: 220 }}
-            >
-              {activeBranches.map((b) => (
-                <MenuItem key={b.id} value={b.id}>
-                  {b.branchNumber} - {b.name}
-                </MenuItem>
-              ))}
-            </Select>
-          )}
+        <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+          <AppHeader headerRef={headerRef} nav={nav} />
 
-          <Box sx={{ display: 'flex', gap: 1, flexGrow: 1, flexWrap: 'wrap' }}>
-            {NAV_LINKS.map((link) => (
-              <NavLink key={link.path} to={link.path} className={NAV_LINK_CLASS} style={navLinkStyle}>
-                {link.label}
-              </NavLink>
-            ))}
-          </Box>
+          <Container
+            maxWidth={layout === 'mobile' ? false : 'xl'}
+            disableGutters={layout === 'mobile'}
+            sx={{
+              flex: 1,
+              px: layout === 'mobile' ? 1.5 : 3,
+              py: 3,
+              // Mobile content must clear the fixed BottomTabBar (and MobileFab, which floats
+              // above it) so the last row of a list or the schedule grid's toolbar sheet isn't
+              // hidden behind them.
+              pb: layout === 'mobile' ? mobileSafeBottom(24) : 3,
+            }}
+          >
+            <Outlet />
+          </Container>
+        </Box>
 
-          <NavLink to="/privacy" className={NAV_LINK_CLASS} style={navLinkStyle}>
-            Datenschutz
-          </NavLink>
-          <NavLink to="/settings" className={NAV_LINK_CLASS} style={navLinkStyle}>
-            Einstellungen
-          </NavLink>
-        </Toolbar>
-      </AppBar>
+        {layout === 'mobile' && <BottomTabBar />}
+        {layout === 'mobile' && <MobileFab />}
 
-      <Container maxWidth="xl" sx={{ py: 3 }}>
-        <Outlet />
-      </Container>
-
-      <BuildVersionBadge />
-    </Box>
+        <BuildVersionBadge />
+      </Box>
+    </PageActionsProvider>
   );
 }

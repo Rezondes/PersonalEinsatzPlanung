@@ -8,6 +8,7 @@ import { AbsencesView } from '@ui/views/absences/AbsencesView';
 import { PrintPreviewView } from '@ui/views/print/PrintPreviewView';
 import { SettingsView } from '@ui/views/settings/SettingsView';
 import { PrivacyView } from '@ui/views/settings/PrivacyView';
+import { MorePage } from './nav/MorePage';
 
 export const router = createHashRouter([
   {
@@ -26,6 +27,7 @@ export const router = createHashRouter([
       { path: 'absences', element: <AbsencesView /> },
       { path: 'settings', element: <SettingsView /> },
       { path: 'privacy', element: <PrivacyView /> },
+      { path: 'more', element: <MorePage /> },
     ],
   },
 ]);

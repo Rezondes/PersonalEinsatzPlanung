@@ -1,5 +1,7 @@
 import Box from '@mui/material/Box';
 import { APP_VERSION } from '@ui/app/buildInfo';
+import { useBreakpoint } from '@ui/hooks/useBreakpoint';
+import { mobileSafeBottom } from '@ui/app/nav/mobileChromeOffset';
 
 /**
  * The build identity, pinned to the bottom right corner of the window.
@@ -16,13 +18,14 @@ import { APP_VERSION } from '@ui/app/buildInfo';
  * The low z-index keeps dialogs (1300) and the app bar (1100) above it.
  */
 export function BuildVersionBadge() {
+  const layout = useBreakpoint();
   return (
     <Box
       aria-hidden
       sx={{
         position: 'fixed',
         right: 6,
-        bottom: 4,
+        bottom: layout === 'mobile' ? mobileSafeBottom(4) : 4,
         zIndex: 1,
         pointerEvents: 'none',
         userSelect: 'none',

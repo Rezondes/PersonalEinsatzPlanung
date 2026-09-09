@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import Snackbar from '@mui/material/Snackbar';
 import Alert from '@mui/material/Alert';
 import { useNotificationStore, type AppNotification } from './store/notificationStore';
+import { useBreakpoint } from '@ui/hooks/useBreakpoint';
+import { mobileSafeBottom } from './nav/mobileChromeOffset';
 
 /** Long enough to read a sentence twice. MUI pauses the clock while the pointer is over it. */
 const ERROR_MS = 10_000;
@@ -14,7 +16,9 @@ const SUCCESS_MS = 4_000;
  * is a top-level route outside the shell, and feedback has to reach it too.
  *
  * Bottom centre - where the old ErrorSnackbar sat. UpdatePrompt keeps bottom left and
- * BuildVersionBadge bottom right, so the three never overlap.
+ * BuildVersionBadge bottom right, so the three never overlap - except on mobile, where
+ * BottomTabBar now also occupies the bottom of the screen; all three there get lifted by
+ * mobileSafeBottom() so none of them render underneath it.
  *
  * Errors auto-hide too, they just get longer. A snackbar sits at z-index 1400, above every dialog
  * (1300), and is full width below 600px - a permanent one would cover the Speichern button of the
@@ -25,6 +29,7 @@ export function AppNotifications() {
   // fresh object or array would re-render forever ("getSnapshot should be cached").
   const current: AppNotification | undefined = useNotificationStore((state) => state.queue[0]);
   const dismiss = useNotificationStore((state) => state.dismiss);
+  const layout = useBreakpoint();
 
   // Held so the text does not vanish mid-fade: Snackbar keeps rendering during its exit transition,
   // and the store entry is already gone by then.
@@ -53,7 +58,7 @@ export function AppNotifications() {
         }
       }}
       anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-      sx={{ '@media print': { display: 'none' } }}
+      sx={{ '@media print': { display: 'none' }, ...(layout === 'mobile' && { bottom: `${mobileSafeBottom(8)} !important` }) }}
     >
       <Alert
         severity={shown.severity}

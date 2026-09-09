@@ -3,6 +3,8 @@ import Snackbar from '@mui/material/Snackbar';
 import Alert from '@mui/material/Alert';
 import Button from '@mui/material/Button';
 import { useRegisterSW } from 'virtual:pwa-register/react';
+import { useBreakpoint } from '@ui/hooks/useBreakpoint';
+import { mobileSafeBottom } from './nav/mobileChromeOffset';
 
 /** Once an hour. Often enough that a fix reaches the shops the same day, rare enough to be free. */
 const UPDATE_CHECK_INTERVAL_MS = 60 * 60 * 1000;
@@ -24,6 +26,7 @@ const UPDATE_CHECK_INTERVAL_MS = 60 * 60 * 1000;
  * do not stack.
  */
 export function UpdatePrompt() {
+  const layout = useBreakpoint();
   const registration = useRef<ServiceWorkerRegistration | undefined>(undefined);
   const {
     needRefresh: [needRefresh, setNeedRefresh],
@@ -45,7 +48,7 @@ export function UpdatePrompt() {
     <Snackbar
       open={needRefresh}
       anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
-      sx={{ '@media print': { display: 'none' } }}
+      sx={{ '@media print': { display: 'none' }, ...(layout === 'mobile' && { bottom: `${mobileSafeBottom(8)} !important` }) }}
     >
       <Alert
         severity="info"
