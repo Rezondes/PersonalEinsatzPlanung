@@ -15,5 +15,5 @@ export const GOOGLE_CLIENT_ID = '33983014120-d81o1dia907kf96ogn728oee6ued4ugn.ap
 export const GOOGLE_DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
 
 /** A normal, user-visible folder rather than the hidden app data folder, so backups can be seen,
- * tidied up and downloaded by hand in Drive. */
+ * tidied up and downloaded by hand in Drive - next to deleting them from inside the app. */
 export const BACKUP_FOLDER_NAME = 'Personaleinsatzplanung';

@@ -18,7 +18,7 @@ const SECTIONS = [
   },
   {
     title: 'Was sieht Google, wenn ich die Drive-Sicherung nutze?',
-    text: 'Die App fordert von Google nur die engste verfügbare Berechtigung an: Sie kann ausschließlich auf Dateien zugreifen, die sie selbst angelegt hat. Der übrige Inhalt deines Google Drive bleibt für sie unsichtbar. Die Sicherungen liegen im Ordner „Personaleinsatzplanung“ und du kannst sie dort jederzeit selbst ansehen oder löschen. Da die Sicherung Mitarbeiterdaten enthält, ist Google in diesem Fall Auftragsverarbeiter. Der Zugriffsschlüssel selbst wird nicht auf dem Gerät gespeichert: Die App merkt sich nur, dass du Drive nutzt, und erneuert die Freigabe still, solange du bei Google angemeldet bist. Über „Verbindung trennen“ endet das sofort.',
+    text: 'Die App fordert von Google nur die engste verfügbare Berechtigung an: Sie kann ausschließlich auf Dateien zugreifen, die sie selbst angelegt hat. Der übrige Inhalt deines Google Drive bleibt für sie unsichtbar. Die Sicherungen liegen im Ordner „Personaleinsatzplanung“ und du kannst sie jederzeit selbst ansehen und löschen, in Google Drive wie auch in dieser App. Gelöschte Sicherungen landen in Googles Papierkorb und werden dort nach 30 Tagen endgültig entfernt. Da die Sicherung Mitarbeiterdaten enthält, ist Google in diesem Fall Auftragsverarbeiter. Der Zugriffsschlüssel selbst wird nicht auf dem Gerät gespeichert: Die App merkt sich nur, dass du Drive nutzt, und erneuert die Freigabe still, solange du bei Google angemeldet bist. Über „Verbindung trennen“ endet das sofort.',
   },
   {
     title: 'Wie kann ich meine Daten löschen?',

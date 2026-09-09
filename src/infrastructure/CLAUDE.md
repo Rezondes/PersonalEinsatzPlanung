@@ -34,7 +34,7 @@ allowed to touch browser APIs.
   destination for the very same JSON backup, behind the `application/ports/BackupStorage` port so
   the UI never talks to Google and the whole flow is testable against a fake (`SettingsView.test.tsx`,
   `DriveBackupDialog.test.tsx`). The real sign-in dialog cannot be automated - that one step is only
-  ever verified by hand. Four decisions here are load-bearing; none of them is an accident:
+  ever verified by hand. Five decisions here are load-bearing; none of them is an accident:
   - **The Google script is loaded lazily**, on the first `requestAccessToken` call, i.e. when the
     user actually clicks "Mit Google anmelden". Until then the app makes no request to Google at
     all. This is what keeps `PrivacyView`'s promise true for everyone who does not use the feature -
@@ -51,6 +51,12 @@ allowed to touch browser APIs.
     itself, the rest of the Drive stays invisible to it. Anything wider drags in Google's expensive
     security review. Backups go into a normal, visible folder `Personaleinsatzplanung`, not the
     hidden app-data folder, so the user can see, tidy and download them by hand.
+  - **Deleting a backup TRASHES it, it does not erase it.** `delete()` sends
+    `PATCH {trashed: true}`, not `DELETE`. The scope would permit a real erase; the reason not to
+    is that a Drive backup is frequently the user's only second copy, and one mis-tap on a phone
+    would be unrecoverable. In the trash it can be restored for 30 days. `list()` already filters
+    `trashed = false`, so it leaves the app's list immediately either way, and the confirmation
+    text says which of the two happened - do not "tidy" it into a DELETE.
   - **The client id in `googleConfig.ts` is public by design** (every browser app ships it) and may
     stay in the repository. There is no client secret; this flow does not use one. An empty id makes
     `isConfigured()` false and the feature disappears from the UI entirely.

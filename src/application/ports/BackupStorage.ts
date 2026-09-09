@@ -33,4 +33,11 @@ export interface BackupStorage {
   list(): Promise<RemoteBackup[]>;
   upload(filename: string, content: unknown): Promise<RemoteBackup>;
   download(id: string): Promise<unknown>;
+  /**
+   * Removes a backup from the list. Deliberately NOT specified as an erase: a provider may put
+   * the file somewhere recoverable instead, so a confirmation must not promise it is gone for
+   * good. What the Google adapter does, and for how long it stays recoverable, is documented
+   * there rather than here - this port names no provider.
+   */
+  delete(id: string): Promise<void>;
 }

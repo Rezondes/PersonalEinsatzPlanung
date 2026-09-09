@@ -19,6 +19,7 @@ vi.mock('@infrastructure/services', () => ({
       list: vi.fn(async () => []),
       upload: vi.fn(),
       download: vi.fn(),
+      delete: vi.fn(async () => undefined),
     },
     dataExport: {
       export: vi.fn(async () => ({ formatVersion: 4 })),

@@ -31,7 +31,7 @@ function toRemoteBackup(file: DriveFile): RemoteBackup {
  *
  * Uses the drive.file scope, so every call here can only ever touch files this app created itself -
  * the rest of the user's Drive stays invisible to it. Backups go into a normal, visible folder so
- * they can be seen, tidied up and downloaded by hand in Drive.
+ * they can be seen, tidied up and downloaded by hand in Drive as well as from inside the app.
  */
 export class GoogleDriveBackupStorage implements BackupStorage {
   private folderId: string | null = null;
@@ -164,6 +164,20 @@ export class GoogleDriveBackupStorage implements BackupStorage {
       },
     );
     return toRemoteBackup((await response.json()) as DriveFile);
+  }
+
+  /**
+   * Moves a backup to Drive's trash rather than erasing it. The same scope would allow a real
+   * DELETE, but this is frequently the user's only second copy of their data and one mis-tap would
+   * be unrecoverable; in the trash it can be restored for 30 days from Drive itself. list() already
+   * filters `trashed = false`, so it disappears from the app immediately either way.
+   */
+  async delete(id: string): Promise<void> {
+    await this.call(`${DRIVE_API}/files/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ trashed: true }),
+    });
   }
 
   async download(id: string): Promise<unknown> {

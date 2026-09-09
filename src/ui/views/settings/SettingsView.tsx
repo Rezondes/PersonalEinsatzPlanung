@@ -290,7 +290,7 @@ export function SettingsView() {
             ) : driveSignedIn ? (
               <>
                 <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                  Sicherungen liegen in deinem Google Drive im Ordner „Personaleinsatzplanung“. Der Zugriff wird
+                  Sicherungen liegen in deinem Google Drive im Ordner „Personaleinsatzplanung“. Unter „Aus Google Drive laden“ kannst du sie auch löschen. Der Zugriff wird
                   aus Sicherheitsgründen nicht gespeichert, sondern bei Bedarf still erneuert, solange du bei
                   Google angemeldet bist.
                 </Typography>
@@ -499,6 +499,7 @@ export function SettingsView() {
           busy={driveBusy}
           onClose={() => setDrivePickerOpen(false)}
           onSelect={chooseDriveBackup}
+          onError={notify.report}
         />
       )}
 
