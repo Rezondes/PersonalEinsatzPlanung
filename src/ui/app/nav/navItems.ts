@@ -5,6 +5,7 @@ import GroupOutlinedIcon from '@mui/icons-material/GroupOutlined';
 import EventBusyOutlinedIcon from '@mui/icons-material/EventBusyOutlined';
 import StoreOutlinedIcon from '@mui/icons-material/StoreOutlined';
 import ShieldOutlinedIcon from '@mui/icons-material/ShieldOutlined';
+import GavelOutlinedIcon from '@mui/icons-material/GavelOutlined';
 import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
 import MoreHorizOutlinedIcon from '@mui/icons-material/MoreHorizOutlined';
 
@@ -32,6 +33,7 @@ export const MAIN_NAV_ITEMS: NavItem[] = [
 /** Secondary destinations, shown inline on LaptopNav and in a footer section on NavRail. */
 export const FOOTER_NAV_ITEMS: NavItem[] = [
   { path: '/privacy', label: 'Datenschutz', icon: ShieldOutlinedIcon },
+  { path: '/terms', label: 'Nutzungsbedingungen', icon: GavelOutlinedIcon },
   { path: '/settings', label: 'Einstellungen', icon: SettingsOutlinedIcon },
 ];
 
@@ -42,9 +44,9 @@ export interface BottomTab extends NavItem {
 }
 
 /** The mobile bottom tab bar: the first four MAIN_NAV_ITEMS (by their short label) plus a "Mehr"
- * tab that aggregates Filialen, Einstellungen and Datenschutz - there is no room for all five main
- * items plus two footer items in a five-tab bar. Mirrors the mockup's own separate `TAB_DEFS`
- * list (distinct from `railMain`), not a filtered view of MAIN_NAV_ITEMS. */
+ * tab that aggregates Filialen, Einstellungen, Datenschutz and Nutzungsbedingungen - there is no
+ * room for all five main items plus the footer items in a five-tab bar. Mirrors the mockup's own
+ * separate `TAB_DEFS` list (distinct from `railMain`), not a filtered view of MAIN_NAV_ITEMS. */
 export const BOTTOM_TABS: BottomTab[] = [
   MAIN_NAV_ITEMS[0],
   MAIN_NAV_ITEMS[1],
@@ -54,6 +56,6 @@ export const BOTTOM_TABS: BottomTab[] = [
     path: '/more',
     label: 'Mehr',
     icon: MoreHorizOutlinedIcon,
-    matchPaths: ['/more', '/branches', '/settings', '/privacy'],
+    matchPaths: ['/more', '/branches', '/settings', '/privacy', '/terms'],
   },
 ];

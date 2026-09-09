@@ -13,7 +13,9 @@ import Typography from '@mui/material/Typography';
 import Tooltip from '@mui/material/Tooltip';
 import Stack from '@mui/material/Stack';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
-import { WEEKDAYS } from '@domain/shared/CalendarWeek';
+import type { Weekday } from '@domain/shared/CalendarWeek';
+import { WEEKDAYS_SHORT } from '@domain/shared/CalendarWeek';
+import { formatISODateShortGerman } from '@domain/shared/DateFormat';
 import type { EmployeeId } from '@domain/shared/ids';
 import { fullName } from '@domain/employee/Employee';
 import {
@@ -28,9 +30,14 @@ import type { RowLockReason, ScheduleRow } from '../scheduleRows';
 import { canReceiveEntry, isCellLocked } from '../scheduleRows';
 import { TOOL_MIME } from '../scheduleTools';
 import { stickyCornerSx, stickyFirstColumnSx, stickyHeaderRowSx } from '@ui/components/stickyFirstColumn';
+import { useBreakpoint } from '@ui/hooks/useBreakpoint';
 
 interface ScheduleTableProps {
   rows: ScheduleRow[];
+  /** One entry per weekday, carrying that column's actual calendar date - the header needs a real
+   * date (Aufgabe 3), which the per-employee DayView data doesn't give a single canonical source
+   * for independent of `rows` being non-empty. Computed by ScheduleView from `selectedWeek`. */
+  weekDays: { day: Weekday; date: string }[];
   validationResults: ValidationResult[];
   onCellClick: (employeeId: EmployeeId, dayView: DayView) => void;
   /** A toolbar tool was dropped on this cell. Which tool it was comes from the drag payload the
@@ -87,6 +94,7 @@ function deviationFromTarget(actualMinutes: number, target: { min: number; max: 
  * from the parent (memoized rows, useCallback'd onCellClick) those re-renders skip it. */
 export const ScheduleTable = memo(function ScheduleTable({
   rows,
+  weekDays,
   validationResults,
   onCellClick,
   onToolDrop,
@@ -94,6 +102,7 @@ export const ScheduleTable = memo(function ScheduleTable({
   onToolTap,
   isAssignTarget,
 }: ScheduleTableProps) {
+  const layout = useBreakpoint();
   // Kept HERE and not in ScheduleView on purpose: dragover fires continuously, and a highlight in
   // the parent would re-render it (and defeat this component's memo) many times per second. As
   // cell state it only changes when the pointer crosses a cell boundary.
@@ -118,27 +127,58 @@ export const ScheduleTable = memo(function ScheduleTable({
   const resultsFor = (employeeId: EmployeeId, date: string) =>
     resultsByCell.get(cellKey(employeeId, date)) ?? NO_RESULTS;
 
+  // Laptop shows the full weekday name (matches the mockup's wider artboard and the user's own
+  // "hinter dem Tag wie 'Mittwoch'" description); mobile/tablet show the abbreviated form - mobile
+  // stacks name and date (narrower column), tablet keeps them side by side (same row layout as
+  // laptop, just abbreviated).
+  const dayLabel = (day: (typeof weekDays)[number]['day']) => (layout === 'laptop' ? day : WEEKDAYS_SHORT[day]);
+
   return (
     // Bounded height, self-scrolling on both axes - see stickyFirstColumn.ts for why a sticky
     // header row and horizontal scroll on a real <table> can't coexist any other way (overflow-x:
     // auto unconditionally makes the browser treat this element as the scroll container for both
-    // axes, so it has to be the intended one, not an accident).
-    <TableContainer component={Paper} sx={{ maxHeight: '70vh' }}>
+    // axes, so it has to be the intended one, not an accident). height:'100%' on mobile instead of
+    // a vh cap: ScheduleView gives this component a flex:1 region bounded between the header and
+    // the fixed bottom tab bar there, and this needs to fill exactly that, not a viewport fraction.
+    <TableContainer
+      component={Paper}
+      sx={{
+        maxHeight: layout === 'mobile' ? undefined : '70vh',
+        height: layout === 'mobile' ? '100%' : undefined,
+        // Reaches the true screen edges on mobile, cancelling the wrapper Box's own px:1.5 in
+        // ScheduleView - same edge-to-edge treatment as the mobile toolbar bar, and it buys back a
+        // little extra width for the grid's own inevitable horizontal scroll on a phone.
+        mx: layout === 'mobile' ? -1.5 : 0,
+        borderRadius: layout === 'mobile' ? 0 : undefined,
+      }}
+    >
       <Table size="small">
         <TableHead>
           <TableRow>
-            <TableCell sx={{ ...stickyCornerSx(), minWidth: 180 }}>Mitarbeiter</TableCell>
-            {WEEKDAYS.map((day) => (
-              <TableCell key={day} align="center" sx={{ ...stickyHeaderRowSx(), minWidth: 120 }}>
-                {day}
+            <TableCell sx={{ ...stickyCornerSx(), minWidth: layout === 'mobile' ? 140 : 180 }}>Mitarbeiter</TableCell>
+            {weekDays.map(({ day, date }) => (
+              <TableCell key={day} align="center" sx={{ ...stickyHeaderRowSx(), minWidth: layout === 'mobile' ? 76 : 120 }}>
+                {layout === 'mobile' ? (
+                  <Stack direction="column" alignItems="center">
+                    <Typography variant="caption" fontWeight={500}>
+                      {dayLabel(day)}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {formatISODateShortGerman(date)}
+                    </Typography>
+                  </Stack>
+                ) : (
+                  <Stack direction="row" spacing={0.5} justifyContent="center">
+                    <Typography variant="caption" fontWeight={500}>
+                      {dayLabel(day)}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {formatISODateShortGerman(date)}
+                    </Typography>
+                  </Stack>
+                )}
               </TableCell>
             ))}
-            <TableCell align="center" sx={stickyHeaderRowSx()}>
-              Soll
-            </TableCell>
-            <TableCell align="center" sx={stickyHeaderRowSx()}>
-              Gesamt
-            </TableCell>
           </TableRow>
         </TableHead>
         <TableBody>
@@ -159,6 +199,19 @@ export const ScheduleTable = memo(function ScheduleTable({
                   <Typography variant="caption" color="text.secondary">
                     {employee.jobTitle}
                   </Typography>
+                  <Stack direction="row" spacing={0.5} alignItems="center">
+                    <Typography variant="caption" color="text.secondary">
+                      {minutesToDecimalHours(view.totalNetMinutes).toLocaleString('de-DE')} / {formatHoursRangeGerman(target.min, target.max)} Std.
+                    </Typography>
+                    {differenceMinutes !== 0 && (
+                      <Tooltip
+                        title={`${differenceMinutes > 0 ? '+' : ''}${minutesToDecimalHours(differenceMinutes).toLocaleString('de-DE')} Std. ${differenceMinutes > 0 ? 'über' : 'unter'} Soll (${formatHoursRangeGerman(target.min, target.max)} Std.)`}
+                        arrow
+                      >
+                        <WarningAmberIcon fontSize="small" sx={{ color: '#c8973a' }} />
+                      </Tooltip>
+                    )}
+                  </Stack>
                 </TableCell>
 
                 {view.days.map((dayView: DayView) => {
@@ -337,33 +390,6 @@ export const ScheduleTable = memo(function ScheduleTable({
                     </TableCell>
                   );
                 })}
-
-                <TableCell align="center">
-                  <Typography variant="body2" color="text.secondary">
-                    {formatHoursRangeGerman(target.min, target.max)}
-                  </Typography>
-                </TableCell>
-                <TableCell align="center">
-                  <Stack direction="row" spacing={0.5} alignItems="center" justifyContent="center">
-                    <Typography variant="body2" fontWeight={500}>
-                      {minutesToDecimalHours(view.totalNetMinutes).toLocaleString('de-DE')}
-                    </Typography>
-                    {differenceMinutes !== 0 && (
-                      <Tooltip
-                        title={`${differenceMinutes > 0 ? '+' : ''}${minutesToDecimalHours(differenceMinutes).toLocaleString('de-DE')} Std. ${differenceMinutes > 0 ? 'über' : 'unter'} Soll (${formatHoursRangeGerman(target.min, target.max)} Std.)`}
-                        arrow
-                      >
-                        <WarningAmberIcon fontSize="small" sx={{ color: '#c8973a' }} />
-                      </Tooltip>
-                    )}
-                  </Stack>
-                  {view.creditedMinutes > 0 && (
-                    <Typography variant="caption" color="text.secondary">
-                      {minutesToDecimalHours(view.workedMinutes).toLocaleString('de-DE')} gearbeitet +{' '}
-                      {minutesToDecimalHours(view.creditedMinutes).toLocaleString('de-DE')} angerechnet
-                    </Typography>
-                  )}
-                </TableCell>
               </TableRow>
             );
           })}

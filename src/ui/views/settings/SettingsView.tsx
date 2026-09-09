@@ -418,6 +418,13 @@ export function SettingsView() {
           </Link>
           .
         </Typography>
+        <Typography variant="body2" color="text.secondary">
+          Die Regeln zur Nutzung der App stehen in den{' '}
+          <Link component={RouterLink} to="/terms">
+            Nutzungsbedingungen
+          </Link>
+          .
+        </Typography>
       </Paper>
 
       <Paper sx={{ p: 3, borderColor: '#e5a3a0' }}>

@@ -2,6 +2,8 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { BranchId, EmployeeId } from '@domain/shared/ids';
+import { WEEKDAYS, dateForWeekday } from '@domain/shared/CalendarWeek';
+import { toISODate } from '@domain/shared/DateFormat';
 import { clockTime } from '@domain/shared/ClockTime';
 import { createShift } from '@domain/schedule/Shift';
 import { createWeeklySchedule, withDayEntry } from '@domain/schedule/WeeklySchedule';
@@ -46,6 +48,8 @@ function rowsFor(employeeList: Employee[]) {
   return buildScheduleRows(weekView, employeeList, '2026-09-07', '2026-09-13');
 }
 
+const weekDays = WEEKDAYS.map((day) => ({ day, date: toISODate(dateForWeekday({ year: 2026, week: 37 }, day)) }));
+
 /** Every existing (pre-Phase-5c) test exercises the non-assigning path, matching the laptop
  * breakpoint's unchanged behavior - assignMode off, no tile armed. */
 const notAssigning = {
@@ -56,7 +60,7 @@ const notAssigning = {
 
 describe('ScheduleTable', () => {
   it('renders one row per employee with their shift times', () => {
-    render(<ScheduleTable rows={rowsFor(employees)} validationResults={[]} onCellClick={() => {}} onToolDrop={() => {}} {...notAssigning} />);
+    render(<ScheduleTable rows={rowsFor(employees)} weekDays={weekDays} validationResults={[]} onCellClick={() => {}} onToolDrop={() => {}} {...notAssigning} />);
 
     expect(screen.getByText('Müller, Anna')).toBeInTheDocument();
     expect(screen.getByText('Schulz, Anna')).toBeInTheDocument();
@@ -70,7 +74,7 @@ describe('ScheduleTable', () => {
       { rule: 'ArbZG_3_Tag', severity: 'error', message: 'Tagesarbeitszeit zu lang', employeeId: m1, date: '2026-09-07' },
       { rule: 'ArbZG_3_Woche', severity: 'warning', message: 'Wochenarbeitszeit hoch', employeeId: m1 },
     ];
-    render(<ScheduleTable rows={rowsFor(employees)} validationResults={results} onCellClick={() => {}} onToolDrop={() => {}} {...notAssigning} />);
+    render(<ScheduleTable rows={rowsFor(employees)} weekDays={weekDays} validationResults={results} onCellClick={() => {}} onToolDrop={() => {}} {...notAssigning} />);
 
     const [mondayOfFirstRow] = screen.getAllByRole('button', { name: 'Montag bearbeiten' });
     await user.hover(mondayOfFirstRow);
@@ -82,7 +86,7 @@ describe('ScheduleTable', () => {
   it('reports the clicked cell with its employee and day', async () => {
     const user = userEvent.setup();
     const onCellClick = vi.fn();
-    render(<ScheduleTable rows={rowsFor(employees)} validationResults={[]} onCellClick={onCellClick} onToolDrop={() => {}} {...notAssigning} />);
+    render(<ScheduleTable rows={rowsFor(employees)} weekDays={weekDays} validationResults={[]} onCellClick={onCellClick} onToolDrop={() => {}} {...notAssigning} />);
 
     const [, tuesdayOfSecondRow] = screen.getAllByRole('button', { name: 'Dienstag bearbeiten' });
     await user.click(tuesdayOfSecondRow);
@@ -91,7 +95,7 @@ describe('ScheduleTable', () => {
   });
 
   it('skips assignments whose employee is unknown', () => {
-    render(<ScheduleTable rows={rowsFor([employee(m1, 'Müller')])} validationResults={[]} onCellClick={() => {}} onToolDrop={() => {}} {...notAssigning} />);
+    render(<ScheduleTable rows={rowsFor([employee(m1, 'Müller')])} weekDays={weekDays} validationResults={[]} onCellClick={() => {}} onToolDrop={() => {}} {...notAssigning} />);
 
     expect(screen.queryByText('Schulz, Anna')).not.toBeInTheDocument();
     expect(screen.getAllByRole('row')).toHaveLength(2);
@@ -105,6 +109,7 @@ describe('ScheduleTable', () => {
       render(
         <ScheduleTable
           rows={rowsFor(employees)}
+          weekDays={weekDays}
           validationResults={[]}
           onCellClick={onCellClick}
           onToolDrop={() => {}}
@@ -132,6 +137,7 @@ describe('ScheduleTable', () => {
       render(
         <ScheduleTable
           rows={rowsFor(employees)}
+          weekDays={weekDays}
           validationResults={[]}
           onCellClick={onCellClick}
           onToolDrop={() => {}}
@@ -152,6 +158,7 @@ describe('ScheduleTable', () => {
       render(
         <ScheduleTable
           rows={rowsFor(employees)}
+          weekDays={weekDays}
           validationResults={[]}
           onCellClick={() => {}}
           onToolDrop={() => {}}

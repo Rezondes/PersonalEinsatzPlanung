@@ -5,6 +5,10 @@ import Stack from '@mui/material/Stack';
 
 const SECTIONS = [
   {
+    title: 'Verantwortlicher',
+    text: 'Verantwortlich für die Datenverarbeitung im Sinne der DSGVO ist [Name], [POSTANSCHRIFT - vom Nutzer nachzureichen]. Kontakt: dev@rezondes.net oder rezondes.business@gmail.com. Es handelt sich um das Angebot einer Privatperson / eines Einzelunternehmens (kein Handelsregistereintrag, keine Umsatzsteuer-ID). Diese Datenschutzerklärung ist unter anderem wegen der optionalen Google-Anmeldung (OAuth) für die Google-Drive-Sicherung erforderlich.',
+  },
+  {
     title: 'Wo werden die Daten gespeichert?',
     text: 'Alle Daten (Filialen, Mitarbeiter, Wochenpläne, Abwesenheiten, Schichtvorlagen) werden ausschließlich lokal im Browser dieses Geräts gespeichert (IndexedDB). Es gibt keinen Server der App, an den Daten übertragen werden, und die App funktioniert vollständig offline. Die einzige Ausnahme ist die optionale Sicherung in deinem eigenen Google Drive, die du unter „Einstellungen“ selbst auslöst. Wenn du die App auf dem Startbildschirm installierst, wird nur das Programm selbst auf dem Gerät abgelegt, damit es ohne Internetverbindung startet. Deine Daten sind davon nicht betroffen: Sie liegen ohnehin schon lokal und werden dabei nirgendwohin übertragen.',
   },

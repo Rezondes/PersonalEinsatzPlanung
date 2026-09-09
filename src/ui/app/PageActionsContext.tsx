@@ -12,6 +12,12 @@ export interface FabAction {
 
 export interface PageActions {
   fab?: FabAction;
+  /** True while the current view wants AppShell's mobile Container to become a zero-padding,
+   * bounded flex-column (fill exactly between the header and the fixed bottom tab bar) instead of
+   * the normal padded, page-scrolling layout every other mobile page uses - e.g. because it hosts
+   * its own scrolling region that must stay bounded between two fixed chrome pieces. Only Woche
+   * needs this today. Ignored outside the mobile breakpoint. */
+  fullBleedMobile?: boolean;
 }
 
 interface PageActionsContextValue {
@@ -37,7 +43,7 @@ export function PageActionsProvider({ children }: { children: ReactNode }) {
 export function usePageActions(actions: PageActions): void {
   const ctx = useContext(PageActionsContext);
   const setActions = ctx?.setActions;
-  const { fab } = actions;
+  const { fab, fullBleedMobile } = actions;
   // Re-registers whenever the caller passes a new label/icon/handler, not on every render of the
   // host view - onClick is typically a fresh closure per render, so keying only on label+icon
   // (which are stable in practice: a page's create-action wording doesn't change while mounted)
@@ -47,19 +53,17 @@ export function usePageActions(actions: PageActions): void {
 
   useEffect(() => {
     if (!setActions) return;
-    if (!fab) {
+    if (!fab && !fullBleedMobile) {
       setActions({});
       return;
     }
-    const stableFab: FabAction = {
-      label: fab.label,
-      icon: fab.icon,
-      onClick: () => onClickRef.current?.(),
-    };
-    setActions({ fab: stableFab });
+    const stableFab: FabAction | undefined = fab
+      ? { label: fab.label, icon: fab.icon, onClick: () => onClickRef.current?.() }
+      : undefined;
+    setActions({ fab: stableFab, fullBleedMobile });
     return () => setActions({});
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on label/icon by design, see above
-  }, [setActions, fab?.label, fab?.icon]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on label/icon/fullBleedMobile by design, see above
+  }, [setActions, fab?.label, fab?.icon, fullBleedMobile]);
 }
 
 /** Read by MobileFab only. */

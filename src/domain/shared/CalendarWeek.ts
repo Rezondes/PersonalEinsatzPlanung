@@ -12,6 +12,19 @@ export interface CalendarWeek {
 export const WEEKDAYS = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag'] as const;
 export type Weekday = (typeof WEEKDAYS)[number];
 
+/** Abbreviated form of WEEKDAYS, for the schedule grid's day header at narrower breakpoints (the
+ * mockup's mobile/tablet columns show "Mo"/"Di"/... instead of the full name, which only fits once
+ * the header also has room for the laptop's wider, full-name + date layout). */
+export const WEEKDAYS_SHORT: Record<Weekday, string> = {
+  Montag: 'Mo',
+  Dienstag: 'Di',
+  Mittwoch: 'Mi',
+  Donnerstag: 'Do',
+  Freitag: 'Fr',
+  Samstag: 'Sa',
+  Sonntag: 'So',
+};
+
 export function calendarWeekFromDate(date: Date): CalendarWeek {
   return { year: getISOWeekYear(date), week: getISOWeek(date) };
 }

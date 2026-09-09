@@ -149,7 +149,7 @@ export function requestAccessToken(silent: boolean): Promise<string> {
             }
           },
         });
-        client.requestAccessToken(silent ? { prompt: '' } : undefined);
+        client.requestAccessToken(silent ? { prompt: 'none' } : undefined);
       }),
   );
 }

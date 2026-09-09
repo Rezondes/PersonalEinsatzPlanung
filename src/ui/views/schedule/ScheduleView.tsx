@@ -6,7 +6,6 @@ import Typography from '@mui/material/Typography';
 import IconButton from '@mui/material/IconButton';
 import Button from '@mui/material/Button';
 import Alert from '@mui/material/Alert';
-import Paper from '@mui/material/Paper';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 import TextField from '@mui/material/TextField';
@@ -24,6 +23,7 @@ import BookmarkAddOutlinedIcon from '@mui/icons-material/BookmarkAddOutlined';
 import SearchOutlinedIcon from '@mui/icons-material/SearchOutlined';
 import UndoIcon from '@mui/icons-material/Undo';
 import RedoIcon from '@mui/icons-material/Redo';
+import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import {
   previousCalendarWeek,
   nextCalendarWeek,
@@ -31,6 +31,7 @@ import {
   calendarWeeksEqual,
   mondayOfWeek,
   dateForWeekday,
+  WEEKDAYS,
 } from '@domain/shared/CalendarWeek';
 import { formatDateGerman, toISODate } from '@domain/shared/DateFormat';
 import type { EmployeeId } from '@domain/shared/ids';
@@ -62,6 +63,7 @@ import type { ScheduleRow } from './scheduleRows';
 import type { ScheduleTool } from './scheduleTools';
 import { OFF_TOOL, dayEntryMatchesTool, toolToDayEntry } from './scheduleTools';
 import { useBreakpoint } from '@ui/hooks/useBreakpoint';
+import { usePageActions } from '@ui/app/PageActionsContext';
 import { ScheduleToolbar } from './components/ScheduleToolbar';
 import { ShiftTemplateDialog } from './components/ShiftTemplateDialog';
 import type { ShiftTemplate } from '@domain/schedule/ShiftTemplate';
@@ -109,6 +111,10 @@ export function ScheduleView() {
   const [assignModeActive, setAssignModeActive] = useState(false);
   const layout = useBreakpoint();
   const touchMode = layout !== 'laptop';
+  // Only this view needs AppShell's mobile Container to become a bounded, non-scrolling flex
+  // column (see PageActionsContext's doc comment on fullBleedMobile) - every other mobile page
+  // never calls this, so AppShell's normal padded/page-scrolling Container stays their default.
+  usePageActions({ fullBleedMobile: true });
   // null = closed, otherwise the template being edited (or drafts prefilled from a day).
   const [templateDialog, setTemplateDialog] = useState<
     { template: ShiftTemplate | null; drafts?: ShiftDraft[] } | null
@@ -130,6 +136,13 @@ export function ScheduleView() {
 
   const weekStartISO = toISODate(mondayOfWeek(selectedWeek));
   const weekEndISO = toISODate(dateForWeekday(selectedWeek, 'Sonntag'));
+  // ScheduleTable's day header needs each column's real calendar date (Aufgabe 3) - independent of
+  // `rows` so it doesn't rely on rows being non-empty. Only changes on week navigation, same cadence
+  // as `rows` itself, so it's safe for ScheduleTable's memo() boundary.
+  const weekDays = useMemo(
+    () => WEEKDAYS.map((day) => ({ day, date: toISODate(dateForWeekday(selectedWeek, day)) })),
+    [selectedWeek],
+  );
 
   const rows = useMemo(() => {
     if (!schedule) return [];
@@ -443,8 +456,19 @@ export function ScheduleView() {
     ? rows.find((r) => r.view.employeeId === editorState.employeeId)
     : undefined;
 
+  // Mobile only: AppShell's fullBleedMobile Container hands this view a bounded, zero-padding
+  // region between the header and the fixed bottom tab bar (see PageActionsContext/AppShell) - to
+  // fill it, this becomes a flex column itself, with its own px/pt taking over the padding
+  // AppShell's Container no longer supplies on this route. Tablet/laptop keep the plain Box they
+  // always had (normal document flow, no flex/height coupling).
   return (
-    <Box>
+    <Box
+      sx={
+        layout === 'mobile'
+          ? { display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, height: '100%', px: 1.5, pt: 1.5 }
+          : undefined
+      }
+    >
       <Stack direction="row" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={2} sx={{ mb: 2 }}>
         <Box>
           <Typography variant="h5" fontWeight={500}>
@@ -460,6 +484,41 @@ export function ScheduleView() {
             {formatDateGerman(dateForWeekday(selectedWeek, 'Sonntag'))}
           </Typography>
         </Box>
+
+        {/* Laptop only: the mockup folds the KPI figures directly into this header row instead of
+            a separate card grid below it (see the KPI section further down, which renders nothing
+            at this breakpoint). Mobile/tablet keep a dedicated KPI strip since there is no room
+            for it here at those widths. */}
+        {layout === 'laptop' && (
+          <Stack direction="row" gap={1} alignItems="center">
+            <Box sx={{ border: '1px solid #e0e0dc', borderRadius: 1, px: 1.5, py: 0.75 }}>
+              <Typography variant="body2">
+                Ist {minutesToDecimalHours(totalWorkedMinutes).toLocaleString('de-DE')} /{' '}
+                {formatHoursRangeGerman(totalTarget.min, totalTarget.max)} Soll ·{' '}
+                {absencesLoading ? '–' : notYetScheduledCount.toLocaleString('de-DE')} noch nicht eingeplant
+              </Typography>
+            </Box>
+            <ValidationNotices
+              results={validationResults}
+              employeeList={employeeList}
+              renderTrigger={({ errorCount, warningCount, onClick }) => (
+                <Button
+                  size="small"
+                  onClick={onClick}
+                  sx={{
+                    backgroundColor: '#fbeaea',
+                    border: '1px solid #e5a3a0',
+                    color: '#b3261e',
+                    '&:hover': { backgroundColor: '#f7dcdb' },
+                  }}
+                >
+                  {errorCount} Fehler, {warningCount} Warnung(en)
+                </Button>
+              )}
+            />
+          </Stack>
+        )}
+
         <Stack direction="row" gap={1} alignItems="center">
           <Tooltip title="Rückgängig (Strg+Z)">
             <span>
@@ -513,6 +572,7 @@ export function ScheduleView() {
           opacity: loading ? 0.4 : 1,
           pointerEvents: loading ? 'none' : 'auto',
           transition: 'opacity 120ms',
+          ...(layout === 'mobile' ? { display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 } : {}),
         }}
       >
         {loading && (
@@ -525,75 +585,77 @@ export function ScheduleView() {
         )}
 
         {(() => {
-          const kpiTiles = [
-            { label: 'Soll-Std. (Verträge)', value: formatHoursRangeGerman(totalTarget.min, totalTarget.max) },
-            {
-              label: 'Ist-Wochenstd. (gearbeitet)',
-              value: minutesToDecimalHours(totalWorkedMinutes).toLocaleString('de-DE'),
-            },
-            {
-              label: 'Hinweise',
-              value: `${validationResults.filter((e) => e.severity === 'error').length} Fehler`,
-            },
-            {
-              label: 'Noch nicht eingeplant',
-              // "-" until the absences have arrived: they land one IndexedDB round later than the
-              // schedule, and until then everyone who is only absent would be counted as unplanned.
-              value: absencesLoading
-                ? '–'
-                : `${notYetScheduledCount.toLocaleString('de-DE')} Mitarbeiter`,
-            },
-          ];
+          // Laptop folds these figures into the header row instead (see above) - nothing to render
+          // here at that breakpoint.
+          if (layout === 'laptop') return null;
 
-          // Mobile: the four cards wrap into two rows of large Paper tiles, pushing the grid a full
-          // screen down before it is even visible. A horizontal-scrolling row of compact chips -
-          // matching the mockup's Handy stat strip - keeps the same four figures reachable in one
-          // line instead. Tablet/laptop keep the existing wrapping card grid unchanged.
-          if (layout === 'mobile') {
-            return (
-              <Stack direction="row" gap={1} sx={{ mb: 2, overflowX: 'auto', pb: 0.5 }}>
-                {kpiTiles.map((tile) => (
-                  <Box
-                    key={tile.label}
-                    sx={{
-                      flexShrink: 0,
-                      px: 1.5,
-                      py: 0.75,
-                      backgroundColor: 'background.paper',
-                      border: '1px solid',
-                      borderColor: 'divider',
-                      borderRadius: 4,
-                    }}
-                  >
-                    <Typography variant="caption" color="text.secondary" noWrap display="block">
-                      {tile.label}
-                    </Typography>
-                    <Typography variant="body2" fontWeight={500} noWrap>
-                      {tile.value}
-                    </Typography>
-                  </Box>
-                ))}
-              </Stack>
-            );
-          }
+          const notYetScheduledText = absencesLoading ? '–' : notYetScheduledCount.toLocaleString('de-DE');
+          const chipSx = {
+            flexShrink: 0,
+            px: 1.5,
+            py: 0.75,
+            border: '1px solid',
+            borderColor: 'divider',
+            borderRadius: 4,
+          };
+
+          // Mobile: "Ist / Soll" (a single combined figure); tablet has the room to spell out
+          // "Ist X von Y Soll" instead - matches the mockup's own wording difference between its
+          // two narrower artboards.
+          const istSollText =
+            layout === 'mobile'
+              ? `${minutesToDecimalHours(totalWorkedMinutes).toLocaleString('de-DE')} / ${formatHoursRangeGerman(totalTarget.min, totalTarget.max)}`
+              : `Ist ${minutesToDecimalHours(totalWorkedMinutes).toLocaleString('de-DE')} von ${formatHoursRangeGerman(totalTarget.min, totalTarget.max)} Soll`;
 
           return (
-            <Stack direction="row" gap={2} flexWrap="wrap" sx={{ mb: 3 }}>
-              {kpiTiles.map((tile) => (
-                <Paper key={tile.label} sx={{ p: 2, minWidth: 160, flex: '1 1 160px' }}>
-                  <Typography variant="caption" color="text.secondary">
-                    {tile.label}
+            <Stack direction="row" gap={1} sx={{ mb: 2, overflowX: 'auto', pb: 0.5 }}>
+              <Box sx={{ ...chipSx, backgroundColor: 'background.paper' }}>
+                {layout === 'mobile' && (
+                  <Typography variant="caption" color="text.secondary" noWrap display="block">
+                    Ist / Soll
                   </Typography>
-                  <Typography variant="h6" fontWeight={500}>
-                    {tile.value}
-                  </Typography>
-                </Paper>
-              ))}
+                )}
+                <Typography variant="body2" fontWeight={500} noWrap>
+                  {istSollText}
+                </Typography>
+              </Box>
+
+              <ValidationNotices
+                results={validationResults}
+                employeeList={employeeList}
+                renderTrigger={({ errorCount, warningCount, onClick }) => (
+                  <Box
+                    component="button"
+                    type="button"
+                    onClick={onClick}
+                    sx={{
+                      ...chipSx,
+                      backgroundColor: '#fbeaea',
+                      borderColor: '#e5a3a0',
+                      color: '#b3261e',
+                      font: 'inherit',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 0.5,
+                    }}
+                  >
+                    <WarningAmberIcon fontSize="small" />
+                    <Typography variant="body2" fontWeight={500} noWrap>
+                      {errorCount} Fehler{warningCount > 0 ? `, ${warningCount} Warnung(en)` : ''}
+                    </Typography>
+                  </Box>
+                )}
+              />
+
+              <Box sx={{ ...chipSx, backgroundColor: '#eef3f1', color: '#2f5d50' }}>
+                <Typography variant="body2" fontWeight={500} noWrap>
+                  {notYetScheduledText} noch nicht eingeplant
+                </Typography>
+              </Box>
             </Stack>
           );
         })()}
-
-      <ValidationNotices results={validationResults} employeeList={employeeList} />
 
       {!loading && employeeList.length === 0 && (
         <Alert severity="info" sx={{ mb: 2 }}>
@@ -619,35 +681,59 @@ export function ScheduleView() {
         />
       )}
 
-      <ScheduleToolbar
-        templates={templates}
-        activeTool={activeTool}
-        onSelect={selectTool}
-        onDragTool={(tool) => {
-          draggedToolRef.current = tool;
-        }}
-        onCreate={() => setTemplateDialog({ template: null })}
-        onEdit={(template) => setTemplateDialog({ template })}
-        onDelete={setTemplateDeleteTarget}
-        assignModeActive={assignModeActive}
-        onFinishAssigning={finishAssigning}
-      />
+      {(() => {
+        const toolbar = (
+          <ScheduleToolbar
+            templates={templates}
+            activeTool={activeTool}
+            onSelect={selectTool}
+            onDragTool={(tool) => {
+              draggedToolRef.current = tool;
+            }}
+            onCreate={() => setTemplateDialog({ template: null })}
+            onEdit={(template) => setTemplateDialog({ template })}
+            onDelete={setTemplateDeleteTarget}
+            assignModeActive={assignModeActive}
+            onFinishAssigning={finishAssigning}
+          />
+        );
 
-      {schedule && visibleRows.length > 0 && (
-        <ScheduleTable
-          rows={visibleRows}
-          validationResults={validationResults}
-          onCellClick={cellClick}
-          onToolDrop={toolDrop}
-          assignMode={assignModeActive}
-          onToolTap={toolTap}
-          isAssignTarget={isAssignTarget}
-        />
-      )}
+        const tableSection = (
+          <Box sx={layout === 'mobile' ? { display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 } : undefined}>
+            {schedule && visibleRows.length > 0 && (
+              <ScheduleTable
+                rows={visibleRows}
+                weekDays={weekDays}
+                validationResults={validationResults}
+                onCellClick={cellClick}
+                onToolDrop={toolDrop}
+                assignMode={assignModeActive}
+                onToolTap={toolTap}
+                isAssignTarget={isAssignTarget}
+              />
+            )}
 
-      {schedule && rows.length > 0 && visibleRows.length === 0 && (
-          <Alert severity="info">Kein Mitarbeiter gefunden.</Alert>
-        )}
+            {schedule && rows.length > 0 && visibleRows.length === 0 && (
+              <Alert severity="info">Kein Mitarbeiter gefunden.</Alert>
+            )}
+          </Box>
+        );
+
+        // Mobile: the toolbar bar must be the LAST flex child so it lands directly above the fixed
+        // bottom tab bar (see Aufgabe 2) - the grid comes first and takes the remaining flex:1
+        // space above it. Tablet/laptop keep today's order (toolbar above the grid) unchanged.
+        return layout === 'mobile' ? (
+          <>
+            {tableSection}
+            {toolbar}
+          </>
+        ) : (
+          <>
+            {toolbar}
+            {tableSection}
+          </>
+        );
+      })()}
       </Box>
 
       <Menu

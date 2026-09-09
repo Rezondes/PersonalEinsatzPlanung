@@ -27,6 +27,14 @@ export function formatISODateGerman(isoDate: string): string {
   return `${day}.${month}.${year}`;
 }
 
+/** Narrower sibling of formatISODateGerman, deliberately without the year - matches the schedule
+ * grid's day-column header ("DD.MM.", e.g. "07.09."). A different, narrower format for a specific
+ * spot, same as views/print/'s own formatDateShort - not part of the general date-formatting rule. */
+export function formatISODateShortGerman(isoDate: string): string {
+  const [, month, day] = isoDate.split('-');
+  return `${day}.${month}.`;
+}
+
 /** Combines an ISO date ("yyyy-MM-dd") with a time into a concrete local point in time.
  * Uses the overloaded Date constructor, which automatically rolls minutes >59 into hours. */
 export function combineDateAndTime(isoDate: string, time: ClockTime): Date {

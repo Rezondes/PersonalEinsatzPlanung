@@ -294,7 +294,12 @@ export function ScheduleToolbar({
       <Paper
         component="section"
         aria-label="Werkzeugleiste"
-        sx={{ position: 'sticky', top: 'var(--pep-header-height, 64px)', zIndex: 2, mb: 2, overflow: 'hidden' }}
+        // Not sticky-from-top like the tablet/laptop Paper above: on mobile this is the LAST
+        // flex-shrink:0 child of ScheduleView's bounded flex column (see AppShell's
+        // fullBleedMobile), placed directly above the fixed bottom tab bar by flex stacking alone -
+        // matching the mockup exactly. mx cancels the wrapper's own horizontal padding so this
+        // reaches the true edges; mb:0 since there is no trailing gap to the tab bar below it.
+        sx={{ zIndex: 2, mb: 0, mx: -1.5, overflow: 'hidden' }}
       >
         {assignModeActive ? (
           assignBanner(() => setSheetOpen(true))
@@ -336,7 +341,10 @@ export function ScheduleToolbar({
         onClose={() => setSheetOpen(false)}
         disableSwipeToOpen
       >
-        <Box sx={{ pt: 1, pb: 2 }}>
+        {/* A modal overlay (MUI Drawer z-index 1200), above BottomTabBar's 1100 - only needs the
+            device's own bottom safe-area inset, not MOBILE_TAB_BAR_HEIGHT (that's for content that
+            must clear the tab bar's height, which an overlay drawn on top of it doesn't). */}
+        <Box sx={{ pt: 1, pb: 'calc(16px + env(safe-area-inset-bottom, 0px))' }}>
           <Box sx={{ display: 'flex', justifyContent: 'center', pb: 1 }}>
             <Box sx={{ width: 36, height: 4, borderRadius: 1, backgroundColor: '#cfcfc9' }} />
           </Box>
