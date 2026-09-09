@@ -524,36 +524,74 @@ export function ScheduleView() {
           </Stack>
         )}
 
-        <Stack direction="row" gap={2} flexWrap="wrap" sx={{ mb: 3 }}>
-        {[
-          { label: 'Soll-Std. (Verträge)', value: formatHoursRangeGerman(totalTarget.min, totalTarget.max) },
-          {
-            label: 'Ist-Wochenstd. (gearbeitet)',
-            value: minutesToDecimalHours(totalWorkedMinutes).toLocaleString('de-DE'),
-          },
-          {
-            label: 'Hinweise',
-            value: `${validationResults.filter((e) => e.severity === 'error').length} Fehler`,
-          },
-          {
-            label: 'Noch nicht eingeplant',
-            // "-" until the absences have arrived: they land one IndexedDB round later than the
-            // schedule, and until then everyone who is only absent would be counted as unplanned.
-            value: absencesLoading
-              ? '–'
-              : `${notYetScheduledCount.toLocaleString('de-DE')} Mitarbeiter`,
-          },
-        ].map((tile) => (
-          <Paper key={tile.label} sx={{ p: 2, minWidth: 160, flex: '1 1 160px' }}>
-            <Typography variant="caption" color="text.secondary">
-              {tile.label}
-            </Typography>
-            <Typography variant="h6" fontWeight={500}>
-              {tile.value}
-            </Typography>
-          </Paper>
-        ))}
-      </Stack>
+        {(() => {
+          const kpiTiles = [
+            { label: 'Soll-Std. (Verträge)', value: formatHoursRangeGerman(totalTarget.min, totalTarget.max) },
+            {
+              label: 'Ist-Wochenstd. (gearbeitet)',
+              value: minutesToDecimalHours(totalWorkedMinutes).toLocaleString('de-DE'),
+            },
+            {
+              label: 'Hinweise',
+              value: `${validationResults.filter((e) => e.severity === 'error').length} Fehler`,
+            },
+            {
+              label: 'Noch nicht eingeplant',
+              // "-" until the absences have arrived: they land one IndexedDB round later than the
+              // schedule, and until then everyone who is only absent would be counted as unplanned.
+              value: absencesLoading
+                ? '–'
+                : `${notYetScheduledCount.toLocaleString('de-DE')} Mitarbeiter`,
+            },
+          ];
+
+          // Mobile: the four cards wrap into two rows of large Paper tiles, pushing the grid a full
+          // screen down before it is even visible. A horizontal-scrolling row of compact chips -
+          // matching the mockup's Handy stat strip - keeps the same four figures reachable in one
+          // line instead. Tablet/laptop keep the existing wrapping card grid unchanged.
+          if (layout === 'mobile') {
+            return (
+              <Stack direction="row" gap={1} sx={{ mb: 2, overflowX: 'auto', pb: 0.5 }}>
+                {kpiTiles.map((tile) => (
+                  <Box
+                    key={tile.label}
+                    sx={{
+                      flexShrink: 0,
+                      px: 1.5,
+                      py: 0.75,
+                      backgroundColor: 'background.paper',
+                      border: '1px solid',
+                      borderColor: 'divider',
+                      borderRadius: 4,
+                    }}
+                  >
+                    <Typography variant="caption" color="text.secondary" noWrap display="block">
+                      {tile.label}
+                    </Typography>
+                    <Typography variant="body2" fontWeight={500} noWrap>
+                      {tile.value}
+                    </Typography>
+                  </Box>
+                ))}
+              </Stack>
+            );
+          }
+
+          return (
+            <Stack direction="row" gap={2} flexWrap="wrap" sx={{ mb: 3 }}>
+              {kpiTiles.map((tile) => (
+                <Paper key={tile.label} sx={{ p: 2, minWidth: 160, flex: '1 1 160px' }}>
+                  <Typography variant="caption" color="text.secondary">
+                    {tile.label}
+                  </Typography>
+                  <Typography variant="h6" fontWeight={500}>
+                    {tile.value}
+                  </Typography>
+                </Paper>
+              ))}
+            </Stack>
+          );
+        })()}
 
       <ValidationNotices results={validationResults} employeeList={employeeList} />
 
