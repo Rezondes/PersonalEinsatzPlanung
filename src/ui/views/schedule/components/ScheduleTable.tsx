@@ -27,6 +27,7 @@ import { effectiveTargetMinutesRange } from '@application/schedule/scheduleAsses
 import type { RowLockReason, ScheduleRow } from '../scheduleRows';
 import { canReceiveEntry, isCellLocked } from '../scheduleRows';
 import { TOOL_MIME } from '../scheduleTools';
+import { stickyCornerSx, stickyFirstColumnSx, stickyHeaderRowSx } from '@ui/components/stickyFirstColumn';
 
 interface ScheduleTableProps {
   rows: ScheduleRow[];
@@ -106,18 +107,26 @@ export const ScheduleTable = memo(function ScheduleTable({
     resultsByCell.get(cellKey(employeeId, date)) ?? NO_RESULTS;
 
   return (
-    <TableContainer component={Paper}>
+    // Bounded height, self-scrolling on both axes - see stickyFirstColumn.ts for why a sticky
+    // header row and horizontal scroll on a real <table> can't coexist any other way (overflow-x:
+    // auto unconditionally makes the browser treat this element as the scroll container for both
+    // axes, so it has to be the intended one, not an accident).
+    <TableContainer component={Paper} sx={{ maxHeight: '70vh' }}>
       <Table size="small">
         <TableHead>
           <TableRow>
-            <TableCell sx={{ minWidth: 180 }}>Mitarbeiter</TableCell>
+            <TableCell sx={{ ...stickyCornerSx(), minWidth: 180 }}>Mitarbeiter</TableCell>
             {WEEKDAYS.map((day) => (
-              <TableCell key={day} align="center" sx={{ minWidth: 120 }}>
+              <TableCell key={day} align="center" sx={{ ...stickyHeaderRowSx(), minWidth: 120 }}>
                 {day}
               </TableCell>
             ))}
-            <TableCell align="center">Soll</TableCell>
-            <TableCell align="center">Gesamt</TableCell>
+            <TableCell align="center" sx={stickyHeaderRowSx()}>
+              Soll
+            </TableCell>
+            <TableCell align="center" sx={stickyHeaderRowSx()}>
+              Gesamt
+            </TableCell>
           </TableRow>
         </TableHead>
         <TableBody>
@@ -128,7 +137,7 @@ export const ScheduleTable = memo(function ScheduleTable({
 
             return (
               <TableRow key={view.employeeId} hover sx={{ opacity: row.editable ? 1 : 0.55 }}>
-                <TableCell>
+                <TableCell sx={stickyFirstColumnSx}>
                   <Stack direction="row" spacing={0.5} alignItems="center">
                     <Typography variant="body2" fontWeight={500}>
                       {fullName(employee)}
