@@ -57,7 +57,7 @@ import { ValidationNotices } from './components/ValidationNotices';
 import { WeekSelectionDialog } from './components/WeekSelectionDialog';
 import { CarryOverPreviousWeekDialog } from './components/CarryOverPreviousWeekDialog';
 import { useScheduleValidation } from './useScheduleValidation';
-import { buildScheduleRows, canReceiveEntry, isCellLocked } from './scheduleRows';
+import { buildScheduleRows, canReceiveEntry, isCellLocked, isNotYetScheduled } from './scheduleRows';
 import type { ScheduleRow } from './scheduleRows';
 import type { ScheduleTool } from './scheduleTools';
 import { toolToDayEntry } from './scheduleTools';
@@ -78,7 +78,11 @@ export function ScheduleView() {
   const selectedWeek = useCalendarWeekStore((s) => s.selectedWeek);
   const setSelectedWeek = useCalendarWeekStore((s) => s.setSelectedWeek);
   const { schedule, loading, setSchedule } = useSchedule(branch?.id ?? null, selectedWeek);
-  const { absences, reload: reloadAbsences } = useAbsences(employeeList.map((emp) => emp.id));
+  const {
+    absences,
+    loading: absencesLoading,
+    reload: reloadAbsences,
+  } = useAbsences(employeeList.map((emp) => emp.id));
   const { templates, reload: reloadTemplates } = useShiftTemplates(branch?.id ?? null);
   const validationResults = useScheduleValidation(schedule, branch, absences);
   const navigate = useNavigate();
@@ -146,11 +150,7 @@ export function ScheduleView() {
       },
       { min: 0, max: 0 },
     );
-  const absentCount = new Set(
-    absences
-      .filter((a) => rows.some((row) => row.view.employeeId === a.employeeId))
-      .map((a) => a.employeeId),
-  ).size;
+  const notYetScheduledCount = rows.filter(isNotYetScheduled).length;
 
   // Read at execution time by every queued mutation instead of from a render closure: two quick
   // edits used to both start from the same pre-edit aggregate and silently lose the first write.
@@ -470,7 +470,14 @@ export function ScheduleView() {
             label: 'Hinweise',
             value: `${validationResults.filter((e) => e.severity === 'error').length} Fehler`,
           },
-          { label: 'Abwesend', value: `${absentCount} Mitarbeiter` },
+          {
+            label: 'Noch nicht eingeplant',
+            // "-" until the absences have arrived: they land one IndexedDB round later than the
+            // schedule, and until then everyone who is only absent would be counted as unplanned.
+            value: absencesLoading
+              ? '–'
+              : `${notYetScheduledCount.toLocaleString('de-DE')} Mitarbeiter`,
+          },
         ].map((tile) => (
           <Paper key={tile.label} sx={{ p: 2, minWidth: 160, flex: '1 1 160px' }}>
             <Typography variant="caption" color="text.secondary">

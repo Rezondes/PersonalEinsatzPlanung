@@ -119,6 +119,27 @@ and `ScheduleView`'s context-menu handler checks the same `isCellLocked` predica
 `scheduleService` applies the same rule when creating/expanding a schedule, so nobody outside their
 employment period is silently appended in the first place.
 
+## Kennzahl "Noch nicht eingeplant"
+
+`isNotYetScheduled` in `scheduleRows.ts`, NOT `!hasAnyEntry(row.view)`. That looks like the same
+question and is not: `hasAnyEntry` is a `.some()` over one day and exists to decide row visibility
+(the print export depends on it too), so a single absence day would mark a whole week as planned -
+and a single "Sonstige" day is exactly how this app books a public holiday. A holiday week would
+have read "0 Mitarbeiter" before a single shift existed, which is the worst kind of wrong: plausible.
+
+The rule is: schedulable this week, no shift on any day that could take one, and at least one such
+day still not covered by a full-day absence. Away all week is nothing to do; away Monday to Friday
+still leaves Saturday. A shift stranded on a day that is locked now (someone whose Eintrittsdatum
+was moved later after they were planned) does not count as planned either.
+
+The tile shows "-" while `useAbsences` is still loading. Absences arrive one IndexedDB round after
+the schedule, and until then everyone who is only absent would be counted as unplanned.
+
+**Known limitation, not a bug:** someone deliberately given the whole week off keeps counting. An
+explicit "Frei" is `{ type: 'Off' }`, which is also what a freshly created week starts with on all
+seven days - the model cannot tell the two apart, and giving DayEntry a field just for this tile is
+not worth it.
+
 ## Undo/Redo (`useScheduleHistory.ts`)
 
 The hook owns both the undo stacks and the **write queue** every mutation goes through. The queue is

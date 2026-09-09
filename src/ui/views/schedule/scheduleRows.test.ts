@@ -7,7 +7,7 @@ import type { Employee } from '@domain/employee/Employee';
 import { createWeekView } from '@application/schedule/scheduleAssessment';
 import type { AbsenceId } from '@domain/shared/ids';
 import type { Absence } from '@domain/absence/Absence';
-import { buildScheduleRows, canReceiveEntry, isCellLocked } from './scheduleRows';
+import { buildScheduleRows, canReceiveEntry, isCellLocked, isNotYetScheduled } from './scheduleRows';
 
 const branchId = 'b1' as BranchId;
 const m1 = 'm1' as EmployeeId;
@@ -49,6 +49,40 @@ function rowsFor(employees: Employee[], withShiftFor: EmployeeId | null = m1) {
   const weekView = createWeekView(schedule, [], { employees });
   return buildScheduleRows(weekView, employees, WEEK_START, WEEK_END);
 }
+
+/** rowsFor gives exactly one employee a shift and knows no absences, which is too narrow for the
+ * "noch nicht eingeplant" cases. This one takes both explicitly. */
+function rowsWith(options: {
+  employees: Employee[];
+  shiftFor?: EmployeeId[];
+  absences?: Absence[];
+}) {
+  const { employees, shiftFor = [], absences = [] } = options;
+  let schedule = createWeeklySchedule(branchId, cw, [m1, m2]);
+  for (const id of shiftFor) {
+    schedule = withDayEntry(schedule, id, 'Montag', monday);
+  }
+  const weekView = createWeekView(schedule, absences, { employees });
+  return buildScheduleRows(weekView, employees, WEEK_START, WEEK_END);
+}
+
+function absence(employeeId: EmployeeId, from: string, to: string, overrides: Partial<Absence> = {}): Absence {
+  return {
+    id: `a-${employeeId}-${from}` as AbsenceId,
+    employeeId,
+    from,
+    to,
+    createdAt: '2026-01-01T00:00:00.000Z',
+    type: 'Vacation',
+    ...overrides,
+  } as Absence;
+}
+
+const rowFor = (rows: ReturnType<typeof rowsWith>, id: EmployeeId) => {
+  const row = rows.find((r) => r.view.employeeId === id);
+  if (!row) throw new Error(`Zeile fuer ${id} fehlt`);
+  return row;
+};
 
 describe('buildScheduleRows', () => {
   it('shows every employee who may be scheduled, sorted by last name', () => {
@@ -166,5 +200,73 @@ describe('canReceiveEntry', () => {
     );
     const row = rows.find((r) => r.employee.id === m1)!;
     expect(row.view.days.every((day) => !canReceiveEntry(row, day))).toBe(true);
+  });
+});
+
+describe('isNotYetScheduled', () => {
+  it('counts someone with nothing entered at all', () => {
+    const rows = rowsWith({ employees: [employee(m1), employee(m2)] });
+
+    expect(rows.filter(isNotYetScheduled)).toHaveLength(2);
+  });
+
+  it('does not count someone who has a shift', () => {
+    const rows = rowsWith({ employees: [employee(m1), employee(m2)], shiftFor: [m1] });
+
+    expect(isNotYetScheduled(rowFor(rows, m1))).toBe(false);
+    expect(isNotYetScheduled(rowFor(rows, m2))).toBe(true);
+  });
+
+  it('still counts someone whose only entry is a single absence day', () => {
+    // This is the case hasAnyEntry gets wrong, and it is not exotic: a one-day "Sonstige" is how
+    // this app books a public holiday. Booking it for the team must not make the tile read zero.
+    const holiday = absence(m1, '2026-09-08', '2026-09-08', { type: 'Other', label: 'Feiertag' } as Partial<Absence>);
+    const rows = rowsWith({ employees: [employee(m1), employee(m2)], absences: [holiday] });
+
+    expect(isNotYetScheduled(rowFor(rows, m1))).toBe(true);
+  });
+
+  it('does not count someone who is away the whole week', () => {
+    const rows = rowsWith({
+      employees: [employee(m1), employee(m2)],
+      absences: [absence(m1, WEEK_START, WEEK_END)],
+    });
+
+    expect(isNotYetScheduled(rowFor(rows, m1))).toBe(false);
+  });
+
+  it('counts a Monday-to-Friday holiday, because Saturday is still open', () => {
+    const rows = rowsWith({
+      employees: [employee(m1), employee(m2)],
+      absences: [absence(m1, '2026-09-07', '2026-09-11')],
+    });
+
+    expect(isNotYetScheduled(rowFor(rows, m1))).toBe(true);
+  });
+
+  it('does not count a row that cannot be scheduled at all', () => {
+    // Only visible because it carries an entry, and read-only - so there is nothing to plan there.
+    const rows = rowsWith({ employees: [employee(m1, { active: false }), employee(m2)], shiftFor: [m1] });
+
+    expect(rowFor(rows, m1).editable).toBe(false);
+    expect(isNotYetScheduled(rowFor(rows, m1))).toBe(false);
+  });
+
+  it('counts someone who starts mid-week and has nothing on their remaining days', () => {
+    const rows = rowsWith({ employees: [employee(m1, { entryDate: '2026-09-09' }), employee(m2)] });
+
+    expect(rowFor(rows, m1).lockedDays).toEqual(['Montag', 'Dienstag']);
+    expect(isNotYetScheduled(rowFor(rows, m1))).toBe(true);
+  });
+
+  it('ignores a shift stranded on a day that is locked now', () => {
+    // Planned for Monday, then their Eintrittsdatum was moved to Wednesday. Monday can no longer be
+    // worked, so this person genuinely still has to be planned.
+    const rows = rowsWith({
+      employees: [employee(m1, { entryDate: '2026-09-09' }), employee(m2)],
+      shiftFor: [m1],
+    });
+
+    expect(isNotYetScheduled(rowFor(rows, m1))).toBe(true);
   });
 });

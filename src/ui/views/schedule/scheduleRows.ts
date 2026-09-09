@@ -65,6 +65,38 @@ export function buildScheduleRows(
   return rows.sort((a, b) => compareByLastName(a.employee, b.employee));
 }
 
+/**
+ * Whether this employee still has to be given hours this week - the "Noch nicht eingeplant" tile.
+ *
+ * Deliberately NOT `!hasAnyEntry(row.view)`, which is a `.some()` over ONE day and exists to decide
+ * row VISIBILITY (the print export depends on it too). Reusing it would count a whole week as
+ * planned off the back of a single absence day - and a single "Sonstige" day is how this app books
+ * a public holiday, so a holiday week would read "0 Mitarbeiter" before a single shift existed.
+ *
+ * The three parts, in order:
+ *  - editable: they may be scheduled this week at all. An inactive or no-longer-employed row is by
+ *    construction one that already carries entries, so it is nothing to plan.
+ *  - no shift on any day that could take one. Shifts stranded on a locked day (someone whose
+ *    Eintrittsdatum was moved later after they were planned) do not count as planned.
+ *  - at least one schedulable day left that an absence does not already cover for the whole day.
+ *    Away all week is nothing to do; away Monday to Friday still leaves Saturday, so that row does
+ *    still count.
+ *
+ * Known limitation: an explicit "Frei" cannot be told apart from an untouched day. Both are
+ * `{ type: 'Off' }`, and a freshly created week starts with seven of them, so someone deliberately
+ * given the whole week off keeps counting here. Distinguishing them would need a new field on
+ * DayEntry - not worth it for one tile.
+ */
+export function isNotYetScheduled(row: ScheduleRow): boolean {
+  if (!row.editable) {
+    return false;
+  }
+  const schedulable = row.view.days.filter((day) => !row.lockedDays.includes(day.day));
+  const hasShift = schedulable.some((day) => day.entry.type === 'Shift' && day.entry.shifts.length > 0);
+  const hasFreeDay = schedulable.some((day) => !day.absenceCoversWholeDay);
+  return !hasShift && hasFreeDay;
+}
+
 /** True when this specific cell must not be edited: either the whole row is locked, or the day
  * falls outside the employee's Eintritt/Austritt. */
 export function isCellLocked(row: ScheduleRow, day: Weekday): boolean {
