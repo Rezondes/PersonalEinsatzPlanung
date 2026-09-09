@@ -36,6 +36,15 @@ interface ScheduleTableProps {
   /** A toolbar tool was dropped on this cell. Which tool it was comes from the drag payload the
    * parent holds - the table stays free of any knowledge about tools. */
   onToolDrop: (employeeId: EmployeeId, dayView: DayView) => void;
+  /** Touch-only tap-to-assign: true once the parent has armed a tool on a touch breakpoint (see
+   * ScheduleView/ScheduleToolbar). While active, tapping a cell that can receive an entry calls
+   * onToolTap instead of opening DayEditor; the table still stays free of which tool is active -
+   * that lives in the parent, same as onToolDrop. */
+  assignMode: boolean;
+  onToolTap: (employeeId: EmployeeId, dayView: DayView) => void;
+  /** Whether this cell's entry already matches the armed tool - drives the "already set" highlight
+   * (the mockup's Zuweisen-Modus target color). Only consulted while assignMode is true. */
+  isAssignTarget: (employeeId: EmployeeId, dayView: DayView) => boolean;
 }
 
 function absenceText(type: 'Vacation' | 'Illness' | 'Other'): string {
@@ -81,6 +90,9 @@ export const ScheduleTable = memo(function ScheduleTable({
   validationResults,
   onCellClick,
   onToolDrop,
+  assignMode,
+  onToolTap,
+  isAssignTarget,
 }: ScheduleTableProps) {
   // Kept HERE and not in ScheduleView on purpose: dragover fires continuously, and a highlight in
   // the parent would re-render it (and defeat this component's memo) many times per second. As
@@ -159,7 +171,11 @@ export const ScheduleTable = memo(function ScheduleTable({
                   const isDropTarget = dropTargetKey === cellId;
                   const hasOverride =
                     dayView.entry.type === 'Shift' && dayView.entry.netMinutesOverride !== undefined;
-                  const background = isDropTarget
+                  // Same guard tap-to-assign shares with drag-and-drop (canReceiveEntry/droppable
+                  // below) - a cell that cannot receive an entry never shows the target highlight
+                  // either, even while assignMode is on.
+                  const isTarget = assignMode && droppable && isAssignTarget(view.employeeId, dayView);
+                  const background = isDropTarget || isTarget
                     ? '#dce9e3'
                     : locked
                     ? '#f0f0ee'
@@ -177,19 +193,26 @@ export const ScheduleTable = memo(function ScheduleTable({
 
                   // A locked cell is deliberately not a button: no click, no keyboard focus, and
                   // ScheduleView checks the same predicate before opening the context menu. Its
-                  // content stays fully readable so nothing looks lost.
-                  const openEditor = () => onCellClick(view.employeeId, dayView);
+                  // content stays fully readable so nothing looks lost. A cell the row/day lock
+                  // spares but that still cannot RECEIVE an entry (a multi-day absence) keeps
+                  // opening the (read-only) editor even in assign mode - tap-to-assign only takes
+                  // over where a drop would already have been accepted.
+                  const activateCell = () =>
+                    assignMode && droppable
+                      ? onToolTap(view.employeeId, dayView)
+                      : onCellClick(view.employeeId, dayView);
                   const interaction = locked
                     ? { 'aria-disabled': true }
                     : {
                         role: 'button',
                         tabIndex: 0,
-                        'aria-label': `${dayView.day} bearbeiten`,
-                        onClick: openEditor,
+                        'aria-label':
+                          assignMode && droppable ? `${dayView.day} zuweisen` : `${dayView.day} bearbeiten`,
+                        onClick: activateCell,
                         onKeyDown: (e: KeyboardEvent) => {
                           if (e.key === 'Enter' || e.key === ' ') {
                             e.preventDefault();
-                            openEditor();
+                            activateCell();
                           }
                         },
                       };
@@ -237,11 +260,13 @@ export const ScheduleTable = memo(function ScheduleTable({
                         borderRadius: 1.5,
                         p: 1,
                         backgroundColor: background,
-                        border: hasError
-                          ? '1px solid #e5a3a0'
-                          : hasWarning
-                            ? '1px solid #e6c988'
-                            : '1px solid transparent',
+                        border: isTarget
+                          ? '1px solid #2f5d50'
+                          : hasError
+                            ? '1px solid #e5a3a0'
+                            : hasWarning
+                              ? '1px solid #e6c988'
+                              : '1px solid transparent',
                         minHeight: 48,
                         '&:focus-visible': { outline: '2px solid #2f5d50', outlineOffset: 2 },
                       }}

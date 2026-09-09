@@ -60,7 +60,8 @@ import { useScheduleValidation } from './useScheduleValidation';
 import { buildScheduleRows, canReceiveEntry, isCellLocked, isNotYetScheduled } from './scheduleRows';
 import type { ScheduleRow } from './scheduleRows';
 import type { ScheduleTool } from './scheduleTools';
-import { toolToDayEntry } from './scheduleTools';
+import { OFF_TOOL, dayEntryMatchesTool, toolToDayEntry } from './scheduleTools';
+import { useBreakpoint } from '@ui/hooks/useBreakpoint';
 import { ScheduleToolbar } from './components/ScheduleToolbar';
 import { ShiftTemplateDialog } from './components/ShiftTemplateDialog';
 import type { ShiftTemplate } from '@domain/schedule/ShiftTemplate';
@@ -100,8 +101,14 @@ export function ScheduleView() {
     y: number;
   } | null>(null);
   // The clipboard and the toolbar are the same thing: whatever is active here is what "Einfügen"
-  // pastes and what a dropped tile writes.
+  // pastes, what a dropped tile writes, and (below the laptop breakpoint) what a tapped cell writes.
   const [activeTool, setActiveTool] = useState<ScheduleTool | null>(null);
+  // Touch-only: armed by selectTool below when a toolbar tile is tapped on a touch layout. Native
+  // HTML5 drag-and-drop stays mouse-only (ScheduleToolbar never renders a draggable tile below
+  // laptop), so this is the sole gate between "tap opens DayEditor" and "tap writes activeTool".
+  const [assignModeActive, setAssignModeActive] = useState(false);
+  const layout = useBreakpoint();
+  const touchMode = layout !== 'laptop';
   // null = closed, otherwise the template being edited (or drafts prefilled from a day).
   const [templateDialog, setTemplateDialog] = useState<
     { template: ShiftTemplate | null; drafts?: ShiftDraft[] } | null
@@ -341,6 +348,64 @@ export function ScheduleView() {
     [applyTool],
   );
 
+  // ScheduleToolbar's onSelect below the laptop breakpoint - a tile tap both arms the tool (as at
+  // laptop) and starts tap-to-assign, since there is no drag gesture to arm it for instead.
+  const selectTool = useCallback(
+    (tool: ScheduleTool) => {
+      setActiveTool(tool);
+      if (touchMode) setAssignModeActive(true);
+    },
+    [touchMode],
+  );
+
+  const finishAssigning = useCallback(() => {
+    setAssignModeActive(false);
+    setActiveTool(null);
+  }, []);
+
+  // Leaving touch mode (widening/maximizing the window, undocking a tablet past 1280px) or
+  // switching branches must drop out of tap-to-assign entirely. Neither is covered by any other
+  // reset: ScheduleTable's own assignMode prop is `assignModeActive` completely unguarded by
+  // touchMode, so without this a stale true would keep routing plain taps on the (now byte-for-
+  // byte-required-identical) laptop grid into onToolTap instead of opening DayEditor; and without
+  // resetting on branch.id, a template armed under one branch would silently get written into a
+  // different branch's cells the moment assign mode is still active when the user switches -
+  // toolToDayEntry never checks template.branchId. activeTool deliberately keeps surviving WEEK
+  // navigation (selectedWeek is not a dependency here) - that persistence is a separate, existing,
+  // intentional design (see the clipboard/toolbar comment above).
+  useEffect(() => {
+    finishAssigning();
+  }, [touchMode, branch?.id, finishAssigning]);
+
+  // ScheduleTable only calls this for a cell canReceiveEntry already accepted (same trust boundary
+  // as toolDrop above, which never re-checks droppable either). Tapping a cell that already shows
+  // exactly what activeTool would write clears it instead of reapplying the same entry - the
+  // tap-to-assign equivalent of the "Frei" menu item toggling an already-off cell.
+  //
+  // This and isAssignTarget below both depend on activeTool, so arming a NEW tool (a toolbar tile
+  // click, or right-click "Kopieren" - both ordinary, discrete, low-frequency actions) gives them a
+  // new identity and defeats ScheduleTable's memo for one render, even at the laptop breakpoint
+  // where the result is always visually identical (assignMode is forced false there by the effect
+  // above, so isTarget/onToolTap are provably never reached). A ref-based stable identity would
+  // avoid that, but would also stop ScheduleTable from re-rendering when arming a DIFFERENT tool in
+  // actual touch mode - breaking the live target-highlight update, which is the whole point of
+  // isAssignTarget. Accepted as-is: this is one extra render on a discrete click, not a per-frame
+  // event like dragover (the actual case the sibling drop-highlight-lives-in-ScheduleTable comment
+  // above is protecting against).
+  const toolTap = useCallback(
+    (employeeId: EmployeeId, dayView: DayView) => {
+      if (!activeTool) return;
+      const toWrite = dayEntryMatchesTool(dayView.entry, activeTool) ? OFF_TOOL : activeTool;
+      applyTool(toWrite, employeeId, dayView);
+    },
+    [activeTool, applyTool],
+  );
+
+  const isAssignTarget = useCallback(
+    (_employeeId: EmployeeId, dayView: DayView) => !!activeTool && dayEntryMatchesTool(dayView.entry, activeTool),
+    [activeTool],
+  );
+
   // Fresh ids for the pasted shifts/breaks and the dropped override rule both live in
   // scheduleTools.toolToDayEntry now, shared by the clipboard and the templates.
   const paste = async () => {
@@ -519,13 +584,15 @@ export function ScheduleView() {
       <ScheduleToolbar
         templates={templates}
         activeTool={activeTool}
-        onSelect={setActiveTool}
+        onSelect={selectTool}
         onDragTool={(tool) => {
           draggedToolRef.current = tool;
         }}
         onCreate={() => setTemplateDialog({ template: null })}
         onEdit={(template) => setTemplateDialog({ template })}
         onDelete={setTemplateDeleteTarget}
+        assignModeActive={assignModeActive}
+        onFinishAssigning={finishAssigning}
       />
 
       {schedule && visibleRows.length > 0 && (
@@ -534,6 +601,9 @@ export function ScheduleView() {
           validationResults={validationResults}
           onCellClick={cellClick}
           onToolDrop={toolDrop}
+          assignMode={assignModeActive}
+          onToolTap={toolTap}
+          isAssignTarget={isAssignTarget}
         />
       )}
 
@@ -629,7 +699,10 @@ export function ScheduleView() {
           try {
             await services.shiftTemplate.delete(templateDeleteTarget.id);
             if (activeTool?.kind === 'template' && activeTool.template.id === templateDeleteTarget.id) {
-              setActiveTool(null);
+              // finishAssigning, not a bare setActiveTool(null): deleting the armed tool must also
+              // drop out of tap-to-assign, or the banner is left showing an empty "" zuweisen" with
+              // nothing left for a tap to write.
+              finishAssigning();
             }
             await reloadTemplates();
           } catch (e) {

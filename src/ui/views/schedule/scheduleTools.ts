@@ -60,6 +60,40 @@ export function toolToDayEntry(tool: ScheduleTool): DayEntry {
   }
 }
 
+function shiftsMatch(a: Shift, b: Shift): boolean {
+  if (a.start !== b.start || a.end !== b.end || a.endsNextDay !== b.endsNextDay) return false;
+  if (a.breaks.length !== b.breaks.length) return false;
+  return a.breaks.every((brk, i) => brk.start === b.breaks[i].start && brk.durationMinutes === b.breaks[i].durationMinutes);
+}
+
+/**
+ * Whether a cell's ALREADY-SAVED entry is what applying `tool` there would produce - tap-to-assign
+ * uses this to toggle a tile off (write `{ type: 'Off' }`) instead of reapplying an identical entry
+ * when the user taps a cell a second time. Compares resolved shift times, ignoring generated ids
+ * (`toolToDayEntry` always mints fresh ones via `withFreshIds`) and any manual `netMinutesOverride`
+ * (a tool can never carry one - see `toolToDayEntry`'s own comment).
+ *
+ * Order-independent (a multiset match, not a positional one): ShiftListEditor's removeShift/addShift
+ * always drops from wherever the removed draft was and appends the new one at the end, so a day
+ * edited by removing then re-adding one of two split shifts ends up with the same shifts in a
+ * different array position - that must still count as a match, or the toggle-off tap silently
+ * rewrites the day instead (a real case found during review, not a hypothetical).
+ */
+export function dayEntryMatchesTool(entry: DayEntry, tool: ScheduleTool): boolean {
+  const candidate = toolToDayEntry(tool);
+  if (entry.type === 'Off' || candidate.type === 'Off') {
+    return entry.type === 'Off' && candidate.type === 'Off';
+  }
+  if (entry.shifts.length !== candidate.shifts.length) return false;
+  const unmatched = [...candidate.shifts];
+  return entry.shifts.every((shift) => {
+    const i = unmatched.findIndex((candidateShift) => shiftsMatch(shift, candidateShift));
+    if (i === -1) return false;
+    unmatched.splice(i, 1);
+    return true;
+  });
+}
+
 export function toolLabel(tool: ScheduleTool): string {
   switch (tool.kind) {
     case 'off':

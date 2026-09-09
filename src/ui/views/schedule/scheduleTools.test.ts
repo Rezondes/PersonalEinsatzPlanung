@@ -5,7 +5,7 @@ import { createShift } from '@domain/schedule/Shift';
 import { createBreak } from '@domain/schedule/Break';
 import { createShiftTemplate } from '@domain/schedule/ShiftTemplate';
 import type { DayEntry } from '@domain/schedule/EmployeeWeekAssignment';
-import { OFF_TOOL, toolKey, toolLabel, toolSummary, toolToDayEntry } from './scheduleTools';
+import { OFF_TOOL, dayEntryMatchesTool, toolKey, toolLabel, toolSummary, toolToDayEntry } from './scheduleTools';
 
 const branchId = 'b1' as BranchId;
 
@@ -47,6 +47,63 @@ describe('toolToDayEntry', () => {
 
   it('copies an Off day from the clipboard as an empty day', () => {
     expect(toolToDayEntry({ kind: 'clipboard', entry: { type: 'Off' } })).toEqual({ type: 'Off' });
+  });
+});
+
+describe('dayEntryMatchesTool', () => {
+  it('matches Off against Off and nothing else', () => {
+    expect(dayEntryMatchesTool({ type: 'Off' }, OFF_TOOL)).toBe(true);
+    expect(dayEntryMatchesTool({ type: 'Off' }, { kind: 'template', template })).toBe(false);
+  });
+
+  it('matches a template application against the same template, ignoring fresh ids', () => {
+    const applied = toolToDayEntry({ kind: 'template', template });
+    expect(dayEntryMatchesTool(applied, { kind: 'template', template })).toBe(true);
+  });
+
+  it('does not match a manual netMinutesOverride difference - a tool can never carry one anyway', () => {
+    const applied = toolToDayEntry({ kind: 'template', template });
+    if (applied.type !== 'Shift') throw new Error('expected a shift');
+    const overridden: DayEntry = { ...applied, netMinutesOverride: 90 };
+    expect(dayEntryMatchesTool(overridden, { kind: 'template', template })).toBe(true);
+  });
+
+  it('does not match when the shift times differ', () => {
+    const otherTemplate = createShiftTemplate({ branchId, name: 'Spätschicht', shifts: [createShift(clockTime('14:00'), clockTime('22:00'))] });
+    const applied = toolToDayEntry({ kind: 'template', template });
+    expect(dayEntryMatchesTool(applied, { kind: 'template', template: otherTemplate })).toBe(false);
+  });
+
+  it('does not match a Shift entry against Off, or vice versa', () => {
+    const applied = toolToDayEntry({ kind: 'template', template });
+    expect(dayEntryMatchesTool(applied, OFF_TOOL)).toBe(false);
+    expect(dayEntryMatchesTool({ type: 'Off' }, { kind: 'template', template })).toBe(false);
+  });
+
+  it('matches a multi-shift day even when the shifts are in a different array order', () => {
+    // Regression: ShiftListEditor's removeShift/addShift always drops from wherever the removed
+    // draft was and appends the new one at the end, so editing a split-shift day (e.g. remove the
+    // first shift, re-add an identical one) leaves the two shifts in a different position than a
+    // freshly-applied template would - that must still count as a match.
+    const morning = createShift(clockTime('06:00'), clockTime('10:00'));
+    const afternoon = createShift(clockTime('14:00'), clockTime('18:00'));
+    const splitTemplate = createShiftTemplate({ branchId, name: 'Split', shifts: [morning, afternoon] });
+    const reordered: DayEntry = {
+      type: 'Shift',
+      shifts: [
+        { ...afternoon, id: 'x1' },
+        { ...morning, id: 'x2' },
+      ],
+    };
+    expect(dayEntryMatchesTool(reordered, { kind: 'template', template: splitTemplate })).toBe(true);
+  });
+
+  it('does not match two shifts against one shift that happens to equal one of them', () => {
+    const morning = createShift(clockTime('06:00'), clockTime('10:00'));
+    const afternoon = createShift(clockTime('14:00'), clockTime('18:00'));
+    const oneShiftTemplate = createShiftTemplate({ branchId, name: 'Morgens', shifts: [morning] });
+    const twoShifts: DayEntry = { type: 'Shift', shifts: [morning, afternoon] };
+    expect(dayEntryMatchesTool(twoShifts, { kind: 'template', template: oneShiftTemplate })).toBe(false);
   });
 });
 

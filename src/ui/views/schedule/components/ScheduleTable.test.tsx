@@ -46,9 +46,17 @@ function rowsFor(employeeList: Employee[]) {
   return buildScheduleRows(weekView, employeeList, '2026-09-07', '2026-09-13');
 }
 
+/** Every existing (pre-Phase-5c) test exercises the non-assigning path, matching the laptop
+ * breakpoint's unchanged behavior - assignMode off, no tile armed. */
+const notAssigning = {
+  assignMode: false,
+  onToolTap: () => {},
+  isAssignTarget: () => false,
+};
+
 describe('ScheduleTable', () => {
   it('renders one row per employee with their shift times', () => {
-    render(<ScheduleTable rows={rowsFor(employees)} validationResults={[]} onCellClick={() => {}} onToolDrop={() => {}} />);
+    render(<ScheduleTable rows={rowsFor(employees)} validationResults={[]} onCellClick={() => {}} onToolDrop={() => {}} {...notAssigning} />);
 
     expect(screen.getByText('Müller, Anna')).toBeInTheDocument();
     expect(screen.getByText('Schulz, Anna')).toBeInTheDocument();
@@ -62,7 +70,7 @@ describe('ScheduleTable', () => {
       { rule: 'ArbZG_3_Tag', severity: 'error', message: 'Tagesarbeitszeit zu lang', employeeId: m1, date: '2026-09-07' },
       { rule: 'ArbZG_3_Woche', severity: 'warning', message: 'Wochenarbeitszeit hoch', employeeId: m1 },
     ];
-    render(<ScheduleTable rows={rowsFor(employees)} validationResults={results} onCellClick={() => {}} onToolDrop={() => {}} />);
+    render(<ScheduleTable rows={rowsFor(employees)} validationResults={results} onCellClick={() => {}} onToolDrop={() => {}} {...notAssigning} />);
 
     const [mondayOfFirstRow] = screen.getAllByRole('button', { name: 'Montag bearbeiten' });
     await user.hover(mondayOfFirstRow);
@@ -74,7 +82,7 @@ describe('ScheduleTable', () => {
   it('reports the clicked cell with its employee and day', async () => {
     const user = userEvent.setup();
     const onCellClick = vi.fn();
-    render(<ScheduleTable rows={rowsFor(employees)} validationResults={[]} onCellClick={onCellClick} onToolDrop={() => {}} />);
+    render(<ScheduleTable rows={rowsFor(employees)} validationResults={[]} onCellClick={onCellClick} onToolDrop={() => {}} {...notAssigning} />);
 
     const [, tuesdayOfSecondRow] = screen.getAllByRole('button', { name: 'Dienstag bearbeiten' });
     await user.click(tuesdayOfSecondRow);
@@ -83,9 +91,78 @@ describe('ScheduleTable', () => {
   });
 
   it('skips assignments whose employee is unknown', () => {
-    render(<ScheduleTable rows={rowsFor([employee(m1, 'Müller')])} validationResults={[]} onCellClick={() => {}} onToolDrop={() => {}} />);
+    render(<ScheduleTable rows={rowsFor([employee(m1, 'Müller')])} validationResults={[]} onCellClick={() => {}} onToolDrop={() => {}} {...notAssigning} />);
 
     expect(screen.queryByText('Schulz, Anna')).not.toBeInTheDocument();
     expect(screen.getAllByRole('row')).toHaveLength(2);
+  });
+
+  describe('assignMode (tap-to-assign)', () => {
+    it('taps a free cell via onToolTap instead of onCellClick, labelled "zuweisen"', async () => {
+      const user = userEvent.setup();
+      const onCellClick = vi.fn();
+      const onToolTap = vi.fn();
+      render(
+        <ScheduleTable
+          rows={rowsFor(employees)}
+          validationResults={[]}
+          onCellClick={onCellClick}
+          onToolDrop={() => {}}
+          assignMode
+          onToolTap={onToolTap}
+          isAssignTarget={() => false}
+        />,
+      );
+
+      const [, tuesdayOfSecondRow] = screen.getAllByRole('button', { name: 'Dienstag zuweisen' });
+      await user.click(tuesdayOfSecondRow);
+
+      expect(onToolTap).toHaveBeenCalledWith(m2, expect.objectContaining({ day: 'Dienstag', date: '2026-09-08' }));
+      expect(onCellClick).not.toHaveBeenCalled();
+    });
+
+    it('still opens onCellClick for a cell the row/day lock does not cover but that cannot receive an entry', async () => {
+      // m1's Monday already carries a Shift - canReceiveEntry only excludes locked days and
+      // multi-day absences, neither of which this fixture has, so this documents that an ordinary
+      // already-filled cell still stays a normal tap-to-assign target (regression guard for the
+      // "droppable" gate, using the one cell in this fixture with real content).
+      const user = userEvent.setup();
+      const onCellClick = vi.fn();
+      const onToolTap = vi.fn();
+      render(
+        <ScheduleTable
+          rows={rowsFor(employees)}
+          validationResults={[]}
+          onCellClick={onCellClick}
+          onToolDrop={() => {}}
+          assignMode
+          onToolTap={onToolTap}
+          isAssignTarget={() => false}
+        />,
+      );
+
+      const [mondayOfFirstRow] = screen.getAllByRole('button', { name: 'Montag zuweisen' });
+      await user.click(mondayOfFirstRow);
+
+      expect(onToolTap).toHaveBeenCalledWith(m1, expect.objectContaining({ day: 'Montag' }));
+      expect(onCellClick).not.toHaveBeenCalled();
+    });
+
+    it('marks a cell isAssignTarget with the target styling and an accessible "zuweisen" label', () => {
+      render(
+        <ScheduleTable
+          rows={rowsFor(employees)}
+          validationResults={[]}
+          onCellClick={() => {}}
+          onToolDrop={() => {}}
+          assignMode
+          onToolTap={() => {}}
+          isAssignTarget={(employeeId, dayView) => employeeId === m1 && dayView.day === 'Montag'}
+        />,
+      );
+
+      const [mondayOfFirstRow] = screen.getAllByRole('button', { name: 'Montag zuweisen' });
+      expect(mondayOfFirstRow).toHaveStyle({ backgroundColor: '#dce9e3', border: '1px solid #2f5d50' });
+    });
   });
 });
