@@ -1,8 +1,4 @@
 import { useState } from 'react';
-import Dialog from '@mui/material/Dialog';
-import DialogTitle from '@mui/material/DialogTitle';
-import DialogContent from '@mui/material/DialogContent';
-import DialogActions from '@mui/material/DialogActions';
 import Button from '@mui/material/Button';
 import TextField from '@mui/material/TextField';
 import MenuItem from '@mui/material/MenuItem';
@@ -19,6 +15,8 @@ import { useFormValidation } from '@ui/hooks/useFormValidation';
 import { DecimalTextField } from '@ui/components/DecimalTextField';
 import { RequiredLegend } from '@ui/components/RequiredLegend';
 import { FormErrorNotice } from '@ui/components/FormErrorNotice';
+import { ResponsiveDialog } from '@ui/components/ResponsiveDialog';
+import type { RowAction } from '@ui/components/ResponsiveList/RowAction';
 
 type EmploymentTypeSelection = 'FullTime' | 'PartTime' | 'Minijob';
 
@@ -92,12 +90,16 @@ interface EmployeeDialogProps {
   onClose: () => void;
   onSaved: () => void | Promise<void>;
   onError: (e: unknown, context?: string) => void;
+  /** The same RowAction[] EmployeeMasterDataView already builds for its long-press sheet (minus
+   * "Bearbeiten" - already inside this dialog), rendered as "Weitere Aktionen" on mobile/tablet.
+   * Omitted (undefined) while creating a new employee - there's no status to toggle yet. */
+  secondaryActions?: RowAction[];
 }
 
 /** Create/edit dialog for an employee. Mounted only while open (the parent renders it
  * conditionally), so form state and the "already tried to save" flag start fresh every time.
  * Field rules come from validateEmployee in the domain; see useFormValidation for the UX. */
-export function EmployeeDialog({ branchId, employee, onClose, onSaved, onError }: EmployeeDialogProps) {
+export function EmployeeDialog({ branchId, employee, onClose, onSaved, onError, secondaryActions }: EmployeeDialogProps) {
   const [form, setForm] = useState<FormState>(() => (employee ? formFromEmployee(employee) : emptyForm()));
   const [saving, setSaving] = useState(false);
   const validation = useFormValidation<EmployeeField>(() =>
@@ -145,10 +147,24 @@ export function EmployeeDialog({ branchId, employee, onClose, onSaved, onError }
   };
 
   return (
-    <Dialog open onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>{employee ? 'Mitarbeiter bearbeiten' : 'Neuer Mitarbeiter'}</DialogTitle>
-      <DialogContent ref={validation.containerRef}>
-        <RequiredLegend />
+    <ResponsiveDialog
+      open
+      onClose={onClose}
+      title={employee ? 'Mitarbeiter bearbeiten' : 'Neuer Mitarbeiter'}
+      subtitle={employee ? 'Stammdaten, Vertrag, Urlaub' : undefined}
+      contentRef={validation.containerRef}
+      secondaryActions={secondaryActions}
+      actions={
+        <>
+          <FormErrorNotice errors={validation.errors} />
+          <Button onClick={onClose}>Abbrechen</Button>
+          <Button variant="contained" onClick={save} disabled={saving}>
+            Speichern
+          </Button>
+        </>
+      }
+    >
+      <RequiredLegend />
         <Stack spacing={2} sx={{ mt: 1 }}>
           <Stack direction="row" spacing={2}>
             <TextField
@@ -272,14 +288,6 @@ export function EmployeeDialog({ branchId, employee, onClose, onSaved, onError }
             />
           </Stack>
         </Stack>
-      </DialogContent>
-      <DialogActions sx={{ px: 3, pb: 2 }}>
-        <FormErrorNotice errors={validation.errors} />
-        <Button onClick={onClose}>Abbrechen</Button>
-        <Button variant="contained" onClick={save} disabled={saving}>
-          Speichern
-        </Button>
-      </DialogActions>
-    </Dialog>
+    </ResponsiveDialog>
   );
 }

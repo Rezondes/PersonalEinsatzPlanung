@@ -1,8 +1,4 @@
 import { useState } from 'react';
-import Dialog from '@mui/material/Dialog';
-import DialogTitle from '@mui/material/DialogTitle';
-import DialogContent from '@mui/material/DialogContent';
-import DialogActions from '@mui/material/DialogActions';
 import Button from '@mui/material/Button';
 import TextField from '@mui/material/TextField';
 import Stack from '@mui/material/Stack';
@@ -21,6 +17,7 @@ import { services } from '@infrastructure/services';
 import { useFormValidation } from '@ui/hooks/useFormValidation';
 import { RequiredLegend } from '@ui/components/RequiredLegend';
 import { FormErrorNotice } from '@ui/components/FormErrorNotice';
+import { ResponsiveDialog } from '@ui/components/ResponsiveDialog';
 import { ShiftListEditor } from './ShiftListEditor';
 
 interface ShiftTemplateDialogProps {
@@ -83,10 +80,22 @@ export function ShiftTemplateDialog({
   };
 
   return (
-    <Dialog open onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>{template ? 'Vorlage bearbeiten' : 'Neue Vorlage'}</DialogTitle>
-      <DialogContent ref={validation.containerRef}>
-        <RequiredLegend />
+    <ResponsiveDialog
+      open
+      onClose={onClose}
+      title={template ? 'Vorlage bearbeiten' : 'Neue Vorlage'}
+      contentRef={validation.containerRef}
+      actions={
+        <>
+          <FormErrorNotice errors={validation.errors} />
+          <Button onClick={onClose}>Abbrechen</Button>
+          <Button variant="contained" onClick={save} disabled={saving}>
+            Speichern
+          </Button>
+        </>
+      }
+    >
+      <RequiredLegend />
         <Stack spacing={2} sx={{ mt: 1 }}>
           <TextField
             label="Bezeichnung"
@@ -99,14 +108,6 @@ export function ShiftTemplateDialog({
           />
           <ShiftListEditor drafts={drafts} onChange={setDrafts} fieldProps={validation.fieldProps} />
         </Stack>
-      </DialogContent>
-      <DialogActions sx={{ px: 3, pb: 2 }}>
-        <FormErrorNotice errors={validation.errors} />
-        <Button onClick={onClose}>Abbrechen</Button>
-        <Button variant="contained" onClick={save} disabled={saving}>
-          Speichern
-        </Button>
-      </DialogActions>
-    </Dialog>
+    </ResponsiveDialog>
   );
 }

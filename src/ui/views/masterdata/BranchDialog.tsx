@@ -1,8 +1,4 @@
 import { useState } from 'react';
-import Dialog from '@mui/material/Dialog';
-import DialogTitle from '@mui/material/DialogTitle';
-import DialogContent from '@mui/material/DialogContent';
-import DialogActions from '@mui/material/DialogActions';
 import Button from '@mui/material/Button';
 import TextField from '@mui/material/TextField';
 import MenuItem from '@mui/material/MenuItem';
@@ -21,6 +17,8 @@ import { services } from '@infrastructure/services';
 import { useFormValidation } from '@ui/hooks/useFormValidation';
 import { RequiredLegend } from '@ui/components/RequiredLegend';
 import { FormErrorNotice } from '@ui/components/FormErrorNotice';
+import { ResponsiveDialog } from '@ui/components/ResponsiveDialog';
+import type { RowAction } from '@ui/components/ResponsiveList/RowAction';
 
 interface FormState {
   name: string;
@@ -77,12 +75,15 @@ interface BranchDialogProps {
   onClose: () => void;
   onSaved: () => void | Promise<void>;
   onError: (e: unknown, context?: string) => void;
+  /** Same RowAction[] BranchMasterDataView builds for its long-press sheet (minus "Bearbeiten"),
+   * rendered as "Weitere Aktionen" on mobile/tablet. Omitted while creating a new branch. */
+  secondaryActions?: RowAction[];
 }
 
 /** Create/edit dialog for a branch. Mounted only while open, so form state and the validation's
  * "already tried to save" flag start fresh every time. The open-Sundays list has its own small
  * sub-form ("Datum hinzufügen") with its own validation, independent of Speichern. */
-export function BranchDialog({ branch, onClose, onSaved, onError }: BranchDialogProps) {
+export function BranchDialog({ branch, onClose, onSaved, onError, secondaryActions }: BranchDialogProps) {
   const [form, setForm] = useState<FormState>(() => (branch ? formFromBranch(branch) : emptyForm()));
   const [saving, setSaving] = useState(false);
   const [logoReading, setLogoReading] = useState(false);
@@ -160,10 +161,23 @@ export function BranchDialog({ branch, onClose, onSaved, onError }: BranchDialog
   };
 
   return (
-    <Dialog open onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>{branch ? 'Filiale bearbeiten' : 'Neue Filiale'}</DialogTitle>
-      <DialogContent ref={validation.containerRef}>
-        <RequiredLegend />
+    <ResponsiveDialog
+      open
+      onClose={onClose}
+      title={branch ? 'Filiale bearbeiten' : 'Neue Filiale'}
+      contentRef={validation.containerRef}
+      secondaryActions={secondaryActions}
+      actions={
+        <>
+          <FormErrorNotice errors={validation.errors} />
+          <Button onClick={onClose}>Abbrechen</Button>
+          <Button variant="contained" onClick={save} disabled={saving || logoReading}>
+            Speichern
+          </Button>
+        </>
+      }
+    >
+      <RequiredLegend />
         <Stack spacing={2} sx={{ mt: 1 }}>
           <Stack direction="row" spacing={2} alignItems="center">
             <Avatar src={form.logoBase64 ?? undefined} variant="rounded" sx={{ width: 56, height: 56, bgcolor: '#eef3f1' }}>
@@ -266,14 +280,6 @@ export function BranchDialog({ branch, onClose, onSaved, onError }: BranchDialog
             ))}
           </Stack>
         </Stack>
-      </DialogContent>
-      <DialogActions sx={{ px: 3, pb: 2 }}>
-        <FormErrorNotice errors={validation.errors} />
-        <Button onClick={onClose}>Abbrechen</Button>
-        <Button variant="contained" onClick={save} disabled={saving || logoReading}>
-          Speichern
-        </Button>
-      </DialogActions>
-    </Dialog>
+    </ResponsiveDialog>
   );
 }

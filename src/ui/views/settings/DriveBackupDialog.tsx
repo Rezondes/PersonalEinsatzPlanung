@@ -1,8 +1,4 @@
 import { useEffect, useState } from 'react';
-import Dialog from '@mui/material/Dialog';
-import DialogTitle from '@mui/material/DialogTitle';
-import DialogContent from '@mui/material/DialogContent';
-import DialogActions from '@mui/material/DialogActions';
 import Button from '@mui/material/Button';
 import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
@@ -18,6 +14,7 @@ import type { RemoteBackup } from '@application/ports/BackupStorage';
 import { formatDateGerman } from '@domain/shared/DateFormat';
 import { services } from '@infrastructure/services';
 import { ConfirmDialog } from '@ui/components/ConfirmDialog';
+import { ResponsiveDialog } from '@ui/components/ResponsiveDialog';
 
 interface DriveBackupDialogProps {
   /** True while the parent is downloading the chosen backup. The dialog stays open and says so -
@@ -87,10 +84,18 @@ export function DriveBackupDialog({ busy = false, onClose, onSelect, onError }: 
 
   return (
     <>
-      <Dialog open onClose={anyBusy ? undefined : onClose} maxWidth="sm" fullWidth>
-        <DialogTitle>Sicherung aus Google Drive laden oder löschen</DialogTitle>
-        <DialogContent dividers>
-          {error && <Alert severity="error">{error}</Alert>}
+      <ResponsiveDialog
+        open
+        onClose={anyBusy ? undefined : onClose}
+        title="Sicherung aus Google Drive laden oder löschen"
+        dividers
+        actions={
+          <Button onClick={onClose} disabled={anyBusy}>
+            Abbrechen
+          </Button>
+        }
+      >
+        {error && <Alert severity="error">{error}</Alert>}
 
           {!error && (backups === null || busy) && (
             <Stack direction="row" spacing={2} alignItems="center" sx={{ py: 2 }}>
@@ -142,13 +147,7 @@ export function DriveBackupDialog({ busy = false, onClose, onSelect, onError }: 
               ))}
             </List>
           )}
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={onClose} disabled={anyBusy}>
-            Abbrechen
-          </Button>
-        </DialogActions>
-      </Dialog>
+      </ResponsiveDialog>
 
       <ConfirmDialog
         open={deleteTarget !== null}

@@ -1,8 +1,4 @@
 import { useState } from 'react';
-import Dialog from '@mui/material/Dialog';
-import DialogTitle from '@mui/material/DialogTitle';
-import DialogContent from '@mui/material/DialogContent';
-import DialogActions from '@mui/material/DialogActions';
 import Button from '@mui/material/Button';
 import TextField from '@mui/material/TextField';
 import MenuItem from '@mui/material/MenuItem';
@@ -22,6 +18,7 @@ import { DecimalTextField } from '@ui/components/DecimalTextField';
 import { RequiredLegend } from '@ui/components/RequiredLegend';
 import { FormErrorNotice } from '@ui/components/FormErrorNotice';
 import CircularProgress from '@mui/material/CircularProgress';
+import { ResponsiveDialog } from '@ui/components/ResponsiveDialog';
 
 type AbsenceType = 'Vacation' | 'Illness' | 'Other';
 
@@ -119,10 +116,29 @@ export function AbsenceDialog({ employees, onClose, onSaved, onError }: AbsenceD
   };
 
   return (
-    <Dialog open onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>Abwesenheit erfassen</DialogTitle>
-      <DialogContent ref={validation.containerRef}>
-        <RequiredLegend />
+    <ResponsiveDialog
+      open
+      onClose={saving ? undefined : onClose}
+      title="Abwesenheit erfassen"
+      contentRef={validation.containerRef}
+      actions={
+        <>
+          <FormErrorNotice errors={validation.errors} />
+          <Button onClick={onClose} disabled={saving}>
+            Abbrechen
+          </Button>
+          <Button
+            variant="contained"
+            onClick={save}
+            disabled={saving}
+            startIcon={saving ? <CircularProgress size={16} color="inherit" /> : undefined}
+          >
+            Speichern
+          </Button>
+        </>
+      }
+    >
+      <RequiredLegend />
         <Stack spacing={2} sx={{ mt: 1 }}>
           <TextField
             select
@@ -229,21 +245,6 @@ export function AbsenceDialog({ employees, onClose, onSaved, onError }: AbsenceD
             <Alert severity="info">Es werden bewusst keine Diagnose- oder Gesundheitsdetails erfasst.</Alert>
           )}
         </Stack>
-      </DialogContent>
-      <DialogActions sx={{ px: 3, pb: 2 }}>
-        <FormErrorNotice errors={validation.errors} />
-        <Button onClick={onClose} disabled={saving}>
-          Abbrechen
-        </Button>
-        <Button
-          variant="contained"
-          onClick={save}
-          disabled={saving}
-          startIcon={saving ? <CircularProgress size={16} color="inherit" /> : undefined}
-        >
-          Speichern
-        </Button>
-      </DialogActions>
-    </Dialog>
+    </ResponsiveDialog>
   );
 }
