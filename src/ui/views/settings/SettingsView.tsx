@@ -17,7 +17,10 @@ import DownloadOutlinedIcon from '@mui/icons-material/DownloadOutlined';
 import UploadOutlinedIcon from '@mui/icons-material/UploadOutlined';
 import DeleteForeverOutlinedIcon from '@mui/icons-material/DeleteForeverOutlined';
 import InstallMobileOutlinedIcon from '@mui/icons-material/InstallMobileOutlined';
+import CircularProgress from '@mui/material/CircularProgress';
+import Backdrop from '@mui/material/Backdrop';
 import { services } from '@infrastructure/services';
+import { notify } from '@ui/app/store/notificationStore';
 import {
   requestPersistentStorage,
   storageDurability,
@@ -37,7 +40,6 @@ import { DriveBackupDialog } from './DriveBackupDialog';
 import { APP_BUILD_TIME, APP_COMMIT, APP_VERSION } from '@ui/app/buildInfo';
 
 export function SettingsView() {
-  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [confirmationText, setConfirmationText] = useState('');
   const [importFile, setImportFile] = useState<File | null>(null);
@@ -63,6 +65,13 @@ export function SettingsView() {
   const [durability, setDurability] = useState<StorageDurability>('unsupported');
   const [usage, setUsage] = useState<StorageUsage | null>(null);
   const [installed] = useState(() => isStandalone());
+  const [exporting, setExporting] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [askingStorage, setAskingStorage] = useState(false);
+  // Covers the screen for the last moment before window.location.reload(), so the 1200 ms are a
+  // readable "this worked, hold on" instead of a page that just sits there and then jumps.
+  const [reloadingText, setReloadingText] = useState<string | null>(null);
 
   useEffect(() => {
     void storageDurability().then(setDurability);
@@ -70,16 +79,22 @@ export function SettingsView() {
   }, []);
 
   const askForDurableStorage = async () => {
-    const result = await requestPersistentStorage();
-    setDurability(result);
-    setMessage(
-      result === 'persistent'
-        ? { type: 'success', text: 'Der Browser bewahrt die Daten dieser App jetzt dauerhaft auf.' }
-        : {
-            type: 'error',
-            text: 'Der Browser hat den dauerhaften Speicher nicht gewährt. Installiere die App auf dem Startbildschirm, das genügt den meisten Browsern als Nachweis.',
-          },
-    );
+    setAskingStorage(true);
+    try {
+      const result = await requestPersistentStorage();
+      setDurability(result);
+      if (result === 'persistent') {
+        notify.success('Der Browser bewahrt die Daten dieser App jetzt dauerhaft auf.');
+      } else {
+        notify.error(
+          'Der Browser hat den dauerhaften Speicher nicht gewährt. Installiere die App auf dem Startbildschirm, das genügt den meisten Browsern als Nachweis.',
+        );
+      }
+    } catch (error) {
+      notify.report(error, 'Der dauerhafte Speicher konnte nicht angefragt werden');
+    } finally {
+      setAskingStorage(false);
+    }
   };
 
   useEffect(() => {
@@ -107,7 +122,7 @@ export function SettingsView() {
   }, [driveRestoring, online]);
 
   const reportDriveError = (error: unknown, fallback: string) =>
-    setMessage({ type: 'error', text: error instanceof Error ? error.message : fallback });
+    notify.error(error instanceof Error ? error.message : fallback);
 
   const connectDrive = async () => {
     setDriveBusy(true);
@@ -115,7 +130,7 @@ export function SettingsView() {
       await services.backupStorage.signIn();
       setDriveSignedIn(true);
       setDriveRemembered(true);
-      setMessage({ type: 'success', text: 'Mit Google verbunden.' });
+      notify.success('Mit Google verbunden.');
     } catch (error) {
       reportDriveError(error, 'Die Anmeldung bei Google ist fehlgeschlagen.');
     } finally {
@@ -127,7 +142,7 @@ export function SettingsView() {
     services.backupStorage.signOut();
     setDriveSignedIn(false);
     setDriveRemembered(false);
-    setMessage({ type: 'success', text: 'Verbindung zu Google getrennt.' });
+    notify.success('Verbindung zu Google getrennt.');
   };
 
   const exportToDrive = async () => {
@@ -135,7 +150,7 @@ export function SettingsView() {
     try {
       const file = await services.dataExport.export();
       const saved = await services.backupStorage.upload(backupFilename(), file);
-      setMessage({ type: 'success', text: `„${saved.name}" wurde in Google Drive gesichert.` });
+      notify.success(`„${saved.name}“ wurde in Google Drive gesichert.`);
     } catch (error) {
       reportDriveError(error, 'Die Sicherung in Google Drive ist fehlgeschlagen.');
     } finally {
@@ -146,10 +161,12 @@ export function SettingsView() {
   /** Downloads the chosen backup and routes it into the SAME confirmation and import path the
    * local file uses, so there is only one place that replaces the dataset. */
   const chooseDriveBackup = async (backup: RemoteBackup) => {
-    setDrivePickerOpen(false);
+    // The picker deliberately stays open during the download - it is the only thing on screen that
+    // can show the wait. Closing first, as this did, left the user in front of an unchanged page.
     setDriveBusy(true);
     try {
       const rawData = await services.backupStorage.download(backup.id);
+      setDrivePickerOpen(false);
       setImportFile(new File([JSON.stringify(rawData)], backup.name, { type: 'application/json' }));
     } catch (error) {
       reportDriveError(error, 'Die Sicherung konnte nicht geladen werden.');
@@ -160,23 +177,41 @@ export function SettingsView() {
 
 
   const exportData = async () => {
-    const file = await services.dataExport.export();
-    downloadFile(backupFilename(), file);
-    setMessage({ type: 'success', text: 'Backup wurde heruntergeladen.' });
+    setExporting(true);
+    try {
+      const file = await services.dataExport.export();
+      downloadFile(backupFilename(), file);
+      notify.success('Backup wurde heruntergeladen.');
+    } catch (error) {
+      notify.report(error, 'Der Export ist fehlgeschlagen');
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const closeImportDialog = () => {
+    setImportFile(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   const performImport = async () => {
     const file = importFile;
-    setImportFile(null);
-    if (fileInputRef.current) fileInputRef.current.value = '';
     if (!file) return;
+    // Set AFTER the guard: a busy dialog whose onClose is short-circuited, entered by an action that
+    // returned early, would have no way out at all.
+    setImporting(true);
     try {
       const rawData = await readDataFile(file);
       await services.dataExport.importAndReplace(rawData);
-      setMessage({ type: 'success', text: 'Import erfolgreich. Die Seite wird neu geladen.' });
+      // Close first, then cover the screen: a Backdrop and an open Dialog would fight over z-index.
+      closeImportDialog();
+      setReloadingText('Import abgeschlossen. Die App wird neu geladen…');
       setTimeout(() => window.location.reload(), 1200);
     } catch (error) {
-      setMessage({ type: 'error', text: error instanceof Error ? error.message : 'Import fehlgeschlagen.' });
+      closeImportDialog();
+      notify.error(error instanceof Error ? error.message : 'Import fehlgeschlagen.');
+    } finally {
+      setImporting(false);
     }
   };
 
@@ -188,10 +223,17 @@ export function SettingsView() {
 
   const deleteAllData = async () => {
     if (confirmationText !== 'LÖSCHEN') return;
-    await services.dataExport.deleteAllData();
-    closeDeleteDialog();
-    setMessage({ type: 'success', text: 'Alle Daten wurden gelöscht. Die Seite wird neu geladen.' });
-    setTimeout(() => window.location.reload(), 1200);
+    setDeleting(true);
+    try {
+      await services.dataExport.deleteAllData();
+      closeDeleteDialog();
+      setReloadingText('Alle Daten wurden gelöscht. Die App wird neu geladen…');
+      setTimeout(() => window.location.reload(), 1200);
+    } catch (error) {
+      notify.report(error, 'Die Daten konnten nicht gelöscht werden');
+    } finally {
+      setDeleting(false);
+    }
   };
 
   return (
@@ -199,12 +241,6 @@ export function SettingsView() {
       <Typography variant="h5" fontWeight={500} sx={{ mb: 3 }}>
         Einstellungen
       </Typography>
-
-      {message && (
-        <Alert severity={message.type} sx={{ mb: 2 }} onClose={() => setMessage(null)}>
-          {message.text}
-        </Alert>
-      )}
 
       <Paper sx={{ p: 3, mb: 3 }}>
         <Typography variant="subtitle1" fontWeight={500} sx={{ mb: 1 }}>
@@ -215,8 +251,13 @@ export function SettingsView() {
           exportiere den kompletten Datenbestand als Datei und importiere ihn auf dem anderen Gerät wieder.
         </Typography>
         <Stack direction="row" spacing={2}>
-          <Button variant="outlined" startIcon={<DownloadOutlinedIcon />} onClick={exportData}>
-            Daten exportieren
+          <Button
+            variant="outlined"
+            startIcon={exporting ? <CircularProgress size={16} color="inherit" /> : <DownloadOutlinedIcon />}
+            onClick={exportData}
+            disabled={exporting}
+          >
+            {exporting ? 'Export wird erstellt…' : 'Daten exportieren'}
           </Button>
           <Button variant="outlined" component="label" startIcon={<UploadOutlinedIcon />}>
             Daten importieren
@@ -256,11 +297,11 @@ export function SettingsView() {
                 <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap>
                   <Button
                     variant="outlined"
-                    startIcon={<CloudUploadOutlinedIcon />}
+                    startIcon={driveBusy ? <CircularProgress size={16} color="inherit" /> : <CloudUploadOutlinedIcon />}
                     onClick={exportToDrive}
                     disabled={driveBusy || !online}
                   >
-                    In Google Drive sichern
+                    {driveBusy ? 'Wird gesichert…' : 'In Google Drive sichern'}
                   </Button>
                   <Button
                     variant="outlined"
@@ -283,8 +324,13 @@ export function SettingsView() {
                     : 'Statt einer Datei kannst du dein Backup auch in deinem eigenen Google Drive ablegen und es auf einem anderen Gerät von dort laden. Erst beim Klick auf „Mit Google anmelden“ nimmt die App Verbindung zu Google auf. Die App sieht dabei ausschließlich die Sicherungen, die sie selbst angelegt hat.'}
                 </Typography>
                 <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap>
-                  <Button variant="outlined" onClick={connectDrive} disabled={driveBusy || !online}>
-                    Mit Google anmelden
+                  <Button
+                    variant="outlined"
+                    onClick={connectDrive}
+                    disabled={driveBusy || !online}
+                    startIcon={driveBusy ? <CircularProgress size={16} color="inherit" /> : undefined}
+                  >
+                    {driveBusy ? 'Anmeldung läuft…' : 'Mit Google anmelden'}
                   </Button>
                   {driveRemembered && (
                     <Button onClick={disconnectDrive} disabled={driveBusy}>
@@ -350,7 +396,12 @@ export function SettingsView() {
               iPad räumt Safari den Speicher gewöhnlicher Webseiten nach sieben Tagen ohne Besuch weg,
               installierte Apps sind davon ausgenommen. Erstelle unabhängig davon regelmäßig ein Backup.
             </Typography>
-            <Button variant="outlined" onClick={askForDurableStorage}>
+            <Button
+              variant="outlined"
+              onClick={askForDurableStorage}
+              disabled={askingStorage}
+              startIcon={askingStorage ? <CircularProgress size={16} color="inherit" /> : undefined}
+            >
               Dauerhaften Speicher anfordern
             </Button>
           </>
@@ -412,7 +463,9 @@ export function SettingsView() {
         </Stack>
       </Paper>
 
-      <Dialog open={deleteDialogOpen} onClose={closeDeleteDialog}>
+      {/* onClose short-circuited while deleting: Escape or a click on the backdrop would otherwise
+          tear the dialog down in the middle of wiping the database. */}
+      <Dialog open={deleteDialogOpen} onClose={deleting ? undefined : closeDeleteDialog}>
         <DialogTitle>Alle Daten wirklich löschen?</DialogTitle>
         <DialogContent>
           <Typography variant="body2" sx={{ mb: 2 }}>
@@ -426,15 +479,27 @@ export function SettingsView() {
           />
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={closeDeleteDialog}>Abbrechen</Button>
-          <Button variant="contained" color="error" disabled={confirmationText !== 'LÖSCHEN'} onClick={deleteAllData}>
+          <Button onClick={closeDeleteDialog} disabled={deleting}>
+            Abbrechen
+          </Button>
+          <Button
+            variant="contained"
+            color="error"
+            disabled={confirmationText !== 'LÖSCHEN' || deleting}
+            onClick={deleteAllData}
+            startIcon={deleting ? <CircularProgress size={16} color="inherit" /> : undefined}
+          >
             Endgültig löschen
           </Button>
         </DialogActions>
       </Dialog>
 
       {drivePickerOpen && (
-        <DriveBackupDialog onClose={() => setDrivePickerOpen(false)} onSelect={chooseDriveBackup} />
+        <DriveBackupDialog
+          busy={driveBusy}
+          onClose={() => setDrivePickerOpen(false)}
+          onSelect={chooseDriveBackup}
+        />
       )}
 
       <ConfirmDialog
@@ -443,12 +508,19 @@ export function SettingsView() {
         text="Der komplette lokale Datenbestand wird durch den Inhalt dieser Datei ersetzt. Dieser Vorgang kann nicht rückgängig gemacht werden."
         confirmText="Importieren"
         dangerous
+        busy={importing}
         onConfirm={performImport}
-        onCancel={() => {
-          setImportFile(null);
-          if (fileInputRef.current) fileInputRef.current.value = '';
-        }}
+        onCancel={closeImportDialog}
       />
+
+      {/* modal + 1, not drawer + 1: a standalone Backdrop has no z-index of its own and would
+          otherwise sit behind the dialog that just closed, while its exit transition still runs. */}
+      <Backdrop open={reloadingText !== null} sx={{ zIndex: (t) => t.zIndex.modal + 1, color: '#fff' }}>
+        <Stack spacing={2} alignItems="center">
+          <CircularProgress color="inherit" />
+          <Typography variant="body2">{reloadingText}</Typography>
+        </Stack>
+      </Backdrop>
     </Box>
   );
 }

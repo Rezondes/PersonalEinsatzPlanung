@@ -14,6 +14,11 @@ function Harness() {
       <div role="alert" data-testid="alert">
         Ruhezeit unterschritten
       </div>
+      {/* A success notification is a MUI Alert with role="status", NOT role="alert". It is released
+          solely by the .MuiAlert-root half of the selector - this is that half's guard. */}
+      <div className="MuiAlert-root" role="status" data-testid="success">
+        Backup wurde heruntergeladen.
+      </div>
     </div>
   );
 }
@@ -44,6 +49,11 @@ describe('useSuppressBrowserContextMenu', () => {
   it('leaves error messages alone, so they can be copied into a support request', () => {
     const { getByTestId } = render(<Harness />);
     expect(rightClick(getByTestId('alert'))).toBe(false);
+  });
+
+  it('leaves a success notification alone, which carries role="status" rather than alert', () => {
+    const { getByTestId } = render(<Harness />);
+    expect(rightClick(getByTestId('success'))).toBe(false);
   });
 
   it('covers children of a released element, not just the element itself', () => {

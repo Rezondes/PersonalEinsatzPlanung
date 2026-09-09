@@ -31,11 +31,10 @@ import { isMinor } from '@domain/validation/arbzg/youthProtection';
 import { services } from '@infrastructure/services';
 import { useSelectedBranch } from '@ui/hooks/useBranch';
 import { useEmployeeList } from '@ui/hooks/useEmployeeList';
-import { useErrorSnackbar } from '@ui/hooks/useErrorSnackbar';
 import { useTableSort } from '@ui/hooks/useTableSort';
-import { ErrorSnackbar } from '@ui/components/ErrorSnackbar';
 import { ConfirmDialog } from '@ui/components/ConfirmDialog';
 import { EmployeeDialog } from './EmployeeDialog';
+import { notify } from '@ui/app/store/notificationStore';
 
 type SortKey = 'name' | 'jobTitle' | 'employment' | 'hours' | 'vacation' | 'holidayHours' | 'status';
 type StatusFilter = 'all' | 'active' | 'inactive';
@@ -98,7 +97,6 @@ export function EmployeeMasterDataView() {
   // Both filters default to "Alle": opening the view must never hide records the user expects.
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [employmentFilter, setEmploymentFilter] = useState<EmploymentFilter>('all');
-  const { error, report, reset } = useErrorSnackbar();
   const sort = useTableSort<SortKey>('name');
 
   const { headProps, sortRows } = sort;
@@ -122,7 +120,7 @@ export function EmployeeMasterDataView() {
       await services.employee.changeActiveStatus(statusTarget, !statusTarget.active);
       await reload();
     } catch (e) {
-      report(e, 'Status konnte nicht geändert werden');
+      notify.report(e, 'Status konnte nicht geändert werden');
     } finally {
       setStatusTarget(null);
     }
@@ -295,7 +293,7 @@ export function EmployeeMasterDataView() {
           employee={dialog.employee}
           onClose={() => setDialog(null)}
           onSaved={reload}
-          onError={report}
+          onError={notify.report}
         />
       )}
 
@@ -311,8 +309,6 @@ export function EmployeeMasterDataView() {
         onConfirm={changeStatus}
         onCancel={() => setStatusTarget(null)}
       />
-
-      <ErrorSnackbar error={error} onClose={reset} />
     </Box>
   );
 }

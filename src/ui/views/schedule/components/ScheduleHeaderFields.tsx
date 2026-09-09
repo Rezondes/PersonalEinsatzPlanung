@@ -8,6 +8,9 @@ import { DecimalTextField } from '@ui/components/DecimalTextField';
 
 interface ScheduleHeaderFieldsProps {
   schedule: WeeklySchedule | null;
+  /** Set while the view is loading another week. These fields save on blur, so leaving one during
+   * a week switch would write the OLD week back - possibly after the new one has already arrived. */
+  disabled?: boolean;
   onSaved: (updated: WeeklySchedule) => void;
   onError: (e: unknown, context?: string) => void;
 }
@@ -15,7 +18,7 @@ interface ScheduleHeaderFieldsProps {
 /** Planned weekly revenue/hours inputs of the schedule header. Owns its own draft state so that a
  * keystroke re-renders only these two fields - previously the drafts lived in ScheduleView, where
  * every keystroke re-rendered the whole schedule table underneath. Saves on blur. */
-export function ScheduleHeaderFields({ schedule, onSaved, onError }: ScheduleHeaderFieldsProps) {
+export function ScheduleHeaderFields({ schedule, disabled = false, onSaved, onError }: ScheduleHeaderFieldsProps) {
   const [revenue, setRevenue] = useState<number | undefined>(schedule?.plannedWeeklyRevenue);
   const [hours, setHours] = useState<number | undefined>(schedule?.plannedWeeklyHours);
   const [savedAt, setSavedAt] = useState<number | null>(null);
@@ -32,7 +35,7 @@ export function ScheduleHeaderFields({ schedule, onSaved, onError }: ScheduleHea
   }, [savedAt]);
 
   const save = async () => {
-    if (!schedule) return;
+    if (!schedule || disabled) return;
     try {
       const updated = await services.schedule.save({
         ...schedule,
@@ -54,6 +57,7 @@ export function ScheduleHeaderFields({ schedule, onSaved, onError }: ScheduleHea
         value={revenue}
         onChange={setRevenue}
         onBlur={save}
+        disabled={disabled}
         InputProps={{ endAdornment: <InputAdornment position="end">€</InputAdornment> }}
         sx={{ width: 260 }}
       />
@@ -63,6 +67,7 @@ export function ScheduleHeaderFields({ schedule, onSaved, onError }: ScheduleHea
         value={hours}
         onChange={setHours}
         onBlur={save}
+        disabled={disabled}
         sx={{ width: 260 }}
       />
       {savedAt !== null && (

@@ -21,17 +21,15 @@ import StoreOutlinedIcon from '@mui/icons-material/StoreOutlined';
 import type { Branch } from '@domain/branch/Branch';
 import { services } from '@infrastructure/services';
 import { useBranchList } from '@ui/hooks/useBranch';
-import { useErrorSnackbar } from '@ui/hooks/useErrorSnackbar';
-import { ErrorSnackbar } from '@ui/components/ErrorSnackbar';
 import { ConfirmDialog } from '@ui/components/ConfirmDialog';
 import { BranchDialog } from './BranchDialog';
+import { notify } from '@ui/app/store/notificationStore';
 
 export function BranchMasterDataView() {
   const { branches, loading, reload } = useBranchList();
   // null = closed; { branch: null } = "Neue Filiale"; { branch } = edit. Mounted only while open.
   const [dialog, setDialog] = useState<{ branch: Branch | null } | null>(null);
   const [statusTarget, setStatusTarget] = useState<Branch | null>(null);
-  const { error, report, reset } = useErrorSnackbar();
 
   const changeStatus = async () => {
     if (!statusTarget) return;
@@ -39,7 +37,7 @@ export function BranchMasterDataView() {
       await services.branch.changeActiveStatus(statusTarget, !statusTarget.active);
       await reload();
     } catch (e) {
-      report(e, 'Status konnte nicht geändert werden');
+      notify.report(e, 'Status konnte nicht geändert werden');
     } finally {
       setStatusTarget(null);
     }
@@ -112,7 +110,7 @@ export function BranchMasterDataView() {
       </TableContainer>
 
       {dialog && (
-        <BranchDialog branch={dialog.branch} onClose={() => setDialog(null)} onSaved={reload} onError={report} />
+        <BranchDialog branch={dialog.branch} onClose={() => setDialog(null)} onSaved={reload} onError={notify.report} />
       )}
 
       <ConfirmDialog
@@ -127,8 +125,6 @@ export function BranchMasterDataView() {
         onConfirm={changeStatus}
         onCancel={() => setStatusTarget(null)}
       />
-
-      <ErrorSnackbar error={error} onClose={reset} />
     </Box>
   );
 }

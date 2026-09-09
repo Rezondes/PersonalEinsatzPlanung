@@ -21,6 +21,7 @@ import { useFormValidation } from '@ui/hooks/useFormValidation';
 import { DecimalTextField } from '@ui/components/DecimalTextField';
 import { RequiredLegend } from '@ui/components/RequiredLegend';
 import { FormErrorNotice } from '@ui/components/FormErrorNotice';
+import CircularProgress from '@mui/material/CircularProgress';
 
 type AbsenceType = 'Vacation' | 'Illness' | 'Other';
 
@@ -83,11 +84,13 @@ export function AbsenceDialog({ employees, onClose, onSaved, onError }: AbsenceD
   );
 
   const singleDay = form.from === form.to;
+  const [saving, setSaving] = useState(false);
 
   const save = async () => {
     if (!validation.submit()) return;
     const employeeId = form.employeeId as EmployeeId;
 
+    setSaving(true);
     try {
       if (form.type === 'Vacation') {
         const halfDay =
@@ -110,6 +113,8 @@ export function AbsenceDialog({ employees, onClose, onSaved, onError }: AbsenceD
       await onSaved();
     } catch (e) {
       onError(e, 'Abwesenheit konnte nicht gespeichert werden');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -227,8 +232,15 @@ export function AbsenceDialog({ employees, onClose, onSaved, onError }: AbsenceD
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2 }}>
         <FormErrorNotice errors={validation.errors} />
-        <Button onClick={onClose}>Abbrechen</Button>
-        <Button variant="contained" onClick={save}>
+        <Button onClick={onClose} disabled={saving}>
+          Abbrechen
+        </Button>
+        <Button
+          variant="contained"
+          onClick={save}
+          disabled={saving}
+          startIcon={saving ? <CircularProgress size={16} color="inherit" /> : undefined}
+        >
           Speichern
         </Button>
       </DialogActions>

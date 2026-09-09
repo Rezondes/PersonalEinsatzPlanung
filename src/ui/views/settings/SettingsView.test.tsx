@@ -3,6 +3,8 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { services } from '@infrastructure/services';
+import { AppNotifications } from '@ui/app/AppNotifications';
+import { useNotificationStore } from '@ui/app/store/notificationStore';
 import { SettingsView } from './SettingsView';
 
 vi.mock('@infrastructure/services', () => ({
@@ -28,10 +30,14 @@ vi.mock('@infrastructure/services', () => ({
 
 const drive = vi.mocked(services.backupStorage);
 
+// AppNotifications comes along because feedback no longer lives in this view's own tree - it is
+// mounted once in App.tsx so it also reaches the print route. Rendering the view alone would test
+// an app whose messages go nowhere.
 const renderView = () =>
   render(
     <MemoryRouter>
       <SettingsView />
+      <AppNotifications />
     </MemoryRouter>,
   );
 
@@ -41,6 +47,8 @@ const saveToDrive = () => screen.findByRole('button', { name: 'In Google Drive s
 describe('SettingsView, Google Drive section', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // The store is a module singleton; a queued message would otherwise leak into the next test.
+    useNotificationStore.getState().clear();
     drive.isConfigured.mockReturnValue(true);
     drive.isSignedIn.mockReturnValue(false);
     drive.wasConnected.mockReturnValue(false);

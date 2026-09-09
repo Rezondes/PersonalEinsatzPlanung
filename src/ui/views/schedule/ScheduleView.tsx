@@ -48,8 +48,6 @@ import { useEmployeeList } from '@ui/hooks/useEmployeeList';
 import { useSchedule } from '@ui/hooks/useSchedule';
 import { useAbsences } from '@ui/hooks/useAbsences';
 import { useCalendarWeekStore } from '@ui/app/store/calendarWeekStore';
-import { useErrorSnackbar } from '@ui/hooks/useErrorSnackbar';
-import { ErrorSnackbar } from '@ui/components/ErrorSnackbar';
 import { ConfirmDialog } from '@ui/components/ConfirmDialog';
 import { ScheduleTable } from './components/ScheduleTable';
 import { ScheduleHeaderFields } from './components/ScheduleHeaderFields';
@@ -71,6 +69,8 @@ import { shiftToDraft } from '@domain/schedule/shiftDraft';
 import { useShiftTemplates } from '@ui/hooks/useShiftTemplates';
 import { useScheduleHistory } from './useScheduleHistory';
 import type { AbsenceOp, HistoryDirection, HistoryStep } from './useScheduleHistory';
+import { notify } from '@ui/app/store/notificationStore';
+import CircularProgress from '@mui/material/CircularProgress';
 
 export function ScheduleView() {
   const { branch } = useSelectedBranch();
@@ -110,8 +110,6 @@ export function ScheduleView() {
   const [weekSelectionOpen, setWeekSelectionOpen] = useState(false);
   const [carryOverOpen, setCarryOverOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-
-  const { error, report, reset } = useErrorSnackbar();
 
   const federalState = branch?.federalState;
   const isHoliday = useMemo(
@@ -184,12 +182,12 @@ export function ScheduleView() {
     historyKey: `${branch?.id ?? 'none'}|${selectedWeek.year}|${selectedWeek.week}`,
     shortcutsEnabled: !editorState && !contextMenu && !weekSelectionOpen && !carryOverOpen,
     applyStep,
-    onError: report,
+    onError: notify.report,
   });
   const { run, record } = history;
 
   // Stable identity so the memoized ScheduleTable is not re-rendered by unrelated state changes
-  // here (context menu, dialogs, error snackbar).
+  // here (context menu, dialogs).
   const cellClick = useCallback((employeeId: EmployeeId, dayView: DayView) => {
     setEditorState({ employeeId, dayView });
   }, []);
@@ -437,9 +435,31 @@ export function ScheduleView() {
         </Stack>
       </Stack>
 
-      <ScheduleHeaderFields schedule={schedule} onSaved={scheduleReplaced} onError={report} />
+      <ScheduleHeaderFields
+        schedule={schedule}
+        disabled={loading}
+        onSaved={scheduleReplaced}
+        onError={notify.report}
+      />
 
-      <Stack direction="row" gap={2} flexWrap="wrap" sx={{ mb: 3 }}>
+      <Box
+        sx={{
+          position: 'relative',
+          opacity: loading ? 0.4 : 1,
+          pointerEvents: loading ? 'none' : 'auto',
+          transition: 'opacity 120ms',
+        }}
+      >
+        {loading && (
+          <Stack
+            alignItems="center"
+            sx={{ position: 'absolute', inset: 0, justifyContent: 'center', zIndex: 3 }}
+          >
+            <CircularProgress />
+          </Stack>
+        )}
+
+        <Stack direction="row" gap={2} flexWrap="wrap" sx={{ mb: 3 }}>
         {[
           { label: 'Soll-Std. (Verträge)', value: formatHoursRangeGerman(totalTarget.min, totalTarget.max) },
           {
@@ -511,8 +531,9 @@ export function ScheduleView() {
       )}
 
       {schedule && rows.length > 0 && visibleRows.length === 0 && (
-        <Alert severity="info">Kein Mitarbeiter gefunden.</Alert>
-      )}
+          <Alert severity="info">Kein Mitarbeiter gefunden.</Alert>
+        )}
+      </Box>
 
       <Menu
         open={!!contextMenu}
@@ -560,7 +581,7 @@ export function ScheduleView() {
           absences={absences}
           isHoliday={isHoliday}
           onApplied={scheduleReplaced}
-          onError={report}
+          onError={notify.report}
         />
       )}
 
@@ -586,7 +607,7 @@ export function ScheduleView() {
           initialDrafts={templateDialog.drafts}
           onClose={() => setTemplateDialog(null)}
           onSaved={reloadTemplates}
-          onError={report}
+          onError={notify.report}
         />
       )}
 
@@ -605,15 +626,13 @@ export function ScheduleView() {
             }
             await reloadTemplates();
           } catch (e) {
-            report(e, 'Vorlage konnte nicht gelöscht werden');
+            notify.report(e, 'Vorlage konnte nicht gelöscht werden');
           } finally {
             setTemplateDeleteTarget(null);
           }
         }}
         onCancel={() => setTemplateDeleteTarget(null)}
       />
-
-      <ErrorSnackbar error={error} onClose={reset} />
     </Box>
   );
 }

@@ -65,13 +65,21 @@ export function WeekSelectionDialog({
   const [year, setYear] = useState(mondayOfWeek(selectedWeek).getFullYear());
   const [month, setMonth] = useState(mondayOfWeek(selectedWeek).getMonth() + 1);
   const [schedules, setSchedules] = useState<WeeklySchedule[]>([]);
+  const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     if (!open) return;
     const start = mondayOfWeek(selectedWeek);
     setYear(start.getFullYear());
     setMonth(start.getMonth() + 1);
-    services.schedule.forBranch(branchId).then(setSchedules);
+    setLoaded(false);
+    services.schedule
+      .forBranch(branchId)
+      .then(setSchedules)
+      // On failure the weeks would silently claim "kein Plan" for weeks that have one, which is
+      // worse than saying nothing. loaded gates the figures until they are actually known.
+      .catch(() => setSchedules([]))
+      .finally(() => setLoaded(true));
   }, [open, branchId, selectedWeek]);
 
   const changeMonth = (direction: -1 | 1) => {
@@ -141,7 +149,11 @@ export function WeekSelectionDialog({
                     {isToday && <Chip label="Heute" size="small" color="success" variant="outlined" />}
                   </Stack>
                   <Typography variant="body2" color="text.secondary">
-                    {totalMinutes != null ? `${minutesToDecimalHours(totalMinutes).toLocaleString('de-DE')} Std.` : 'kein Plan'}
+                    {!loaded
+                      ? '…'
+                      : totalMinutes != null
+                        ? `${minutesToDecimalHours(totalMinutes).toLocaleString('de-DE')} Std.`
+                        : 'kein Plan'}
                   </Typography>
                 </Stack>
               </ListItemButton>

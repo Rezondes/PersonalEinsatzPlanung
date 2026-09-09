@@ -13,11 +13,14 @@
  * - input / textarea / select / [contenteditable]: not a nicety. On iOS Safari a
  *   -webkit-user-select: none on an ancestor makes fields not just unselectable but UNTYPEABLE,
  *   and suppressing right-click there would remove paste-by-mouse and the long-press paste bubble.
- * - [role="alert"]: every error and notice in the app, in one semantic rule. MUI's Alert carries
- *   that role by default, and so does the hand-rolled components/FormErrorNotice.tsx, so this
- *   covers schedule validation, import errors, Drive failures and ArbZG warnings alike. Someone
- *   who wants to report a problem must be able to copy what it said. .MuiAlert-root rides along
- *   in case an Alert is ever given a different role.
+ * - [role="alert"]: every error and notice that interrupts, in one semantic rule. MUI's Alert
+ *   carries that role by default, and so does the hand-rolled components/FormErrorNotice.tsx, so
+ *   this covers schedule validation, import errors, Drive failures and ArbZG warnings alike.
+ *   Someone who wants to report a problem must be able to copy what it said.
+ * - .MuiAlert-root: NOT a belt-and-braces entry any more, it is load-bearing. app/AppNotifications
+ *   renders a SUCCESS as role="status" (a success informs, it does not interrupt), so that half of
+ *   the selector is the only thing keeping success messages copyable. Guarded by a case in
+ *   hooks/useSuppressBrowserContextMenu.test.tsx - do not trim it.
  * - [data-selectable]: the manual opt-in for prose that is not an Alert - the privacy notice, the
  *   version block on Einstellungen, confirmation dialog texts, the print view.
  */

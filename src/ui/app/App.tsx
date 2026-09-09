@@ -8,6 +8,7 @@ import '@ui/app/installPrompt';
 import { theme } from './theme';
 import { router } from './router';
 import { UpdatePrompt } from './UpdatePrompt';
+import { AppNotifications } from './AppNotifications';
 
 export function App() {
   // Here and not in AppShell: the print route sits outside the shell, and both of these have to
@@ -19,6 +20,7 @@ export function App() {
       <CssBaseline />
       <RouterProvider router={router} />
       <UpdatePrompt />
+      <AppNotifications />
     </ThemeProvider>
   );
 }

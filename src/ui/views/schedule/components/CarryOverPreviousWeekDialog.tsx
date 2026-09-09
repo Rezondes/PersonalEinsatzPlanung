@@ -24,6 +24,8 @@ import { minutesToDecimalHours } from '@domain/schedule/scheduleCalculation';
 import { createWeekView, effectiveTargetMinutes } from '@application/schedule/scheduleAssessment';
 import { services } from '@infrastructure/services';
 import { DecimalTextField } from '@ui/components/DecimalTextField';
+import CircularProgress from '@mui/material/CircularProgress';
+import Stack from '@mui/material/Stack';
 
 interface CarryOverPreviousWeekDialogProps {
   open: boolean;
@@ -118,9 +120,13 @@ export function CarryOverPreviousWeekDialog({
 
       setRows(newRows);
       setInputs(newInputs);
-      setLoading(false);
-    })();
-  }, [open, branchId, selectedWeek, schedule, employeeList, absences, isHoliday]);
+    })()
+      // Without this the spinner below would turn forever, which is worse than the empty dialog
+      // it replaces: the user would wait instead of seeing that something went wrong.
+      .catch((e: unknown) => onError(e, 'Die Vorwoche konnte nicht geladen werden'))
+      .finally(() => setLoading(false));
+    // onError is notify.report, a stable module-level reference, so listing it cannot loop.
+  }, [open, branchId, selectedWeek, schedule, employeeList, absences, isHoliday, onError]);
 
   const apply = async () => {
     setApplying(true);
@@ -151,6 +157,14 @@ export function CarryOverPreviousWeekDialog({
         </Typography>
       </DialogTitle>
       <DialogContent>
+        {loading && (
+          <Stack alignItems="center" spacing={2} sx={{ py: 4 }}>
+            <CircularProgress />
+            <Typography variant="body2" color="text.secondary">
+              Vorwoche wird geladen…
+            </Typography>
+          </Stack>
+        )}
         {!loading && rows.length === 0 && (
           <Alert severity="info">Keine aktiven Mitarbeiter für diese Filiale.</Alert>
         )}

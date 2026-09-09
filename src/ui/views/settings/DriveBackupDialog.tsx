@@ -16,6 +16,9 @@ import { formatDateGerman } from '@domain/shared/DateFormat';
 import { services } from '@infrastructure/services';
 
 interface DriveBackupDialogProps {
+  /** True while the parent is downloading the chosen backup. The dialog stays open and says so -
+   * it is the only thing on screen during that wait. */
+  busy?: boolean;
   onClose: () => void;
   /** The chosen backup. The parent runs the usual confirmation and import from here on. */
   onSelect: (backup: RemoteBackup) => void;
@@ -33,7 +36,7 @@ function subtitle(backup: RemoteBackup): string {
 }
 
 /** Lists the backups this app put into the user's Google Drive, newest first. */
-export function DriveBackupDialog({ onClose, onSelect }: DriveBackupDialogProps) {
+export function DriveBackupDialog({ busy = false, onClose, onSelect }: DriveBackupDialogProps) {
   const [backups, setBackups] = useState<RemoteBackup[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -53,27 +56,27 @@ export function DriveBackupDialog({ onClose, onSelect }: DriveBackupDialogProps)
   }, []);
 
   return (
-    <Dialog open onClose={onClose} maxWidth="sm" fullWidth>
+    <Dialog open onClose={busy ? undefined : onClose} maxWidth="sm" fullWidth>
       <DialogTitle>Sicherung aus Google Drive laden</DialogTitle>
       <DialogContent dividers>
         {error && <Alert severity="error">{error}</Alert>}
 
-        {!error && backups === null && (
+        {!error && (backups === null || busy) && (
           <Stack direction="row" spacing={2} alignItems="center" sx={{ py: 2 }}>
             <CircularProgress size={20} />
             <Typography variant="body2" color="text.secondary">
-              Sicherungen werden geladen…
+              {busy ? 'Sicherung wird geladen…' : 'Sicherungen werden geladen…'}
             </Typography>
           </Stack>
         )}
 
-        {!error && backups !== null && backups.length === 0 && (
+        {!error && !busy && backups !== null && backups.length === 0 && (
           <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>
             In Google Drive liegt noch keine Sicherung. Lege zuerst über „In Google Drive sichern“ eine an.
           </Typography>
         )}
 
-        {backups !== null && backups.length > 0 && (
+        {!busy && backups !== null && backups.length > 0 && (
           <List disablePadding>
             {backups.map((backup) => (
               <ListItemButton key={backup.id} onClick={() => onSelect(backup)}>
@@ -84,7 +87,9 @@ export function DriveBackupDialog({ onClose, onSelect }: DriveBackupDialogProps)
         )}
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2 }}>
-        <Button onClick={onClose}>Abbrechen</Button>
+        <Button onClick={onClose} disabled={busy}>
+          Abbrechen
+        </Button>
       </DialogActions>
     </Dialog>
   );

@@ -29,11 +29,10 @@ import { createHolidayCheck } from '@infrastructure/holidays/germanHolidays';
 import { useSelectedBranch } from '@ui/hooks/useBranch';
 import { useEmployeeList } from '@ui/hooks/useEmployeeList';
 import { useAbsences } from '@ui/hooks/useAbsences';
-import { useErrorSnackbar } from '@ui/hooks/useErrorSnackbar';
 import { useTableSort } from '@ui/hooks/useTableSort';
-import { ErrorSnackbar } from '@ui/components/ErrorSnackbar';
 import { ConfirmDialog } from '@ui/components/ConfirmDialog';
 import { AbsenceDialog } from './AbsenceDialog';
+import { notify } from '@ui/app/store/notificationStore';
 
 type SortKey = 'employee' | 'type' | 'from' | 'to';
 type TypeFilter = 'all' | 'Vacation' | 'Illness' | 'Other';
@@ -77,7 +76,6 @@ export function AbsencesView() {
   const [employeeFilter, setEmployeeFilter] = useState<string>(ALL);
   const [typeFilter, setTypeFilter] = useState<TypeFilter>(ALL);
   const [yearFilter, setYearFilter] = useState<string>(ALL);
-  const { error, report, reset } = useErrorSnackbar();
   // Newest first, the order this view had before it became sortable.
   const sort = useTableSort<SortKey>('from', 'desc');
 
@@ -145,7 +143,7 @@ export function AbsencesView() {
       await services.absence.delete(deleteTarget.id);
       await reload();
     } catch (e) {
-      report(e, 'Abwesenheit konnte nicht gelöscht werden');
+      notify.report(e, 'Abwesenheit konnte nicht gelöscht werden');
     } finally {
       setDeleteTarget(null);
     }
@@ -310,7 +308,7 @@ export function AbsencesView() {
       </TableContainer>
 
       {dialogOpen && (
-        <AbsenceDialog employees={activeEmployees} onClose={() => setDialogOpen(false)} onSaved={reload} onError={report} />
+        <AbsenceDialog employees={activeEmployees} onClose={() => setDialogOpen(false)} onSaved={reload} onError={notify.report} />
       )}
 
       <ConfirmDialog
@@ -322,8 +320,6 @@ export function AbsencesView() {
         onConfirm={deleteAbsence}
         onCancel={() => setDeleteTarget(null)}
       />
-
-      <ErrorSnackbar error={error} onClose={reset} />
     </Box>
   );
 }

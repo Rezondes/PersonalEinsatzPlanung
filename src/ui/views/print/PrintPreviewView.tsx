@@ -17,6 +17,8 @@ import { services } from '@infrastructure/services';
 import { FullPartTimeForm } from './FullPartTimeForm';
 import { MinijobForm } from './MinijobForm';
 import './printView.css';
+import CircularProgress from '@mui/material/CircularProgress';
+import Typography from '@mui/material/Typography';
 
 const EMPLOYEES_PER_SHEET = 9;
 
@@ -39,7 +41,12 @@ export function PrintPreviewView() {
 
   useEffect(() => {
     (async () => {
-      if (!scheduleId) return;
+      // Must clear loading too: an early return here used to leave the view stuck on its
+      // loading branch forever.
+      if (!scheduleId) {
+        setLoading(false);
+        return;
+      }
       const loadedSchedule = await services.schedule.find(scheduleId as WeeklyScheduleId);
       if (!loadedSchedule) {
         setLoading(false);
@@ -55,12 +62,23 @@ export function PrintPreviewView() {
       setBranch(loadedBranch);
       setEmployeeList(loadedEmployees);
       setAbsences(loadedAbsences);
-      setLoading(false);
-    })();
+    })()
+      .catch(() => {
+        // Leaves schedule null, which renders the "nicht gefunden" alert below.
+      })
+      .finally(() => setLoading(false));
   }, [scheduleId]);
 
   if (loading) {
-    return null;
+    // A blank white page was the old behaviour, and this route has no nav chrome to soften it.
+    return (
+      <Stack alignItems="center" spacing={2} sx={{ py: 8 }}>
+        <CircularProgress />
+        <Typography variant="body2" color="text.secondary">
+          Wochenplan wird geladen…
+        </Typography>
+      </Stack>
+    );
   }
 
   if (!schedule || !branch) {
