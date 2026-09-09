@@ -17,6 +17,13 @@ export const theme = createTheme(
       warning: { main: '#8a5a00' },
       success: { main: '#2f6b3f' },
     },
+    // Matches the four device classes of the responsive design (Handy / Tablet Hochformat /
+    // Tablet Querformat / kleiner Laptop) so `breakpoints.up('sm')` reads as "tablet portrait and
+    // up" everywhere, instead of scattering raw pixel values through the app. See
+    // `hooks/useBreakpoint.ts`, the single place that turns these into a layout name.
+    breakpoints: {
+      values: { xs: 0, sm: 768, md: 1024, lg: 1280, xl: 1536 },
+    },
     shape: { borderRadius: 8 },
     typography: {
       // "Inter Variable" ist der Familienname aus app/inter.css, wo die Schrift lokal deklariert
@@ -80,6 +87,17 @@ export const theme = createTheme(
       },
       MuiTableCell: {
         styleOverrides: { root: { borderColor: '#ececeb' } },
+      },
+      // Below `lg` (1280px, the "kleiner Laptop" breakpoint and up) the app is touch-first: every
+      // icon-only button needs a real 44x44 hit target, not just its visible icon size. Scoped to
+      // `down('lg')` rather than applied everywhere, so the existing dense desktop toolbars (e.g.
+      // ScheduleView's undo/redo row) keep their current, deliberately compact sizing.
+      MuiIconButton: {
+        styleOverrides: {
+          root: ({ theme }) => ({
+            [theme.breakpoints.down('lg')]: { minWidth: 44, minHeight: 44 },
+          }),
+        },
       },
     },
   },
