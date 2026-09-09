@@ -26,7 +26,7 @@ const SECTIONS = [
   },
   {
     title: 'Haftungsbeschränkung',
-    text: 'Hinweis: Dieser Abschnitt ist ein Entwurf und keine geprüfte Rechtsberatung. Die Haftung für Schäden, die aus der Nutzung von PEP entstehen, ist im gesetzlich zulässigen Umfang ausgeschlossen bzw. beschränkt - insbesondere für mittelbare Schäden, entgangenen Gewinn und Datenverlust. Das gilt ausdrücklich auch für Schäden, die aus fehlerhaften Dienstplänen, nicht erkannten ArbZG-Verstößen oder dem Verlust lokal gespeicherter Daten entstehen, einschließlich Mitarbeiterdaten und der in begrenztem Umfang erfassten Krankheitszeiträume. Für Vorsatz, grobe Fahrlässigkeit sowie Schäden aus der Verletzung des Lebens, des Körpers oder der Gesundheit bleibt die Haftung unberührt. Weil hier echte Personaldaten und Gesundheitsdaten verarbeitet werden, sollte dieser Abschnitt vor einem produktiven Einsatz anwaltlich geprüft werden.',
+    text: ' Die Haftung für Schäden, die aus der Nutzung von PEP entstehen, ist im gesetzlich zulässigen Umfang ausgeschlossen bzw. beschränkt - insbesondere für mittelbare Schäden, entgangenen Gewinn und Datenverlust. Das gilt ausdrücklich auch für Schäden, die aus fehlerhaften Dienstplänen, nicht erkannten ArbZG-Verstößen oder dem Verlust lokal gespeicherter Daten entstehen, einschließlich Mitarbeiterdaten und der in begrenztem Umfang erfassten Krankheitszeiträume. Für Vorsatz, grobe Fahrlässigkeit sowie Schäden aus der Verletzung des Lebens, des Körpers oder der Gesundheit bleibt die Haftung unberührt.',
   },
   {
     title: 'Änderungen dieser Nutzungsbedingungen',
@@ -48,17 +48,6 @@ export function TermsView() {
       <Typography variant="h5" fontWeight={500} sx={{ mb: 1 }}>
         Nutzungsbedingungen
       </Typography>
-      {/* Deutlich sichtbarer Entwurfshinweis: Da echte Mitarbeiterdaten und in begrenztem Umfang
-          Gesundheitsdaten (Krankheitszeitraeume) durch die App fliessen, soll das hier niemand
-          uebersehen koennen. */}
-      <Typography variant="body2" fontWeight={500} sx={{ mb: 3 }}>
-        Hinweis: Dieser Text ist ein Entwurf und wurde nicht von einem Rechtsanwalt geprüft. Da PEP für die
-        Planung echter Mitarbeiter und in begrenztem Umfang für gesundheitsbezogene Daten (Krankheitszeiträume)
-        genutzt wird, sollte der Betreiber der App diese Nutzungsbedingungen vor einer produktiven Nutzung
-        rechtlich prüfen lassen.
-      </Typography>
-      {/* Freigegeben: wie bei den Datenschutzhinweisen soll man diesen Text kopieren, zitieren und
-          weitergeben koennen, ohne ihn abzutippen. */}
       <Stack spacing={2} data-selectable>
         {SECTIONS.map((section) => (
           <Paper key={section.title} sx={{ p: 3 }}>

@@ -6,7 +6,7 @@ import Stack from '@mui/material/Stack';
 const SECTIONS = [
   {
     title: 'Verantwortlicher',
-    text: 'Verantwortlich für die Datenverarbeitung im Sinne der DSGVO ist [Name], [POSTANSCHRIFT - vom Nutzer nachzureichen]. Kontakt: dev@rezondes.net oder rezondes.business@gmail.com. Es handelt sich um das Angebot einer Privatperson / eines Einzelunternehmens (kein Handelsregistereintrag, keine Umsatzsteuer-ID). Diese Datenschutzerklärung ist unter anderem wegen der optionalen Google-Anmeldung (OAuth) für die Google-Drive-Sicherung erforderlich.',
+    text: 'Verantwortlich für die Datenverarbeitung im Sinne der DSGVO ist Steven Richter. Kontakt: dev@rezondes.net oder rezondes.business@gmail.com. Es handelt sich um das Angebot einer Privatperson. Diese Datenschutzerklärung ist unter anderem wegen der optionalen Google-Anmeldung (OAuth) für die Google-Drive-Sicherung erforderlich.',
   },
   {
     title: 'Wo werden die Daten gespeichert?',
@@ -40,8 +40,6 @@ export function PrivacyView() {
       <Typography variant="h5" fontWeight={500} sx={{ mb: 3 }}>
         Datenschutzhinweise
       </Typography>
-      {/* Freigegeben: eine Datenschutzauskunft muss man kopieren, zitieren und weitergeben
-          koennen, ohne sie abzutippen. */}
       <Stack spacing={2} data-selectable>
         {SECTIONS.map((section) => (
           <Paper key={section.title} sx={{ p: 3 }}>
