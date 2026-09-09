@@ -30,9 +30,13 @@ import { useSelectedBranch } from '@ui/hooks/useBranch';
 import { useEmployeeList } from '@ui/hooks/useEmployeeList';
 import { useAbsences } from '@ui/hooks/useAbsences';
 import { useTableSort } from '@ui/hooks/useTableSort';
+import { useBreakpoint } from '@ui/hooks/useBreakpoint';
 import { ConfirmDialog } from '@ui/components/ConfirmDialog';
+import { stickyFirstColumnSx } from '@ui/components/stickyFirstColumn';
+import { ResponsiveDataList } from '@ui/components/ResponsiveList/ResponsiveDataList';
 import { AbsenceDialog } from './AbsenceDialog';
 import { notify } from '@ui/app/store/notificationStore';
+import { usePageActions } from '@ui/app/PageActionsContext';
 
 type SortKey = 'employee' | 'type' | 'from' | 'to';
 type TypeFilter = 'all' | 'Vacation' | 'Illness' | 'Other';
@@ -64,7 +68,69 @@ function absenceKindLabel(a: Absence): string {
   }
 }
 
+/** Mobile card. Unlike Mitarbeiter/Filialen there is no per-row edit here (create-only, matching
+ * both the mockup and today's behaviour) and exactly one row action (Löschen) - a long-press
+ * action sheet would just be indirection around one already-visible 44px button, so this card
+ * shows it directly instead of going through RowActionSheet. */
+function AbsenceCard({
+  absence,
+  employeeName,
+  onDelete,
+}: {
+  absence: Absence;
+  employeeName: string;
+  onDelete: () => void;
+}) {
+  const halfDayText =
+    absence.type === 'Vacation' && absence.halfDay && absence.from === absence.to
+      ? absence.halfDay.atStart
+        ? ' (vormittags)'
+        : absence.halfDay.atEnd
+          ? ' (nachmittags)'
+          : ''
+      : '';
+  const rangeText =
+    absence.from === absence.to
+      ? formatISODateGerman(absence.from)
+      : `${formatISODateGerman(absence.from)} – ${formatISODateGerman(absence.to)}`;
+
+  return (
+    <Box
+      sx={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 1,
+        width: '100%',
+        bgcolor: 'background.paper',
+        border: '1px solid',
+        borderColor: 'divider',
+        borderRadius: 2,
+        p: '12px 8px 12px 14px',
+      }}
+    >
+      <Box sx={{ flex: 1, minWidth: 0 }}>
+        <Stack direction="row" spacing={1} alignItems="center">
+          <Typography variant="body2" fontWeight={500} noWrap>
+            {employeeName}
+          </Typography>
+          <Chip size="small" label={absenceTypeLabel(absence) + halfDayText} />
+        </Stack>
+        <Typography variant="body2">{rangeText}</Typography>
+        {absence.type === 'Other' && absence.hoursPerDay !== undefined && (
+          <Typography variant="caption" color="text.secondary">
+            {absence.hoursPerDay.toLocaleString('de-DE')} Std./Tag
+          </Typography>
+        )}
+      </Box>
+      <IconButton onClick={onDelete} aria-label="Löschen">
+        <DeleteOutlineIcon />
+      </IconButton>
+    </Box>
+  );
+}
+
 export function AbsencesView() {
+  const layout = useBreakpoint();
   const { branch } = useSelectedBranch();
   const { employeeList } = useEmployeeList(branch?.id ?? null);
   const activeEmployees = employeeList.filter((emp) => emp.active);
@@ -78,6 +144,10 @@ export function AbsencesView() {
   const [yearFilter, setYearFilter] = useState<string>(ALL);
   // Newest first, the order this view had before it became sortable.
   const sort = useTableSort<SortKey>('from', 'desc');
+
+  usePageActions({
+    fab: activeEmployees.length > 0 ? { label: 'Erfassen', icon: AddIcon, onClick: () => setDialogOpen(true) } : undefined,
+  });
 
   const year = new Date().getFullYear();
 
@@ -154,6 +224,7 @@ export function AbsencesView() {
   }
 
   const employeeName = (employee: Employee | undefined) => (employee ? fullName(employee) : '–');
+  const columnCount = layout === 'laptop' ? COLUMN_COUNT : COLUMN_COUNT - 1;
 
   return (
     <Box>
@@ -161,7 +232,15 @@ export function AbsencesView() {
         <Typography variant="h5" fontWeight={500}>
           Abwesenheiten · {branch.name}
         </Typography>
-        <Button variant="outlined" startIcon={<AddIcon />} onClick={() => setDialogOpen(true)} disabled={activeEmployees.length === 0}>
+        {/* Hidden on mobile: MobileFab (registered above via usePageActions, label "Erfassen"
+            matching the mockup) is the primary action there. */}
+        <Button
+          variant="outlined"
+          startIcon={<AddIcon />}
+          onClick={() => setDialogOpen(true)}
+          disabled={activeEmployees.length === 0}
+          sx={{ display: { xs: 'none', sm: 'inline-flex' } }}
+        >
           Abwesenheit erfassen
         </Button>
       </Stack>
@@ -231,81 +310,90 @@ export function AbsencesView() {
         </Stack>
       </Paper>
 
-      <TableContainer component={Paper}>
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableCell>
-                <TableSortLabel {...headProps('employee')}>Mitarbeiter</TableSortLabel>
-              </TableCell>
-              <TableCell>
-                <TableSortLabel {...headProps('type')}>Art</TableSortLabel>
-              </TableCell>
-              <TableCell>Std./Tag</TableCell>
-              <TableCell>
-                <TableSortLabel {...headProps('from')}>Von</TableSortLabel>
-              </TableCell>
-              <TableCell>
-                <TableSortLabel {...headProps('to')}>Bis</TableSortLabel>
-              </TableCell>
-              <TableCell align="right">Aktionen</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {absences.length === 0 && (
+      <ResponsiveDataList
+        rows={visibleAbsences}
+        getKey={(a) => a.id}
+        emptyMessage={absences.length === 0 ? 'Noch keine Abwesenheiten erfasst.' : 'Kein Eintrag passt zu den Filtern.'}
+        renderCard={(a) => (
+          <AbsenceCard absence={a} employeeName={employeeName(employeeById.get(a.employeeId))} onDelete={() => setDeleteTarget(a)} />
+        )}
+      >
+        <TableContainer component={Paper}>
+          <Table>
+            <TableHead>
               <TableRow>
-                <TableCell colSpan={COLUMN_COUNT}>
-                  <Typography color="text.secondary" sx={{ py: 2 }}>
-                    Noch keine Abwesenheiten erfasst.
-                  </Typography>
+                <TableCell sx={stickyFirstColumnSx}>
+                  <TableSortLabel {...headProps('employee')}>Mitarbeiter</TableSortLabel>
                 </TableCell>
-              </TableRow>
-            )}
-            {absences.length > 0 && visibleAbsences.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={COLUMN_COUNT}>
-                  <Typography color="text.secondary" sx={{ py: 2 }}>
-                    Kein Eintrag passt zu den Filtern.
-                  </Typography>
+                <TableCell>
+                  <TableSortLabel {...headProps('type')}>Art</TableSortLabel>
                 </TableCell>
+                {layout === 'laptop' && <TableCell>Std./Tag</TableCell>}
+                <TableCell>
+                  <TableSortLabel {...headProps('from')}>Von</TableSortLabel>
+                </TableCell>
+                <TableCell>
+                  <TableSortLabel {...headProps('to')}>Bis</TableSortLabel>
+                </TableCell>
+                <TableCell align="right">Aktionen</TableCell>
               </TableRow>
-            )}
-            {visibleAbsences.map((a) => {
-              const employee = employeeById.get(a.employeeId);
-              // atStart = absent at the start of the day (morning), atEnd = absent at the end
-              // (afternoon) - must match the "Nur vormittags/nachmittags frei" checkbox labels below.
-              const halfDayText =
-                a.type === 'Vacation' && a.halfDay && a.from === a.to
-                  ? a.halfDay.atStart
-                    ? ' (vormittags)'
-                    : a.halfDay.atEnd
-                      ? ' (nachmittags)'
-                      : ''
-                  : '';
-              return (
-                <TableRow key={a.id} hover>
-                  <TableCell>{employeeName(employee)}</TableCell>
-                  <TableCell>
-                    <Chip size="small" label={absenceTypeLabel(a) + halfDayText} />
-                  </TableCell>
-                  <TableCell>
-                    {a.type === 'Other' && a.hoursPerDay !== undefined
-                      ? a.hoursPerDay.toLocaleString('de-DE')
-                      : '–'}
-                  </TableCell>
-                  <TableCell>{formatISODateGerman(a.from)}</TableCell>
-                  <TableCell>{formatISODateGerman(a.to)}</TableCell>
-                  <TableCell align="right">
-                    <IconButton size="small" onClick={() => setDeleteTarget(a)} aria-label="Löschen">
-                      <DeleteOutlineIcon fontSize="small" />
-                    </IconButton>
+            </TableHead>
+            <TableBody>
+              {absences.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={columnCount}>
+                    <Typography color="text.secondary" sx={{ py: 2 }}>
+                      Noch keine Abwesenheiten erfasst.
+                    </Typography>
                   </TableCell>
                 </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
-      </TableContainer>
+              )}
+              {absences.length > 0 && visibleAbsences.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={columnCount}>
+                    <Typography color="text.secondary" sx={{ py: 2 }}>
+                      Kein Eintrag passt zu den Filtern.
+                    </Typography>
+                  </TableCell>
+                </TableRow>
+              )}
+              {visibleAbsences.map((a) => {
+                const employee = employeeById.get(a.employeeId);
+                // atStart = absent at the start of the day (morning), atEnd = absent at the end
+                // (afternoon) - must match the "Nur vormittags/nachmittags frei" checkbox labels below.
+                const halfDayText =
+                  a.type === 'Vacation' && a.halfDay && a.from === a.to
+                    ? a.halfDay.atStart
+                      ? ' (vormittags)'
+                      : a.halfDay.atEnd
+                        ? ' (nachmittags)'
+                        : ''
+                    : '';
+                return (
+                  <TableRow key={a.id} hover>
+                    <TableCell sx={stickyFirstColumnSx}>{employeeName(employee)}</TableCell>
+                    <TableCell>
+                      <Chip size="small" label={absenceTypeLabel(a) + halfDayText} />
+                    </TableCell>
+                    {layout === 'laptop' && (
+                      <TableCell>
+                        {a.type === 'Other' && a.hoursPerDay !== undefined ? a.hoursPerDay.toLocaleString('de-DE') : '–'}
+                      </TableCell>
+                    )}
+                    <TableCell>{formatISODateGerman(a.from)}</TableCell>
+                    <TableCell>{formatISODateGerman(a.to)}</TableCell>
+                    <TableCell align="right">
+                      <IconButton size={layout === 'laptop' ? 'small' : 'medium'} onClick={() => setDeleteTarget(a)} aria-label="Löschen">
+                        <DeleteOutlineIcon fontSize={layout === 'laptop' ? 'small' : 'medium'} />
+                      </IconButton>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      </ResponsiveDataList>
 
       {dialogOpen && (
         <AbsenceDialog employees={activeEmployees} onClose={() => setDialogOpen(false)} onSaved={reload} onError={notify.report} />
