@@ -26,6 +26,7 @@ import { useSelectedBranch } from '@ui/hooks/useBranch';
 import { useEmployeeList } from '@ui/hooks/useEmployeeList';
 import { useAbsences } from '@ui/hooks/useAbsences';
 import { useCalendarWeekStore } from '@ui/app/store/calendarWeekStore';
+import { stickyCornerSx, stickyFirstColumnSx, stickyHeaderRowSx } from '@ui/components/stickyFirstColumn';
 
 const MONTH_NAMES = [
   'Januar', 'Februar', 'März', 'April', 'Mai', 'Juni',
@@ -79,7 +80,7 @@ export function MonthOverviewView() {
 
   return (
     <Box>
-      <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
+      <Stack direction="row" flexWrap="wrap" justifyContent="space-between" alignItems="center" gap={1} sx={{ mb: 3 }}>
         <Typography variant="h5" fontWeight={500}>
           Monatsübersicht · {branch.name}
         </Typography>
@@ -96,17 +97,25 @@ export function MonthOverviewView() {
         </Stack>
       </Stack>
 
-      <TableContainer component={Paper}>
+      {/* Bounded height, self-scrolling (both axes) - matches how the mockup's own grid views are
+          built. A sticky header row cannot stick relative to the PAGE while the table also scrolls
+          horizontally: overflow-x: auto unconditionally forces overflow-y into a scroll container
+          too (CSS overflow spec), which would make THIS element the sticky containing block
+          regardless of what overflow-y is explicitly set to - so it has to be the intended scroll
+          region, not an accident to fight. */}
+      <TableContainer component={Paper} sx={{ maxHeight: '70vh' }}>
         <Table size="small">
           <TableHead>
             <TableRow>
-              <TableCell>Mitarbeiter</TableCell>
-              <TableCell align="right">Soll/Woche</TableCell>
+              <TableCell sx={stickyCornerSx()}>Mitarbeiter</TableCell>
+              <TableCell align="right" sx={stickyHeaderRowSx()}>
+                Soll/Woche
+              </TableCell>
               {allWeeks.map((cw) => (
                 <TableCell
                   key={`${cw.year}-${cw.week}`}
                   align="center"
-                  sx={{ cursor: 'pointer', '&:focus-visible': { outline: '2px solid #2f5d50', outlineOffset: -2 } }}
+                  sx={{ ...stickyHeaderRowSx(), cursor: 'pointer', '&:focus-visible': { outline: '2px solid #2f5d50', outlineOffset: -2 } }}
                   onClick={() => jumpToWeek(cw)}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' || e.key === ' ') {
@@ -121,7 +130,9 @@ export function MonthOverviewView() {
                   KW {cw.week}
                 </TableCell>
               ))}
-              <TableCell align="right">Gesamt Monat</TableCell>
+              <TableCell align="right" sx={stickyHeaderRowSx()}>
+                Gesamt Monat
+              </TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -129,7 +140,7 @@ export function MonthOverviewView() {
               const row = rows.find((r) => r.employeeId === employee.id);
               return (
                 <TableRow key={employee.id} hover>
-                  <TableCell>{fullName(employee)}</TableCell>
+                  <TableCell sx={stickyFirstColumnSx}>{fullName(employee)}</TableCell>
                   <TableCell align="right">
                     {formatHoursRangeGerman(
                       targetWeeklyHoursRange(employee.employmentType).min * 60,
