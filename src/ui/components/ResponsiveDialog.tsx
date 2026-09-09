@@ -75,6 +75,8 @@ export function ResponsiveDialog({
   // full-screen branch below doesn't render one, so that wiring is done by hand here instead -
   // without it the dialog has no accessible name in either mode once a custom header exists.
   const titleId = useId();
+  const subtitleId = useId();
+  const labelledBy = fullScreen && subtitle ? `${titleId} ${subtitleId}` : titleId;
 
   return (
     <Dialog
@@ -84,7 +86,7 @@ export function ResponsiveDialog({
       maxWidth={fullScreen ? undefined : maxWidth}
       fullWidth={!fullScreen}
       TransitionComponent={fullScreen ? SlideUpTransition : undefined}
-      aria-labelledby={titleId}
+      aria-labelledby={labelledBy}
     >
       {fullScreen ? (
         <Box
@@ -107,14 +109,21 @@ export function ResponsiveDialog({
               {title}
             </Typography>
             {subtitle && (
-              <Typography variant="caption" color="text.secondary" noWrap display="block">
+              <Typography id={subtitleId} variant="caption" color="text.secondary" noWrap display="block">
                 {subtitle}
               </Typography>
             )}
           </Box>
         </Box>
       ) : (
-        <DialogTitle id={titleId}>{title}</DialogTitle>
+        <DialogTitle id={titleId}>
+          {title}
+          {subtitle && (
+            <Typography id={subtitleId} variant="body2" color="text.secondary">
+              {subtitle}
+            </Typography>
+          )}
+        </DialogTitle>
       )}
 
       <DialogContent ref={contentRef} dividers={dividers}>

@@ -1,8 +1,4 @@
 import { useEffect, useMemo, useState } from 'react';
-import Dialog from '@mui/material/Dialog';
-import DialogTitle from '@mui/material/DialogTitle';
-import DialogContent from '@mui/material/DialogContent';
-import DialogActions from '@mui/material/DialogActions';
 import Button from '@mui/material/Button';
 import TextField from '@mui/material/TextField';
 import Stack from '@mui/material/Stack';
@@ -34,6 +30,7 @@ import { ConfirmDialog } from '@ui/components/ConfirmDialog';
 import { DecimalTextField } from '@ui/components/DecimalTextField';
 import { RequiredLegend } from '@ui/components/RequiredLegend';
 import { FormErrorNotice } from '@ui/components/FormErrorNotice';
+import { ResponsiveDialog } from '@ui/components/ResponsiveDialog';
 import { ShiftListEditor } from './ShiftListEditor';
 
 type Mode = 'Off' | 'Shift' | 'Vacation' | 'Illness' | 'Other';
@@ -193,24 +190,20 @@ export function DayEditor({
 
   if (isMultiDayAbsence && absence) {
     return (
-      <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-        <DialogTitle>
-          {employeeName} · {day}
-          <Typography variant="body2" color="text.secondary">
-            {formatISODateGerman(date)}
-          </Typography>
-        </DialogTitle>
-        <DialogContent>
-          <Alert severity="info">
-            {employeeName} ist an diesem Tag im Rahmen eines mehrtägigen Eintrags ({absenceTypeLabel(absence.type)},{' '}
-            {formatISODateGerman(absence.from)} bis {formatISODateGerman(absence.to)}) abwesend. Bitte bearbeite oder lösche diesen Eintrag über den
-            Tab „Abwesenheiten“.
-          </Alert>
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={onClose}>Schließen</Button>
-        </DialogActions>
-      </Dialog>
+      <ResponsiveDialog
+        open={open}
+        onClose={onClose}
+        title={`${employeeName} · ${day}`}
+        subtitle={formatISODateGerman(date)}
+        maxWidth="sm"
+        actions={<Button onClick={onClose}>Schließen</Button>}
+      >
+        <Alert severity="info">
+          {employeeName} ist an diesem Tag im Rahmen eines mehrtägigen Eintrags ({absenceTypeLabel(absence.type)},{' '}
+          {formatISODateGerman(absence.from)} bis {formatISODateGerman(absence.to)}) abwesend. Bitte bearbeite oder lösche diesen Eintrag über den
+          Tab „Abwesenheiten“.
+        </Alert>
+      </ResponsiveDialog>
     );
   }
 
@@ -219,14 +212,24 @@ export function DayEditor({
     : '–';
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>
-        {employeeName} · {day}
-        <Typography variant="body2" color="text.secondary">
-          {formatISODateGerman(date)}
-        </Typography>
-      </DialogTitle>
-      <DialogContent ref={validation.containerRef}>
+    <>
+      <ResponsiveDialog
+        open={open}
+        onClose={onClose}
+        title={`${employeeName} · ${day}`}
+        subtitle={formatISODateGerman(date)}
+        maxWidth="sm"
+        contentRef={validation.containerRef}
+        actions={
+          <>
+            <FormErrorNotice errors={validation.errors} />
+            <Button onClick={onClose}>Abbrechen</Button>
+            <Button variant="contained" onClick={save}>
+              Speichern
+            </Button>
+          </>
+        }
+      >
         <ToggleButtonGroup
           exclusive
           value={mode}
@@ -302,14 +305,7 @@ export function DayEditor({
             />
           </Stack>
         )}
-      </DialogContent>
-      <DialogActions sx={{ px: 3, pb: 2 }}>
-        <FormErrorNotice errors={validation.errors} />
-        <Button onClick={onClose}>Abbrechen</Button>
-        <Button variant="contained" onClick={save}>
-          Speichern
-        </Button>
-      </DialogActions>
+      </ResponsiveDialog>
 
       <ConfirmDialog
         open={showConfirmation}
@@ -323,6 +319,6 @@ export function DayEditor({
         }}
         onCancel={() => setShowConfirmation(false)}
       />
-    </Dialog>
+    </>
   );
 }
