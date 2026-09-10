@@ -40,6 +40,11 @@ export type Absence =
   | (AbsenceBase & { type: 'PublicHoliday'; creditedMinutesOverride?: number })
   | (AbsenceBase & { type: 'Other'; label: string; hoursPerDay?: number; note?: string });
 
+/** The single canonical source of the 4 discriminant values - every place that needs "just the
+ * type" (form state, filters, switch parameters) imports this instead of retyping the literal
+ * union, so a future 5th absence type only ever has to be added here. */
+export type AbsenceType = Absence['type'];
+
 /** Plain Omit<Union, K> loses the discriminated-union structure (keyof a union forms the
  * intersection of keys); this distributive variant applies Omit to each union member individually,
  * so e.g. 'label' on type: 'Other' stays required/type-safe. */

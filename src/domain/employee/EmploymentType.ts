@@ -2,6 +2,10 @@ export type EmploymentType =
   | { type: 'FullTime' | 'PartTime'; weeklyHours: number }
   | { type: 'Minijob'; minHours: number; maxHours: number };
 
+/** The single canonical source of the 3 discriminant values - every place that needs "just the
+ * type" (form state, filters) imports this instead of retyping the literal union. */
+export type EmploymentTypeKind = EmploymentType['type'];
+
 /** Contract target hours as a range. Minijob has a real Min/Max band; FullTime/PartTime collapse to
  * a single value on both bounds, so callers never have to branch on the employment type. */
 export interface WeeklyHoursRange {

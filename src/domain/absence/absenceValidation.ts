@@ -1,4 +1,7 @@
 import type { FieldError } from '@domain/validation/FieldError';
+// Type-only, so this doesn't create a real runtime dependency cycle even though Absence.ts
+// imports validateAbsence from this file at runtime - only the erased `type` import goes back.
+import type { AbsenceType } from './Absence';
 
 export type AbsenceField = 'employeeId' | 'label' | 'hoursPerDay' | 'creditedMinutesOverride' | 'from' | 'to';
 
@@ -8,7 +11,7 @@ export const CREDITED_OVERRIDE_FIELD: AbsenceField = 'creditedMinutesOverride';
 
 export interface AbsenceDraft {
   employeeId: string;
-  type: 'Vacation' | 'Illness' | 'Other' | 'PublicHoliday';
+  type: AbsenceType;
   from: string;
   to: string;
   /** Only checked for type 'Other', where it is the text shown in the schedule. */

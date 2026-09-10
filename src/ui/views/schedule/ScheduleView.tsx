@@ -54,6 +54,7 @@ import { ScheduleTable } from './components/ScheduleTable';
 import { ScheduleHeaderFields } from './components/ScheduleHeaderFields';
 import { DayEditor } from './components/DayEditor';
 import type { AbsenceDetails } from './components/DayEditor';
+import type { AbsenceType } from '@domain/absence/Absence';
 import { ValidationNotices } from './components/ValidationNotices';
 import { WeekSelectionDialog } from './components/WeekSelectionDialog';
 import { CarryOverPreviousWeekDialog } from './components/CarryOverPreviousWeekDialog';
@@ -249,7 +250,7 @@ export function ScheduleView() {
     setEntryInCell(editorState.employeeId, editorState.dayView, entry);
   };
 
-  const saveAbsence = (type: 'Vacation' | 'Illness' | 'PublicHoliday' | 'Other', details?: AbsenceDetails) => {
+  const saveAbsence = (type: AbsenceType, details?: AbsenceDetails) => {
     if (!editorState) return;
     const { employeeId, dayView } = editorState;
     run(async () => {

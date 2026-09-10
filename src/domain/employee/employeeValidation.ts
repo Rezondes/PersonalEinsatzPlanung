@@ -1,5 +1,6 @@
 import type { FieldError } from '@domain/validation/FieldError';
 import { MUST_BE_POSITIVE_MESSAGE } from '@domain/validation/FieldError';
+import type { EmploymentType } from '@domain/employee/EmploymentType';
 
 export type EmployeeField =
   | 'firstName'
@@ -13,10 +14,23 @@ export type EmployeeField =
   | 'exitDate';
 
 /** EmploymentType with its numbers optional, so an unfinished form draft can be validated before
- * the numbers exist. A complete EmploymentType is assignable to this. */
-export type EmploymentTypeDraft =
-  | { type: 'FullTime' | 'PartTime'; weeklyHours?: number }
-  | { type: 'Minijob'; minHours?: number; maxHours?: number };
+ * the numbers exist. A complete EmploymentType is assignable to this.
+ *
+ * Derived via a distributive conditional type instead of hand-duplicating EmploymentType's two
+ * branches, the same pattern domain/absence/Absence.ts's AbsenceInput uses and for the same
+ * reason: a plain `Partial<EmploymentType>` would NOT work here. `keyof`/mapped types over a
+ * union compute the INTERSECTION of the branches' keys (only 'type' is common to both), so
+ * `Partial<EmploymentType>` collapses to roughly `{ type?: ... }` and silently loses
+ * weeklyHours/minHours/maxHours entirely. Distributing first (`EmploymentType extends infer U ?
+ * U extends EmploymentType ? ... : never : never`) applies Omit/Partial to each branch
+ * individually, keeping 'type' as that branch's own literal (not widened to the full union) so
+ * validateEmployee's `employment.type === 'Minijob'` narrowing below still works exactly as
+ * before. */
+export type EmploymentTypeDraft = EmploymentType extends infer U
+  ? U extends EmploymentType
+    ? { type: U['type'] } & Partial<Omit<U, 'type'>>
+    : never
+  : never;
 
 export interface EmployeeDraft {
   firstName: string;

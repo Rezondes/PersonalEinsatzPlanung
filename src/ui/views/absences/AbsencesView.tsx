@@ -20,7 +20,7 @@ import AddIcon from '@mui/icons-material/Add';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import type { EmployeeId } from '@domain/shared/ids';
 import { formatISODateGerman } from '@domain/shared/DateFormat';
-import type { Absence } from '@domain/absence/Absence';
+import type { Absence, AbsenceType } from '@domain/absence/Absence';
 import { remainingVacationByEmployee } from '@domain/absence/vacationCalculation';
 import type { Employee } from '@domain/employee/Employee';
 import { compareByLastName, fullName } from '@domain/employee/Employee';
@@ -39,7 +39,7 @@ import { notify } from '@ui/app/store/notificationStore';
 import { usePageActions } from '@ui/app/PageActionsContext';
 
 type SortKey = 'employee' | 'type' | 'from' | 'to';
-type TypeFilter = 'all' | 'Vacation' | 'Illness' | 'PublicHoliday' | 'Other';
+type TypeFilter = 'all' | AbsenceType;
 
 const ALL = 'all';
 const COLUMN_COUNT = 6;

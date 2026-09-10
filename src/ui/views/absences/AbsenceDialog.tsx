@@ -10,6 +10,7 @@ import type { EmployeeId } from '@domain/shared/ids';
 import { toISODate } from '@domain/shared/DateFormat';
 import type { Employee } from '@domain/employee/Employee';
 import { fullName } from '@domain/employee/Employee';
+import type { AbsenceType } from '@domain/absence/Absence';
 import { CREDITED_OVERRIDE_FIELD, validateAbsence } from '@domain/absence/absenceValidation';
 import type { AbsenceField } from '@domain/absence/absenceValidation';
 import { services } from '@infrastructure/services';
@@ -19,8 +20,6 @@ import { RequiredLegend } from '@ui/components/RequiredLegend';
 import { FormErrorNotice } from '@ui/components/FormErrorNotice';
 import CircularProgress from '@mui/material/CircularProgress';
 import { ResponsiveDialog } from '@ui/components/ResponsiveDialog';
-
-type AbsenceType = 'Vacation' | 'Illness' | 'PublicHoliday' | 'Other';
 
 interface FormState {
   employeeId: string;

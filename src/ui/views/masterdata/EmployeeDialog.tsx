@@ -6,7 +6,7 @@ import Autocomplete from '@mui/material/Autocomplete';
 import Stack from '@mui/material/Stack';
 import type { BranchId } from '@domain/shared/ids';
 import type { Employee } from '@domain/employee/Employee';
-import type { EmploymentType } from '@domain/employee/EmploymentType';
+import type { EmploymentType, EmploymentTypeKind } from '@domain/employee/EmploymentType';
 import { validateEmployee } from '@domain/employee/employeeValidation';
 import type { EmployeeField, EmploymentTypeDraft } from '@domain/employee/employeeValidation';
 import { JOB_TITLE_SUGGESTIONS } from '@domain/employee/jobTitleSuggestions';
@@ -18,13 +18,11 @@ import { FormErrorNotice } from '@ui/components/FormErrorNotice';
 import { ResponsiveDialog } from '@ui/components/ResponsiveDialog';
 import type { RowAction } from '@ui/components/ResponsiveList/RowAction';
 
-type EmploymentTypeSelection = 'FullTime' | 'PartTime' | 'Minijob';
-
 interface FormState {
   lastName: string;
   firstName: string;
   jobTitle: string;
-  type: EmploymentTypeSelection;
+  type: EmploymentTypeKind;
   weeklyHours: number | undefined;
   minHours: number | undefined;
   maxHours: number | undefined;
@@ -198,7 +196,7 @@ export function EmployeeDialog({ branchId, employee, onClose, onSaved, onError, 
             label="Beschäftigungsart"
             required
             value={form.type}
-            onChange={(e) => setForm((f) => ({ ...f, type: e.target.value as EmploymentTypeSelection }))}
+            onChange={(e) => setForm((f) => ({ ...f, type: e.target.value as EmploymentTypeKind }))}
           >
             <MenuItem value="FullTime">Vollzeit</MenuItem>
             <MenuItem value="PartTime">Teilzeit</MenuItem>

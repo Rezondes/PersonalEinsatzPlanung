@@ -24,6 +24,7 @@ import {
   shiftBreakMinutes,
 } from '@domain/schedule/scheduleCalculation';
 import type { ValidationResult } from '@domain/validation/ValidationResult';
+import type { AbsenceType } from '@domain/absence/Absence';
 import type { DayView } from '@application/schedule/scheduleAssessment';
 import { effectiveTargetMinutesRange } from '@application/schedule/scheduleAssessment';
 import type { RowLockReason, ScheduleRow } from '../scheduleRows';
@@ -54,7 +55,7 @@ interface ScheduleTableProps {
   isAssignTarget: (employeeId: EmployeeId, dayView: DayView) => boolean;
 }
 
-function absenceText(type: 'Vacation' | 'Illness' | 'PublicHoliday' | 'Other'): string {
+function absenceText(type: AbsenceType): string {
   switch (type) {
     case 'Vacation':
       return 'Urlaub';

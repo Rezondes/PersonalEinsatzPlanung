@@ -29,6 +29,7 @@ import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import type { Employee } from '@domain/employee/Employee';
 import { compareByLastName, fullName } from '@domain/employee/Employee';
 import { employmentTypeLabel, targetWeeklyHoursRange } from '@domain/employee/EmploymentType';
+import type { EmploymentTypeKind } from '@domain/employee/EmploymentType';
 import { formatISODateGerman } from '@domain/shared/DateFormat';
 import { isMinor } from '@domain/validation/arbzg/youthProtection';
 import { services } from '@infrastructure/services';
@@ -48,7 +49,7 @@ import { usePageActions } from '@ui/app/PageActionsContext';
 
 type SortKey = 'name' | 'jobTitle' | 'employment' | 'hours' | 'vacation' | 'holidayHours' | 'status';
 type StatusFilter = 'all' | 'active' | 'inactive';
-type EmploymentFilter = 'all' | 'FullTime' | 'PartTime' | 'Minijob';
+type EmploymentFilter = 'all' | EmploymentTypeKind;
 
 const COLUMN_COUNT = 8;
 // Tätigkeit and Std./Urlaubstag fold into the Name cell / drop out at tablet width - see the Name

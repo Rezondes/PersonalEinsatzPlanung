@@ -18,7 +18,7 @@ import {
 } from '@domain/schedule/shiftDraft';
 import type { DayEntry } from '@domain/schedule/EmployeeWeekAssignment';
 import { shiftNetMinutes, minutesToDecimalHours } from '@domain/schedule/scheduleCalculation';
-import type { Absence } from '@domain/absence/Absence';
+import type { Absence, AbsenceType } from '@domain/absence/Absence';
 import { formatISODateGerman } from '@domain/shared/DateFormat';
 import { CREDITED_OVERRIDE_FIELD, validateAbsence } from '@domain/absence/absenceValidation';
 import type { EmployeeId } from '@domain/shared/ids';
@@ -33,7 +33,7 @@ import { FormErrorNotice } from '@ui/components/FormErrorNotice';
 import { ResponsiveDialog } from '@ui/components/ResponsiveDialog';
 import { ShiftListEditor } from './ShiftListEditor';
 
-type Mode = 'Off' | 'Shift' | 'Vacation' | 'Illness' | 'PublicHoliday' | 'Other';
+type Mode = 'Off' | 'Shift' | AbsenceType;
 
 /** Extra fields "Sonstige" and the credited-hours variants carry. The label is always a
  * non-empty, trimmed string here (validated before saving) for "Sonstige"; hoursPerDay is
@@ -52,7 +52,7 @@ interface DayEditorProps {
   /** Saving a Shift/Off entry also clears a single-day Absence on that cell - handled by the
    * parent, which records both as one undoable step. */
   onSave: (entry: DayEntry) => void;
-  onAbsenceSave: (type: 'Vacation' | 'Illness' | 'PublicHoliday' | 'Other', details?: AbsenceDetails) => void;
+  onAbsenceSave: (type: AbsenceType, details?: AbsenceDetails) => void;
   employeeId: EmployeeId;
   employeeName: string;
   day: string;
