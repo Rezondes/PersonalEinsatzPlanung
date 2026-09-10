@@ -388,10 +388,6 @@ export function SettingsView() {
 
   return (
     <Box sx={{ maxWidth: 640 }}>
-      <Typography variant="h5" fontWeight={500} sx={{ mb: 3 }}>
-        Einstellungen
-      </Typography>
-
       <Paper sx={{ p: 3, mb: 3 }}>
         <Typography variant="subtitle1" fontWeight={500} sx={{ mb: 1 }}>
           Backup & Datenübertragung

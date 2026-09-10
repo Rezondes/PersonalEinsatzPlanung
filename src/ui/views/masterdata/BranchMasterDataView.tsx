@@ -118,9 +118,6 @@ export function BranchMasterDataView() {
   return (
     <Box>
       <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
-        <Typography variant="h5" fontWeight={500}>
-          Filialen
-        </Typography>
         {/* Hidden on mobile: MobileFab (registered above via usePageActions) is the primary
             action there, same pattern as EmployeeMasterDataView/AbsencesView. */}
         <Button

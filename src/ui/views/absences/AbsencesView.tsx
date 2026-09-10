@@ -233,9 +233,6 @@ export function AbsencesView() {
   return (
     <Box>
       <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
-        <Typography variant="h5" fontWeight={500}>
-          Abwesenheiten · {branch.name}
-        </Typography>
         {/* Hidden on mobile: MobileFab (registered above via usePageActions, label "Erfassen"
             matching the mockup) is the primary action there. */}
         <Button
@@ -248,20 +245,6 @@ export function AbsencesView() {
           Abwesenheit erfassen
         </Button>
       </Stack>
-
-      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mb: 3 }}>
-        {employeeList.map((emp) => (
-          <Paper key={emp.id} sx={{ p: 2, flex: '1 1 220px', minWidth: 220, opacity: emp.active ? 1 : 0.55 }}>
-            <Typography variant="body2" fontWeight={500}>
-              {fullName(emp)}
-            </Typography>
-            <Typography variant="caption" color="text.secondary">
-              Resturlaub {year}: {remainingVacation.get(emp.id)?.toLocaleString('de-DE') ?? '–'} von{' '}
-              {emp.vacationEntitlementPerYear.toLocaleString('de-DE')} Tagen
-            </Typography>
-          </Paper>
-        ))}
-      </Box>
 
       <Paper sx={{ p: 2, mb: 2 }}>
         <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap alignItems="center">

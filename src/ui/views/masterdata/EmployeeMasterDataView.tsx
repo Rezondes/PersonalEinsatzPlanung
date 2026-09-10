@@ -238,9 +238,6 @@ export function EmployeeMasterDataView() {
   return (
     <Box>
       <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
-        <Typography variant="h5" fontWeight={500}>
-          Mitarbeiter · {branch.name}
-        </Typography>
         {/* Hidden on mobile: MobileFab (registered above via usePageActions) is the primary
             action there, matching the mockup's mobile Mitarbeiter screen (FAB only, no inline
             button in the header). */}

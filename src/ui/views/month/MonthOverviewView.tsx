@@ -81,9 +81,6 @@ export function MonthOverviewView() {
   return (
     <Box>
       <Stack direction="row" flexWrap="wrap" justifyContent="space-between" alignItems="center" gap={1} sx={{ mb: 3 }}>
-        <Typography variant="h5" fontWeight={500}>
-          Monatsübersicht · {branch.name}
-        </Typography>
         <Stack direction="row" alignItems="center" gap={1}>
           <IconButton onClick={() => changeMonth(-1)} aria-label="Vorheriger Monat">
             <ChevronLeftIcon />
