@@ -200,7 +200,10 @@ export function EmployeeMasterDataView() {
   const [employmentFilter, setEmploymentFilter] = useState<EmploymentFilter>('all');
   const sort = useTableSort<SortKey>('name');
 
-  usePageActions({ fab: { label: 'Neuer Mitarbeiter', icon: AddIcon, onClick: () => setDialog({ employee: null }) } });
+  usePageActions({
+    fab: { label: 'Neuer Mitarbeiter', icon: AddIcon, onClick: () => setDialog({ employee: null }) },
+    fullBleedPage: true,
+  });
 
   const { headProps, sortRows } = sort;
   const visibleEmployees = useMemo(() => {
@@ -236,7 +239,17 @@ export function EmployeeMasterDataView() {
   const columnCount = layout === 'laptop' ? COLUMN_COUNT : COLUMN_COUNT_TABLET;
 
   return (
-    <Box>
+    <Box
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        flex: 1,
+        minHeight: 0,
+        height: '100%',
+        px: layout === 'mobile' ? 1.5 : 3,
+        py: layout === 'mobile' ? 1.5 : 3,
+      }}
+    >
       <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
         {/* Hidden on mobile: MobileFab (registered above via usePageActions) is the primary
             action there, matching the mockup's mobile Mitarbeiter screen (FAB only, no inline
@@ -299,145 +312,147 @@ export function EmployeeMasterDataView() {
         </Stack>
       </Paper>
 
-      <ResponsiveDataList
-        rows={visibleEmployees}
-        getKey={(emp) => emp.id}
-        emptyMessage={employeeList.length === 0 ? 'Noch kein Mitarbeiter angelegt.' : 'Kein Mitarbeiter passt zu den Filtern.'}
-        renderCard={(emp) => (
-          <EmployeeCard employee={emp} onTap={() => setDialog({ employee: emp })} onLongPress={() => setSheetEmployee(emp)} />
-        )}
-      >
-        <TableContainer component={Paper}>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell sx={stickyFirstColumnSx}>
-                  <TableSortLabel {...headProps('name')}>Name</TableSortLabel>
-                </TableCell>
-                {layout === 'laptop' && (
-                  <TableCell>
-                    <TableSortLabel {...headProps('jobTitle')}>Tätigkeit</TableSortLabel>
-                  </TableCell>
-                )}
-                <TableCell>
-                  <TableSortLabel {...headProps('employment')}>Beschäftigung</TableSortLabel>
-                </TableCell>
-                <TableCell>
-                  <TableSortLabel {...headProps('hours')}>Wochenstunden</TableSortLabel>
-                </TableCell>
-                <TableCell>
-                  <TableSortLabel {...headProps('vacation')}>Urlaub/Jahr</TableSortLabel>
-                </TableCell>
-                {layout === 'laptop' && (
-                  <TableCell>
-                    <TableSortLabel {...headProps('holidayHours')}>Std./Urlaubstag</TableSortLabel>
-                  </TableCell>
-                )}
-                <TableCell>
-                  <TableSortLabel {...headProps('status')}>Status</TableSortLabel>
-                </TableCell>
-                <TableCell align="right">Aktionen</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {!loading && employeeList.length === 0 && (
+      <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
+        <ResponsiveDataList
+          rows={visibleEmployees}
+          getKey={(emp) => emp.id}
+          emptyMessage={employeeList.length === 0 ? 'Noch kein Mitarbeiter angelegt.' : 'Kein Mitarbeiter passt zu den Filtern.'}
+          renderCard={(emp) => (
+            <EmployeeCard employee={emp} onTap={() => setDialog({ employee: emp })} onLongPress={() => setSheetEmployee(emp)} />
+          )}
+        >
+          <TableContainer component={Paper} sx={{ height: '100%' }}>
+            <Table>
+              <TableHead>
                 <TableRow>
-                  <TableCell colSpan={columnCount}>
-                    <Typography color="text.secondary" sx={{ py: 2 }}>
-                      Noch kein Mitarbeiter angelegt.
-                    </Typography>
+                  <TableCell sx={stickyFirstColumnSx}>
+                    <TableSortLabel {...headProps('name')}>Name</TableSortLabel>
                   </TableCell>
-                </TableRow>
-              )}
-              {!loading && employeeList.length > 0 && visibleEmployees.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={columnCount}>
-                    <Typography color="text.secondary" sx={{ py: 2 }}>
-                      Kein Mitarbeiter passt zu den Filtern.
-                    </Typography>
+                  {layout === 'laptop' && (
+                    <TableCell>
+                      <TableSortLabel {...headProps('jobTitle')}>Tätigkeit</TableSortLabel>
+                    </TableCell>
+                  )}
+                  <TableCell>
+                    <TableSortLabel {...headProps('employment')}>Beschäftigung</TableSortLabel>
                   </TableCell>
+                  <TableCell>
+                    <TableSortLabel {...headProps('hours')}>Wochenstunden</TableSortLabel>
+                  </TableCell>
+                  <TableCell>
+                    <TableSortLabel {...headProps('vacation')}>Urlaub/Jahr</TableSortLabel>
+                  </TableCell>
+                  {layout === 'laptop' && (
+                    <TableCell>
+                      <TableSortLabel {...headProps('holidayHours')}>Std./Urlaubstag</TableSortLabel>
+                    </TableCell>
+                  )}
+                  <TableCell>
+                    <TableSortLabel {...headProps('status')}>Status</TableSortLabel>
+                  </TableCell>
+                  <TableCell align="right">Aktionen</TableCell>
                 </TableRow>
-              )}
-              {visibleEmployees.map((emp) => {
-                const minor = isMinor(emp.birthDate, new Date());
-                const period = employmentPeriodText(emp);
-                // Tablet: the row itself opens the edit dialog (matching the mockup's "row
-                // clickable, one overflow button" pattern); laptop keeps its inline icon buttons
-                // and no row click, exactly as today.
-                const rowClickable = layout !== 'laptop';
-                return (
-                  <TableRow
-                    key={emp.id}
-                    hover
-                    onClick={rowClickable ? () => setDialog({ employee: emp }) : undefined}
-                    sx={{ opacity: emp.active ? 1 : 0.55, cursor: rowClickable ? 'pointer' : undefined }}
-                  >
-                    <TableCell sx={stickyFirstColumnSx}>
-                      <Stack direction="row" spacing={0.5} alignItems="center">
-                        {fullName(emp)}
-                        {minor && (
-                          <ChildCareOutlinedIcon
-                            fontSize="small"
-                            sx={{ color: 'text.secondary' }}
-                            titleAccess="Minderjährig — Jugendarbeitsschutz beachten"
-                          />
-                        )}
-                      </Stack>
-                      {layout === 'laptop' ? (
-                        period && (
-                          <Typography variant="caption" color="text.secondary">
-                            {period}
-                          </Typography>
-                        )
-                      ) : (
-                        <Typography variant="caption" color="text.secondary" display="block">
-                          {emp.jobTitle}
-                        </Typography>
-                      )}
-                    </TableCell>
-                    {layout === 'laptop' && <TableCell>{emp.jobTitle}</TableCell>}
-                    <TableCell>
-                      <Chip size="small" label={employmentTypeLabel(emp.employmentType)} />
-                    </TableCell>
-                    <TableCell>{weeklyHoursText(emp)}</TableCell>
-                    <TableCell>{emp.vacationEntitlementPerYear.toLocaleString('de-DE')}</TableCell>
-                    {layout === 'laptop' && <TableCell>{(emp.holidayVacationHours ?? 0).toLocaleString('de-DE')}</TableCell>}
-                    <TableCell>
-                      <Chip size="small" label={emp.active ? 'Aktiv' : 'Inaktiv'} color={emp.active ? 'success' : 'default'} />
-                    </TableCell>
-                    <TableCell align="right">
-                      {layout === 'laptop' ? (
-                        <>
-                          <IconButton size="small" onClick={() => setDialog({ employee: emp })} aria-label={`${fullName(emp)} bearbeiten`}>
-                            <EditOutlinedIcon fontSize="small" />
-                          </IconButton>
-                          <IconButton
-                            size="small"
-                            onClick={() => setStatusTarget(emp)}
-                            aria-label={emp.active ? `${fullName(emp)} deaktivieren` : `${fullName(emp)} aktivieren`}
-                          >
-                            {emp.active ? <ToggleOnOutlinedIcon fontSize="small" /> : <ToggleOffOutlinedIcon fontSize="small" />}
-                          </IconButton>
-                        </>
-                      ) : (
-                        <IconButton
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSheetEmployee(emp);
-                          }}
-                          aria-label={`Weitere Aktionen für ${fullName(emp)}`}
-                        >
-                          <MoreVertIcon />
-                        </IconButton>
-                      )}
+              </TableHead>
+              <TableBody>
+                {!loading && employeeList.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={columnCount}>
+                      <Typography color="text.secondary" sx={{ py: 2 }}>
+                        Noch kein Mitarbeiter angelegt.
+                      </Typography>
                     </TableCell>
                   </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      </ResponsiveDataList>
+                )}
+                {!loading && employeeList.length > 0 && visibleEmployees.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={columnCount}>
+                      <Typography color="text.secondary" sx={{ py: 2 }}>
+                        Kein Mitarbeiter passt zu den Filtern.
+                      </Typography>
+                    </TableCell>
+                  </TableRow>
+                )}
+                {visibleEmployees.map((emp) => {
+                  const minor = isMinor(emp.birthDate, new Date());
+                  const period = employmentPeriodText(emp);
+                  // Tablet: the row itself opens the edit dialog (matching the mockup's "row
+                  // clickable, one overflow button" pattern); laptop keeps its inline icon buttons
+                  // and no row click, exactly as today.
+                  const rowClickable = layout !== 'laptop';
+                  return (
+                    <TableRow
+                      key={emp.id}
+                      hover
+                      onClick={rowClickable ? () => setDialog({ employee: emp }) : undefined}
+                      sx={{ opacity: emp.active ? 1 : 0.55, cursor: rowClickable ? 'pointer' : undefined }}
+                    >
+                      <TableCell sx={stickyFirstColumnSx}>
+                        <Stack direction="row" spacing={0.5} alignItems="center">
+                          {fullName(emp)}
+                          {minor && (
+                            <ChildCareOutlinedIcon
+                              fontSize="small"
+                              sx={{ color: 'text.secondary' }}
+                              titleAccess="Minderjährig — Jugendarbeitsschutz beachten"
+                            />
+                          )}
+                        </Stack>
+                        {layout === 'laptop' ? (
+                          period && (
+                            <Typography variant="caption" color="text.secondary">
+                              {period}
+                            </Typography>
+                          )
+                        ) : (
+                          <Typography variant="caption" color="text.secondary" display="block">
+                            {emp.jobTitle}
+                          </Typography>
+                        )}
+                      </TableCell>
+                      {layout === 'laptop' && <TableCell>{emp.jobTitle}</TableCell>}
+                      <TableCell>
+                        <Chip size="small" label={employmentTypeLabel(emp.employmentType)} />
+                      </TableCell>
+                      <TableCell>{weeklyHoursText(emp)}</TableCell>
+                      <TableCell>{emp.vacationEntitlementPerYear.toLocaleString('de-DE')}</TableCell>
+                      {layout === 'laptop' && <TableCell>{(emp.holidayVacationHours ?? 0).toLocaleString('de-DE')}</TableCell>}
+                      <TableCell>
+                        <Chip size="small" label={emp.active ? 'Aktiv' : 'Inaktiv'} color={emp.active ? 'success' : 'default'} />
+                      </TableCell>
+                      <TableCell align="right">
+                        {layout === 'laptop' ? (
+                          <>
+                            <IconButton size="small" onClick={() => setDialog({ employee: emp })} aria-label={`${fullName(emp)} bearbeiten`}>
+                              <EditOutlinedIcon fontSize="small" />
+                            </IconButton>
+                            <IconButton
+                              size="small"
+                              onClick={() => setStatusTarget(emp)}
+                              aria-label={emp.active ? `${fullName(emp)} deaktivieren` : `${fullName(emp)} aktivieren`}
+                            >
+                              {emp.active ? <ToggleOnOutlinedIcon fontSize="small" /> : <ToggleOffOutlinedIcon fontSize="small" />}
+                            </IconButton>
+                          </>
+                        ) : (
+                          <IconButton
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSheetEmployee(emp);
+                            }}
+                            aria-label={`Weitere Aktionen für ${fullName(emp)}`}
+                          >
+                            <MoreVertIcon />
+                          </IconButton>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </ResponsiveDataList>
+      </Box>
 
       {dialog && (
         <EmployeeDialog

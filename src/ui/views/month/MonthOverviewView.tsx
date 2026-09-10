@@ -25,7 +25,9 @@ import { createHolidayCheck } from '@infrastructure/holidays/germanHolidays';
 import { useSelectedBranch } from '@ui/hooks/useBranch';
 import { useEmployeeList } from '@ui/hooks/useEmployeeList';
 import { useAbsences } from '@ui/hooks/useAbsences';
+import { useBreakpoint } from '@ui/hooks/useBreakpoint';
 import { useCalendarWeekStore } from '@ui/app/store/calendarWeekStore';
+import { usePageActions } from '@ui/app/PageActionsContext';
 import { stickyCornerSx, stickyFirstColumnSx, stickyHeaderRowSx } from '@ui/components/stickyFirstColumn';
 
 const MONTH_NAMES = [
@@ -37,6 +39,8 @@ export function MonthOverviewView() {
   const { branch } = useSelectedBranch();
   const { employeeList } = useEmployeeList(branch?.id ?? null);
   const { absences } = useAbsences(employeeList.map((emp) => emp.id));
+  const layout = useBreakpoint();
+  usePageActions({ fullBleedPage: true });
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
@@ -79,7 +83,17 @@ export function MonthOverviewView() {
   };
 
   return (
-    <Box>
+    <Box
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        flex: 1,
+        minHeight: 0,
+        height: '100%',
+        px: layout === 'mobile' ? 1.5 : 3,
+        py: layout === 'mobile' ? 1.5 : 3,
+      }}
+    >
       <Stack direction="row" flexWrap="wrap" justifyContent="space-between" alignItems="center" gap={1} sx={{ mb: 3 }}>
         <Stack direction="row" alignItems="center" gap={1}>
           <IconButton onClick={() => changeMonth(-1)} aria-label="Vorheriger Monat">
@@ -94,13 +108,11 @@ export function MonthOverviewView() {
         </Stack>
       </Stack>
 
-      {/* Bounded height, self-scrolling (both axes) - matches how the mockup's own grid views are
-          built. A sticky header row cannot stick relative to the PAGE while the table also scrolls
-          horizontally: overflow-x: auto unconditionally forces overflow-y into a scroll container
-          too (CSS overflow spec), which would make THIS element the sticky containing block
-          regardless of what overflow-y is explicitly set to - so it has to be the intended scroll
-          region, not an accident to fight. */}
-      <TableContainer component={Paper} sx={{ maxHeight: '70vh' }}>
+      {/* Bounded height, self-scrolling (both axes) - see stickyFirstColumn.ts for why a sticky
+          header row and horizontal scroll on a real <table> can't coexist any other way. height:
+          '100%', not a vh cap: the root Box above gives this a flex:1 region bounded by the header
+          Stack, at every breakpoint, and this needs to fill exactly that. */}
+      <TableContainer component={Paper} sx={{ flex: 1, minHeight: 0, height: '100%' }}>
         <Table size="small">
           <TableHead>
             <TableRow>

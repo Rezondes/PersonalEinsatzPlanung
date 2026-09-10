@@ -99,7 +99,10 @@ export function BranchMasterDataView() {
   const [statusTarget, setStatusTarget] = useState<Branch | null>(null);
   const [sheetBranch, setSheetBranch] = useState<Branch | null>(null);
 
-  usePageActions({ fab: { label: 'Neue Filiale', icon: AddIcon, onClick: () => setDialog({ branch: null }) } });
+  usePageActions({
+    fullBleedPage: true,
+    fab: { label: 'Neue Filiale', icon: AddIcon, onClick: () => setDialog({ branch: null }) },
+  });
 
   const changeStatus = async () => {
     if (!statusTarget) return;
@@ -116,7 +119,17 @@ export function BranchMasterDataView() {
   const columnCount = layout === 'laptop' ? COLUMN_COUNT : COLUMN_COUNT_TABLET;
 
   return (
-    <Box>
+    <Box
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        flex: 1,
+        minHeight: 0,
+        height: '100%',
+        px: layout === 'mobile' ? 1.5 : 3,
+        py: layout === 'mobile' ? 1.5 : 3,
+      }}
+    >
       <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
         {/* Hidden on mobile: MobileFab (registered above via usePageActions) is the primary
             action there, same pattern as EmployeeMasterDataView/AbsencesView. */}
@@ -130,100 +143,102 @@ export function BranchMasterDataView() {
         </Button>
       </Stack>
 
-      <ResponsiveDataList
-        rows={branches}
-        getKey={(b) => b.id}
-        emptyMessage="Noch keine Filiale angelegt."
-        renderCard={(b) => (
-          <BranchCard branch={b} onTap={() => setDialog({ branch: b })} onLongPress={() => setSheetBranch(b)} />
-        )}
-      >
-        <TableContainer component={Paper}>
-          <Table>
-            <TableHead>
-              <TableRow>
-                {layout === 'laptop' && <TableCell>Logo</TableCell>}
-                <TableCell sx={stickyFirstColumnSx}>Filiale</TableCell>
-                {layout === 'laptop' && <TableCell>Nr.</TableCell>}
-                <TableCell>Ort</TableCell>
-                {layout === 'laptop' && <TableCell>Bundesland</TableCell>}
-                <TableCell>Status</TableCell>
-                <TableCell align="right">Aktionen</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {!loading && branches.length === 0 && (
+      <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
+        <ResponsiveDataList
+          rows={branches}
+          getKey={(b) => b.id}
+          emptyMessage="Noch keine Filiale angelegt."
+          renderCard={(b) => (
+            <BranchCard branch={b} onTap={() => setDialog({ branch: b })} onLongPress={() => setSheetBranch(b)} />
+          )}
+        >
+          <TableContainer component={Paper} sx={{ height: '100%' }}>
+            <Table>
+              <TableHead>
                 <TableRow>
-                  <TableCell colSpan={columnCount}>
-                    <Typography color="text.secondary" sx={{ py: 2 }}>
-                      Noch keine Filiale angelegt.
-                    </Typography>
-                  </TableCell>
+                  {layout === 'laptop' && <TableCell>Logo</TableCell>}
+                  <TableCell sx={stickyFirstColumnSx}>Filiale</TableCell>
+                  {layout === 'laptop' && <TableCell>Nr.</TableCell>}
+                  <TableCell>Ort</TableCell>
+                  {layout === 'laptop' && <TableCell>Bundesland</TableCell>}
+                  <TableCell>Status</TableCell>
+                  <TableCell align="right">Aktionen</TableCell>
                 </TableRow>
-              )}
-              {branches.map((b) => {
-                const rowClickable = layout !== 'laptop';
-                return (
-                  <TableRow
-                    key={b.id}
-                    hover
-                    onClick={rowClickable ? () => setDialog({ branch: b }) : undefined}
-                    sx={{ opacity: b.active ? 1 : 0.55, cursor: rowClickable ? 'pointer' : undefined }}
-                  >
-                    {layout === 'laptop' && (
-                      <TableCell>
-                        <Avatar src={b.logoBase64 ?? undefined} variant="rounded" sx={{ bgcolor: '#eef3f1' }}>
-                          <StoreOutlinedIcon sx={{ color: '#2f5d50' }} fontSize="small" />
-                        </Avatar>
-                      </TableCell>
-                    )}
-                    <TableCell sx={stickyFirstColumnSx}>
-                      {b.name}
-                      {layout !== 'laptop' && (
-                        <Typography variant="caption" color="text.secondary" display="block">
-                          {b.branchNumber}
-                        </Typography>
-                      )}
-                    </TableCell>
-                    {layout === 'laptop' && <TableCell>{b.branchNumber}</TableCell>}
-                    <TableCell>{b.address.city || '-'}</TableCell>
-                    {layout === 'laptop' && <TableCell>{b.federalState}</TableCell>}
-                    <TableCell>
-                      <Chip size="small" label={b.active ? 'Aktiv' : 'Inaktiv'} color={b.active ? 'success' : 'default'} />
-                    </TableCell>
-                    <TableCell align="right">
-                      {layout === 'laptop' ? (
-                        <>
-                          <IconButton size="small" onClick={() => setDialog({ branch: b })} aria-label={`${b.name} bearbeiten`}>
-                            <EditOutlinedIcon fontSize="small" />
-                          </IconButton>
-                          <IconButton
-                            size="small"
-                            onClick={() => setStatusTarget(b)}
-                            aria-label={b.active ? `${b.name} deaktivieren` : `${b.name} aktivieren`}
-                          >
-                            {b.active ? <ToggleOnOutlinedIcon fontSize="small" /> : <ToggleOffOutlinedIcon fontSize="small" />}
-                          </IconButton>
-                        </>
-                      ) : (
-                        <IconButton
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSheetBranch(b);
-                          }}
-                          aria-label={`Weitere Aktionen für ${b.name}`}
-                        >
-                          <MoreVertIcon />
-                        </IconButton>
-                      )}
+              </TableHead>
+              <TableBody>
+                {!loading && branches.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={columnCount}>
+                      <Typography color="text.secondary" sx={{ py: 2 }}>
+                        Noch keine Filiale angelegt.
+                      </Typography>
                     </TableCell>
                   </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      </ResponsiveDataList>
+                )}
+                {branches.map((b) => {
+                  const rowClickable = layout !== 'laptop';
+                  return (
+                    <TableRow
+                      key={b.id}
+                      hover
+                      onClick={rowClickable ? () => setDialog({ branch: b }) : undefined}
+                      sx={{ opacity: b.active ? 1 : 0.55, cursor: rowClickable ? 'pointer' : undefined }}
+                    >
+                      {layout === 'laptop' && (
+                        <TableCell>
+                          <Avatar src={b.logoBase64 ?? undefined} variant="rounded" sx={{ bgcolor: '#eef3f1' }}>
+                            <StoreOutlinedIcon sx={{ color: '#2f5d50' }} fontSize="small" />
+                          </Avatar>
+                        </TableCell>
+                      )}
+                      <TableCell sx={stickyFirstColumnSx}>
+                        {b.name}
+                        {layout !== 'laptop' && (
+                          <Typography variant="caption" color="text.secondary" display="block">
+                            {b.branchNumber}
+                          </Typography>
+                        )}
+                      </TableCell>
+                      {layout === 'laptop' && <TableCell>{b.branchNumber}</TableCell>}
+                      <TableCell>{b.address.city || '-'}</TableCell>
+                      {layout === 'laptop' && <TableCell>{b.federalState}</TableCell>}
+                      <TableCell>
+                        <Chip size="small" label={b.active ? 'Aktiv' : 'Inaktiv'} color={b.active ? 'success' : 'default'} />
+                      </TableCell>
+                      <TableCell align="right">
+                        {layout === 'laptop' ? (
+                          <>
+                            <IconButton size="small" onClick={() => setDialog({ branch: b })} aria-label={`${b.name} bearbeiten`}>
+                              <EditOutlinedIcon fontSize="small" />
+                            </IconButton>
+                            <IconButton
+                              size="small"
+                              onClick={() => setStatusTarget(b)}
+                              aria-label={b.active ? `${b.name} deaktivieren` : `${b.name} aktivieren`}
+                            >
+                              {b.active ? <ToggleOnOutlinedIcon fontSize="small" /> : <ToggleOffOutlinedIcon fontSize="small" />}
+                            </IconButton>
+                          </>
+                        ) : (
+                          <IconButton
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSheetBranch(b);
+                            }}
+                            aria-label={`Weitere Aktionen für ${b.name}`}
+                          >
+                            <MoreVertIcon />
+                          </IconButton>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </ResponsiveDataList>
+      </Box>
 
       {dialog && (
         <BranchDialog

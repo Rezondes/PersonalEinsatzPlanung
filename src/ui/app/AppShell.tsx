@@ -15,7 +15,7 @@ import { mobileSafeBottom } from './nav/mobileChromeOffset';
 export function AppShell() {
   // A thin wrapper: the actual layout lives in AppShellLayout, mounted as a CHILD of
   // PageActionsProvider (not a sibling of it) so its usePageActionsValue() call - needed for the
-  // fullBleedMobile branch below - actually sees what a view registers. Calling that hook here
+  // fullBleedPage branch below - actually sees what a view registers. Calling that hook here
   // instead would not work: this component RENDERS the Provider, it isn't rendered inside one.
   return (
     <PageActionsProvider>
@@ -26,7 +26,7 @@ export function AppShell() {
 
 function AppShellLayout() {
   const layout = useBreakpoint();
-  const { fullBleedMobile } = usePageActionsValue();
+  const { fullBleedPage } = usePageActionsValue();
   const rootRef = useRef<HTMLDivElement>(null);
   const headerRef = useRef<HTMLElement>(null);
 
@@ -57,22 +57,40 @@ function AppShellLayout() {
   const showRail = layout === 'tabletPortrait' || layout === 'tabletLandscape';
   const nav = layout === 'laptop' ? <LaptopNav /> : undefined;
 
-  // A view (only Woche today) can opt into a zero-padding, bounded flex-column instead of the
-  // normal padded/page-scrolling Container - see PageActionsContext's doc comment on
-  // fullBleedMobile for why. Irrelevant outside mobile: at every other breakpoint the padded
-  // branch always applies, same as before this existed.
-  const fullBleed = layout === 'mobile' && !!fullBleedMobile;
+  // A view can opt into a zero-padding, bounded flex-column instead of the normal
+  // padded/page-scrolling Container - see PageActionsContext's doc comment on fullBleedPage for
+  // why. Applies at every breakpoint: the page itself never scrolls anywhere in the app, only
+  // whichever bounded region a view designates as its own (its table, list, or section stack).
+  const fullBleed = !!fullBleedPage;
 
   return (
-    <Box ref={rootRef} sx={{ minHeight: ['100vh', '100dvh'], backgroundColor: 'background.default', display: 'flex' }}>
+    // `height`, not `minHeight`: a min only floors the box at the viewport height, it never caps
+    // it - if content further down doesn't shrink to fit, this Box (and with it html/body, which
+    // auto-size to their single child) simply grows past the viewport and the whole PAGE scrolls
+    // instead of the Wochenplanung table alone. A fixed `height` makes every `flex:1, minHeight:0`
+    // descendant's height definite instead of content-driven, which is what lets
+    // AppShellLayout's fullBleed Container's `overflow:hidden` actually clip - `overflow:hidden`
+    // on an auto-sized box is a no-op since an auto box always exactly fits its own content.
+    // Harmless for every other (non-fullBleed) route: nothing between here and their Container sets
+    // `overflow:hidden`, so a page taller than the viewport still overflows visibly and the browser
+    // still scrolls the document, same as before.
+    // Plain '100dvh', not the `['100vh', '100dvh']` breakpoint-array form used elsewhere in this
+    // file for iOS Safari's dynamic toolbar: that array is a MUI RESPONSIVE value (100vh below the
+    // `sm` breakpoint, 100dvh from `sm` up), not a CSS fallback - it does not mean "prefer dvh,
+    // fall back to vh where unsupported". With a firm `height` (unlike a `minHeight` floor, where
+    // this was harmless), using plain vh below `sm` made the root taller than the actually-visible
+    // area on mobile Chrome whenever its address bar was showing, leaving exactly that much residual
+    // page scroll - the same bug this fix removes, just reintroduced at the unit level. dvh is
+    // supported by every browser this app targets, so there is no real fallback need here.
+    <Box ref={rootRef} sx={{ height: '100dvh', backgroundColor: 'background.default', display: 'flex' }}>
       {showRail && <NavRail />}
 
       <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
         <AppHeader headerRef={headerRef} nav={nav} />
 
         <Container
-          maxWidth={layout === 'mobile' ? false : 'xl'}
-          disableGutters={layout === 'mobile'}
+          maxWidth={fullBleed ? false : 'xl'}
+          disableGutters={fullBleed}
           sx={
             fullBleed
               ? {
@@ -85,8 +103,9 @@ function AppShellLayout() {
                   // The fixed BottomTabBar is a sibling, not a descendant, of this Container - it
                   // paints on top of whatever is underneath it. Without reserving its own height
                   // here, this Container's last flex child (the schedule grid's toolbar bar) would
-                  // render right where the tab bar visually covers it, not above it.
-                  pb: mobileSafeBottom(0),
+                  // render right where the tab bar visually covers it, not above it. Tablet has no
+                  // such fixed bottom chrome (NavRail is a side rail instead), so nothing to clear.
+                  pb: layout === 'mobile' ? mobileSafeBottom(0) : 0,
                 }
               : {
                   flex: 1,

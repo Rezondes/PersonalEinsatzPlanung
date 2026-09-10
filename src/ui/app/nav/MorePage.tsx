@@ -6,6 +6,8 @@ import ListItemButton from '@mui/material/ListItemButton';
 import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
+import { useBreakpoint } from '@ui/hooks/useBreakpoint';
+import { usePageActions } from '@ui/app/PageActionsContext';
 import { FOOTER_NAV_ITEMS, MAIN_NAV_ITEMS } from './navItems';
 
 const FILIALEN = MAIN_NAV_ITEMS.find((i) => i.path === '/branches')!;
@@ -18,24 +20,38 @@ const FILIALEN = MAIN_NAV_ITEMS.find((i) => i.path === '/branches')!;
  */
 export function MorePage() {
   const navigate = useNavigate();
+  const layout = useBreakpoint();
+  usePageActions({ fullBleedPage: true });
   const entries = [FILIALEN, ...FOOTER_NAV_ITEMS];
 
   return (
-    <Box>
+    <Box
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        flex: 1,
+        minHeight: 0,
+        height: '100%',
+        px: layout === 'mobile' ? 1.5 : 3,
+        py: layout === 'mobile' ? 1.5 : 3,
+      }}
+    >
       <Typography variant="h5" fontWeight={500} sx={{ mb: 2 }}>
         Mehr
       </Typography>
-      <List sx={{ bgcolor: 'background.paper', border: '1px solid #e0e0dc', borderRadius: 2, overflow: 'hidden' }}>
-        {entries.map((item) => (
-          <ListItemButton key={item.path} onClick={() => navigate(item.path)} divider>
-            <ListItemIcon>
-              <item.icon />
-            </ListItemIcon>
-            <ListItemText primary={item.label} />
-            <ChevronRightIcon sx={{ color: 'rgba(0,0,0,0.38)' }} />
-          </ListItemButton>
-        ))}
-      </List>
+      <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
+        <List sx={{ bgcolor: 'background.paper', border: '1px solid #e0e0dc', borderRadius: 2, overflow: 'hidden' }}>
+          {entries.map((item) => (
+            <ListItemButton key={item.path} onClick={() => navigate(item.path)} divider>
+              <ListItemIcon>
+                <item.icon />
+              </ListItemIcon>
+              <ListItemText primary={item.label} />
+              <ChevronRightIcon sx={{ color: 'rgba(0,0,0,0.38)' }} />
+            </ListItemButton>
+          ))}
+        </List>
+      </Box>
     </Box>
   );
 }

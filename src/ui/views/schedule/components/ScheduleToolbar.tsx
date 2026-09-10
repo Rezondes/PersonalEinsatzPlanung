@@ -314,7 +314,7 @@ export function ScheduleToolbar({
         aria-label="Weitere Aktionen"
         // Not sticky-from-top like the tablet/laptop Paper above: on mobile this is the LAST
         // flex-shrink:0 child of ScheduleView's bounded flex column (see AppShell's
-        // fullBleedMobile), placed directly above the fixed bottom tab bar by flex stacking alone -
+        // fullBleedPage), placed directly above the fixed bottom tab bar by flex stacking alone -
         // matching the mockup exactly. mx cancels the wrapper's own horizontal padding so this
         // reaches the true edges; mb:0 since there is no trailing gap to the tab bar below it.
         sx={{ zIndex: 2, mb: 0, mx: -1.5, overflow: 'hidden' }}

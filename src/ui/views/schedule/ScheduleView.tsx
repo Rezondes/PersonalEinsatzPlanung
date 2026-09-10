@@ -120,10 +120,10 @@ export function ScheduleView() {
   const [assignModeActive, setAssignModeActive] = useState(false);
   const layout = useBreakpoint();
   const touchMode = layout !== 'laptop';
-  // Only this view needs AppShell's mobile Container to become a bounded, non-scrolling flex
-  // column (see PageActionsContext's doc comment on fullBleedMobile) - every other mobile page
-  // never calls this, so AppShell's normal padded/page-scrolling Container stays their default.
-  usePageActions({ fullBleedMobile: true });
+  // AppShell's Container becomes a bounded, non-scrolling flex column - see PageActionsContext's
+  // doc comment on fullBleedPage. Every page calls this; ScheduleTable is the region below that
+  // fills the bounded space and scrolls internally.
+  usePageActions({ fullBleedPage: true });
   // null = closed, otherwise the template being edited (or drafts prefilled from a day).
   const [templateDialog, setTemplateDialog] = useState<
     { template: ShiftTemplate | null; drafts?: ShiftDraft[] } | null
@@ -478,18 +478,26 @@ export function ScheduleView() {
     <ScheduleHeaderFields schedule={schedule} disabled={isLoading} onSaved={scheduleReplaced} onError={notify.report} />
   );
 
-  // Mobile only: AppShell's fullBleedMobile Container hands this view a bounded, zero-padding
-  // region between the header and the fixed bottom tab bar (see PageActionsContext/AppShell) - to
-  // fill it, this becomes a flex column itself, with its own px/pt taking over the padding
-  // AppShell's Container no longer supplies on this route. Tablet/laptop keep the plain Box they
-  // always had (normal document flow, no flex/height coupling).
+  // AppShell's fullBleedPage Container hands every view a bounded, zero-padding region between
+  // the header and whatever fixed chrome sits below it (see PageActionsContext/AppShell) - to fill
+  // it, this becomes a flex column itself, with its own px/py taking over the padding AppShell's
+  // Container no longer supplies. Applies at every breakpoint now, not just touchMode (which stays
+  // reserved for the separate tap-vs-drag interaction question below). Mobile omits pb
+  // deliberately: the "Weitere Aktionen" bar sits flush against the fixed bottom tab bar (see its
+  // own mx:-1.5 trick), whereas tablet/laptop have no such fixed bottom chrome to sit flush
+  // against, so they keep a normal symmetric bottom padding instead.
   return (
     <Box
-      sx={
-        layout === 'mobile'
-          ? { display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, height: '100%', px: 1.5, pt: 1.5 }
-          : undefined
-      }
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        flex: 1,
+        minHeight: 0,
+        height: '100%',
+        px: layout === 'mobile' ? 1.5 : 3,
+        pt: layout === 'mobile' ? 1.5 : 3,
+        pb: layout === 'mobile' ? 0 : 3,
+      }}
     >
       <Stack direction="row" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={2} sx={{ mb: 2 }}>
         <Box>
@@ -593,7 +601,10 @@ export function ScheduleView() {
           opacity: isLoading ? 0.4 : 1,
           pointerEvents: isLoading ? 'none' : 'auto',
           transition: 'opacity 120ms',
-          ...(layout === 'mobile' ? { display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 } : {}),
+          display: 'flex',
+          flexDirection: 'column',
+          flex: 1,
+          minHeight: 0,
         }}
       >
         {isLoading && (
@@ -724,7 +735,7 @@ export function ScheduleView() {
         );
 
         const tableSection = (
-          <Box sx={layout === 'mobile' ? { display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 } : undefined}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
             {schedule && visibleRows.length > 0 && (
               <ScheduleTable
                 rows={visibleRows}

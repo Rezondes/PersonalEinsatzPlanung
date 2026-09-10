@@ -148,14 +148,13 @@ export const ScheduleTable = memo(function ScheduleTable({
     // Bounded height, self-scrolling on both axes - see stickyFirstColumn.ts for why a sticky
     // header row and horizontal scroll on a real <table> can't coexist any other way (overflow-x:
     // auto unconditionally makes the browser treat this element as the scroll container for both
-    // axes, so it has to be the intended one, not an accident). height:'100%' on mobile instead of
-    // a vh cap: ScheduleView gives this component a flex:1 region bounded between the header and
-    // the fixed bottom tab bar there, and this needs to fill exactly that, not a viewport fraction.
+    // axes, so it has to be the intended one, not an accident). height:'100%', not a vh cap:
+    // ScheduleView gives this component a flex:1 region bounded between the header and whatever
+    // fixed chrome sits below it, at every breakpoint, and this needs to fill exactly that.
     <TableContainer
       component={Paper}
       sx={{
-        maxHeight: layout === 'mobile' ? undefined : '70vh',
-        height: layout === 'mobile' ? '100%' : undefined,
+        height: '100%',
         // Reaches the true screen edges on mobile, cancelling the wrapper Box's own px:1.5 in
         // ScheduleView - same edge-to-edge treatment as the mobile toolbar bar, and it buys back a
         // little extra width for the grid's own inevitable horizontal scroll on a phone.

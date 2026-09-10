@@ -12,12 +12,14 @@ export interface FabAction {
 
 export interface PageActions {
   fab?: FabAction;
-  /** True while the current view wants AppShell's mobile Container to become a zero-padding,
-   * bounded flex-column (fill exactly between the header and the fixed bottom tab bar) instead of
-   * the normal padded, page-scrolling layout every other mobile page uses - e.g. because it hosts
-   * its own scrolling region that must stay bounded between two fixed chrome pieces. Only Woche
-   * needs this today. Ignored outside the mobile breakpoint. */
-  fullBleedMobile?: boolean;
+  /** True while the current view wants AppShell's Container to become a zero-padding, bounded
+   * flex-column (fill exactly the space between the header and whatever fixed chrome sits below
+   * it) instead of the normal padded, page-scrolling layout - so the PAGE itself never scrolls;
+   * only the region the view itself designates as bounded (its table, list, or section stack)
+   * does. Every view sets this today, at every breakpoint (see AppShell's `fullBleed`) - kept as
+   * an opt-in flag rather than AppShell's unconditional default so a future view with a genuine
+   * reason to page-scroll normally (e.g. one with no natural bounded region) can still skip it. */
+  fullBleedPage?: boolean;
 }
 
 interface PageActionsContextValue {
@@ -43,7 +45,7 @@ export function PageActionsProvider({ children }: { children: ReactNode }) {
 export function usePageActions(actions: PageActions): void {
   const ctx = useContext(PageActionsContext);
   const setActions = ctx?.setActions;
-  const { fab, fullBleedMobile } = actions;
+  const { fab, fullBleedPage } = actions;
   // Re-registers whenever the caller passes a new label/icon/handler, not on every render of the
   // host view - onClick is typically a fresh closure per render, so keying only on label+icon
   // (which are stable in practice: a page's create-action wording doesn't change while mounted)
@@ -53,17 +55,17 @@ export function usePageActions(actions: PageActions): void {
 
   useEffect(() => {
     if (!setActions) return;
-    if (!fab && !fullBleedMobile) {
+    if (!fab && !fullBleedPage) {
       setActions({});
       return;
     }
     const stableFab: FabAction | undefined = fab
       ? { label: fab.label, icon: fab.icon, onClick: () => onClickRef.current?.() }
       : undefined;
-    setActions({ fab: stableFab, fullBleedMobile });
+    setActions({ fab: stableFab, fullBleedPage });
     return () => setActions({});
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on label/icon/fullBleedMobile by design, see above
-  }, [setActions, fab?.label, fab?.icon, fullBleedMobile]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on label/icon/fullBleedPage by design, see above
+  }, [setActions, fab?.label, fab?.icon, fullBleedPage]);
 }
 
 /** Read by MobileFab only. */

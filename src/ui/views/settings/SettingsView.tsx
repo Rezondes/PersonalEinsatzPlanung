@@ -36,6 +36,8 @@ import CloudUploadOutlinedIcon from '@mui/icons-material/CloudUploadOutlined';
 import CloudDownloadOutlinedIcon from '@mui/icons-material/CloudDownloadOutlined';
 import VpnKeyOutlinedIcon from '@mui/icons-material/VpnKeyOutlined';
 import type { RemoteBackup } from '@application/ports/BackupStorage';
+import { useBreakpoint } from '@ui/hooks/useBreakpoint';
+import { usePageActions } from '@ui/app/PageActionsContext';
 import { ConfirmDialog } from '@ui/components/ConfirmDialog';
 import { DriveBackupDialog } from './DriveBackupDialog';
 import { BackupPasswordDialog } from './BackupPasswordDialog';
@@ -57,6 +59,8 @@ import type { EncryptedBackupEnvelope } from '@application/export/encryptedExpor
 class PasswordPromptCancelled extends Error {}
 
 export function SettingsView() {
+  const layout = useBreakpoint();
+  usePageActions({ fullBleedPage: true });
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [confirmationText, setConfirmationText] = useState('');
   const [importFile, setImportFile] = useState<File | null>(null);
@@ -387,257 +391,270 @@ export function SettingsView() {
   };
 
   return (
-    <Box sx={{ maxWidth: 640 }}>
-      <Paper sx={{ p: 3, mb: 3 }}>
-        <Typography variant="subtitle1" fontWeight={500} sx={{ mb: 1 }}>
-          Backup & Datenübertragung
-        </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          Alle Daten liegen ausschließlich lokal in diesem Browser. Für ein Backup oder einen Geräte-/Browserwechsel
-          exportiere den kompletten Datenbestand als Datei und importiere ihn auf dem anderen Gerät wieder.
-        </Typography>
-        <Stack direction="row" spacing={2}>
-          <Button
-            variant="outlined"
-            startIcon={exporting ? <CircularProgress size={16} color="inherit" /> : <DownloadOutlinedIcon />}
-            onClick={exportData}
-            disabled={exporting}
-          >
-            {exporting ? 'Export wird erstellt…' : 'Daten exportieren'}
-          </Button>
-          <Button variant="outlined" component="label" startIcon={<UploadOutlinedIcon />}>
-            Daten importieren
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="application/json"
-              hidden
-              onChange={(e) => setImportFile(e.target.files?.[0] ?? null)}
-            />
-          </Button>
-        </Stack>
-
-        {driveAvailable && (
-          <>
-            <Divider sx={{ my: 3 }} />
-            <Typography variant="subtitle1" fontWeight={500} sx={{ mb: 1 }}>
-              Google Drive
-            </Typography>
-            {!online && (
-              <Alert severity="info" sx={{ mb: 2 }}>
-                Ohne Internetverbindung ist Google Drive nicht erreichbar. Alles andere in dieser App
-                funktioniert weiter, auch der Export als Datei.
-              </Alert>
-            )}
-            {driveRestoring ? (
-              <Typography variant="body2" color="text.secondary">
-                Verbindung zu Google wird wiederhergestellt…
-              </Typography>
-            ) : driveSignedIn ? (
-              <>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                  Sicherungen liegen in deinem Google Drive im Ordner „Personaleinsatzplanung“. Unter „Aus Google Drive laden“ kannst du sie auch löschen. Der Zugriff wird
-                  aus Sicherheitsgründen nicht gespeichert, sondern bei Bedarf still erneuert, solange du bei
-                  Google angemeldet bist.
-                </Typography>
-                <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap>
-                  <Button
-                    variant="outlined"
-                    startIcon={driveBusy ? <CircularProgress size={16} color="inherit" /> : <CloudUploadOutlinedIcon />}
-                    onClick={exportToDrive}
-                    disabled={driveBusy || !online}
-                  >
-                    {driveBusy ? 'Wird gesichert…' : 'In Google Drive sichern'}
-                  </Button>
-                  <Button
-                    variant="outlined"
-                    startIcon={<CloudDownloadOutlinedIcon />}
-                    onClick={() => setDrivePickerOpen(true)}
-                    disabled={driveBusy || !online}
-                  >
-                    Aus Google Drive laden
-                  </Button>
-                  <Button onClick={disconnectDrive} disabled={driveBusy}>
-                    Verbindung trennen
-                  </Button>
-                </Stack>
-              </>
-            ) : (
-              <>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                  {driveRemembered
-                    ? 'Google konnte den Zugriff nicht ohne Nachfrage erneuern. Melde dich einmal neu an, dann geht es wie gewohnt weiter. Willst du Google Drive gar nicht mehr nutzen, trenne die Verbindung: Danach nimmt die App von sich aus keine Verbindung mehr zu Google auf.'
-                    : 'Statt einer Datei kannst du dein Backup auch in deinem eigenen Google Drive ablegen und es auf einem anderen Gerät von dort laden. Erst beim Klick auf „Mit Google anmelden“ nimmt die App Verbindung zu Google auf. Die App sieht dabei ausschließlich die Sicherungen, die sie selbst angelegt hat.'}
-                </Typography>
-                <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap>
-                  <Button
-                    variant="outlined"
-                    onClick={connectDrive}
-                    disabled={driveBusy || !online}
-                    startIcon={driveBusy ? <CircularProgress size={16} color="inherit" /> : undefined}
-                  >
-                    {driveBusy ? 'Anmeldung läuft…' : 'Mit Google anmelden'}
-                  </Button>
-                  {driveRemembered && (
-                    <Button onClick={disconnectDrive} disabled={driveBusy}>
-                      Google Drive nicht mehr verwenden
-                    </Button>
-                  )}
-                </Stack>
-              </>
-            )}
-          </>
-        )}
-
-        <Divider sx={{ my: 3 }} />
-        <Typography variant="subtitle1" fontWeight={500} sx={{ mb: 1 }}>
-          Backup-Passwort
-        </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          Ist ein Passwort festgelegt, werden neue Backups (als Datei und in Google Drive) automatisch damit
-          verschlüsselt. Ein geändertes Passwort wirkt sich nur auf zukünftige Backups aus - bereits erstellte
-          Sicherungen benötigen weiterhin das Passwort, das zum Zeitpunkt ihrer Erstellung galt.
-        </Typography>
-        <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap" useFlexGap>
-          <Typography variant="body2">Status: {passwordConfigured ? 'Festgelegt' : 'Nicht festgelegt'}</Typography>
-          <Button
-            variant="outlined"
-            startIcon={<VpnKeyOutlinedIcon />}
-            onClick={() => {
-              setPasswordDialogError(null);
-              setPasswordDialogMode('set');
-            }}
-          >
-            {passwordConfigured ? 'Passwort ändern' : 'Backup-Passwort festlegen'}
-          </Button>
-        </Stack>
-      </Paper>
-
-
-      <Paper sx={{ p: 3, mb: 3 }}>
-        <Typography variant="subtitle1" fontWeight={500} sx={{ mb: 1 }}>
-          App & Speicher
-        </Typography>
-
-        {installed ? (
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Die App ist auf diesem Gerät installiert. Sie startet vom Startbildschirm aus und funktioniert auch
-            ohne Internetverbindung.
+    <Box
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        flex: 1,
+        minHeight: 0,
+        height: '100%',
+        maxWidth: 640,
+        px: layout === 'mobile' ? 1.5 : 3,
+        py: layout === 'mobile' ? 1.5 : 3,
+      }}
+    >
+      <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
+        <Paper sx={{ p: 3, mb: 3 }}>
+          <Typography variant="subtitle1" fontWeight={500} sx={{ mb: 1 }}>
+            Backup & Datenübertragung
           </Typography>
-        ) : (
-          <>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              Du kannst die Planung als App auf dem Gerät installieren. Sie startet dann ohne Browserleiste, ist
-              über ein eigenes Symbol erreichbar und funktioniert vollständig ohne Internetverbindung.
-              {isManualInstallPlatform() && !installable
-                ? ' Auf iPhone und iPad geht das über Safari: unten auf das Teilen-Symbol tippen und „Zum Home-Bildschirm“ wählen.'
-                : ''}
-            </Typography>
-            {installable && (
-              <Button
-                variant="outlined"
-                startIcon={<InstallMobileOutlinedIcon />}
-                onClick={() => void promptInstall()}
-                sx={{ mb: 2 }}
-              >
-                App installieren
-              </Button>
-            )}
-          </>
-        )}
-
-        <Divider sx={{ my: 2 }} />
-
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-          Dauerhafter Speicher:{' '}
-          {durability === 'persistent'
-            ? 'Ja. Der Browser bewahrt die Daten dieser App auf.'
-            : durability === 'best-effort'
-              ? 'Nein. Der Browser darf die Daten löschen, wenn der Speicher knapp wird.'
-              : 'Vom Browser nicht unterstützt.'}
-          {usage &&
-            ` Belegt: ${Math.max(1, Math.round(usage.usedBytes / 1024)).toLocaleString('de-DE')} KB.`}
-        </Typography>
-        {durability === 'best-effort' && (
-          <>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              Das ist wichtiger, als es klingt: Die Daten dieser App liegen nur auf diesem Gerät. Auf iPhone und
-              iPad räumt Safari den Speicher gewöhnlicher Webseiten nach sieben Tagen ohne Besuch weg,
-              installierte Apps sind davon ausgenommen. Erstelle unabhängig davon regelmäßig ein Backup.
-            </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Alle Daten liegen ausschließlich lokal in diesem Browser. Für ein Backup oder einen Geräte-/Browserwechsel
+            exportiere den kompletten Datenbestand als Datei und importiere ihn auf dem anderen Gerät wieder.
+          </Typography>
+          <Stack direction="row" spacing={2}>
             <Button
               variant="outlined"
-              onClick={askForDurableStorage}
-              disabled={askingStorage}
-              startIcon={askingStorage ? <CircularProgress size={16} color="inherit" /> : undefined}
+              startIcon={exporting ? <CircularProgress size={16} color="inherit" /> : <DownloadOutlinedIcon />}
+              onClick={exportData}
+              disabled={exporting}
             >
-              Dauerhaften Speicher anfordern
+              {exporting ? 'Export wird erstellt…' : 'Daten exportieren'}
             </Button>
-          </>
-        )}
-      </Paper>
-      <Paper sx={{ p: 3, mb: 3 }}>
-        <Typography variant="subtitle1" fontWeight={500} sx={{ mb: 1 }}>
-          Datenschutz
-        </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-          Informationen dazu, welche Daten wo gespeichert werden, findest du in den{' '}
-          <Link component={RouterLink} to="/privacy">
-            Datenschutzhinweisen
-          </Link>
-          .
-        </Typography>
-        <Typography variant="body2" color="text.secondary">
-          Die Regeln zur Nutzung der App stehen in den{' '}
-          <Link component={RouterLink} to="/terms">
-            Nutzungsbedingungen
-          </Link>
-          .
-        </Typography>
-      </Paper>
+            <Button variant="outlined" component="label" startIcon={<UploadOutlinedIcon />}>
+              Daten importieren
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="application/json"
+                hidden
+                onChange={(e) => setImportFile(e.target.files?.[0] ?? null)}
+              />
+            </Button>
+          </Stack>
 
-      <Paper sx={{ p: 3, borderColor: '#e5a3a0' }}>
-        <Typography variant="subtitle1" fontWeight={500} sx={{ mb: 1 }}>
-          Alle Daten löschen
-        </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          Entfernt unwiderruflich alle Filialen, Mitarbeiter, Wochenpläne, Abwesenheiten und Schichtvorlagen aus
-          diesem Browser.
-          Erstelle vorher ein Backup, falls du die Daten noch benötigst.
-        </Typography>
-        <Button
-          variant="outlined"
-          color="error"
-          startIcon={<DeleteForeverOutlinedIcon />}
-          onClick={() => setDeleteDialogOpen(true)}
-        >
-          Alle Daten löschen
-        </Button>
-      </Paper>
+          {driveAvailable && (
+            <>
+              <Divider sx={{ my: 3 }} />
+              <Typography variant="subtitle1" fontWeight={500} sx={{ mb: 1 }}>
+                Google Drive
+              </Typography>
+              {!online && (
+                <Alert severity="info" sx={{ mb: 2 }}>
+                  Ohne Internetverbindung ist Google Drive nicht erreichbar. Alles andere in dieser App
+                  funktioniert weiter, auch der Export als Datei.
+                </Alert>
+              )}
+              {driveRestoring ? (
+                <Typography variant="body2" color="text.secondary">
+                  Verbindung zu Google wird wiederhergestellt…
+                </Typography>
+              ) : driveSignedIn ? (
+                <>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                    Sicherungen liegen in deinem Google Drive im Ordner „Personaleinsatzplanung“. Unter „Aus Google Drive laden“ kannst du sie auch löschen. Der Zugriff wird
+                    aus Sicherheitsgründen nicht gespeichert, sondern bei Bedarf still erneuert, solange du bei
+                    Google angemeldet bist.
+                  </Typography>
+                  <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap>
+                    <Button
+                      variant="outlined"
+                      startIcon={driveBusy ? <CircularProgress size={16} color="inherit" /> : <CloudUploadOutlinedIcon />}
+                      onClick={exportToDrive}
+                      disabled={driveBusy || !online}
+                    >
+                      {driveBusy ? 'Wird gesichert…' : 'In Google Drive sichern'}
+                    </Button>
+                    <Button
+                      variant="outlined"
+                      startIcon={<CloudDownloadOutlinedIcon />}
+                      onClick={() => setDrivePickerOpen(true)}
+                      disabled={driveBusy || !online}
+                    >
+                      Aus Google Drive laden
+                    </Button>
+                    <Button onClick={disconnectDrive} disabled={driveBusy}>
+                      Verbindung trennen
+                    </Button>
+                  </Stack>
+                </>
+              ) : (
+                <>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                    {driveRemembered
+                      ? 'Google konnte den Zugriff nicht ohne Nachfrage erneuern. Melde dich einmal neu an, dann geht es wie gewohnt weiter. Willst du Google Drive gar nicht mehr nutzen, trenne die Verbindung: Danach nimmt die App von sich aus keine Verbindung mehr zu Google auf.'
+                      : 'Statt einer Datei kannst du dein Backup auch in deinem eigenen Google Drive ablegen und es auf einem anderen Gerät von dort laden. Erst beim Klick auf „Mit Google anmelden“ nimmt die App Verbindung zu Google auf. Die App sieht dabei ausschließlich die Sicherungen, die sie selbst angelegt hat.'}
+                  </Typography>
+                  <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap>
+                    <Button
+                      variant="outlined"
+                      onClick={connectDrive}
+                      disabled={driveBusy || !online}
+                      startIcon={driveBusy ? <CircularProgress size={16} color="inherit" /> : undefined}
+                    >
+                      {driveBusy ? 'Anmeldung läuft…' : 'Mit Google anmelden'}
+                    </Button>
+                    {driveRemembered && (
+                      <Button onClick={disconnectDrive} disabled={driveBusy}>
+                        Google Drive nicht mehr verwenden
+                      </Button>
+                    )}
+                  </Stack>
+                </>
+              )}
+            </>
+          )}
 
-      <Paper sx={{ p: 3, mt: 3 }}>
-        <Typography variant="subtitle1" fontWeight={500} sx={{ mb: 1 }}>
-          Version
-        </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          Kennung des installierten Stands. Sie steht auch klein unten rechts in der Ecke, damit sie auf
-          Screenshots mitkommt. Bei einer Rückfrage bitte diese Angaben mitschicken.
-        </Typography>
-        {/* data-selectable zusaetzlich zu userSelect: Es haelt auch das native Rechtsklick-Menue
-            offen, das sonst app-weit unterdrueckt wird - und "Kopieren" per Rechtsklick ist genau
-            der Griff, zu dem der Satz darueber auffordert. */}
-        <Stack
-          data-selectable
-          spacing={0.5}
-          sx={{ fontFamily: 'monospace', fontSize: 14, userSelect: 'all' }}
-        >
-          <span>Version: {APP_VERSION}</span>
-          {/* The raw ISO timestamp on purpose: unambiguous, time-zone free, and it sidesteps the
-              German date-format rules that apply to user-facing dates. */}
-          <span>Build: {APP_BUILD_TIME}</span>
-          <span>Commit: {APP_COMMIT || '-'}</span>
-        </Stack>
-      </Paper>
+          <Divider sx={{ my: 3 }} />
+          <Typography variant="subtitle1" fontWeight={500} sx={{ mb: 1 }}>
+            Backup-Passwort
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Ist ein Passwort festgelegt, werden neue Backups (als Datei und in Google Drive) automatisch damit
+            verschlüsselt. Ein geändertes Passwort wirkt sich nur auf zukünftige Backups aus - bereits erstellte
+            Sicherungen benötigen weiterhin das Passwort, das zum Zeitpunkt ihrer Erstellung galt.
+          </Typography>
+          <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap" useFlexGap>
+            <Typography variant="body2">Status: {passwordConfigured ? 'Festgelegt' : 'Nicht festgelegt'}</Typography>
+            <Button
+              variant="outlined"
+              startIcon={<VpnKeyOutlinedIcon />}
+              onClick={() => {
+                setPasswordDialogError(null);
+                setPasswordDialogMode('set');
+              }}
+            >
+              {passwordConfigured ? 'Passwort ändern' : 'Backup-Passwort festlegen'}
+            </Button>
+          </Stack>
+        </Paper>
+
+
+        <Paper sx={{ p: 3, mb: 3 }}>
+          <Typography variant="subtitle1" fontWeight={500} sx={{ mb: 1 }}>
+            App & Speicher
+          </Typography>
+
+          {installed ? (
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              Die App ist auf diesem Gerät installiert. Sie startet vom Startbildschirm aus und funktioniert auch
+              ohne Internetverbindung.
+            </Typography>
+          ) : (
+            <>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                Du kannst die Planung als App auf dem Gerät installieren. Sie startet dann ohne Browserleiste, ist
+                über ein eigenes Symbol erreichbar und funktioniert vollständig ohne Internetverbindung.
+                {isManualInstallPlatform() && !installable
+                  ? ' Auf iPhone und iPad geht das über Safari: unten auf das Teilen-Symbol tippen und „Zum Home-Bildschirm“ wählen.'
+                  : ''}
+              </Typography>
+              {installable && (
+                <Button
+                  variant="outlined"
+                  startIcon={<InstallMobileOutlinedIcon />}
+                  onClick={() => void promptInstall()}
+                  sx={{ mb: 2 }}
+                >
+                  App installieren
+                </Button>
+              )}
+            </>
+          )}
+
+          <Divider sx={{ my: 2 }} />
+
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+            Dauerhafter Speicher:{' '}
+            {durability === 'persistent'
+              ? 'Ja. Der Browser bewahrt die Daten dieser App auf.'
+              : durability === 'best-effort'
+                ? 'Nein. Der Browser darf die Daten löschen, wenn der Speicher knapp wird.'
+                : 'Vom Browser nicht unterstützt.'}
+            {usage &&
+              ` Belegt: ${Math.max(1, Math.round(usage.usedBytes / 1024)).toLocaleString('de-DE')} KB.`}
+          </Typography>
+          {durability === 'best-effort' && (
+            <>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                Das ist wichtiger, als es klingt: Die Daten dieser App liegen nur auf diesem Gerät. Auf iPhone und
+                iPad räumt Safari den Speicher gewöhnlicher Webseiten nach sieben Tagen ohne Besuch weg,
+                installierte Apps sind davon ausgenommen. Erstelle unabhängig davon regelmäßig ein Backup.
+              </Typography>
+              <Button
+                variant="outlined"
+                onClick={askForDurableStorage}
+                disabled={askingStorage}
+                startIcon={askingStorage ? <CircularProgress size={16} color="inherit" /> : undefined}
+              >
+                Dauerhaften Speicher anfordern
+              </Button>
+            </>
+          )}
+        </Paper>
+        <Paper sx={{ p: 3, mb: 3 }}>
+          <Typography variant="subtitle1" fontWeight={500} sx={{ mb: 1 }}>
+            Datenschutz
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+            Informationen dazu, welche Daten wo gespeichert werden, findest du in den{' '}
+            <Link component={RouterLink} to="/privacy">
+              Datenschutzhinweisen
+            </Link>
+            .
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Die Regeln zur Nutzung der App stehen in den{' '}
+            <Link component={RouterLink} to="/terms">
+              Nutzungsbedingungen
+            </Link>
+            .
+          </Typography>
+        </Paper>
+
+        <Paper sx={{ p: 3, borderColor: '#e5a3a0' }}>
+          <Typography variant="subtitle1" fontWeight={500} sx={{ mb: 1 }}>
+            Alle Daten löschen
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Entfernt unwiderruflich alle Filialen, Mitarbeiter, Wochenpläne, Abwesenheiten und Schichtvorlagen aus
+            diesem Browser.
+            Erstelle vorher ein Backup, falls du die Daten noch benötigst.
+          </Typography>
+          <Button
+            variant="outlined"
+            color="error"
+            startIcon={<DeleteForeverOutlinedIcon />}
+            onClick={() => setDeleteDialogOpen(true)}
+          >
+            Alle Daten löschen
+          </Button>
+        </Paper>
+
+        <Paper sx={{ p: 3, mt: 3 }}>
+          <Typography variant="subtitle1" fontWeight={500} sx={{ mb: 1 }}>
+            Version
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Kennung des installierten Stands. Sie steht auch klein unten rechts in der Ecke, damit sie auf
+            Screenshots mitkommt. Bei einer Rückfrage bitte diese Angaben mitschicken.
+          </Typography>
+          {/* data-selectable zusaetzlich zu userSelect: Es haelt auch das native Rechtsklick-Menue
+              offen, das sonst app-weit unterdrueckt wird - und "Kopieren" per Rechtsklick ist genau
+              der Griff, zu dem der Satz darueber auffordert. */}
+          <Stack
+            data-selectable
+            spacing={0.5}
+            sx={{ fontFamily: 'monospace', fontSize: 14, userSelect: 'all' }}
+          >
+            <span>Version: {APP_VERSION}</span>
+            {/* The raw ISO timestamp on purpose: unambiguous, time-zone free, and it sidesteps the
+                German date-format rules that apply to user-facing dates. */}
+            <span>Build: {APP_BUILD_TIME}</span>
+            <span>Commit: {APP_COMMIT || '-'}</span>
+          </Stack>
+        </Paper>
+      </Box>
 
       {/* onClose short-circuited while deleting: Escape or a click on the backdrop would otherwise
           tear the dialog down in the middle of wiping the database. */}
