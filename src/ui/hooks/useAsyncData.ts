@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
+import { notify } from '@ui/app/store/notificationStore';
 
 /** Shared shape behind every selection-scoped data-loading hook (useSchedule, useEmployeeList,
  * useShiftTemplates, useAbsences): state + a loading flag + a reload callback, guarded against a
@@ -25,12 +26,22 @@ export function useAsyncData<T>(
     const loadId = loadIdRef.current + 1;
     loadIdRef.current = loadId;
     setLoading(true);
-    const loaded = await load();
-    if (loadIdRef.current !== loadId) {
-      return;
+    try {
+      const loaded = await load();
+      if (loadIdRef.current !== loadId) {
+        return;
+      }
+      setData(loaded);
+    } catch (error) {
+      if (loadIdRef.current !== loadId) {
+        return;
+      }
+      notify.report(error, 'Daten konnten nicht geladen werden');
+    } finally {
+      if (loadIdRef.current === loadId) {
+        setLoading(false);
+      }
     }
-    setData(loaded);
-    setLoading(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, deps);
 

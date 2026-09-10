@@ -58,6 +58,28 @@ describe('validateAbsence - Stunden und Beschäftigungszeitraum', () => {
     ]);
   });
 
+  it('accepts an absent or valid creditedMinutesOverride for a non-Other type', () => {
+    expect(validateAbsence(draft())).toEqual([]);
+    expect(validateAbsence(draft({ creditedMinutesOverride: 0 }))).toEqual([]);
+    expect(validateAbsence(draft({ creditedMinutesOverride: 480 }))).toEqual([]);
+  });
+
+  it('rejects a negative creditedMinutesOverride or more than 24 hours worth of minutes', () => {
+    expect(validateAbsence(draft({ creditedMinutesOverride: -1 }))).toEqual([
+      { field: 'creditedMinutesOverride', message: 'Darf nicht negativ sein.' },
+    ]);
+    // 1441 minutes = 24h01m - the field is minutes (not hours, unlike hoursPerDay above), so the
+    // boundary is 24 * 60, not 24 - this is the one call site validateHourRange takes a non-default
+    // max for.
+    expect(validateAbsence(draft({ creditedMinutesOverride: 1441 }))).toEqual([
+      { field: 'creditedMinutesOverride', message: 'Höchstens 24 Stunden.' },
+    ]);
+  });
+
+  it('ignores creditedMinutesOverride for type Other, where hoursPerDay is the manual field instead', () => {
+    expect(validateAbsence({ ...other, creditedMinutesOverride: 9999 })).toEqual([]);
+  });
+
   it('rejects a range that starts before the entry date or ends after the exit date', () => {
     expect(validateAbsence({ ...other, employment: { entryDate: '2026-03-05' } })).toEqual([
       { field: 'from', message: 'Liegt vor dem Eintrittsdatum des Mitarbeiters.' },

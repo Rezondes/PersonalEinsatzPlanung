@@ -99,6 +99,34 @@ describe('ScheduleTable', () => {
     await waitFor(() => expect(screen.queryByText('Tagesarbeitszeit zu lang')).not.toBeInTheDocument());
   });
 
+  it('activating the warning icon by keyboard (Enter) does not also activate the cell underneath it', async () => {
+    const user = userEvent.setup();
+    const onCellClick = vi.fn();
+    const results: ValidationResult[] = [
+      { rule: 'ArbZG_3_Tag', severity: 'error', message: 'Tagesarbeitszeit zu lang', employeeId: m1, date: '2026-09-07' },
+    ];
+    render(
+      <ScheduleTable
+        rows={rowsFor(employees)}
+        weekDays={weekDays}
+        validationResults={results}
+        onCellClick={onCellClick}
+        onToolDrop={() => {}}
+        {...notAssigning}
+      />,
+    );
+
+    // A native <button> triggers its own click on Enter, and the keydown that causes it still
+    // bubbles independently through the DOM regardless - without stopping it at the cell (which
+    // only checks target !== currentTarget, not a stopPropagation on the icon itself), the cell's
+    // own Enter/Space handler would also fire and open the Tageseditor underneath the icon.
+    screen.getByRole('button', { name: 'Hinweis anzeigen' }).focus();
+    await user.keyboard('{Enter}');
+
+    expect(await screen.findByText('Tagesarbeitszeit zu lang')).toBeInTheDocument();
+    expect(onCellClick).not.toHaveBeenCalled();
+  });
+
   it('reports the clicked cell with its employee and day', async () => {
     const user = userEvent.setup();
     const onCellClick = vi.fn();

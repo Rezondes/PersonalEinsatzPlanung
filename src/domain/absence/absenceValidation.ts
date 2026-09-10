@@ -50,7 +50,7 @@ export function validateAbsence(draft: AbsenceDraft): FieldError<AbsenceField>[]
     errors.push(...validateHourRange(draft.hoursPerDay, 'hoursPerDay'));
   }
   if (draft.type !== 'Other' && draft.creditedMinutesOverride !== undefined) {
-    errors.push(...validateHourRange(draft.creditedMinutesOverride, 'creditedMinutesOverride', 24 * 60));
+    errors.push(...validateHourRange(draft.creditedMinutesOverride, CREDITED_OVERRIDE_FIELD, 24 * 60));
   }
   if (!draft.from) {
     errors.push({ field: 'from', message: 'Bitte Startdatum wählen.' });

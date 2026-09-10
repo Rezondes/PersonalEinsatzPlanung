@@ -311,6 +311,12 @@ export const ScheduleTable = memo(function ScheduleTable({
                           assignMode && droppable ? `${dayView.day} zuweisen` : `${dayView.day} bearbeiten`,
                         onClick: activateCell,
                         onKeyDown: (e: KeyboardEvent) => {
+                          // Ignores a keydown that bubbled up from a nested interactive element
+                          // (the warning icon below) - stopPropagation() on ITS click only stops
+                          // the click, not the separate keydown event, which still bubbles here
+                          // regardless. Without this, Enter/Space on the focused icon would also
+                          // activate the cell underneath it.
+                          if (e.target !== e.currentTarget) return;
                           if (e.key === 'Enter' || e.key === ' ') {
                             e.preventDefault();
                             activateCell();
