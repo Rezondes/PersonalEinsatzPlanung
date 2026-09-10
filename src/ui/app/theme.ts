@@ -22,7 +22,11 @@ export const theme = createTheme(
     // up" everywhere, instead of scattering raw pixel values through the app. See
     // `hooks/useBreakpoint.ts`, the single place that turns these into a layout name.
     breakpoints: {
-      values: { xs: 0, sm: 768, md: 1024, lg: 1280, xl: 1536 },
+      // xl raised to match lg: MUI logs a dev-mode warning if breakpoint values aren't ascending,
+      // and xl isn't used for anything of its own here besides AppShell's Container maxWidth="xl"
+      // - which tablet viewports never actually reach (they're always < lg), so this has no
+      // visible effect beyond keeping the two in a valid, non-warning relationship.
+      values: { xs: 0, sm: 768, md: 1024, lg: 1620, xl: 1620 },
     },
     shape: { borderRadius: 8 },
     typography: {
@@ -88,7 +92,7 @@ export const theme = createTheme(
       MuiTableCell: {
         styleOverrides: { root: { borderColor: '#ececeb' } },
       },
-      // Below `lg` (1280px, the "kleiner Laptop" breakpoint and up) the app is touch-first: every
+      // Below `lg` (1620px, the "Desktop" breakpoint and up) the app is touch-first: every
       // icon-only button needs a real 44x44 hit target, not just its visible icon size. Scoped to
       // `down('lg')` rather than applied everywhere, so the existing dense desktop toolbars (e.g.
       // ScheduleView's undo/redo row) keep their current, deliberately compact sizing.

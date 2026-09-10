@@ -50,8 +50,14 @@ describe('useBreakpoint', () => {
     expect(screen.getByText('tabletLandscape')).toBeInTheDocument();
   });
 
-  it('reports laptop from 1280px', () => {
+  it('still reports tabletLandscape at 1400px, below the 1620px laptop threshold', () => {
     mockViewportWidth(1400);
+    render(<Harness />);
+    expect(screen.getByText('tabletLandscape')).toBeInTheDocument();
+  });
+
+  it('reports laptop from 1620px', () => {
+    mockViewportWidth(1700);
     render(<Harness />);
     expect(screen.getByText('laptop')).toBeInTheDocument();
   });

@@ -391,7 +391,7 @@ export function ScheduleView() {
     setActiveTool(null);
   }, []);
 
-  // Leaving touch mode (widening/maximizing the window, undocking a tablet past 1280px) or
+  // Leaving touch mode (widening/maximizing the window, undocking a tablet past 1620px) or
   // switching branches must drop out of tap-to-assign entirely. Neither is covered by any other
   // reset: ScheduleTable's own assignMode prop is `assignModeActive` completely unguarded by
   // touchMode, so without this a stale true would keep routing plain taps on the (now byte-for-
