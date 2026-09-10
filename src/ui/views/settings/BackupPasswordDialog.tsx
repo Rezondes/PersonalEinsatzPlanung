@@ -8,6 +8,8 @@ import Stack from '@mui/material/Stack';
 import CircularProgress from '@mui/material/CircularProgress';
 import Visibility from '@mui/icons-material/Visibility';
 import VisibilityOff from '@mui/icons-material/VisibilityOff';
+import type { FieldError } from '@domain/validation/FieldError';
+import { useFormValidation } from '@ui/hooks/useFormValidation';
 import { RequiredLegend } from '@ui/components/RequiredLegend';
 import { ResponsiveDialog } from '@ui/components/ResponsiveDialog';
 
@@ -32,21 +34,30 @@ interface BackupPasswordDialogProps {
  * prop rather than state owned here - the parent keeps the dialog mounted across retries so the
  * typed password and the file/envelope stay put.
  */
+type PasswordField = 'password' | 'confirmPassword';
+
 export function BackupPasswordDialog({ mode, error = null, busy, onClose, onSubmit }: BackupPasswordDialogProps) {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  // Only set after a first submit attempt, same idea as useFormValidation: no red fields while the
-  // user is still typing for the first time.
-  const [touched, setTouched] = useState(false);
 
-  const passwordMissing = touched && password.length === 0;
-  const mismatch = mode === 'set' && touched && password !== confirmPassword;
+  // Same shared hook every other data-entry dialog in the app uses (EmployeeDialog, BranchDialog,
+  // AbsenceDialog, DayEditor, ShiftTemplateDialog) instead of a hand-rolled touched/mismatch pair -
+  // gets the "errors only after first Speichern attempt" gating and the focus-first-invalid-field
+  // behavior for free, matching src/ui/CLAUDE.md's "Forms and dialogs" convention.
+  const validation = useFormValidation<PasswordField>((): FieldError<PasswordField>[] => {
+    const errors: FieldError<PasswordField>[] = [];
+    if (password.length === 0) {
+      errors.push({ field: 'password', message: 'Bitte Passwort eingeben.' });
+    }
+    if (mode === 'set' && password.length > 0 && password !== confirmPassword) {
+      errors.push({ field: 'confirmPassword', message: 'Passwörter stimmen nicht überein.' });
+    }
+    return errors;
+  });
 
   const submit = () => {
-    setTouched(true);
-    if (password.length === 0) return;
-    if (mode === 'set' && password !== confirmPassword) return;
+    if (!validation.submit()) return;
     void onSubmit(password);
   };
 
@@ -71,6 +82,7 @@ export function BackupPasswordDialog({ mode, error = null, busy, onClose, onSubm
       onClose={busy ? undefined : onClose}
       title={mode === 'set' ? 'Backup-Passwort festlegen' : 'Backup-Passwort eingeben'}
       maxWidth="xs"
+      contentRef={validation.containerRef}
       actions={
         <>
           <Button onClick={onClose} disabled={busy}>
@@ -120,10 +132,9 @@ export function BackupPasswordDialog({ mode, error = null, busy, onClose, onSubm
           onKeyDown={(e) => {
             if (e.key === 'Enter' && mode === 'enter') submit();
           }}
-          error={passwordMissing}
-          helperText={passwordMissing ? 'Bitte Passwort eingeben.' : ' '}
           InputProps={visibilityToggle}
           disabled={busy}
+          {...validation.fieldProps('password', ' ')}
         />
         {mode === 'set' && (
           <TextField
@@ -136,10 +147,9 @@ export function BackupPasswordDialog({ mode, error = null, busy, onClose, onSubm
             onKeyDown={(e) => {
               if (e.key === 'Enter') submit();
             }}
-            error={mismatch}
-            helperText={mismatch ? 'Passwörter stimmen nicht überein.' : ' '}
             InputProps={visibilityToggle}
             disabled={busy}
+            {...validation.fieldProps('confirmPassword', ' ')}
           />
         )}
       </Stack>

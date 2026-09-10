@@ -1,29 +1,17 @@
-import { useCallback, useEffect, useState } from 'react';
 import type { EmployeeId } from '@domain/shared/ids';
 import type { Absence } from '@domain/absence/Absence';
 import { services } from '@infrastructure/services';
+import { useAsyncData } from './useAsyncData';
 
 export function useAbsences(employeeIds: EmployeeId[]) {
-  const [absences, setAbsences] = useState<Absence[]>([]);
-  const [loading, setLoading] = useState(true);
   const idsKey = employeeIds.join(',');
-
-  const reload = useCallback(async () => {
-    if (employeeIds.length === 0) {
-      setAbsences([]);
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    const list = await services.absence.forBranch(employeeIds);
-    setAbsences(list);
-    setLoading(false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [idsKey]);
-
-  useEffect(() => {
-    reload();
-  }, [reload]);
+  const { data: absences, loading, reload } = useAsyncData<Absence[]>(
+    [],
+    () => (employeeIds.length === 0 ? Promise.resolve([]) : services.absence.forBranch(employeeIds)),
+    // idsKey instead of employeeIds itself: a new array reference every render would re-trigger
+    // the effect chain on every render even when the actual ids haven't changed.
+    [idsKey],
+  );
 
   return { absences, loading, reload };
 }

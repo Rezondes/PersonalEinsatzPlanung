@@ -3,7 +3,7 @@ import type { Break } from './Break';
 import { parseClockTime } from '@domain/shared/ClockTime';
 import { assertNoFieldErrors } from '@domain/shared/DomainError';
 import type { FieldError } from '@domain/validation/FieldError';
-import { MUST_BE_POSITIVE_MESSAGE } from '@domain/validation/FieldError';
+import { MUST_BE_POSITIVE_MESSAGE, validateHourRange } from '@domain/validation/FieldError';
 
 /** What the Tageseditor holds while the user types: times as the raw input strings (a native time
  * input yields '' or 'HH:mm') and the break duration as entered, possibly still empty. Keeping the
@@ -107,11 +107,5 @@ export function validateNetMinutesOverride(hours: number | undefined): FieldErro
   if (hours === undefined) {
     return [];
   }
-  if (!Number.isFinite(hours) || hours < 0) {
-    return [{ field: NET_OVERRIDE_FIELD, message: 'Darf nicht negativ sein.' }];
-  }
-  if (hours > 24) {
-    return [{ field: NET_OVERRIDE_FIELD, message: 'Höchstens 24 Stunden.' }];
-  }
-  return [];
+  return validateHourRange(hours, NET_OVERRIDE_FIELD);
 }

@@ -14,8 +14,7 @@ import Typography from '@mui/material/Typography';
 import Alert from '@mui/material/Alert';
 import type { BranchId } from '@domain/shared/ids';
 import type { CalendarWeek } from '@domain/shared/CalendarWeek';
-import { previousCalendarWeek, mondayOfWeek, dateForWeekday } from '@domain/shared/CalendarWeek';
-import { formatDateGerman } from '@domain/shared/DateFormat';
+import { previousCalendarWeek, formatCalendarWeekRange } from '@domain/shared/CalendarWeek';
 import type { WeeklySchedule } from '@domain/schedule/WeeklySchedule';
 import type { Employee } from '@domain/employee/Employee';
 import { fullName } from '@domain/employee/Employee';
@@ -152,8 +151,7 @@ export function CarryOverPreviousWeekDialog({
       <DialogTitle>
         Mehr-/Minusstunden aus Vorwoche übertragen
         <Typography variant="body2" color="text.secondary">
-          KW {previousWeek.week} · {formatDateGerman(mondayOfWeek(previousWeek))} –{' '}
-          {formatDateGerman(dateForWeekday(previousWeek, 'Sonntag'))}
+          {formatCalendarWeekRange(previousWeek)}
         </Typography>
       </DialogTitle>
       <DialogContent>

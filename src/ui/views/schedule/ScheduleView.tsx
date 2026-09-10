@@ -31,9 +31,10 @@ import {
   calendarWeeksEqual,
   mondayOfWeek,
   dateForWeekday,
+  formatCalendarWeekRange,
   WEEKDAYS,
 } from '@domain/shared/CalendarWeek';
-import { formatDateGerman, toISODate } from '@domain/shared/DateFormat';
+import { toISODate } from '@domain/shared/DateFormat';
 import type { EmployeeId } from '@domain/shared/ids';
 import { targetWeeklyHoursRange } from '@domain/employee/EmploymentType';
 import { fullName } from '@domain/employee/Employee';
@@ -500,8 +501,7 @@ export function ScheduleView() {
             onClick={() => setWeekSelectionOpen(true)}
             sx={{ cursor: 'pointer', textDecoration: 'underline', textDecorationStyle: 'dotted', width: 'fit-content' }}
           >
-            KW {selectedWeek.week} · {formatDateGerman(mondayOfWeek(selectedWeek))} –{' '}
-            {formatDateGerman(dateForWeekday(selectedWeek, 'Sonntag'))}
+            {formatCalendarWeekRange(selectedWeek)}
           </Typography>
         </Box>
 

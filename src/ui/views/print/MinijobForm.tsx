@@ -6,6 +6,7 @@ import type { Branch } from '@domain/branch/Branch';
 import { fullName } from '@domain/employee/Employee';
 import type { PrintRowMinijob } from '@application/export/printDataPreparation';
 import { PrintPageContent } from './PrintPageContent';
+import { formatDateShort, formatHours } from './printFormat';
 
 interface MinijobFormProps {
   branch: Branch;
@@ -17,14 +18,6 @@ interface MinijobFormProps {
 /** The paper form always has 9 pre-printed employee columns of equal width, regardless of how
  * many of them are actually filled. */
 const COLUMNS_PER_SHEET = 9;
-
-function formatDateShort(date: Date): string {
-  return `${String(date.getDate()).padStart(2, '0')}.${String(date.getMonth() + 1).padStart(2, '0')}.`;
-}
-
-function formatHours(value: number): string {
-  return value.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
 
 /** Inserts a <wbr> right before every "/" so a long, space-less job title (e.g.
  * "Filialverantwortliche/-r") gets a controlled wrap point there instead of overflowing its

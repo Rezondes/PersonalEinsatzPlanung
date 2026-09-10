@@ -1,4 +1,5 @@
 import { getISOWeek, getISOWeekYear, startOfISOWeek, addWeeks, subWeeks, addDays } from 'date-fns';
+import { formatDateGerman } from './DateFormat';
 
 /** ISO calendar week. `year` is the ISO week-year, which can differ from the calendar year
  * (e.g. depending on the year, Dec 30 may already belong to week 1 of the following year). */
@@ -40,6 +41,13 @@ export function mondayOfWeek(cw: CalendarWeek): Date {
 export function dateForWeekday(cw: CalendarWeek, day: Weekday): Date {
   const index = WEEKDAYS.indexOf(day);
   return addDays(mondayOfWeek(cw), index);
+}
+
+/** "KW <week> · <Monday> – <Sunday>" - the app's one shared label for a calendar week's range,
+ * used in the Wochenplanung header, the week picker, and the previous-week carry-over dialog, so
+ * the format (separators, which weekday bounds the range) can't drift between them. */
+export function formatCalendarWeekRange(cw: CalendarWeek): string {
+  return `KW ${cw.week} · ${formatDateGerman(mondayOfWeek(cw))} – ${formatDateGerman(dateForWeekday(cw, 'Sonntag'))}`;
 }
 
 export function previousCalendarWeek(cw: CalendarWeek): CalendarWeek {

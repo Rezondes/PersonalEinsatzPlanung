@@ -1,4 +1,5 @@
 import type { FieldError } from '@domain/validation/FieldError';
+import { validateHourRange } from '@domain/validation/FieldError';
 // Type-only, so this doesn't create a real runtime dependency cycle even though Absence.ts
 // imports validateAbsence from this file at runtime - only the erased `type` import goes back.
 import type { AbsenceType } from './Absence';
@@ -46,18 +47,10 @@ export function validateAbsence(draft: AbsenceDraft): FieldError<AbsenceField>[]
     errors.push({ field: 'label', message: 'Bitte Bezeichnung eingeben.' });
   }
   if (draft.type === 'Other' && draft.hoursPerDay !== undefined) {
-    if (!Number.isFinite(draft.hoursPerDay) || draft.hoursPerDay < 0) {
-      errors.push({ field: 'hoursPerDay', message: 'Darf nicht negativ sein.' });
-    } else if (draft.hoursPerDay > 24) {
-      errors.push({ field: 'hoursPerDay', message: 'Höchstens 24 Stunden.' });
-    }
+    errors.push(...validateHourRange(draft.hoursPerDay, 'hoursPerDay'));
   }
   if (draft.type !== 'Other' && draft.creditedMinutesOverride !== undefined) {
-    if (!Number.isFinite(draft.creditedMinutesOverride) || draft.creditedMinutesOverride < 0) {
-      errors.push({ field: 'creditedMinutesOverride', message: 'Darf nicht negativ sein.' });
-    } else if (draft.creditedMinutesOverride > 24 * 60) {
-      errors.push({ field: 'creditedMinutesOverride', message: 'Höchstens 24 Stunden.' });
-    }
+    errors.push(...validateHourRange(draft.creditedMinutesOverride, 'creditedMinutesOverride', 24 * 60));
   }
   if (!draft.from) {
     errors.push({ field: 'from', message: 'Bitte Startdatum wählen.' });

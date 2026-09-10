@@ -1,5 +1,5 @@
 import type { FieldError } from '@domain/validation/FieldError';
-import { MUST_BE_POSITIVE_MESSAGE } from '@domain/validation/FieldError';
+import { MUST_BE_POSITIVE_MESSAGE, validateHourRange } from '@domain/validation/FieldError';
 import type { EmploymentType } from '@domain/employee/EmploymentType';
 
 export type EmployeeField =
@@ -96,10 +96,8 @@ export function validateEmployee(draft: EmployeeDraft): FieldError<EmployeeField
   // hours - 0 is a valid answer, but it has to be a deliberate one.
   if (isMissing(draft.holidayVacationHours)) {
     errors.push({ field: 'holidayVacationHours', message: 'Bitte Std. je Feier-/Urlaubstag eingeben.' });
-  } else if (draft.holidayVacationHours < 0) {
-    errors.push({ field: 'holidayVacationHours', message: 'Darf nicht negativ sein.' });
-  } else if (draft.holidayVacationHours > 24) {
-    errors.push({ field: 'holidayVacationHours', message: 'Höchstens 24 Stunden.' });
+  } else {
+    errors.push(...validateHourRange(draft.holidayVacationHours, 'holidayVacationHours'));
   }
 
   // Both dates are optional; only their order can be wrong. ISO strings compare correctly as text.

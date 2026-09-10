@@ -19,9 +19,8 @@ import {
   calendarWeeksEqual,
   calendarWeekFromDate,
   mondayOfWeek,
-  dateForWeekday,
+  formatCalendarWeekRange,
 } from '@domain/shared/CalendarWeek';
-import { formatDateGerman } from '@domain/shared/DateFormat';
 import type { WeeklySchedule } from '@domain/schedule/WeeklySchedule';
 import type { Absence } from '@domain/absence/Absence';
 import type { EmployeeHoursInfo } from '@application/schedule/scheduleAssessment';
@@ -143,8 +142,7 @@ export function WeekSelectionDialog({
                 <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ width: '100%' }}>
                   <Stack direction="row" spacing={1} alignItems="center">
                     <Typography variant="body2" fontWeight={isSelected ? 600 : 400}>
-                      KW {cw.week} · {formatDateGerman(mondayOfWeek(cw))} –{' '}
-                      {formatDateGerman(dateForWeekday(cw, 'Sonntag'))}
+                      {formatCalendarWeekRange(cw)}
                     </Typography>
                     {isToday && <Chip label="Heute" size="small" color="success" variant="outlined" />}
                   </Stack>
