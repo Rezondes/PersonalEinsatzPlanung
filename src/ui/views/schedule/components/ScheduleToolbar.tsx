@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { DragEvent, MouseEvent } from 'react';
+import type { DragEvent, MouseEvent, ReactNode } from 'react';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import Stack from '@mui/material/Stack';
@@ -9,11 +9,14 @@ import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 import Typography from '@mui/material/Typography';
 import Chip from '@mui/material/Chip';
+import Divider from '@mui/material/Divider';
 import SwipeableDrawer from '@mui/material/SwipeableDrawer';
 import AddIcon from '@mui/icons-material/Add';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import CloseIcon from '@mui/icons-material/Close';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import SwapHorizOutlinedIcon from '@mui/icons-material/SwapHorizOutlined';
+import PrintOutlinedIcon from '@mui/icons-material/PrintOutlined';
 import type { ShiftTemplate } from '@domain/schedule/ShiftTemplate';
 import type { ScheduleTool } from '../scheduleTools';
 import { OFF_TOOL, TOOL_MIME, toolKey, toolLabel, toolSummary } from '../scheduleTools';
@@ -36,6 +39,17 @@ interface ScheduleToolbarProps {
   /** Clears assignModeActive AND the active tool - the banner's X and its "Fertig" button both call
    * this, matching the mockup's "Zuweisen beenden" affordance. */
   onFinishAssigning: () => void;
+  /** Mobile-only "Aktionen" section of the "Weitere Aktionen" sheet - on laptop/tablet these stay
+   * in ScheduleView's own header instead, which has room for them; only the collapsible (mobile)
+   * branch below ever renders this section. */
+  onCarryOver: () => void;
+  onPrint: () => void;
+  printAvailable: boolean;
+  /** Mobile-only "Wochenplanung" section of the sheet: ScheduleView's own <ScheduleHeaderFields>
+   * element, relocated here specifically on mobile (there's no room to show it inline above the
+   * table there) - rendered as-is, never rebuilt, so its loading/blur-save logic stays in one
+   * place. Ignored by the non-collapsible (laptop/tablet) branch, which never renders this prop. */
+  headerFields: ReactNode;
 }
 
 /**
@@ -61,6 +75,10 @@ export function ScheduleToolbar({
   onDelete,
   assignModeActive,
   onFinishAssigning,
+  onCarryOver,
+  onPrint,
+  printAvailable,
+  headerFields,
 }: ScheduleToolbarProps) {
   const layout = useBreakpoint();
   const touchMode = layout !== 'laptop';
@@ -293,7 +311,7 @@ export function ScheduleToolbar({
     <>
       <Paper
         component="section"
-        aria-label="Werkzeugleiste"
+        aria-label="Weitere Aktionen"
         // Not sticky-from-top like the tablet/laptop Paper above: on mobile this is the LAST
         // flex-shrink:0 child of ScheduleView's bounded flex column (see AppShell's
         // fullBleedMobile), placed directly above the fixed bottom tab bar by flex stacking alone -
@@ -324,7 +342,7 @@ export function ScheduleToolbar({
           >
             <Box sx={{ width: 36, height: 4, borderRadius: 1, backgroundColor: '#cfcfc9', flexShrink: 0 }} />
             <Typography variant="body2" fontWeight={500} sx={{ flex: 1 }}>
-              Vorlagen &amp; Werkzeuge
+              Weitere Aktionen
             </Typography>
             <Typography variant="caption" color="text.secondary">
               {templates.length} Vorlagen
@@ -340,17 +358,60 @@ export function ScheduleToolbar({
         onOpen={() => setSheetOpen(true)}
         onClose={() => setSheetOpen(false)}
         disableSwipeToOpen
+        // Never covers more than 60% of the screen, per the mockup's explicit requirement - the
+        // content inside scrolls instead of the sheet growing past it (flex column, only the inner
+        // Box below scrolls, the drag handle stays put at the top).
+        slotProps={{ paper: { sx: { maxHeight: ['60vh', '60dvh'], display: 'flex', flexDirection: 'column' } } }}
       >
         {/* A modal overlay (MUI Drawer z-index 1200), above BottomTabBar's 1100 - only needs the
             device's own bottom safe-area inset, not MOBILE_TAB_BAR_HEIGHT (that's for content that
             must clear the tab bar's height, which an overlay drawn on top of it doesn't). */}
-        <Box sx={{ pt: 1, pb: 'calc(16px + env(safe-area-inset-bottom, 0px))' }}>
-          <Box sx={{ display: 'flex', justifyContent: 'center', pb: 1 }}>
-            <Box sx={{ width: 36, height: 4, borderRadius: 1, backgroundColor: '#cfcfc9' }} />
-          </Box>
-          <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ px: 2, pb: 1 }}>
-            <Typography variant="subtitle1" fontWeight={500}>
-              Vorlagen &amp; Werkzeuge
+        <Box sx={{ display: 'flex', justifyContent: 'center', pt: 1, pb: 1, flexShrink: 0 }}>
+          <Box sx={{ width: 36, height: 4, borderRadius: 1, backgroundColor: '#cfcfc9' }} />
+        </Box>
+        <Box sx={{ overflowY: 'auto', flex: 1, pb: 'calc(16px + env(safe-area-inset-bottom, 0px))' }}>
+          <Typography variant="subtitle1" fontWeight={500} sx={{ px: 2, pb: 1 }}>
+            Weitere Aktionen
+          </Typography>
+
+          <Typography variant="overline" color="text.secondary" sx={{ px: 2, display: 'block' }}>
+            Aktionen
+          </Typography>
+          <Stack spacing={1} sx={{ px: 2, pb: 2 }}>
+            <Button
+              variant="outlined"
+              startIcon={<SwapHorizOutlinedIcon />}
+              onClick={() => {
+                setSheetOpen(false);
+                onCarryOver();
+              }}
+            >
+              Vorwoche übertragen
+            </Button>
+            {printAvailable && (
+              <Button
+                variant="outlined"
+                startIcon={<PrintOutlinedIcon />}
+                onClick={() => {
+                  setSheetOpen(false);
+                  onPrint();
+                }}
+              >
+                Druckansicht
+              </Button>
+            )}
+          </Stack>
+
+          <Divider />
+          <Typography variant="overline" color="text.secondary" sx={{ px: 2, pt: 2, display: 'block' }}>
+            Wochenplanung
+          </Typography>
+          <Box sx={{ px: 2, pb: 1 }}>{headerFields}</Box>
+
+          <Divider />
+          <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ px: 2, pt: 2, pb: 1 }}>
+            <Typography variant="overline" color="text.secondary">
+              Vorlagen
             </Typography>
             <Button
               size="small"

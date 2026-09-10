@@ -54,12 +54,14 @@ interface ScheduleTableProps {
   isAssignTarget: (employeeId: EmployeeId, dayView: DayView) => boolean;
 }
 
-function absenceText(type: 'Vacation' | 'Illness' | 'Other'): string {
+function absenceText(type: 'Vacation' | 'Illness' | 'PublicHoliday' | 'Other'): string {
   switch (type) {
     case 'Vacation':
       return 'Urlaub';
     case 'Illness':
       return 'Krank';
+    case 'PublicHoliday':
+      return 'Feiertag';
     case 'Other':
       return 'Sonstige';
   }
@@ -107,6 +109,14 @@ export const ScheduleTable = memo(function ScheduleTable({
   // the parent would re-render it (and defeat this component's memo) many times per second. As
   // cell state it only changes when the pointer crosses a cell boundary.
   const [dropTargetKey, setDropTargetKey] = useState<string | null>(null);
+  // Warning/deviation tooltips: one shared key instead of per-icon local state, so opening a new
+  // one always closes whichever was open - matches "tap elsewhere dismisses it". Controlled mode
+  // (open/onClose + the three disable*Listener props) turns MUI Tooltip's default 700ms
+  // enterTouchDelay hover/hold behavior into an explicit tap-to-show/tap-to-hide toggle, while MUI's
+  // own built-in click-away-to-close still applies to an open-controlled Tooltip - no ClickAwayListener needed.
+  const [openTooltipKey, setOpenTooltipKey] = useState<string | null>(null);
+  const toggleTooltip = (key: string) =>
+    setOpenTooltipKey((prev) => (prev === key ? null : key));
   // Grouped once per validation run instead of filtering the whole result list for every cell.
   // Week-level results (no date) belong to no cell; ValidationNotices lists them instead.
   const resultsByCell = useMemo(() => {
@@ -149,7 +159,24 @@ export const ScheduleTable = memo(function ScheduleTable({
         // ScheduleView - same edge-to-edge treatment as the mobile toolbar bar, and it buys back a
         // little extra width for the grid's own inevitable horizontal scroll on a phone.
         mx: layout === 'mobile' ? -1.5 : 0,
+        // MuiTableContainer's own base style sets width:'100%', which resolves to the parent's
+        // (padded) content width BEFORE the negative mx above is applied. With width fixed (not
+        // auto), the box model is over-constrained once both margin-left and margin-right are
+        // also fixed, and per the CSS2.1 rule for that case the browser silently recalculates
+        // margin-right instead of honouring it - so only the left edge reached the true screen
+        // edge and the right edge stayed 2x the negative margin short of it. width:'auto' lets the
+        // browser solve width from both (now negative) margins instead, so it expands symmetrically.
+        width: layout === 'mobile' ? 'auto' : undefined,
         borderRadius: layout === 'mobile' ? 0 : undefined,
+        // overflow-x:auto (required for the horizontal scroll, see stickyFirstColumn.ts) forces the
+        // browser to treat this element as a scroll container on BOTH axes even though only one is
+        // ever visually scrolled far right - a classic (non-overlay) vertical scrollbar then
+        // reserves its own width at the container's right edge, which reads as an asymmetric gap
+        // against the left edge (flush, nothing reserved there). Hiding the scrollbar itself (touch
+        // scrolling keeps working) removes that reserved strip instead of fighting it with margins.
+        ...(layout === 'mobile'
+          ? { scrollbarWidth: 'none', '&::-webkit-scrollbar': { display: 'none' } }
+          : {}),
       }}
     >
       <Table size="small">
@@ -207,8 +234,28 @@ export const ScheduleTable = memo(function ScheduleTable({
                       <Tooltip
                         title={`${differenceMinutes > 0 ? '+' : ''}${minutesToDecimalHours(differenceMinutes).toLocaleString('de-DE')} Std. ${differenceMinutes > 0 ? 'über' : 'unter'} Soll (${formatHoursRangeGerman(target.min, target.max)} Std.)`}
                         arrow
+                        open={openTooltipKey === `deviation|${view.employeeId}`}
+                        onClose={() => setOpenTooltipKey(null)}
+                        disableFocusListener
+                        disableHoverListener
+                        disableTouchListener
                       >
-                        <WarningAmberIcon fontSize="small" sx={{ color: '#c8973a' }} />
+                        <Box
+                          component="button"
+                          type="button"
+                          aria-label="Abweichung von Soll anzeigen"
+                          onClick={() => toggleTooltip(`deviation|${view.employeeId}`)}
+                          sx={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            p: 0,
+                            border: 'none',
+                            background: 'transparent',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          <WarningAmberIcon fontSize="small" sx={{ color: '#c8973a' }} />
+                        </Box>
                       </Tooltip>
                     )}
                   </Stack>
@@ -302,6 +349,8 @@ export const ScheduleTable = memo(function ScheduleTable({
                       }
                     : {};
 
+                  const warningKey = `cell|${cellId}`;
+
                   const cell = (
                     <Box
                       data-employeeid={view.employeeId}
@@ -309,6 +358,7 @@ export const ScheduleTable = memo(function ScheduleTable({
                       {...interaction}
                       {...dropHandlers}
                       sx={{
+                        position: 'relative',
                         cursor: locked ? 'default' : 'pointer',
                         borderRadius: 1.5,
                         p: 1,
@@ -324,6 +374,53 @@ export const ScheduleTable = memo(function ScheduleTable({
                         '&:focus-visible': { outline: '2px solid #2f5d50', outlineOffset: 2 },
                       }}
                     >
+                      {matches.length > 0 && (
+                        <Tooltip
+                          title={
+                            <Stack spacing={0.5}>
+                              {matches.map((e, i) => (
+                                <span key={i}>{e.message}</span>
+                              ))}
+                            </Stack>
+                          }
+                          arrow
+                          open={openTooltipKey === warningKey}
+                          onClose={() => setOpenTooltipKey(null)}
+                          disableFocusListener
+                          disableHoverListener
+                          disableTouchListener
+                        >
+                          {/* A dedicated tap target (not the whole cell, which already opens the
+                              Tageseditor on tap) - stopPropagation keeps the two from competing for
+                              the same tap, matching the row-level deviation icon's own pattern. */}
+                          <Box
+                            component="button"
+                            type="button"
+                            aria-label="Hinweis anzeigen"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleTooltip(warningKey);
+                            }}
+                            sx={{
+                              position: 'absolute',
+                              top: 2,
+                              right: 2,
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              width: 20,
+                              height: 20,
+                              p: 0,
+                              border: 'none',
+                              background: 'transparent',
+                              cursor: 'pointer',
+                              color: hasError ? '#b3261e' : '#8a6d1f',
+                            }}
+                          >
+                            <WarningAmberIcon sx={{ fontSize: 16 }} />
+                          </Box>
+                        </Tooltip>
+                      )}
                       {dayView.absenceCoversWholeDay && dayView.absence ? (
                         <>
                           <Typography variant="body2" color="#2f5d50" fontWeight={500}>
@@ -371,22 +468,7 @@ export const ScheduleTable = memo(function ScheduleTable({
 
                   return (
                     <TableCell key={dayView.day} align="center" sx={{ p: 0.5 }}>
-                      {matches.length > 0 ? (
-                        <Tooltip
-                          title={
-                            <Stack spacing={0.5}>
-                              {matches.map((e, i) => (
-                                <span key={i}>{e.message}</span>
-                              ))}
-                            </Stack>
-                          }
-                          arrow
-                        >
-                          {cell}
-                        </Tooltip>
-                      ) : (
-                        cell
-                      )}
+                      {cell}
                     </TableCell>
                   );
                 })}

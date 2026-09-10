@@ -7,9 +7,12 @@ import { useLongPress } from './useLongPress';
  * undefined), so dispatching real DOM pointer events through fireEvent never reliably carries
  * clientX/clientY into React's synthetic event. Calling the returned handlers directly with a
  * minimal fake event sidesteps that entirely and still exercises the real handler logic - only
- * clientX/clientY are read from the event, so that's all a fake needs. */
-function fakeEvent(clientX: number, clientY: number): ReactPointerEvent {
-  return { clientX, clientY } as ReactPointerEvent;
+ * clientX/clientY/isPrimary are read from the event, so that's all a fake needs. isPrimary
+ * defaults to true, matching a real single-touch/mouse pointer - onPointerDown bails out early on
+ * a non-primary pointer (a second simultaneous touch), so every test that means to exercise a
+ * normal single press needs this set. */
+function fakeEvent(clientX: number, clientY: number, isPrimary = true): ReactPointerEvent {
+  return { clientX, clientY, isPrimary } as ReactPointerEvent;
 }
 
 describe('useLongPress', () => {

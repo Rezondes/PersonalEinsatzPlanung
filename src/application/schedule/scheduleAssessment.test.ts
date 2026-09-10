@@ -95,10 +95,37 @@ describe('createWeekView - worked vs credited minutes', () => {
     expect(row.days[0].absenceCoversWholeDay).toBe(false);
   });
 
-  it('credits nothing for illness', () => {
+  it('credits illness the same as vacation (not zero)', () => {
     const [row] = createWeekView(weekWithMonday(), [absence({ type: 'Illness' })], { employees });
     expect(row.workedMinutes).toBe(0);
-    expect(row.creditedMinutes).toBe(0);
+    expect(row.creditedMinutes).toBe(5 * 60);
+  });
+
+  it('zeroes out illness credit on a Sunday or public holiday, same as vacation', () => {
+    const sunday = absence({ type: 'Illness', from: '2026-09-06', to: '2026-09-06' });
+    expect(
+      createWeekView(weekWithMonday(), [sunday], { employees })[0].creditedMinutes,
+    ).toBe(0);
+
+    const onHoliday = absence({ type: 'Illness' });
+    expect(
+      createWeekView(weekWithMonday(), [onHoliday], { employees, isHoliday: () => true })[0].creditedMinutes,
+    ).toBe(0);
+  });
+
+  it('credits a public holiday unconditionally, even on a day isHoliday itself flags', () => {
+    const [row] = createWeekView(weekWithMonday(), [absence({ type: 'PublicHoliday' })], {
+      employees,
+      isHoliday: () => true,
+    });
+    expect(row.creditedMinutes).toBe(5 * 60);
+  });
+
+  it('lets a creditedMinutesOverride win over the calculated value, bypassing the Sonntag/holiday zero-out', () => {
+    const overridden = absence({ type: 'Vacation', creditedMinutesOverride: 120 });
+    expect(
+      createWeekView(weekWithMonday(), [overridden], { employees, isHoliday: () => true })[0].creditedMinutes,
+    ).toBe(120);
   });
 
   it('credits the hours entered on a "Sonstige" absence, and nothing without them', () => {

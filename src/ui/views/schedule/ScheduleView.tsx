@@ -77,7 +77,7 @@ import CircularProgress from '@mui/material/CircularProgress';
 
 export function ScheduleView() {
   const { branch } = useSelectedBranch();
-  const { employeeList } = useEmployeeList(branch?.id ?? null);
+  const { employeeList, loading: employeeListLoading } = useEmployeeList(branch?.id ?? null);
   const selectedWeek = useCalendarWeekStore((s) => s.selectedWeek);
   const setSelectedWeek = useCalendarWeekStore((s) => s.setSelectedWeek);
   const { schedule, loading, setSchedule } = useSchedule(branch?.id ?? null, selectedWeek);
@@ -86,6 +86,13 @@ export function ScheduleView() {
     loading: absencesLoading,
     reload: reloadAbsences,
   } = useAbsences(employeeList.map((emp) => emp.id));
+  // Combines every hook this view depends on for its initial paint, so the one loading overlay
+  // below covers the whole multi-hook fetch window (schedule + employee list + absences) instead
+  // of only the schedule fetch - without this there was a real window where the schedule had
+  // already resolved but the employee list hadn't, flashing a "keine Mitarbeiter" state before it
+  // arrived. Shift-template loading is deliberately excluded: it only means the toolbar briefly
+  // shows fewer tiles, far less jarring than the table/alert flash this guards against.
+  const isLoading = loading || employeeListLoading || absencesLoading;
   const { templates, reload: reloadTemplates } = useShiftTemplates(branch?.id ?? null);
   const validationResults = useScheduleValidation(schedule, branch, absences);
   const navigate = useNavigate();
@@ -242,7 +249,7 @@ export function ScheduleView() {
     setEntryInCell(editorState.employeeId, editorState.dayView, entry);
   };
 
-  const saveAbsence = (type: 'Vacation' | 'Illness' | 'Other', details?: AbsenceDetails) => {
+  const saveAbsence = (type: 'Vacation' | 'Illness' | 'PublicHoliday' | 'Other', details?: AbsenceDetails) => {
     if (!editorState) return;
     const { employeeId, dayView } = editorState;
     run(async () => {
@@ -270,7 +277,13 @@ export function ScheduleView() {
               label: details?.label ?? '',
               hoursPerDay: details?.hoursPerDay,
             })
-          : await services.absence.create({ employeeId, type, from: dayView.date, to: dayView.date });
+          : await services.absence.create({
+              employeeId,
+              type,
+              from: dayView.date,
+              to: dayView.date,
+              creditedMinutesOverride: details?.creditedMinutesOverride,
+            });
       absenceOps.push({ kind: 'created', absence: created });
       await reloadAbsences();
 
@@ -456,6 +469,13 @@ export function ScheduleView() {
     ? rows.find((r) => r.view.employeeId === editorState.employeeId)
     : undefined;
 
+  // Rendered inline (non-mobile) or handed to ScheduleToolbar's mobile sheet (see the "Weitere
+  // Aktionen" restructure below) - one instance either way, never both, since `layout` decides
+  // exactly one placement each render.
+  const headerFields = (
+    <ScheduleHeaderFields schedule={schedule} disabled={isLoading} onSaved={scheduleReplaced} onError={notify.report} />
+  );
+
   // Mobile only: AppShell's fullBleedMobile Container hands this view a bounded, zero-padding
   // region between the header and the fixed bottom tab bar (see PageActionsContext/AppShell) - to
   // fill it, this becomes a flex column itself, with its own px/pt taking over the padding
@@ -471,9 +491,8 @@ export function ScheduleView() {
     >
       <Stack direction="row" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={2} sx={{ mb: 2 }}>
         <Box>
-          <Typography variant="h5" fontWeight={500}>
-            {branch.branchNumber} {branch.name}
-          </Typography>
+          {/* Branch name intentionally not repeated here - it's already shown in the header's
+              Filiale dropdown directly above, at every breakpoint. */}
           <Typography
             variant="body2"
             color="text.secondary"
@@ -548,10 +567,16 @@ export function ScheduleView() {
           <IconButton onClick={() => setSelectedWeek(nextCalendarWeek(selectedWeek))} aria-label="Nächste Woche">
             <ChevronRightIcon />
           </IconButton>
-          <Button variant="outlined" startIcon={<SwapHorizOutlinedIcon />} onClick={() => setCarryOverOpen(true)}>
-            Vorwoche übertragen
-          </Button>
-          {schedule && (
+          {/* Mobile: these two move into the "Weitere Aktionen" sheet's Aktionen section instead
+              (see ScheduleToolbar) - this row has no room for 7 items on a phone, and the overflow
+              used to be silently clipped rather than scrollable (AppShell's fullBleed Container is
+              overflow:hidden on mobile). */}
+          {layout !== 'mobile' && (
+            <Button variant="outlined" startIcon={<SwapHorizOutlinedIcon />} onClick={() => setCarryOverOpen(true)}>
+              Vorwoche übertragen
+            </Button>
+          )}
+          {layout !== 'mobile' && schedule && (
             <Button variant="outlined" startIcon={<PrintOutlinedIcon />} onClick={() => navigate(`/print/${schedule.id}`)}>
               Drucken
             </Button>
@@ -559,23 +584,18 @@ export function ScheduleView() {
         </Stack>
       </Stack>
 
-      <ScheduleHeaderFields
-        schedule={schedule}
-        disabled={loading}
-        onSaved={scheduleReplaced}
-        onError={notify.report}
-      />
+      {layout !== 'mobile' && headerFields}
 
       <Box
         sx={{
           position: 'relative',
-          opacity: loading ? 0.4 : 1,
-          pointerEvents: loading ? 'none' : 'auto',
+          opacity: isLoading ? 0.4 : 1,
+          pointerEvents: isLoading ? 'none' : 'auto',
           transition: 'opacity 120ms',
           ...(layout === 'mobile' ? { display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 } : {}),
         }}
       >
-        {loading && (
+        {isLoading && (
           <Stack
             alignItems="center"
             sx={{ position: 'absolute', inset: 0, justifyContent: 'center', zIndex: 3 }}
@@ -657,7 +677,7 @@ export function ScheduleView() {
           );
         })()}
 
-      {!loading && employeeList.length === 0 && (
+      {!isLoading && employeeList.length === 0 && (
         <Alert severity="info" sx={{ mb: 2 }}>
           Für diese Filiale sind noch keine Mitarbeiter angelegt. Lege zuerst Mitarbeiter unter „Mitarbeiter“ an.
         </Alert>
@@ -695,6 +715,10 @@ export function ScheduleView() {
             onDelete={setTemplateDeleteTarget}
             assignModeActive={assignModeActive}
             onFinishAssigning={finishAssigning}
+            onCarryOver={() => setCarryOverOpen(true)}
+            onPrint={() => schedule && navigate(`/print/${schedule.id}`)}
+            printAvailable={!!schedule}
+            headerFields={headerFields}
           />
         );
 

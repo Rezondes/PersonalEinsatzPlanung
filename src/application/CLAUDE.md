@@ -19,9 +19,11 @@ Use-cases orchestrating domain logic + ports; no framework/browser dependencies 
     override; 0 on a full-day absence). The **only** figure a branch-wide total may use:
     the "Ist-Wochenstd. (gearbeitet)" tile, the week picker's per-week total, the print export's
     per-weekday `dayTotals` and its per-employee week total.
-  - `creditedMinutes` - paid without presence in the store: a vacation day worth
-    `Employee.holidayVacationHours`, or an "Other" absence carrying `hoursPerDay`. Counts for the
-    employee, never for the branch.
+  - `creditedMinutes` - paid without presence in the store: a Vacation, Illness or PublicHoliday
+    day worth `Employee.holidayVacationHours` (Illness intentionally credits the same as Vacation,
+    not zero - a reversed earlier decision), or an "Other" absence carrying `hoursPerDay`. Any of
+    Vacation/Illness/PublicHoliday may also carry a manual `creditedMinutesOverride`, which always
+    wins over the calculated value. Counts for the employee, never for the branch.
   - `totalNetMinutes` = worked + credited, i.e. the employee's Ist-Wochenstunden. Used by the Soll/Ist
     comparison, the monthly overview and the previous week's carry-over.
   A vacation day only credits on days that actually consume entitlement (Mon-Sat, minus public

@@ -5,6 +5,13 @@ import { MemoryRouter } from 'react-router-dom';
 import { services } from '@infrastructure/services';
 import { AppNotifications } from '@ui/app/AppNotifications';
 import { useNotificationStore } from '@ui/app/store/notificationStore';
+import {
+  getCachedPassword,
+  setCachedPassword,
+  setBackupPasswordConfigured,
+} from '@infrastructure/backup/backupPasswordSession';
+import { encryptBackup } from '@infrastructure/export/backupEncryption';
+import type { PepExportFile } from '@application/export/jsonExportFormat';
 import { SettingsView } from './SettingsView';
 
 vi.mock('@infrastructure/services', () => ({
@@ -174,5 +181,59 @@ describe('SettingsView, Google Drive section', () => {
 
     expect(await screen.findByText('Die Verbindung zu Google ist abgelaufen.')).toBeInTheDocument();
     expect(screen.queryByText('Daten importieren?')).not.toBeInTheDocument();
+  });
+});
+
+const fakeExportFile: PepExportFile = {
+  formatVersion: 4,
+  exportedAt: '2026-09-08T12:00:00.000Z',
+  data: { branches: [], employees: [], weeklySchedules: [], absences: [], shiftTemplates: [] },
+};
+
+describe('SettingsView, Backup-Passwort', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    useNotificationStore.getState().clear();
+    drive.isConfigured.mockReturnValue(false);
+    // backupPasswordSession's state is module-level (mirrors googleIdentity.ts), so it survives
+    // between tests in this file unless explicitly reset here - both the in-memory cache and the
+    // localStorage "configured" flag.
+    setCachedPassword(null);
+    setBackupPasswordConfigured(false);
+  });
+
+  it('does not let a password typed to decrypt an import become the password the next export uses', async () => {
+    const user = userEvent.setup();
+    renderView();
+
+    // The browser's own configured backup password. Both fields are `required`, so MUI appends a
+    // literal " *" to the label text - an exact string match against 'Passwort' would never match
+    // ('Passwort bestätigen' either), hence the anchored regexes below.
+    await user.click(screen.getByRole('button', { name: 'Backup-Passwort festlegen' }));
+    await user.type(await screen.findByLabelText(/^Passwort\s*\*?$/), 'eigenesPasswort');
+    await user.type(screen.getByLabelText(/^Passwort bestätigen/), 'eigenesPasswort');
+    await user.click(screen.getByRole('button', { name: 'Festlegen' }));
+    await waitFor(() => expect(getCachedPassword()).toBe('eigenesPasswort'));
+
+    // A backup encrypted with a DIFFERENT password - e.g. a colleague's, or an older one of this
+    // browser's own before a password change.
+    const foreignEnvelope = await encryptBackup(fakeExportFile, 'fremdesPasswort');
+    const file = new File([JSON.stringify(foreignEnvelope)], 'fremd.json', { type: 'application/json' });
+
+    const fileInput = document.querySelector<HTMLInputElement>('input[type="file"]');
+    if (!fileInput) throw new Error('file input not found');
+    await user.upload(fileInput, file);
+
+    expect(await screen.findByText('Daten importieren?')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Importieren' }));
+
+    await user.type(await screen.findByLabelText(/^Passwort\s*\*?$/), 'fremdesPasswort');
+    await user.click(screen.getByRole('button', { name: 'Bestätigen' }));
+
+    await waitFor(() => expect(services.dataExport.importAndReplace).toHaveBeenCalled());
+
+    // The core regression check: decrypting someone else's backup must not silently change what
+    // password the NEXT export from this browser uses.
+    expect(getCachedPassword()).toBe('eigenesPasswort');
   });
 });

@@ -34,10 +34,27 @@ import { isManualInstallPlatform, isStandalone, promptInstall } from '@ui/app/in
 import { downloadFile, backupFilename, readDataFile } from '@infrastructure/export/fileAccess';
 import CloudUploadOutlinedIcon from '@mui/icons-material/CloudUploadOutlined';
 import CloudDownloadOutlinedIcon from '@mui/icons-material/CloudDownloadOutlined';
+import VpnKeyOutlinedIcon from '@mui/icons-material/VpnKeyOutlined';
 import type { RemoteBackup } from '@application/ports/BackupStorage';
 import { ConfirmDialog } from '@ui/components/ConfirmDialog';
 import { DriveBackupDialog } from './DriveBackupDialog';
+import { BackupPasswordDialog } from './BackupPasswordDialog';
 import { APP_BUILD_TIME, APP_COMMIT, APP_VERSION } from '@ui/app/buildInfo';
+import {
+  isBackupPasswordConfigured,
+  setBackupPasswordConfigured,
+  getCachedPassword,
+  setCachedPassword,
+} from '@infrastructure/backup/backupPasswordSession';
+import { encryptBackup, decryptBackup, WrongPasswordError } from '@infrastructure/export/backupEncryption';
+import { isEncryptedBackupEnvelope } from '@application/export/encryptedExportFormat';
+import type { EncryptedBackupEnvelope } from '@application/export/encryptedExportFormat';
+
+/** Signals that the user cancelled an obligatory password prompt (backup encryption configured but
+ * not cached this session) rather than a real export failure - thrown by getOrPromptPassword so
+ * exportData/exportToDrive can bail out silently instead of showing an error notification for what
+ * was a deliberate cancel. */
+class PasswordPromptCancelled extends Error {}
 
 export function SettingsView() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -72,6 +89,26 @@ export function SettingsView() {
   // Covers the screen for the last moment before window.location.reload(), so the 1200 ms are a
   // readable "this worked, hold on" instead of a page that just sits there and then jumps.
   const [reloadingText, setReloadingText] = useState<string | null>(null);
+
+  // 'set': the user is defining/changing the password. 'enterForExport': the password is
+  // configured but not cached this session and an export needs it. 'enterForImport': an encrypted
+  // backup file was chosen and needs decrypting. All three share one BackupPasswordDialog mount -
+  // exactly one can be open at a time - so they can never disagree about what the confirm button
+  // does.
+  const [passwordDialogMode, setPasswordDialogMode] = useState<'set' | 'enterForExport' | 'enterForImport' | null>(
+    null,
+  );
+  const [passwordConfigured, setPasswordConfigured] = useState(() => isBackupPasswordConfigured());
+  const [passwordDialogBusy, setPasswordDialogBusy] = useState(false);
+  // 'enterForImport' only: sees a value after a wrong-password attempt so the dialog can show it
+  // inline without closing.
+  const [passwordDialogError, setPasswordDialogError] = useState<string | null>(null);
+  // 'enterForImport' only: the envelope to decrypt once the dialog resolves. Kept in state (not
+  // read again from the file) so a wrong-password retry never has to touch the file input again.
+  const [pendingImportEnvelope, setPendingImportEnvelope] = useState<EncryptedBackupEnvelope | null>(null);
+  // 'enterForExport' only: resolves the Promise getOrPromptPassword() is awaiting. A ref, not
+  // state, because the function itself must never trigger a re-render.
+  const exportPasswordResolveRef = useRef<((password: string | null) => void) | null>(null);
 
   useEffect(() => {
     void storageDurability().then(setDurability);
@@ -145,14 +182,115 @@ export function SettingsView() {
     notify.success('Verbindung zu Google getrennt.');
   };
 
+  /**
+   * Resolves to the password to encrypt a fresh export with, or `null` when encryption is off.
+   * Both export call sites (local download and Drive upload) go through this one function, so they
+   * can never disagree about whether encryption happens. Cheap in the common case: only opens the
+   * dialog when a password is configured AND not already cached this session (e.g. right after a
+   * reload, since the cache is deliberately memory-only - see backupPasswordSession.ts).
+   */
+  const getOrPromptPassword = async (): Promise<string | null> => {
+    if (!isBackupPasswordConfigured()) {
+      return null;
+    }
+    const cached = getCachedPassword();
+    if (cached !== null) {
+      return cached;
+    }
+    const password = await new Promise<string | null>((resolve) => {
+      exportPasswordResolveRef.current = resolve;
+      setPasswordDialogError(null);
+      setPasswordDialogMode('enterForExport');
+    });
+    if (password === null) {
+      throw new PasswordPromptCancelled();
+    }
+    return password;
+  };
+
+  /** Shared by the plain-import path and the decrypt-then-import path below, so there is only one
+   * place that finishes an import (replace + reload), exactly as before this feature existed. */
+  const finishImport = async (rawData: unknown) => {
+    await services.dataExport.importAndReplace(rawData);
+    setReloadingText('Import abgeschlossen. Die App wird neu geladen…');
+    setTimeout(() => window.location.reload(), 1200);
+  };
+
+  const closePasswordDialog = () => {
+    // A cancelled export-password prompt resolves the Promise getOrPromptPassword() is awaiting
+    // with null, which that function turns into a PasswordPromptCancelled throw - the export's own
+    // catch then bails out silently instead of showing an error for what was a deliberate cancel.
+    if (passwordDialogMode === 'enterForExport') {
+      exportPasswordResolveRef.current?.(null);
+      exportPasswordResolveRef.current = null;
+    }
+    setPasswordDialogMode(null);
+    setPendingImportEnvelope(null);
+    setPasswordDialogError(null);
+  };
+
+  const submitPasswordDialog = async (password: string) => {
+    if (passwordDialogMode === 'set') {
+      // Hash nothing yet - just cache the password and remember that one is configured. It is
+      // only ever used the moment an export actually happens (getOrPromptPassword above).
+      setCachedPassword(password);
+      setBackupPasswordConfigured(true);
+      setPasswordConfigured(true);
+      setPasswordDialogMode(null);
+      notify.success('Backup-Passwort wurde festgelegt.');
+      return;
+    }
+
+    if (passwordDialogMode === 'enterForExport') {
+      setCachedPassword(password);
+      setPasswordDialogMode(null);
+      exportPasswordResolveRef.current?.(password);
+      exportPasswordResolveRef.current = null;
+      return;
+    }
+
+    if (passwordDialogMode === 'enterForImport') {
+      const envelope = pendingImportEnvelope;
+      if (!envelope) return;
+      setPasswordDialogBusy(true);
+      setPasswordDialogError(null);
+      try {
+        const rawData = await decryptBackup(envelope, password);
+        // Deliberately NOT setCachedPassword(password) here: a backup being imported can carry a
+        // completely different password than this browser's own configured one (e.g. a colleague's
+        // backup, or one made before a password change) - caching it would silently switch what
+        // password the NEXT export uses, with no prompt and no warning. Decrypting one file must
+        // have no effect on what future exports do.
+        setPasswordDialogMode(null);
+        setPendingImportEnvelope(null);
+        await finishImport(rawData);
+      } catch (error) {
+        if (error instanceof WrongPasswordError) {
+          // Stay open: same dialog, same envelope, just retype the password.
+          setPasswordDialogError(error.message);
+        } else {
+          setPasswordDialogMode(null);
+          setPendingImportEnvelope(null);
+          notify.error(error instanceof Error ? error.message : 'Import fehlgeschlagen.');
+        }
+      } finally {
+        setPasswordDialogBusy(false);
+      }
+    }
+  };
+
   const exportToDrive = async () => {
     setDriveBusy(true);
     try {
+      const password = await getOrPromptPassword();
       const file = await services.dataExport.export();
-      const saved = await services.backupStorage.upload(backupFilename(), file);
+      const content = password !== null ? await encryptBackup(file, password) : file;
+      const saved = await services.backupStorage.upload(backupFilename(), content);
       notify.success(`„${saved.name}“ wurde in Google Drive gesichert.`);
     } catch (error) {
-      reportDriveError(error, 'Die Sicherung in Google Drive ist fehlgeschlagen.');
+      if (!(error instanceof PasswordPromptCancelled)) {
+        reportDriveError(error, 'Die Sicherung in Google Drive ist fehlgeschlagen.');
+      }
     } finally {
       setDriveBusy(false);
     }
@@ -179,11 +317,15 @@ export function SettingsView() {
   const exportData = async () => {
     setExporting(true);
     try {
+      const password = await getOrPromptPassword();
       const file = await services.dataExport.export();
-      downloadFile(backupFilename(), file);
+      const content = password !== null ? await encryptBackup(file, password) : file;
+      downloadFile(backupFilename(), content);
       notify.success('Backup wurde heruntergeladen.');
     } catch (error) {
-      notify.report(error, 'Der Export ist fehlgeschlagen');
+      if (!(error instanceof PasswordPromptCancelled)) {
+        notify.report(error, 'Der Export ist fehlgeschlagen');
+      }
     } finally {
       setExporting(false);
     }
@@ -202,11 +344,19 @@ export function SettingsView() {
     setImporting(true);
     try {
       const rawData = await readDataFile(file);
-      await services.dataExport.importAndReplace(rawData);
+      if (isEncryptedBackupEnvelope(rawData)) {
+        // Hand off to BackupPasswordDialog ('enterForImport'), which calls finishImport itself once
+        // decryptBackup succeeds. This ConfirmDialog's job - confirming the destructive replace -
+        // is done; closing it now, an entirely separate dialog takes over.
+        closeImportDialog();
+        setPendingImportEnvelope(rawData);
+        setPasswordDialogError(null);
+        setPasswordDialogMode('enterForImport');
+        return;
+      }
       // Close first, then cover the screen: a Backdrop and an open Dialog would fight over z-index.
       closeImportDialog();
-      setReloadingText('Import abgeschlossen. Die App wird neu geladen…');
-      setTimeout(() => window.location.reload(), 1200);
+      await finishImport(rawData);
     } catch (error) {
       closeImportDialog();
       notify.error(error instanceof Error ? error.message : 'Import fehlgeschlagen.');
@@ -342,6 +492,29 @@ export function SettingsView() {
             )}
           </>
         )}
+
+        <Divider sx={{ my: 3 }} />
+        <Typography variant="subtitle1" fontWeight={500} sx={{ mb: 1 }}>
+          Backup-Passwort
+        </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          Ist ein Passwort festgelegt, werden neue Backups (als Datei und in Google Drive) automatisch damit
+          verschlüsselt. Ein geändertes Passwort wirkt sich nur auf zukünftige Backups aus - bereits erstellte
+          Sicherungen benötigen weiterhin das Passwort, das zum Zeitpunkt ihrer Erstellung galt.
+        </Typography>
+        <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap" useFlexGap>
+          <Typography variant="body2">Status: {passwordConfigured ? 'Festgelegt' : 'Nicht festgelegt'}</Typography>
+          <Button
+            variant="outlined"
+            startIcon={<VpnKeyOutlinedIcon />}
+            onClick={() => {
+              setPasswordDialogError(null);
+              setPasswordDialogMode('set');
+            }}
+          >
+            {passwordConfigured ? 'Passwort ändern' : 'Backup-Passwort festlegen'}
+          </Button>
+        </Stack>
       </Paper>
 
 
@@ -507,6 +680,16 @@ export function SettingsView() {
           onClose={() => setDrivePickerOpen(false)}
           onSelect={chooseDriveBackup}
           onError={notify.report}
+        />
+      )}
+
+      {passwordDialogMode && (
+        <BackupPasswordDialog
+          mode={passwordDialogMode === 'set' ? 'set' : 'enter'}
+          error={passwordDialogError}
+          busy={passwordDialogBusy}
+          onClose={closePasswordDialog}
+          onSubmit={submitPasswordDialog}
         />
       )}
 

@@ -1,13 +1,26 @@
 # domain/absence/
 
-Absence is a discriminated union (`Vacation | Illness | Other`). The `Illness` variant
-deliberately has **no** free-text/diagnosis field at the type level - Privacy by Design enforced by
-the type system itself, not just convention (GDPR: no health-detail data is even representable, let
-alone stored). Do not add a notes field to `Illness`.
+Absence is a discriminated union (`Vacation | Illness | PublicHoliday | Other`). The `Illness`
+variant deliberately has **no** free-text/diagnosis field at the type level - Privacy by Design
+enforced by the type system itself, not just convention (GDPR: no health-detail data is even
+representable, let alone stored). Do not add a notes field to `Illness`.
+
+`PublicHoliday` ("Feiertag" in the UI) exists so a public holiday no longer has to be recorded via
+`Other` - it auto-defaults to `Employee.holidayVacationHours` like Vacation, but unlike Vacation
+does NOT zero out on a day the injected `isHoliday` check already flags (see
+`application/schedule/scheduleAssessment.ts` - marking a day PublicHoliday IS the statement that it
+is such a day).
+
+`Vacation`, `Illness` and `PublicHoliday` all support an optional `creditedMinutesOverride`: a
+plain number of minutes that always wins over the calculated value, on every day of the range. It
+carries no health/diagnosis information, so adding it to `Illness` does not violate the
+Privacy-by-Design rule above - it is the same kind of value as `Other.hoursPerDay` below, just an
+override rather than the sole source of truth.
 
 Only the `Other` variant has `hoursPerDay` (optional): hours credited to the employee for **each
-day** of the range, e.g. a training day or a public holiday. It is the manual escape hatch, so it is
-credited exactly as entered - including on Sundays and public holidays, unlike a vacation day (see
+day** of the range, e.g. a training day (a public holiday now has its own `PublicHoliday` type
+above, rather than going through `Other`). It is the manual escape hatch, so it is credited exactly
+as entered - including on Sundays and public holidays, unlike a vacation day (see
 `application/schedule/scheduleAssessment.ts`).
 
 `AbsenceInput` uses a hand-written distributive conditional type instead of plain

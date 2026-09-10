@@ -24,6 +24,8 @@ function absenceAbbreviation(absence: Absence): string {
       return 'U';
     case 'Illness':
       return 'K';
+    case 'PublicHoliday':
+      return 'F';
     case 'Other':
       return absence.label;
   }

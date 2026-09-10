@@ -39,7 +39,7 @@ import { notify } from '@ui/app/store/notificationStore';
 import { usePageActions } from '@ui/app/PageActionsContext';
 
 type SortKey = 'employee' | 'type' | 'from' | 'to';
-type TypeFilter = 'all' | 'Vacation' | 'Illness' | 'Other';
+type TypeFilter = 'all' | 'Vacation' | 'Illness' | 'PublicHoliday' | 'Other';
 
 const ALL = 'all';
 const COLUMN_COUNT = 6;
@@ -50,6 +50,8 @@ function absenceTypeLabel(a: Absence): string {
       return 'Urlaub';
     case 'Illness':
       return 'Krankheit';
+    case 'PublicHoliday':
+      return 'Feiertag';
     case 'Other':
       return a.label;
   }
@@ -63,6 +65,8 @@ function absenceKindLabel(a: Absence): string {
       return 'Urlaub';
     case 'Illness':
       return 'Krankheit';
+    case 'PublicHoliday':
+      return 'Feiertag';
     case 'Other':
       return 'Sonstige';
   }
@@ -287,6 +291,7 @@ export function AbsencesView() {
             <MenuItem value={ALL}>Alle</MenuItem>
             <MenuItem value="Vacation">Urlaub</MenuItem>
             <MenuItem value="Illness">Krankheit</MenuItem>
+            <MenuItem value="PublicHoliday">Feiertag</MenuItem>
             <MenuItem value="Other">Sonstige</MenuItem>
           </TextField>
           <TextField

@@ -20,7 +20,7 @@ import type { DayEntry } from '@domain/schedule/EmployeeWeekAssignment';
 import { shiftNetMinutes, minutesToDecimalHours } from '@domain/schedule/scheduleCalculation';
 import type { Absence } from '@domain/absence/Absence';
 import { formatISODateGerman } from '@domain/shared/DateFormat';
-import { validateAbsence } from '@domain/absence/absenceValidation';
+import { CREDITED_OVERRIDE_FIELD, validateAbsence } from '@domain/absence/absenceValidation';
 import type { EmployeeId } from '@domain/shared/ids';
 import { validateBreaks } from '@domain/validation/arbzg/breakValidation';
 import { validateShiftDuration } from '@domain/validation/arbzg/shiftDurationValidation';
@@ -33,14 +33,17 @@ import { FormErrorNotice } from '@ui/components/FormErrorNotice';
 import { ResponsiveDialog } from '@ui/components/ResponsiveDialog';
 import { ShiftListEditor } from './ShiftListEditor';
 
-type Mode = 'Off' | 'Shift' | 'Vacation' | 'Illness' | 'Other';
+type Mode = 'Off' | 'Shift' | 'Vacation' | 'Illness' | 'PublicHoliday' | 'Other';
 
-/** Extra fields only "Sonstige" carries. The label is always a non-empty, trimmed string here
- * (validated before saving); hoursPerDay is optional and counts towards the employee's own weekly
- * hours, never towards the branch total. */
+/** Extra fields "Sonstige" and the credited-hours variants carry. The label is always a
+ * non-empty, trimmed string here (validated before saving) for "Sonstige"; hoursPerDay is
+ * optional and counts towards the employee's own weekly hours, never towards the branch total.
+ * creditedMinutesOverride (in minutes) is only meaningful for Vacation/Illness/PublicHoliday -
+ * it replaces the automatically calculated credited hours for that day. */
 export interface AbsenceDetails {
   label?: string;
   hoursPerDay?: number;
+  creditedMinutesOverride?: number;
 }
 
 interface DayEditorProps {
@@ -49,7 +52,7 @@ interface DayEditorProps {
   /** Saving a Shift/Off entry also clears a single-day Absence on that cell - handled by the
    * parent, which records both as one undoable step. */
   onSave: (entry: DayEntry) => void;
-  onAbsenceSave: (type: 'Vacation' | 'Illness' | 'Other', details?: AbsenceDetails) => void;
+  onAbsenceSave: (type: 'Vacation' | 'Illness' | 'PublicHoliday' | 'Other', details?: AbsenceDetails) => void;
   employeeId: EmployeeId;
   employeeName: string;
   day: string;
@@ -64,6 +67,8 @@ function absenceTypeLabel(type: Absence['type']): string {
       return 'Urlaub';
     case 'Illness':
       return 'Krankheit';
+    case 'PublicHoliday':
+      return 'Feiertag';
     case 'Other':
       return 'Sonstige';
   }
@@ -89,6 +94,9 @@ export function DayEditor({
   const [hoursPerDay, setHoursPerDay] = useState<number | undefined>(undefined);
   // Manual correction of the whole day's net hours. Empty means "use the calculated value".
   const [netOverrideHours, setNetOverrideHours] = useState<number | undefined>(undefined);
+  // Manual correction of the day's credited hours (Vacation/Illness/PublicHoliday only). Kept in
+  // hours here, same as netOverrideHours, and converted to minutes right before saving.
+  const [creditedHoursOverride, setCreditedHoursOverride] = useState<number | undefined>(undefined);
   const [showConfirmation, setShowConfirmation] = useState(false);
 
   const isSingleDayAbsence = !!absence && absence.from === date && absence.to === date;
@@ -97,6 +105,16 @@ export function DayEditor({
   const validation = useFormValidation<string>(() => [
     ...(mode === 'Other'
       ? validateAbsence({ employeeId, type: 'Other', from: date, to: date, label, hoursPerDay })
+      : []),
+    ...(mode === 'Vacation' || mode === 'Illness' || mode === 'PublicHoliday'
+      ? validateAbsence({
+          employeeId,
+          type: mode,
+          from: date,
+          to: date,
+          creditedMinutesOverride:
+            creditedHoursOverride !== undefined ? Math.round(creditedHoursOverride * 60) : undefined,
+        })
       : []),
     ...(mode === 'Shift' ? validateShiftDrafts(drafts) : []),
     ...(mode === 'Shift' ? validateNetMinutesOverride(netOverrideHours) : []),
@@ -117,12 +135,18 @@ export function DayEditor({
       setMode(absence.type);
       setLabel(absence.type === 'Other' ? absence.label : '');
       setHoursPerDay(absence.type === 'Other' ? absence.hoursPerDay : undefined);
+      setCreditedHoursOverride(
+        absence.type !== 'Other' && absence.creditedMinutesOverride !== undefined
+          ? minutesToDecimalHours(absence.creditedMinutesOverride)
+          : undefined,
+      );
       setDrafts(entry.type === 'Shift' ? entry.shifts.map(shiftToDraft) : []);
     } else if (entry.type === 'Shift' && entry.shifts.length > 0) {
       setMode('Shift');
       setDrafts(entry.shifts.map(shiftToDraft));
       setLabel('');
       setHoursPerDay(undefined);
+      setCreditedHoursOverride(undefined);
     } else {
       // Free day: suggest work time with a default shift right away instead of
       // showing "Off" first, saving a click for new entries. If the user cancels, the day stays
@@ -131,6 +155,7 @@ export function DayEditor({
       setDrafts([newShiftDraft()]);
       setLabel('');
       setHoursPerDay(undefined);
+      setCreditedHoursOverride(undefined);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, entry, absence, date, isSingleDayAbsence]);
@@ -172,7 +197,13 @@ export function DayEditor({
     } else if (mode === 'Other') {
       onAbsenceSave(mode, { label: label.trim(), hoursPerDay });
     } else {
-      onAbsenceSave(mode);
+      // Vacation | Illness | PublicHoliday
+      onAbsenceSave(
+        mode,
+        creditedHoursOverride !== undefined
+          ? { creditedMinutesOverride: Math.round(creditedHoursOverride * 60) }
+          : undefined,
+      );
     }
     onClose();
   };
@@ -241,6 +272,7 @@ export function DayEditor({
           <ToggleButton value="Shift">Arbeitszeit</ToggleButton>
           <ToggleButton value="Vacation">Urlaub</ToggleButton>
           <ToggleButton value="Illness">Krankheit</ToggleButton>
+          <ToggleButton value="PublicHoliday">Feiertag</ToggleButton>
           <ToggleButton value="Other">Sonstige</ToggleButton>
         </ToggleButtonGroup>
 
@@ -265,6 +297,25 @@ export function DayEditor({
             Trägt für {employeeName} am {formatISODateGerman(date)} einen Krankheitstag ein. Es werden bewusst keine Diagnose- oder
             Gesundheitsdetails erfasst.
           </Alert>
+        )}
+
+        {mode === 'PublicHoliday' && (
+          <Alert severity="info" sx={{ mb: 2 }}>
+            Trägt für {employeeName} am {formatISODateGerman(date)} einen Feiertag ein.
+          </Alert>
+        )}
+
+        {(mode === 'Vacation' || mode === 'Illness' || mode === 'PublicHoliday') && (
+          <DecimalTextField
+            label="Angerechnete Stunden manuell (optional)"
+            value={creditedHoursOverride}
+            onChange={setCreditedHoursOverride}
+            sx={{ maxWidth: 280, mb: 2 }}
+            {...validation.fieldProps(
+              CREDITED_OVERRIDE_FIELD,
+              'Ersetzt die automatisch berechneten Stunden (Std. je Feier-/Urlaubstag) für diesen Tag.',
+            )}
+          />
         )}
 
         {mode === 'Other' && (

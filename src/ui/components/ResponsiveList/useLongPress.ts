@@ -35,6 +35,9 @@ export function useLongPress({ onLongPress, onTap, delayMs = 500, moveThresholdP
 
   const onPointerDown = useCallback(
     (e: PointerEvent) => {
+      // Ignores a second simultaneous touch (e.g. an accidental palm/second-finger contact) -
+      // without this, that second pointerdown would restart the gesture mid-press.
+      if (!e.isPrimary) return;
       firedRef.current = false;
       movedRef.current = false;
       startRef.current = { x: e.clientX, y: e.clientY };

@@ -10,7 +10,7 @@ import type { EmployeeId } from '@domain/shared/ids';
 import { toISODate } from '@domain/shared/DateFormat';
 import type { Employee } from '@domain/employee/Employee';
 import { fullName } from '@domain/employee/Employee';
-import { validateAbsence } from '@domain/absence/absenceValidation';
+import { CREDITED_OVERRIDE_FIELD, validateAbsence } from '@domain/absence/absenceValidation';
 import type { AbsenceField } from '@domain/absence/absenceValidation';
 import { services } from '@infrastructure/services';
 import { useFormValidation } from '@ui/hooks/useFormValidation';
@@ -20,7 +20,7 @@ import { FormErrorNotice } from '@ui/components/FormErrorNotice';
 import CircularProgress from '@mui/material/CircularProgress';
 import { ResponsiveDialog } from '@ui/components/ResponsiveDialog';
 
-type AbsenceType = 'Vacation' | 'Illness' | 'Other';
+type AbsenceType = 'Vacation' | 'Illness' | 'PublicHoliday' | 'Other';
 
 interface FormState {
   employeeId: string;
@@ -29,6 +29,9 @@ interface FormState {
   to: string;
   label: string;
   hoursPerDay: number | undefined;
+  /** Vacation/Illness/PublicHoliday only: replaces the automatically calculated credited hours
+   * for every day of the range. Kept in hours here, converted to minutes right before saving. */
+  creditedHoursOverride: number | undefined;
   note: string;
   halfDayAtStart: boolean;
   halfDayAtEnd: boolean;
@@ -45,6 +48,7 @@ function emptyForm(firstEmployeeId: string): FormState {
     to: today,
     label: '',
     hoursPerDay: undefined,
+    creditedHoursOverride: undefined,
     note: '',
     halfDayAtStart: false,
     halfDayAtEnd: false,
@@ -72,6 +76,8 @@ export function AbsenceDialog({ employees, onClose, onSaved, onError }: AbsenceD
       to: form.to,
       label: form.label,
       hoursPerDay: form.hoursPerDay,
+      creditedMinutesOverride:
+        form.creditedHoursOverride !== undefined ? Math.round(form.creditedHoursOverride * 60) : undefined,
       // Lets the domain reject a range outside the employee's Eintritt/Austritt at the field,
       // instead of an inline guard here (see the forms section of src/ui/CLAUDE.md).
       employment: selectedEmployee
@@ -89,12 +95,24 @@ export function AbsenceDialog({ employees, onClose, onSaved, onError }: AbsenceD
 
     setSaving(true);
     try {
+      const creditedMinutesOverride =
+        form.creditedHoursOverride !== undefined ? Math.round(form.creditedHoursOverride * 60) : undefined;
       if (form.type === 'Vacation') {
         const halfDay =
           form.halfDayAtStart || form.halfDayAtEnd ? { atStart: form.halfDayAtStart, atEnd: form.halfDayAtEnd } : undefined;
-        await services.absence.create({ employeeId, type: 'Vacation', from: form.from, to: form.to, halfDay, note: form.note || undefined });
+        await services.absence.create({
+          employeeId,
+          type: 'Vacation',
+          from: form.from,
+          to: form.to,
+          halfDay,
+          note: form.note || undefined,
+          creditedMinutesOverride,
+        });
       } else if (form.type === 'Illness') {
-        await services.absence.create({ employeeId, type: 'Illness', from: form.from, to: form.to });
+        await services.absence.create({ employeeId, type: 'Illness', from: form.from, to: form.to, creditedMinutesOverride });
+      } else if (form.type === 'PublicHoliday') {
+        await services.absence.create({ employeeId, type: 'PublicHoliday', from: form.from, to: form.to, creditedMinutesOverride });
       } else {
         await services.absence.create({
           employeeId,
@@ -165,8 +183,21 @@ export function AbsenceDialog({ employees, onClose, onSaved, onError }: AbsenceD
           >
             <MenuItem value="Vacation">Urlaub</MenuItem>
             <MenuItem value="Illness">Krankheit</MenuItem>
+            <MenuItem value="PublicHoliday">Feiertag</MenuItem>
             <MenuItem value="Other">Sonstige</MenuItem>
           </TextField>
+          {(form.type === 'Vacation' || form.type === 'Illness' || form.type === 'PublicHoliday') && (
+            <DecimalTextField
+              label="Angerechnete Stunden manuell (optional)"
+              value={form.creditedHoursOverride}
+              onChange={(value) => setForm((f) => ({ ...f, creditedHoursOverride: value }))}
+              sx={{ width: 280 }}
+              {...validation.fieldProps(
+                CREDITED_OVERRIDE_FIELD,
+                'Ersetzt die automatisch berechneten Stunden (Std. je Feier-/Urlaubstag) für jeden Tag des Zeitraums.',
+              )}
+            />
+          )}
           {form.type === 'Other' && (
             <Stack direction="row" spacing={2} alignItems="flex-start">
               <TextField

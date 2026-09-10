@@ -1,16 +1,25 @@
 import type { FieldError } from '@domain/validation/FieldError';
 
-export type AbsenceField = 'employeeId' | 'label' | 'hoursPerDay' | 'from' | 'to';
+export type AbsenceField = 'employeeId' | 'label' | 'hoursPerDay' | 'creditedMinutesOverride' | 'from' | 'to';
+
+/** Field key for the manual credited-minutes override (Vacation/Illness/PublicHoliday), mirroring
+ * domain/schedule/shiftDraft.ts's NET_OVERRIDE_FIELD naming. */
+export const CREDITED_OVERRIDE_FIELD: AbsenceField = 'creditedMinutesOverride';
 
 export interface AbsenceDraft {
   employeeId: string;
-  type: 'Vacation' | 'Illness' | 'Other';
+  type: 'Vacation' | 'Illness' | 'Other' | 'PublicHoliday';
   from: string;
   to: string;
   /** Only checked for type 'Other', where it is the text shown in the schedule. */
   label?: string;
   /** Only checked for type 'Other'. Optional hours credited per day of the range. */
   hoursPerDay?: number;
+  /** Only checked for Vacation/Illness/PublicHoliday: replaces the automatically calculated
+   * credited minutes for every day of the range. In minutes, matching
+   * Absence.creditedMinutesOverride directly - the field itself is entered in hours in the UI, but
+   * converted before reaching this draft, same as how Shift's netMinutesOverride is handled. */
+  creditedMinutesOverride?: number;
   /** The employee's employment period, when the caller knows it. Left out by createAbsence, which
    * only sees the absence itself - the dialogs pass it so a range outside Eintritt/Austritt is
    * rejected at the field instead of silently creating an unplannable entry. */
@@ -38,6 +47,13 @@ export function validateAbsence(draft: AbsenceDraft): FieldError<AbsenceField>[]
       errors.push({ field: 'hoursPerDay', message: 'Darf nicht negativ sein.' });
     } else if (draft.hoursPerDay > 24) {
       errors.push({ field: 'hoursPerDay', message: 'Höchstens 24 Stunden.' });
+    }
+  }
+  if (draft.type !== 'Other' && draft.creditedMinutesOverride !== undefined) {
+    if (!Number.isFinite(draft.creditedMinutesOverride) || draft.creditedMinutesOverride < 0) {
+      errors.push({ field: 'creditedMinutesOverride', message: 'Darf nicht negativ sein.' });
+    } else if (draft.creditedMinutesOverride > 24 * 60) {
+      errors.push({ field: 'creditedMinutesOverride', message: 'Höchstens 24 Stunden.' });
     }
   }
   if (!draft.from) {

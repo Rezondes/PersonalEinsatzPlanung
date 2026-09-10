@@ -7,6 +7,7 @@ import Select from '@mui/material/Select';
 import MenuItem from '@mui/material/MenuItem';
 import { useBranchList } from '@ui/hooks/useBranch';
 import { useBranchSelectionStore } from '@ui/app/store/branchSelectionStore';
+import { useBreakpoint } from '@ui/hooks/useBreakpoint';
 
 interface AppHeaderProps {
   /** Forwarded to AppShell's ResizeObserver, which publishes --pep-header-height for
@@ -27,15 +28,32 @@ export function AppHeader({ headerRef, nav }: AppHeaderProps) {
   const activeBranches = branches.filter((b) => b.active);
   const selectedBranchId = useBranchSelectionStore((s) => s.selectedBranchId);
   const setSelectedBranch = useBranchSelectionStore((s) => s.setSelectedBranch);
+  const isMobile = useBreakpoint() === 'mobile';
+
+  // Truncates with an ellipsis instead of the Select auto-sizing to the branch name - only visible
+  // on mobile, where the Select is width-constrained (flex:1, minWidth:0) below; at every other
+  // breakpoint nothing bounds its width, so this renders exactly as the plain MenuItem text would.
+  const renderBranchValue = (value: string) => {
+    const b = activeBranches.find((br) => br.id === value);
+    return (
+      <Typography noWrap sx={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
+        {b ? `${b.branchNumber} - ${b.name}` : ''}
+      </Typography>
+    );
+  };
 
   return (
     <AppBar ref={headerRef} position="sticky" color="transparent" sx={{ top: 0, backgroundColor: '#ffffff' }}>
-      <Toolbar sx={{ gap: 3, flexWrap: 'wrap', py: 1 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+      <Toolbar sx={{ gap: isMobile ? 1.5 : 3, flexWrap: isMobile ? 'nowrap' : 'wrap', py: 1 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0 }}>
           <Box component="img" src={`${import.meta.env.BASE_URL}favicon.svg`} alt="" sx={{ width: 24, height: 24 }} />
-          <Typography variant="subtitle1" fontWeight={500}>
-            Personaleinsatzplanung
-          </Typography>
+          {/* Mobile: no title text - the Filiale dropdown takes its place and stretches to fill the
+              remaining width instead (see the Select below). */}
+          {!isMobile && (
+            <Typography variant="subtitle1" fontWeight={500}>
+              Personaleinsatzplanung
+            </Typography>
+          )}
         </Box>
 
         {activeBranches.length > 0 && (
@@ -43,7 +61,8 @@ export function AppHeader({ headerRef, nav }: AppHeaderProps) {
             size="small"
             value={selectedBranchId ?? ''}
             onChange={(e) => setSelectedBranch(e.target.value as never)}
-            sx={{ minWidth: 220 }}
+            renderValue={renderBranchValue}
+            sx={isMobile ? { flex: 1, minWidth: 0 } : { minWidth: 220 }}
           >
             {activeBranches.map((b) => (
               <MenuItem key={b.id} value={b.id}>

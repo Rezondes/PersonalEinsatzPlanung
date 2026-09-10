@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { BranchId, EmployeeId } from '@domain/shared/ids';
 import { WEEKDAYS, dateForWeekday } from '@domain/shared/CalendarWeek';
@@ -68,19 +68,35 @@ describe('ScheduleTable', () => {
     expect(screen.getAllByText('frei')).toHaveLength(13);
   });
 
-  it('attaches a dated validation result to exactly its cell and ignores week-level ones', async () => {
+  it('shows a dedicated warning icon for a cell with a dated validation result, ignores week-level ones, and tapping it toggles the tooltip without also opening the cell', async () => {
     const user = userEvent.setup();
+    const onCellClick = vi.fn();
     const results: ValidationResult[] = [
       { rule: 'ArbZG_3_Tag', severity: 'error', message: 'Tagesarbeitszeit zu lang', employeeId: m1, date: '2026-09-07' },
       { rule: 'ArbZG_3_Woche', severity: 'warning', message: 'Wochenarbeitszeit hoch', employeeId: m1 },
     ];
-    render(<ScheduleTable rows={rowsFor(employees)} weekDays={weekDays} validationResults={results} onCellClick={() => {}} onToolDrop={() => {}} {...notAssigning} />);
+    render(
+      <ScheduleTable
+        rows={rowsFor(employees)}
+        weekDays={weekDays}
+        validationResults={results}
+        onCellClick={onCellClick}
+        onToolDrop={() => {}}
+        {...notAssigning}
+      />,
+    );
 
-    const [mondayOfFirstRow] = screen.getAllByRole('button', { name: 'Montag bearbeiten' });
-    await user.hover(mondayOfFirstRow);
+    const warningIcon = screen.getByRole('button', { name: 'Hinweis anzeigen' });
+    await user.click(warningIcon);
 
     expect(await screen.findByText('Tagesarbeitszeit zu lang')).toBeInTheDocument();
     expect(screen.queryByText('Wochenarbeitszeit hoch')).not.toBeInTheDocument();
+    // The icon has its own tap target (stopPropagation) so it never also opens the Tageseditor.
+    expect(onCellClick).not.toHaveBeenCalled();
+
+    // A second tap on the same icon hides it again.
+    await user.click(warningIcon);
+    await waitFor(() => expect(screen.queryByText('Tagesarbeitszeit zu lang')).not.toBeInTheDocument());
   });
 
   it('reports the clicked cell with its employee and day', async () => {

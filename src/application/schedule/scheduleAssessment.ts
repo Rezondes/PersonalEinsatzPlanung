@@ -123,17 +123,26 @@ function workedMinutesFor(entry: DayEntry, coversWholeDay: boolean): number {
 
 /** Hours paid without presence in the store.
  *
- * Vacation draws on the employee's holidayVacationHours, but only on days that actually consume
- * vacation entitlement: Mon-Sat, excluding public holidays - the same rule as
+ * A `creditedMinutesOverride` on the absence (Vacation/Illness/PublicHoliday) always wins when
+ * present, on every day of the range including Sunday and public holidays - the manual escape
+ * hatch, same principle as "Other" below.
+ *
+ * Vacation and Illness draw on the employee's holidayVacationHours, but only on days that actually
+ * consume vacation entitlement: Mon-Sat, excluding public holidays - the same rule as
  * vacationCalculation.countWorkDays. Otherwise a Mon-Sun vacation would credit seven days' worth
- * and push the employee over their weekly target.
+ * and push the employee over their weekly target. Illness deliberately follows the exact same rule
+ * as Vacation now (this used to credit nothing; the app now treats a sick day like a vacation day
+ * for credited hours) - being sick on a day the employee wouldn't have worked anyway should not add
+ * extra credited hours either.
+ *
+ * PublicHoliday ("Feiertag") also draws on holidayVacationHours, but unconditionally - unlike
+ * Vacation/Illness it does NOT zero out on a day `isHoliday` already flags, since marking a day
+ * PublicHoliday IS the statement that it is such a day; zeroing it out there would defeat the type.
  *
  * "Other" credits exactly what was entered, on every day of its range including Sunday and
- * holidays: it is the manual escape hatch (this is how a public holiday gets its hours), so the
- * number the user typed is the number that counts.
+ * holidays: it is the manual escape hatch, so the number the user typed is the number that counts.
  *
- * Illness credits nothing. Employees stored before holidayVacationHours existed fall back to 0
- * rather than producing NaN. */
+ * Employees stored before holidayVacationHours existed fall back to 0 rather than producing NaN. */
 function creditedMinutesFor(
   absence: Absence | undefined,
   employee: EmployeeHoursInfo | undefined,
@@ -147,9 +156,13 @@ function creditedMinutesFor(
   if (absence.type === 'Other') {
     return (absence.hoursPerDay ?? 0) * 60;
   }
-  if (absence.type !== 'Vacation') {
-    return 0;
+  if (absence.creditedMinutesOverride !== undefined) {
+    return absence.creditedMinutesOverride;
   }
+  if (absence.type === 'PublicHoliday') {
+    return (employee?.holidayVacationHours ?? 0) * 60;
+  }
+  // Vacation | Illness: both draw on holidayVacationHours only on days that consume entitlement.
   if (day === 'Sonntag' || isHoliday?.(date)) {
     return 0;
   }
