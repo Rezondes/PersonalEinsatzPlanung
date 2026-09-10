@@ -3,6 +3,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { BranchId, EmployeeId, AbsenceId } from '@domain/shared/ids';
 import type { Employee } from '@domain/employee/Employee';
+import { toISODate } from '@domain/shared/DateFormat';
 import { TO_BEFORE_FROM_MESSAGE } from '@domain/absence/absenceValidation';
 import { services } from '@infrastructure/services';
 import { AbsenceDialog } from './AbsenceDialog';
@@ -31,7 +32,7 @@ function employee(id: EmployeeId, lastName: string): Employee {
 }
 
 const employees = [employee(m1, 'Müller'), employee('m2' as EmployeeId, 'Schulz')];
-const today = new Date().toISOString().slice(0, 10);
+const today = toISODate(new Date());
 
 function renderDialog() {
   const onClose = vi.fn();
