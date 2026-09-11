@@ -1,11 +1,8 @@
-import Box from '@mui/material/Box';
-import Typography from '@mui/material/Typography';
-import Paper from '@mui/material/Paper';
-import Stack from '@mui/material/Stack';
-import { usePageActions } from '@ui/app/PageActionsContext';
-import { useBreakpoint } from '@ui/hooks/useBreakpoint';
+import { describe, it, expect } from 'vitest';
+import { render, screen, within } from '@testing-library/react';
+import { TermsView } from './TermsView';
 
-const SECTIONS = [
+const SECTIONS: Array<{ title: string; text: string }> = [
   {
     title: 'Geltungsbereich',
     text: 'Diese Nutzungsbedingungen gelten für Personaleinsatzplanung (PEP), ein kostenloses Werkzeug zur Personaleinsatzplanung für Filialleiter im Einzelhandel. PEP speichert alle Daten ausschließlich lokal im Browser dieses Geräts (IndexedDB), kommt ohne Server-Backend aus und funktioniert als Progressive Web App vollständig offline. Zusätzlich gibt es eine optionale Sicherung deiner Daten in deinem eigenen Google Drive.',
@@ -44,40 +41,28 @@ const SECTIONS = [
   },
 ];
 
-export function TermsView() {
-  const layout = useBreakpoint();
-  usePageActions({ fullBleedPage: true });
+describe('TermsView', () => {
+  it('renders the heading and every terms section with its exact title and body text, in order', () => {
+    render(<TermsView />);
 
-  return (
-    <Box
-      sx={{
-        maxWidth: 720,
-        display: 'flex',
-        flexDirection: 'column',
-        flex: 1,
-        minHeight: 0,
-        height: '100%',
-        px: layout === 'mobile' ? 1.5 : 3,
-        py: layout === 'mobile' ? 1.5 : 3,
-      }}
-    >
-      <Typography variant="h5" fontWeight={500} sx={{ mb: 1 }}>
-        Nutzungsbedingungen
-      </Typography>
-      <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
-        <Stack spacing={2} data-selectable>
-          {SECTIONS.map((section) => (
-            <Paper key={section.title} sx={{ p: 3 }}>
-              <Typography variant="subtitle1" fontWeight={500} sx={{ mb: 1 }}>
-                {section.title}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                {section.text}
-              </Typography>
-            </Paper>
-          ))}
-        </Stack>
-      </Box>
-    </Box>
-  );
-}
+    expect(screen.getByRole('heading', { level: 5, name: 'Nutzungsbedingungen' })).toBeInTheDocument();
+
+    const sectionHeadings = screen.getAllByRole('heading', { level: 6 });
+    expect(sectionHeadings).toHaveLength(SECTIONS.length);
+
+    sectionHeadings.forEach((heading, index) => {
+      const { title, text } = SECTIONS[index];
+      expect(heading).toHaveTextContent(title);
+      const paper = heading.parentElement as HTMLElement;
+      expect(within(paper).getByText(text)).toBeInTheDocument();
+    });
+  });
+
+  it('marks the section list as selectable text, so the terms can be copied', () => {
+    const { container } = render(<TermsView />);
+
+    const selectable = container.querySelector('[data-selectable]');
+    expect(selectable).not.toBeNull();
+    expect(within(selectable as HTMLElement).getAllByRole('heading', { level: 6 })).toHaveLength(SECTIONS.length);
+  });
+});

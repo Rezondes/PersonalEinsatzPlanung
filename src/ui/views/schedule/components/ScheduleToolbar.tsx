@@ -275,31 +275,34 @@ export function ScheduleToolbar({
     // is no other way to reach a different tile there, so hiding the row would mean "Fertig" is the
     // only way to switch tools mid-assignment.
     return (
-      <Paper
-        component="section"
-        aria-label="Werkzeugleiste"
-        sx={{
-          position: 'sticky',
-          top: 'var(--pep-header-height, 64px)',
-          zIndex: 2,
-          mb: 2,
-          overflow: 'hidden',
-          backgroundColor: 'background.paper',
-        }}
-      >
-        {touchMode && assignModeActive && <Box sx={{ borderBottom: '1px solid', borderColor: 'divider' }}>{assignBanner()}</Box>}
-        <Stack direction="row" spacing={1} alignItems="center" sx={{ p: 1, overflowX: 'auto', pb: 0.5 }}>
-          {tools.map((tool) => renderTile(tool, false))}
-          <Button size="small" startIcon={<AddIcon />} onClick={onCreate} sx={{ flexShrink: 0 }}>
-            Vorlage
-          </Button>
-          {templates.length === 0 && (
-            <Typography variant="caption" color="text.secondary" sx={{ flexShrink: 0, pl: 1 }}>
-              Eigene Schichten anlegen, dann auf einen Tag ziehen.
-            </Typography>
-          )}
-        </Stack>
-      </Paper>
+      <>
+        <Paper
+          component="section"
+          aria-label="Werkzeugleiste"
+          sx={{
+            position: 'sticky',
+            top: 'var(--pep-header-height, 64px)',
+            zIndex: 2,
+            mb: 2,
+            overflow: 'hidden',
+            backgroundColor: 'background.paper',
+          }}
+        >
+          {touchMode && assignModeActive && <Box sx={{ borderBottom: '1px solid', borderColor: 'divider' }}>{assignBanner()}</Box>}
+          <Stack direction="row" spacing={1} alignItems="center" sx={{ p: 1, overflowX: 'auto', pb: 0.5 }}>
+            {tools.map((tool) => renderTile(tool, false))}
+            <Button size="small" startIcon={<AddIcon />} onClick={onCreate} sx={{ flexShrink: 0 }}>
+              Vorlage
+            </Button>
+            {templates.length === 0 && (
+              <Typography variant="caption" color="text.secondary" sx={{ flexShrink: 0, pl: 1 }}>
+                Eigene Schichten anlegen, dann auf einen Tag ziehen.
+              </Typography>
+            )}
+          </Stack>
+        </Paper>
+        {templateMenu}
+      </>
     );
   }
 
