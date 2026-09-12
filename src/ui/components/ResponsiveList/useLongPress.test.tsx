@@ -74,4 +74,15 @@ describe('useLongPress', () => {
 
     expect(onLongPress).not.toHaveBeenCalled();
   });
+
+  it('calls onTap on a plain click, so a native button already translates Enter/Space into activation', () => {
+    const onLongPress = vi.fn();
+    const onTap = vi.fn();
+    const { result } = renderHook(() => useLongPress({ onLongPress, onTap, delayMs: 500, moveThresholdPx: 10 }));
+
+    act(() => result.current.onClick());
+
+    expect(onTap).toHaveBeenCalledTimes(1);
+    expect(onLongPress).not.toHaveBeenCalled();
+  });
 });

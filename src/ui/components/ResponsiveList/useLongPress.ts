@@ -73,5 +73,14 @@ export function useLongPress({ onLongPress, onTap, delayMs = 500, moveThresholdP
     clear();
   }, [clear]);
 
-  return { onPointerDown, onPointerMove, onPointerUp, onPointerCancel };
+  // Keyboard activation: a native <button>/ButtonBase already translates Enter/Space into a click
+  // event, so this needs no separate onKeyDown - it just has to route that click to the same place
+  // a short tap goes. Pointer-based presses never fire onClick from a plain click alone in a way
+  // that would double up: onTap already required onPointerUp, which a keyboard activation never
+  // produces.
+  const onClick = useCallback(() => {
+    onTap?.();
+  }, [onTap]);
+
+  return { onPointerDown, onPointerMove, onPointerUp, onPointerCancel, onClick };
 }
