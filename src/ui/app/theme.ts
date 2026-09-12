@@ -70,7 +70,7 @@ export const theme = createTheme(
           },
           // Prose we deliberately released reads as selectable before the user tries.
           '[data-selectable]': { cursor: 'text' },
-          // Replaces the tap highlight we just removed; see NAV_LINK_CLASS in app/AppShell.tsx.
+          // Replaces the tap highlight we just removed; see NAV_LINK_CLASS in app/nav/navLinkStyle.ts.
           '.pep-nav-link:active': { backgroundColor: '#e0e8e5' },
         },
       },
