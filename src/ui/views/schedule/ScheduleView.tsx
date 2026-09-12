@@ -133,6 +133,7 @@ export function ScheduleView() {
   // dataTransfer only carries a marker type so foreign drags (files, text) can be told apart.
   const draggedToolRef = useRef<ScheduleTool | null>(null);
   const [templateDeleteTarget, setTemplateDeleteTarget] = useState<ShiftTemplate | null>(null);
+  const [templateDeleting, setTemplateDeleting] = useState(false);
   const [weekSelectionOpen, setWeekSelectionOpen] = useState(false);
   const [carryOverOpen, setCarryOverOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -188,6 +189,17 @@ export function ScheduleView() {
     scheduleRef.current = schedule;
   }, [schedule]);
 
+  // Identifies which branch+week a mutation was started against - the same identity
+  // useScheduleHistory itself uses to key undo steps, exposed here as a ref so setEntryInCell can
+  // read it synchronously at the point a slow save resolves. Without this, a save that was still in
+  // flight when the user switched weeks would write its (correctly saved) result into the state of
+  // whatever week happens to be selected by the time it resolves, not the week it was saved for.
+  const historyKey = `${branch?.id ?? 'none'}|${selectedWeek.year}|${selectedWeek.week}`;
+  const requestKeyRef = useRef(historyKey);
+  useEffect(() => {
+    requestKeyRef.current = historyKey;
+  }, [historyKey]);
+
   const applyStep = useCallback(
     async (step: HistoryStep, direction: HistoryDirection) => {
       const target = direction === 'undo' ? step.scheduleBefore : step.scheduleAfter;
@@ -208,8 +220,9 @@ export function ScheduleView() {
   );
 
   const history = useScheduleHistory({
-    historyKey: `${branch?.id ?? 'none'}|${selectedWeek.year}|${selectedWeek.week}`,
-    shortcutsEnabled: !editorState && !contextMenu && !weekSelectionOpen && !carryOverOpen,
+    historyKey,
+    shortcutsEnabled:
+      !editorState && !contextMenu && !weekSelectionOpen && !carryOverOpen && !templateDialog && !templateDeleteTarget,
     applyStep,
     onError: notify.report,
   });
@@ -229,6 +242,7 @@ export function ScheduleView() {
       run(async () => {
         const before = scheduleRef.current;
         if (!before) return null;
+        const requestKey = requestKeyRef.current;
 
         const absenceOps: AbsenceOp[] = [];
         const existing = dayView.absence;
@@ -239,8 +253,14 @@ export function ScheduleView() {
         }
 
         const updated = await services.schedule.setDayEntryAndSave(before, employeeId, dayView.day, entry);
-        scheduleRef.current = updated;
-        setSchedule(updated);
+        // A week/branch switch while this save was in flight: the write is already correctly
+        // stored in the database, but the currently displayed schedule belongs to a different
+        // week now - only useScheduleHistory's own key check (see historyKey above) may still
+        // record it for undo, the visible table must never be overwritten with it.
+        if (requestKey === requestKeyRef.current) {
+          scheduleRef.current = updated;
+          setSchedule(updated);
+        }
         return { scheduleBefore: before, scheduleAfter: updated, absenceOps };
       }, 'Eintrag konnte nicht gespeichert werden'),
     [run, reloadAbsences, setSchedule],
@@ -854,8 +874,10 @@ export function ScheduleView() {
         text={`Die Vorlage „${templateDeleteTarget?.name ?? ''}" wird entfernt. Bereits eingetragene Arbeitszeiten bleiben unverändert, sie sind Kopien der Vorlage.`}
         confirmText="Löschen"
         dangerous
+        busy={templateDeleting}
         onConfirm={async () => {
           if (!templateDeleteTarget) return;
+          setTemplateDeleting(true);
           try {
             await services.shiftTemplate.delete(templateDeleteTarget.id);
             if (activeTool?.kind === 'template' && activeTool.template.id === templateDeleteTarget.id) {
@@ -869,6 +891,7 @@ export function ScheduleView() {
             notify.report(e, 'Vorlage konnte nicht gelöscht werden');
           } finally {
             setTemplateDeleteTarget(null);
+            setTemplateDeleting(false);
           }
         }}
         onCancel={() => setTemplateDeleteTarget(null)}

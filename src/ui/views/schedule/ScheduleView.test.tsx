@@ -904,6 +904,73 @@ describe('ScheduleView', () => {
       await waitFor(() => expect(screen.getByRole('button', { name: 'Wiederholen' })).toBeEnabled());
     });
 
+    it('disables the undo shortcut while the shift-template dialog is open, and re-enables it once it closes', async () => {
+      scheduleGetOrCreate.mockResolvedValueOnce(buildSchedule());
+
+      const { container } = renderScheduleView();
+      await screen.findByText(fullName(employeeA));
+      const user = userEvent.setup();
+
+      openContextMenu(cellEl(container, employeeA.id, 'Montag'));
+      await user.click(menuItem('Frei'));
+      await waitFor(() => expect(screen.getByRole('button', { name: 'Rückgängig' })).toBeEnabled());
+
+      await user.click(screen.getByRole('button', { name: 'Vorlage' }));
+      await screen.findByText('Neue Vorlage');
+
+      act(() => {
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'z', ctrlKey: true, bubbles: true }));
+      });
+      // A synchronous check right after dispatch would pass even if the guard were missing - undo's
+      // own applyStep call is chained through a microtask queue, so it needs a real turn of the
+      // event loop before a leaked call would show up here.
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(scheduleSave).not.toHaveBeenCalled();
+
+      await user.click(screen.getByRole('button', { name: 'Abbrechen' }));
+      await waitFor(() => expect(screen.queryByText('Neue Vorlage')).not.toBeInTheDocument());
+
+      act(() => {
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'z', ctrlKey: true, bubbles: true }));
+      });
+      await waitFor(() => expect(scheduleSave).toHaveBeenCalledTimes(1));
+      await waitFor(() => expect(screen.getByRole('button', { name: 'Wiederholen' })).toBeEnabled());
+    });
+
+    it('disables the undo shortcut while the template-delete confirm dialog is open, and re-enables it once it closes', async () => {
+      scheduleGetOrCreate.mockResolvedValueOnce(buildSchedule());
+      shiftTemplateForBranch.mockResolvedValueOnce([templateA]);
+
+      const { container } = renderScheduleView();
+      await screen.findByText(fullName(employeeA));
+      const user = userEvent.setup();
+
+      openContextMenu(cellEl(container, employeeA.id, 'Montag'));
+      await user.click(menuItem('Frei'));
+      await waitFor(() => expect(screen.getByRole('button', { name: 'Rückgängig' })).toBeEnabled());
+
+      await user.click(screen.getByRole('button', { name: 'Frühschicht bearbeiten oder löschen' }));
+      await user.click(screen.getByRole('menuitem', { name: 'Löschen' }));
+      await screen.findByText('Vorlage löschen?');
+
+      act(() => {
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'z', ctrlKey: true, bubbles: true }));
+      });
+      // See the sibling shift-template-dialog test above for why this needs a real event-loop turn
+      // before the "not called" check is meaningful.
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(scheduleSave).not.toHaveBeenCalled();
+
+      await user.click(screen.getByRole('button', { name: 'Abbrechen' }));
+      await waitFor(() => expect(screen.queryByText('Vorlage löschen?')).not.toBeInTheDocument());
+
+      act(() => {
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'z', ctrlKey: true, bubbles: true }));
+      });
+      await waitFor(() => expect(scheduleSave).toHaveBeenCalledTimes(1));
+      await waitFor(() => expect(screen.getByRole('button', { name: 'Wiederholen' })).toBeEnabled());
+    });
+
     it('Wiederholen replays the redo direction: after an undo, redoing brings the cell back to the edited state', async () => {
       scheduleGetOrCreate.mockResolvedValueOnce(buildSchedule());
 
@@ -926,6 +993,55 @@ describe('ScheduleView', () => {
       await waitFor(() => expect(cellEl(container, employeeA.id, 'Montag')).toHaveTextContent('frei'));
       expect(redoButton).toBeDisabled();
       expect(undoButton).toBeEnabled();
+    });
+  });
+
+  describe('stale write guard on week switch', () => {
+    it('does not let a slow save started against the OLD week overwrite the table after switching to a new week', async () => {
+      let schedule = createWeeklySchedule(branchId, SELECTED_WEEK, [employeeA.id, employeeB.id]);
+      schedule = withDayEntry(schedule, employeeA.id, 'Montag', {
+        type: 'Shift',
+        shifts: [createShift(clockTime('06:00'), clockTime('14:00'))],
+      });
+      scheduleGetOrCreate.mockResolvedValueOnce(schedule);
+
+      const nextWeek = nextCalendarWeek(SELECTED_WEEK);
+      let nextWeekSchedule = createWeeklySchedule(branchId, nextWeek, [employeeA.id, employeeB.id]);
+      nextWeekSchedule = withDayEntry(nextWeekSchedule, employeeA.id, 'Montag', {
+        type: 'Shift',
+        shifts: [createShift(clockTime('09:00'), clockTime('13:00'))],
+      });
+      scheduleGetOrCreate.mockResolvedValueOnce(nextWeekSchedule);
+
+      let resolveSave!: (s: WeeklySchedule) => void;
+      scheduleSetDayEntryAndSave.mockReturnValueOnce(
+        new Promise<WeeklySchedule>((res) => {
+          resolveSave = res;
+        }),
+      );
+
+      const { container } = renderScheduleView();
+      await screen.findByText(fullName(employeeA));
+      const user = userEvent.setup();
+
+      openContextMenu(cellEl(container, employeeA.id, 'Montag'));
+      await user.click(menuItem('Frei'));
+      await waitFor(() => expect(scheduleSetDayEntryAndSave).toHaveBeenCalledTimes(1));
+
+      // Switches away from the week the pending save above belongs to.
+      await user.click(screen.getByRole('button', { name: 'Nächste Woche' }));
+      await waitFor(() => expect(cellEl(container, employeeA.id, 'Montag')).toHaveTextContent('09:00-13:00'));
+
+      // The OLD week's save now finally resolves, well after the switch. The write queue's own
+      // busy/stack bookkeeping still updates state at this point regardless of the guard below, so
+      // this needs act() even though the guard itself should prevent any visible table change.
+      await act(async () => {
+        resolveSave(withDayEntry(schedule, employeeA.id, 'Montag', { type: 'Off' }));
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      });
+
+      // Must still show the NEW week's data - the late write must not have overwritten it.
+      expect(cellEl(container, employeeA.id, 'Montag')).toHaveTextContent('09:00-13:00');
     });
   });
 
@@ -1422,6 +1538,32 @@ describe('ScheduleView', () => {
 
       await waitFor(() => expect(shiftTemplateDelete).toHaveBeenCalledWith(templateB.id));
       expect(screen.getByText('Frühschicht zuweisen')).toBeInTheDocument();
+    });
+
+    it('shows a busy state on the template-delete confirm dialog while shiftTemplate.delete is in flight', async () => {
+      shiftTemplateForBranch.mockResolvedValueOnce([templateA]);
+      let resolveDelete!: () => void;
+      shiftTemplateDelete.mockReturnValueOnce(
+        new Promise<void>((res) => {
+          resolveDelete = res;
+        }),
+      );
+
+      renderScheduleView(TABLET_LANDSCAPE);
+      await screen.findByText(fullName(employeeA));
+      const user = userEvent.setup();
+
+      await user.click(screen.getByRole('button', { name: 'Frühschicht bearbeiten oder löschen' }));
+      await user.click(screen.getByRole('menuitem', { name: 'Löschen' }));
+
+      const confirmButton = await screen.findByRole('button', { name: 'Löschen' });
+      await user.click(confirmButton);
+
+      await waitFor(() => expect(confirmButton).toBeDisabled());
+      expect(screen.getByRole('button', { name: 'Abbrechen' })).toBeDisabled();
+
+      resolveDelete();
+      await waitFor(() => expect(screen.queryByRole('button', { name: 'Abbrechen' })).not.toBeInTheDocument());
     });
   });
 
