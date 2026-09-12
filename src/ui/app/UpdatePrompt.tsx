@@ -9,6 +9,13 @@ import { mobileSafeBottom } from './nav/mobileChromeOffset';
 /** Once an hour. Often enough that a fix reaches the shops the same day, rare enough to be free. */
 const UPDATE_CHECK_INTERVAL_MS = 60 * 60 * 1000;
 
+/** sessionStorage, not localStorage: a closed-and-reopened tab is a fresh session and should see
+ * the prompt again even for the very same still-waiting update, but a reload of the SAME tab must
+ * not immediately re-show what "Später" just dismissed - that was the bug this fixes. Keyed by the
+ * waiting worker's own scriptURL so a genuinely different update (one that replaces the dismissed
+ * one, e.g. found by the hourly check below) is never suppressed by an unrelated earlier dismissal. */
+const DISMISSED_UPDATE_KEY = 'pep.update.dismissedScriptURL';
+
 /**
  * Registers the service worker and asks before switching to a new version.
  *
@@ -44,9 +51,16 @@ export function UpdatePrompt() {
     return () => clearInterval(timer);
   }, []);
 
+  // Read directly during render, not via state: sessionStorage cannot change from outside this
+  // tab's own JS between renders, so there is nothing to synchronize - only "Später" below ever
+  // writes it, and that already triggers a re-render via setNeedRefresh.
+  const waitingScriptURL = registration.current?.waiting?.scriptURL;
+  const isDismissedUpdate =
+    waitingScriptURL !== undefined && sessionStorage.getItem(DISMISSED_UPDATE_KEY) === waitingScriptURL;
+
   return (
     <Snackbar
-      open={needRefresh}
+      open={needRefresh && !isDismissedUpdate}
       anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
       sx={{ '@media print': { display: 'none' }, ...(layout === 'mobile' && { bottom: `${mobileSafeBottom(8)} !important` }) }}
     >
@@ -58,7 +72,16 @@ export function UpdatePrompt() {
         // labelled buttons beat an X anyway for people who do not read icons.
         action={
           <>
-            <Button color="inherit" size="small" onClick={() => setNeedRefresh(false)}>
+            <Button
+              color="inherit"
+              size="small"
+              onClick={() => {
+                if (waitingScriptURL !== undefined) {
+                  sessionStorage.setItem(DISMISSED_UPDATE_KEY, waitingScriptURL);
+                }
+                setNeedRefresh(false);
+              }}
+            >
               Später
             </Button>
             <Button color="inherit" size="small" onClick={() => void updateServiceWorker(true)}>

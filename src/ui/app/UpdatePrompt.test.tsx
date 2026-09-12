@@ -23,17 +23,28 @@ function renderPrompt() {
   );
 }
 
-function withUpdate(pending: boolean) {
-  useRegisterSWMock.mockReturnValue({
-    needRefresh: [pending, setNeedRefresh],
-    offlineReady: [false, vi.fn()],
-    updateServiceWorker,
+/** waitingScriptURL simulates identifying WHICH update is pending, the way the fix distinguishes
+ * "the same still-waiting update" from "a genuinely different one" across a remount (see
+ * UpdatePrompt.tsx). mockImplementation, not mockReturnValue: onRegisteredSW has to actually run
+ * so registration.current gets populated, exactly as the real hook does internally. */
+function withUpdate(pending: boolean, waitingScriptURL = '/sw.js') {
+  useRegisterSWMock.mockImplementation((options) => {
+    options?.onRegisteredSW?.(
+      '/sw.js',
+      { waiting: pending ? ({ scriptURL: waitingScriptURL } as ServiceWorker) : null } as ServiceWorkerRegistration,
+    );
+    return {
+      needRefresh: [pending, setNeedRefresh],
+      offlineReady: [false, vi.fn()],
+      updateServiceWorker,
+    };
   });
 }
 
 describe('UpdatePrompt', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    sessionStorage.clear();
   });
 
   it('stays out of the way while no update is waiting', () => {
@@ -70,5 +81,31 @@ describe('UpdatePrompt', () => {
 
     expect(setNeedRefresh).toHaveBeenCalledWith(false);
     expect(updateServiceWorker).not.toHaveBeenCalled();
+  });
+
+  it('does not reappear right away for the SAME still-waiting update after "Später", simulating a reload', async () => {
+    withUpdate(true, '/sw.js');
+    const { unmount } = renderPrompt();
+    await userEvent.click(screen.getByRole('button', { name: 'Später' }));
+    unmount();
+
+    // A fresh mount with the identical pending update - e.g. the user reloaded the same tab.
+    withUpdate(true, '/sw.js');
+    renderPrompt();
+
+    expect(screen.queryByText(/neue Version/i)).not.toBeInTheDocument();
+  });
+
+  it('shows an actually different update right away even after a previous dismissal, once remounted', async () => {
+    withUpdate(true, '/sw.js');
+    const { unmount } = renderPrompt();
+    await userEvent.click(screen.getByRole('button', { name: 'Später' }));
+    unmount();
+
+    // A different update replaced the dismissed one by the time this tab (or a new one) opens.
+    withUpdate(true, '/sw.js?v=2');
+    renderPrompt();
+
+    expect(screen.getByText('Eine neue Version ist verfügbar.')).toBeInTheDocument();
   });
 });
