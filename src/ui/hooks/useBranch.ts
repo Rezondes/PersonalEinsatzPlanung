@@ -18,11 +18,21 @@ export function useBranchList() {
   }, [loaded]);
 
   useEffect(() => {
-    if (!selectedBranchId && branches.length > 0) {
-      setSelectedBranch(branches[0].id);
-    } else if (selectedBranchId && !branches.some((b) => b.id === selectedBranchId) && branches.length > 0) {
-      // previously selected Branch no longer exists in the list (e.g. deactivated while filtered out elsewhere)
-      setSelectedBranch(branches[0].id);
+    // Nothing to judge the current selection against yet (still loading) - touching it here would
+    // clobber a pre-existing selection with null for one render, before the real list arrives.
+    if (branches.length === 0) return;
+    // Checked against ACTIVE branches only, not the raw list: a deactivated branch stays IN
+    // branches (only deleted ones disappear), so a bare "is the id still present" check never
+    // fired for it - the header (which itself filters to activeBranches) was left pointing at a
+    // Select value with no matching MenuItem, rendering blank. Falls back to no selection at all
+    // when every branch is inactive, which every view's existing "no branch selected" state
+    // already covers - deliberately not a new, separate empty state to invent.
+    const activeBranches = branches.filter((b) => b.active);
+    const selectedIsActive = activeBranches.some((b) => b.id === selectedBranchId);
+    if (selectedIsActive) return;
+    const fallbackId = activeBranches[0]?.id ?? null;
+    if (fallbackId !== selectedBranchId) {
+      setSelectedBranch(fallbackId);
     }
   }, [branches, selectedBranchId, setSelectedBranch]);
 

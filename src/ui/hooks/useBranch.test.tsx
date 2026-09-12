@@ -122,6 +122,31 @@ describe('useSelectedBranch', () => {
     expect(useBranchSelectionStore.getState().selectedBranchId).toBe('branch-1');
   });
 
+  it('switches away from the selected branch once it is deactivated, even though it is still in the list', async () => {
+    useBranchSelectionStore.setState({ selectedBranchId: 'branch-1' as BranchId });
+    const branches = [
+      makeBranch({ id: 'branch-1' as BranchId, active: false }),
+      makeBranch({ id: 'branch-2' as BranchId }),
+    ];
+    allMock.mockResolvedValue(branches);
+
+    const { result } = renderHook(() => useSelectedBranch());
+
+    await waitFor(() => expect(result.current.branch?.id).toBe('branch-2'));
+    expect(useBranchSelectionStore.getState().selectedBranchId).toBe('branch-2');
+  });
+
+  it('clears the selection when the selected branch is deactivated and no other active branch exists', async () => {
+    useBranchSelectionStore.setState({ selectedBranchId: 'branch-1' as BranchId });
+    const branches = [makeBranch({ id: 'branch-1' as BranchId, active: false })];
+    allMock.mockResolvedValue(branches);
+
+    const { result } = renderHook(() => useSelectedBranch());
+
+    await waitFor(() => expect(useBranchSelectionStore.getState().selectedBranchId).toBeNull());
+    expect(result.current.branch).toBeNull();
+  });
+
   it('leaves the selection alone when the previously selected branch still exists', async () => {
     useBranchSelectionStore.setState({ selectedBranchId: 'branch-2' as BranchId });
     const branches = [makeBranch({ id: 'branch-1' as BranchId }), makeBranch({ id: 'branch-2' as BranchId })];

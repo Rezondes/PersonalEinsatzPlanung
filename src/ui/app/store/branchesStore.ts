@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { Branch } from '@domain/branch/Branch';
 import { services } from '@infrastructure/services';
+import { notify } from '@ui/app/store/notificationStore';
 
 interface BranchesState {
   branches: Branch[];
@@ -21,7 +22,16 @@ export const useBranchesStore = create<BranchesState>((set) => ({
   loaded: false,
   reload: async () => {
     set({ loading: true });
-    const list = await services.branch.all();
-    set({ branches: list, loading: false, loaded: true });
+    try {
+      const list = await services.branch.all();
+      set({ branches: list, loaded: true });
+    } catch (e) {
+      // Without this, a rejected initial load left `loading` true forever - every consumer of
+      // useBranchList/useSelectedBranch shows its own loading state, so the whole app appeared to
+      // hang silently rather than surfacing the failure.
+      notify.report(e, 'Filialen konnten nicht geladen werden');
+    } finally {
+      set({ loading: false });
+    }
   },
 }));

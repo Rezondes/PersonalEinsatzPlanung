@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { createBranch } from '@domain/branch/Branch';
 import { services } from '@infrastructure/services';
+import { useNotificationStore } from '@ui/app/store/notificationStore';
 import { useBranchesStore } from './branchesStore';
 
 vi.mock('@infrastructure/services', () => ({
@@ -16,6 +17,9 @@ function branch(name: string) {
 beforeEach(() => {
   allMock.mockReset();
   useBranchesStore.setState({ branches: [], loading: true, loaded: false });
+  // The store is a module singleton and would otherwise leak a queued notification into another
+  // test's assertions.
+  useNotificationStore.getState().clear();
 });
 
 describe('useBranchesStore', () => {
@@ -69,5 +73,14 @@ describe('useBranchesStore', () => {
     await useBranchesStore.getState().reload();
 
     expect(useBranchesStore.getState().branches).toEqual([second]);
+  });
+
+  it('reports a rejected reload and still clears loading, instead of leaving the spinner stuck forever', async () => {
+    allMock.mockRejectedValue(new Error('IndexedDB nicht verfügbar'));
+
+    await useBranchesStore.getState().reload();
+
+    expect(useBranchesStore.getState().loading).toBe(false);
+    expect(useNotificationStore.getState().queue[0]?.text).toContain('IndexedDB nicht verfügbar');
   });
 });

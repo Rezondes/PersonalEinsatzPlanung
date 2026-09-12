@@ -62,6 +62,10 @@ export function AppHeader({ headerRef, nav }: AppHeaderProps) {
             value={selectedBranchId ?? ''}
             onChange={(e) => setSelectedBranch(e.target.value as never)}
             renderValue={renderBranchValue}
+            // A top-level aria-label prop lands on Select's outer MuiInputBase-root wrapper, not
+            // the inner role="combobox" element that actually needs the accessible name -
+            // inputProps is what Select forwards down to that inner element.
+            inputProps={{ 'aria-label': 'Filiale auswählen' }}
             sx={isMobile ? { flex: 1, minWidth: 0 } : { minWidth: 220 }}
           >
             {activeBranches.map((b) => (
