@@ -17,5 +17,10 @@ export const navLinkStyle = ({ isActive }: { isActive: boolean }) => ({
   fontSize: 14,
   padding: '6px 10px',
   borderRadius: 8,
-  backgroundColor: isActive ? '#eef3f1' : 'transparent',
+  // undefined, not 'transparent': an inline background-color - even 'transparent' - always beats
+  // a class-based CSS rule for the same property, which would silently defeat the
+  // .pep-nav-link:active rule above (press feedback would never actually show, since it was always
+  // overridden by this inline declaration) for every inactive link, i.e. always except the one
+  // page currently open.
+  backgroundColor: isActive ? '#eef3f1' : undefined,
 });

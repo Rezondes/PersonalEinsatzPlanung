@@ -5,12 +5,21 @@ import Typography from '@mui/material/Typography';
 import MenuOpenIcon from '@mui/icons-material/MenuOpen';
 import MenuIcon from '@mui/icons-material/Menu';
 import { MAIN_NAV_ITEMS, FOOTER_NAV_ITEMS } from './navItems';
+import { NAV_LINK_CLASS } from './navLinkStyle';
 import { useNavRailStore } from '../store/navRailStore';
 import { APP_VERSION } from '../buildInfo';
 
 const EXPANDED_WIDTH = 216;
 const COLLAPSED_WIDTH = 72;
 
+/** Layout-only style, kept separate from navLinkStyle.ts's shared function rather than merged into
+ * it: that function's fixed `padding: '6px 10px'` is sized for LaptopNav's text-only pills and
+ * would collide with the collapse-aware padding the inner Box below already manages (0 when
+ * collapsed, so the icon can center in the full rail width) plus this row's own fixed 48px height.
+ * Only the CSS class (NAV_LINK_CLASS, applied on the NavLink itself below) is shared with
+ * LaptopNav - that is what gives theme.ts's `.pep-nav-link:active` press-feedback rule effect here
+ * too; the values below stay independent since the color/weight/background logic is otherwise
+ * identical to navLinkStyle by design, just carried by different layout properties. */
 const railLinkStyle = ({ isActive }: { isActive: boolean }) => ({
   display: 'flex',
   alignItems: 'center',
@@ -19,7 +28,11 @@ const railLinkStyle = ({ isActive }: { isActive: boolean }) => ({
   fontWeight: isActive ? 500 : 400,
   fontSize: 14,
   borderRadius: 8,
-  backgroundColor: isActive ? '#eef3f1' : 'transparent',
+  // undefined, not 'transparent': an inline background-color - even 'transparent' - always beats
+  // the shared .pep-nav-link:active CSS rule for the same property (see navLinkStyle.ts, which
+  // had the identical issue), which would otherwise silently keep this rail's own tap feedback
+  // from ever showing.
+  backgroundColor: isActive ? '#eef3f1' : undefined,
 });
 
 /**
@@ -84,8 +97,9 @@ export function NavRail() {
             key={item.path}
             to={item.path}
             title={item.label}
+            aria-label={item.label}
             style={railLinkStyle}
-            className="pep-nav-rail-link"
+            className={NAV_LINK_CLASS}
           >
             <Box
               sx={{
@@ -109,7 +123,14 @@ export function NavRail() {
 
       <Box sx={{ p: 1, borderTop: '1px solid #ececeb', display: 'flex', flexDirection: 'column', gap: 0.5 }}>
         {FOOTER_NAV_ITEMS.map((item) => (
-          <NavLink key={item.path} to={item.path} title={item.label} style={railLinkStyle}>
+          <NavLink
+            key={item.path}
+            to={item.path}
+            title={item.label}
+            aria-label={item.label}
+            style={railLinkStyle}
+            className={NAV_LINK_CLASS}
+          >
             <Box
               sx={{
                 display: 'flex',
@@ -127,7 +148,7 @@ export function NavRail() {
           </NavLink>
         ))}
         {!collapsed && (
-          <Typography variant="caption" sx={{ px: 1.5, pt: 0.5, color: 'rgba(0,0,0,0.35)' }}>
+          <Typography variant="caption" sx={{ px: 1.5, pt: 0.5, color: 'rgba(0, 0, 0, 0.6)' }}>
             {APP_VERSION}
           </Typography>
         )}
