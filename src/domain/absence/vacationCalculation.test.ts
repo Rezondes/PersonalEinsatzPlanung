@@ -8,6 +8,7 @@ import {
   countVacationDaysInYear,
   calculateRemainingVacation,
   remainingVacationByEmployee,
+  proRatedVacationEntitlement,
 } from './vacationCalculation';
 
 const m1 = 'm1' as EmployeeId;
@@ -86,9 +87,47 @@ describe('countVacationDaysInYear', () => {
   });
 });
 
+describe('proRatedVacationEntitlement', () => {
+  it('pro-rates entitlement to the months employed when entryDate falls within the year', () => {
+    const employee = { vacationEntitlementPerYear: 24, entryDate: '2026-07-01' };
+    expect(proRatedVacationEntitlement(employee, 2026)).toBe(12);
+  });
+
+  it('pro-rates entitlement to the months employed when exitDate falls within the year', () => {
+    const employee = { vacationEntitlementPerYear: 24, exitDate: '2026-09-20' };
+    expect(proRatedVacationEntitlement(employee, 2026)).toBe(18);
+  });
+
+  it('pro-rates entitlement to the months between entry and exit when both fall within the year', () => {
+    const employee = { vacationEntitlementPerYear: 24, entryDate: '2026-03-01', exitDate: '2026-08-31' };
+    expect(proRatedVacationEntitlement(employee, 2026)).toBe(12);
+  });
+
+  it('counts a partial (mid-month) entry month as a full month, employee-friendly rounding', () => {
+    // Entry on the 15th still counts July as a full month worked (Jul-Dec = 6 months).
+    const employee = { vacationEntitlementPerYear: 24, entryDate: '2026-07-15' };
+    expect(proRatedVacationEntitlement(employee, 2026)).toBe(12);
+  });
+
+  it('returns the full entitlement unchanged when entryDate/exitDate do not fall within the given year', () => {
+    const employee = { vacationEntitlementPerYear: 30, entryDate: '2020-01-01' };
+    expect(proRatedVacationEntitlement(employee, 2026)).toBe(30);
+  });
+
+  it('returns the full entitlement unchanged for an employee without entryDate/exitDate at all', () => {
+    const employee = { vacationEntitlementPerYear: 30 };
+    expect(proRatedVacationEntitlement(employee, 2026)).toBe(30);
+  });
+});
+
 describe('calculateRemainingVacation', () => {
   it('subtracts taken days from the yearly entitlement', () => {
-    expect(calculateRemainingVacation({ vacationEntitlementPerYear: 28 }, 10)).toBe(18);
+    expect(calculateRemainingVacation({ vacationEntitlementPerYear: 28 }, 10, 2026)).toBe(18);
+  });
+
+  it('subtracts taken days from the pro-rated entitlement when entryDate falls within the year', () => {
+    const employee = { vacationEntitlementPerYear: 24, entryDate: '2026-07-01' };
+    expect(calculateRemainingVacation(employee, 4, 2026)).toBe(8);
   });
 });
 
@@ -131,5 +170,14 @@ describe('remainingVacationByEmployee', () => {
     );
     expect(result.size).toBe(1);
     expect(result.get(m1)).toBe(30);
+  });
+
+  it('pro-rates entitlement for an employee whose entryDate falls within the year', () => {
+    const result = remainingVacationByEmployee(
+      [{ id: m1, vacationEntitlementPerYear: 24, entryDate: '2026-07-01' }],
+      [],
+      2026,
+    );
+    expect(result.get(m1)).toBe(12);
   });
 });
