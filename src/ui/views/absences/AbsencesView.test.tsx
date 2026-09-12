@@ -382,7 +382,7 @@ describe('AbsencesView', () => {
       renderView();
 
       await screen.findByText('Urlaub');
-      await user.click(screen.getByRole('button', { name: 'Löschen' }));
+      await user.click(screen.getByRole('button', { name: 'Abwesenheit von Bauer, Anna löschen' }));
 
       const dialog = screen.getByRole('dialog');
       expect(within(dialog).getByText('Abwesenheit löschen?')).toBeInTheDocument();
@@ -403,7 +403,7 @@ describe('AbsencesView', () => {
       renderView();
 
       await screen.findByText('Urlaub');
-      await user.click(screen.getByRole('button', { name: 'Löschen' }));
+      await user.click(screen.getByRole('button', { name: 'Abwesenheit von Bauer, Anna löschen' }));
 
       const dialog = screen.getByRole('dialog');
       await user.click(within(dialog).getByRole('button', { name: 'Abbrechen' }));
@@ -420,12 +420,34 @@ describe('AbsencesView', () => {
       renderView();
 
       await screen.findByText('Urlaub');
-      await user.click(screen.getByRole('button', { name: 'Löschen' }));
+      await user.click(screen.getByRole('button', { name: 'Abwesenheit von Bauer, Anna löschen' }));
       const dialog = screen.getByRole('dialog');
       await user.click(within(dialog).getByRole('button', { name: 'Löschen' }));
 
       expect(await screen.findByText('Abwesenheit konnte nicht gelöscht werden: boom')).toBeInTheDocument();
       await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    });
+
+    it('marks an inactive employee in the Mitarbeiter filter with "(inaktiv)"', async () => {
+      const user = userEvent.setup();
+      employeeForBranchMock.mockResolvedValue([e1, e3]);
+      absenceForBranchMock.mockResolvedValue([]);
+      renderView();
+
+      await user.click(screen.getByRole('combobox', { name: 'Mitarbeiter' }));
+
+      expect(screen.getByRole('option', { name: 'Bauer, Anna' })).toBeInTheDocument();
+      expect(screen.getByRole('option', { name: 'Schulz, Otto (inaktiv)' })).toBeInTheDocument();
+    });
+
+    it('gives the mobile card\'s delete button a name-specific aria-label instead of the generic "Löschen"', async () => {
+      mockViewportWidth(500);
+      employeeForBranchMock.mockResolvedValue([e1]);
+      absenceForBranchMock.mockResolvedValue([a1]);
+      renderView();
+
+      expect(await screen.findByRole('button', { name: 'Abwesenheit von Bauer, Anna löschen' })).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Löschen' })).not.toBeInTheDocument();
     });
   });
 });

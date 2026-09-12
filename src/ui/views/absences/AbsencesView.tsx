@@ -123,7 +123,7 @@ function AbsenceCard({
           </Typography>
         )}
       </Box>
-      <IconButton onClick={onDelete} aria-label="Löschen">
+      <IconButton onClick={onDelete} aria-label={`Abwesenheit von ${employeeName} löschen`}>
         <DeleteOutlineIcon />
       </IconButton>
     </Box>
@@ -255,6 +255,7 @@ export function AbsencesView() {
             {employeeList.map((emp) => (
               <MenuItem key={emp.id} value={emp.id}>
                 {fullName(emp)}
+                {!emp.active && ' (inaktiv)'}
               </MenuItem>
             ))}
           </TextField>
@@ -367,7 +368,11 @@ export function AbsencesView() {
                       <TableCell>{formatISODateGerman(a.from)}</TableCell>
                       <TableCell>{formatISODateGerman(a.to)}</TableCell>
                       <TableCell align="right">
-                        <IconButton size={layout === 'laptop' ? 'small' : 'medium'} onClick={() => setDeleteTarget(a)} aria-label="Löschen">
+                        <IconButton
+                          size={layout === 'laptop' ? 'small' : 'medium'}
+                          onClick={() => setDeleteTarget(a)}
+                          aria-label={`Abwesenheit von ${employeeName(employee)} löschen`}
+                        >
                           <DeleteOutlineIcon fontSize={layout === 'laptop' ? 'small' : 'medium'} />
                         </IconButton>
                       </TableCell>
