@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { BranchId, EmployeeId } from '@domain/shared/ids';
 import type { Employee } from '@domain/employee/Employee';
@@ -24,6 +24,7 @@ function renderDialog(employee: Employee | null = null) {
 
 const textbox = (name: string) => screen.getByRole('textbox', { name });
 const save = () => screen.getByRole('button', { name: 'Speichern' });
+const abbrechen = () => screen.getByRole('button', { name: 'Abbrechen' });
 
 async function chooseEmploymentType(user: ReturnType<typeof userEvent.setup>, option: string) {
   await user.click(screen.getByRole('combobox', { name: 'Beschäftigungsart' }));
@@ -176,5 +177,46 @@ describe('EmployeeDialog', () => {
 
     await waitFor(() => expect(onError).toHaveBeenCalledWith(expect.any(Error), 'Mitarbeiter konnte nicht gespeichert werden'));
     expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('disables Abbrechen and shows a busy Speichern while saving, and Abbrechen has no effect meanwhile', async () => {
+    const user = userEvent.setup();
+    let resolveCreate!: (value: Employee) => void;
+    createMock.mockReturnValue(
+      new Promise<Employee>((res) => {
+        resolveCreate = res;
+      }),
+    );
+    const { onClose } = renderDialog();
+
+    await user.type(textbox('Vorname'), 'Anna');
+    await user.type(textbox('Nachname'), 'Müller');
+    await user.type(screen.getByRole('combobox', { name: 'Tätigkeit' }), 'Verkauf');
+    await user.type(textbox('Wochenstunden'), '20');
+    await user.type(textbox('Std. je Feier-/Urlaubstag'), '5');
+    await user.click(save());
+
+    const savingButton = save();
+    expect(savingButton).toBeDisabled();
+    expect(within(savingButton).getByRole('progressbar')).toBeInTheDocument();
+    // A genuinely disabled button already proves a click can have no effect - userEvent (unlike
+    // fireEvent) simulates real pointer-events and throws rather than clicking it anyway.
+    expect(abbrechen()).toBeDisabled();
+    expect(onClose).not.toHaveBeenCalled();
+
+    resolveCreate({
+      id: 'new' as EmployeeId,
+      branchId,
+      firstName: 'Anna',
+      lastName: 'Müller',
+      jobTitle: 'Verkauf',
+      employmentType: { type: 'PartTime', weeklyHours: 20 },
+      vacationEntitlementPerYear: 28,
+      holidayVacationHours: 5,
+      active: true,
+      createdAt: '',
+      updatedAt: '',
+    });
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
   });
 });

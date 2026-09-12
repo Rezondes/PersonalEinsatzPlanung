@@ -7,6 +7,7 @@ import Divider from '@mui/material/Divider';
 import Avatar from '@mui/material/Avatar';
 import Chip from '@mui/material/Chip';
 import Typography from '@mui/material/Typography';
+import CircularProgress from '@mui/material/CircularProgress';
 import StoreOutlinedIcon from '@mui/icons-material/StoreOutlined';
 import type { Branch, FederalState } from '@domain/branch/Branch';
 import { FEDERAL_STATES } from '@domain/branch/Branch';
@@ -60,7 +61,17 @@ function formFromBranch(b: Branch): FormState {
   };
 }
 
+/** 500 KB: generous for a small store-front logo, small enough that a mis-selected multi-MB photo
+ * doesn't silently bloat every future JSON export/import and Dexie record it now rides along in. */
+const MAX_LOGO_SIZE_BYTES = 500 * 1024;
+
 function readLogoAsBase64(file: File): Promise<string> {
+  if (!file.type.startsWith('image/')) {
+    return Promise.reject(new Error('Bitte eine Bilddatei auswählen.'));
+  }
+  if (file.size > MAX_LOGO_SIZE_BYTES) {
+    return Promise.reject(new Error('Das Logo darf höchstens 500 KB groß sein.'));
+  }
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(String(reader.result));
@@ -163,15 +174,22 @@ export function BranchDialog({ branch, onClose, onSaved, onError, secondaryActio
   return (
     <ResponsiveDialog
       open
-      onClose={onClose}
+      onClose={saving ? undefined : onClose}
       title={branch ? 'Filiale bearbeiten' : 'Neue Filiale'}
       contentRef={validation.containerRef}
       secondaryActions={secondaryActions}
       actions={
         <>
           <FormErrorNotice errors={validation.errors} />
-          <Button onClick={onClose}>Abbrechen</Button>
-          <Button variant="contained" onClick={save} disabled={saving || logoReading}>
+          <Button onClick={onClose} disabled={saving}>
+            Abbrechen
+          </Button>
+          <Button
+            variant="contained"
+            onClick={save}
+            disabled={saving || logoReading}
+            startIcon={saving ? <CircularProgress size={16} color="inherit" /> : undefined}
+          >
             Speichern
           </Button>
         </>
@@ -258,6 +276,7 @@ export function BranchDialog({ branch, onClose, onSaved, onError, secondaryActio
             <TextField
               label="Datum hinzufügen"
               type="date"
+              required
               size="small"
               value={newSunday}
               onChange={(e) => setNewSunday(e.target.value)}

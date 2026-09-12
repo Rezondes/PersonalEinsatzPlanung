@@ -4,6 +4,7 @@ import TextField from '@mui/material/TextField';
 import MenuItem from '@mui/material/MenuItem';
 import Autocomplete from '@mui/material/Autocomplete';
 import Stack from '@mui/material/Stack';
+import CircularProgress from '@mui/material/CircularProgress';
 import type { BranchId } from '@domain/shared/ids';
 import type { Employee } from '@domain/employee/Employee';
 import type { EmploymentType, EmploymentTypeKind } from '@domain/employee/EmploymentType';
@@ -147,7 +148,7 @@ export function EmployeeDialog({ branchId, employee, onClose, onSaved, onError, 
   return (
     <ResponsiveDialog
       open
-      onClose={onClose}
+      onClose={saving ? undefined : onClose}
       title={employee ? 'Mitarbeiter bearbeiten' : 'Neuer Mitarbeiter'}
       subtitle={employee ? 'Stammdaten, Vertrag, Urlaub' : undefined}
       contentRef={validation.containerRef}
@@ -155,8 +156,15 @@ export function EmployeeDialog({ branchId, employee, onClose, onSaved, onError, 
       actions={
         <>
           <FormErrorNotice errors={validation.errors} />
-          <Button onClick={onClose}>Abbrechen</Button>
-          <Button variant="contained" onClick={save} disabled={saving}>
+          <Button onClick={onClose} disabled={saving}>
+            Abbrechen
+          </Button>
+          <Button
+            variant="contained"
+            onClick={save}
+            disabled={saving}
+            startIcon={saving ? <CircularProgress size={16} color="inherit" /> : undefined}
+          >
             Speichern
           </Button>
         </>
