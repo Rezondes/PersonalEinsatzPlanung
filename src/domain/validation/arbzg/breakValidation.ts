@@ -36,6 +36,21 @@ export function validateBreaks(
   // net working time (after subtracting breaks), not the gross span including breaks.
   const netMinutes = shifts.reduce((sum, s) => sum + shiftNetMinutes(s), 0);
 
+  // Breaks summing to at least the shifts' own combined gross span drive netMinutes to zero or
+  // below, which would otherwise silently satisfy "requiredMinutes: 0" below (0 <= 0 looks like a
+  // day too short to need a break, not the data-entry mistake it actually is) and let a corrupted
+  // negative total flow into every downstream week/month total.
+  if (shifts.length > 0 && netMinutes <= 0) {
+    return [
+      {
+        rule: 'Pausendauer_Ungueltig',
+        severity: 'error',
+        message: 'Die Pausen sind zusammen länger als die Arbeitszeit.',
+        ...context,
+      },
+    ];
+  }
+
   const requiredMinutes =
     netMinutes > 9 * 60
       ? config.minBreakFrom9hMinutes

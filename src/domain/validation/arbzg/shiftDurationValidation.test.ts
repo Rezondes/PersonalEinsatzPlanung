@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { clockTime } from '@domain/shared/ClockTime';
 import { createShift } from '@domain/schedule/Shift';
+import { createBreak } from '@domain/schedule/Break';
 import type { EmployeeId } from '@domain/shared/ids';
 import { validateShiftDuration } from './shiftDurationValidation';
 
@@ -27,5 +28,13 @@ describe('validateShiftDuration', () => {
   it('reports no error for a night shift with endsNextDay set', () => {
     const shift = createShift(clockTime('20:00'), clockTime('06:00'), true);
     expect(validateShiftDuration(shift, context)).toHaveLength(0);
+  });
+
+  it('reports an error when the breaks together add up to at least the shift itself', () => {
+    const shift = createShift(clockTime('06:00'), clockTime('14:00')); // 8h gross
+    shift.breaks.push(createBreak(480)); // exactly 8h break -> net 0
+    const results = validateShiftDuration(shift, context);
+    expect(results).toHaveLength(1);
+    expect(results[0].severity).toBe('error');
   });
 });

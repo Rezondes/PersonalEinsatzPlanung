@@ -1,6 +1,6 @@
 import type { Shift } from './Shift';
 import type { Break } from './Break';
-import { parseClockTime } from '@domain/shared/ClockTime';
+import { clockTimeToMinutes, parseClockTime } from '@domain/shared/ClockTime';
 import { assertNoFieldErrors } from '@domain/shared/DomainError';
 import type { FieldError } from '@domain/validation/FieldError';
 import { MUST_BE_POSITIVE_MESSAGE, validateHourRange } from '@domain/validation/FieldError';
@@ -52,6 +52,23 @@ export function breakFieldKey(breakId: string, field: 'start' | 'durationMinutes
   return `break:${breakId}:${field}`;
 }
 
+/** The shift's own gross span in minutes, parsed from the still-raw draft strings the same way
+ * shiftGrossMinutes (scheduleCalculation.ts) computes it from an already-parsed Shift. Returns
+ * null when start/end aren't valid clock times yet, since those already get their own field
+ * errors below and there is no span to compare breaks against. */
+function draftGrossMinutes(shift: ShiftDraft): number | null {
+  const start = parseClockTime(shift.start);
+  const end = parseClockTime(shift.end);
+  if (!start || !end) {
+    return null;
+  }
+  let endMinutes = clockTimeToMinutes(end);
+  if (shift.endsNextDay) {
+    endMinutes += 24 * 60;
+  }
+  return endMinutes - clockTimeToMinutes(start);
+}
+
 export function validateShiftDrafts(drafts: ShiftDraft[]): FieldError[] {
   if (drafts.length === 0) {
     return [{ field: SHIFT_LIST_FIELD, message: 'Bitte mindestens eine Schicht anlegen.' }];
@@ -73,6 +90,26 @@ export function validateShiftDrafts(drafts: ShiftDraft[]): FieldError[] {
         errors.push({ field: breakFieldKey(brk.id, 'durationMinutes'), message: 'Bitte Dauer eingeben.' });
       } else if (brk.durationMinutes <= 0) {
         errors.push({ field: breakFieldKey(brk.id, 'durationMinutes'), message: MUST_BE_POSITIVE_MESSAGE });
+      }
+    }
+
+    // A break duration that is well-formed on its own can still be a data-entry mistake once
+    // combined with the shift's siblings: e.g. a break longer than the shift itself would
+    // otherwise compute a negative net duration that never trips a plain "> 0" check downstream
+    // (see shiftDurationValidation.ts). Only sums breaks that passed the checks above, so an
+    // already-flagged field doesn't also get this second, unrelated error piled on.
+    const wellFormedBreaks = shift.breaks.filter(
+      (b): b is BreakDraft & { durationMinutes: number } =>
+        b.durationMinutes !== undefined && Number.isFinite(b.durationMinutes) && b.durationMinutes > 0,
+    );
+    const shiftSpan = draftGrossMinutes(shift);
+    const totalBreakMinutes = wellFormedBreaks.reduce((sum, b) => sum + b.durationMinutes, 0);
+    if (shiftSpan !== null && totalBreakMinutes >= shiftSpan) {
+      for (const brk of wellFormedBreaks) {
+        errors.push({
+          field: breakFieldKey(brk.id, 'durationMinutes'),
+          message: 'Die Pausen sind zusammen länger als die Schicht.',
+        });
       }
     }
   }

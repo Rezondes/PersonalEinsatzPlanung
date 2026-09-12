@@ -73,4 +73,17 @@ describe('validateShiftDrafts', () => {
     const shift = { ...newShiftDraft(), breaks: [brk] };
     expect(validateShiftDrafts([shift])).toEqual([{ field: breakFieldKey(brk.id, 'start'), message: 'Bitte gültige Uhrzeit eingeben.' }]);
   });
+
+  it('rejects a break duration that meets or exceeds the shift\'s own span', () => {
+    const brk = { ...newBreakDraft(3030) };
+    const shift = { ...newShiftDraft('06:00', '14:00'), breaks: [brk] }; // 8h shift, 50.5h break
+    expect(validateShiftDrafts([shift])).toEqual([
+      { field: breakFieldKey(brk.id, 'durationMinutes'), message: 'Die Pausen sind zusammen länger als die Schicht.' },
+    ]);
+  });
+
+  it('does not flag a break that stays under the shift span', () => {
+    const shift = { ...newShiftDraft('06:00', '14:00'), breaks: [newBreakDraft(30)] };
+    expect(validateShiftDrafts([shift])).toEqual([]);
+  });
 });

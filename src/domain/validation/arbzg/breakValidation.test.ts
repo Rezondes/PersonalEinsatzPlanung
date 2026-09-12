@@ -76,6 +76,14 @@ describe('validateBreaks', () => {
     expect(errors(validateBreaks([shift], context))).toHaveLength(0);
   });
 
+  it('reports one clear error, not a normal break-length error, when breaks add up to at least the shift itself', () => {
+    const shift = createShift(clockTime('06:00'), clockTime('14:00')); // 8h gross
+    shift.breaks.push(createBreak(480)); // exactly 8h break -> net 0
+    const results = validateBreaks([shift], context);
+    expect(errors(results)).toHaveLength(1);
+    expect(errors(results)[0].rule).toBe('Pausendauer_Ungueltig');
+  });
+
   it('sums net time across multiple shifts on the same day (split shift) instead of checking each in isolation', () => {
     // Two 4h blocks, neither individually over the 6h threshold, but together 8h -> break required
     const morning = createShift(clockTime('06:00'), clockTime('10:00'));
