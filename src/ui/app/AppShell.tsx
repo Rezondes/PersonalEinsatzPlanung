@@ -1,10 +1,12 @@
 import { useLayoutEffect, useRef } from 'react';
-import { Outlet } from 'react-router-dom';
+import { Outlet, useLocation } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Container from '@mui/material/Container';
 import { BuildVersionBadge } from '@ui/components/BuildVersionBadge';
 import { useBreakpoint } from '@ui/hooks/useBreakpoint';
+import { useDocumentTitle } from '@ui/hooks/useDocumentTitle';
 import { AppHeader } from './AppHeader';
+import { titleForPath } from './routeMeta';
 import { PageActionsProvider, usePageActionsValue } from './PageActionsContext';
 import { LaptopNav } from './nav/LaptopNav';
 import { NavRail } from './nav/NavRail';
@@ -29,6 +31,11 @@ function AppShellLayout() {
   const { fullBleedPage } = usePageActionsValue();
   const rootRef = useRef<HTMLDivElement>(null);
   const headerRef = useRef<HTMLElement>(null);
+  // The one place this is called - no individual view needs to set its own title. Deliberately not
+  // a visible on-page heading (see ui/CLAUDE.md on why those were removed); this only reaches the
+  // browser tab and assistive tech.
+  const location = useLocation();
+  useDocumentTitle(titleForPath(location.pathname));
 
   // The header's toolbar wraps at narrow widths, so its height is not a constant. Publishing it as
   // a CSS custom property lets a sticky element below it (the Wochenplanung toolbar) dock exactly

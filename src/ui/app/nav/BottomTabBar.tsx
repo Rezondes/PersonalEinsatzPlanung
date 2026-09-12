@@ -40,6 +40,10 @@ export function BottomTabBar() {
             label={tab.shortLabel ?? tab.label}
             value={tab.path}
             icon={<tab.icon />}
+            // Unlike LaptopNav/NavRail (both plain NavLinks, which set this automatically),
+            // BottomNavigationAction navigates programmatically via onChange, not an <a href> - so
+            // nothing marks the active tab for assistive tech unless done by hand here.
+            aria-current={tab.path === activeTabPath(pathname) ? 'page' : undefined}
           />
         ))}
       </BottomNavigation>
