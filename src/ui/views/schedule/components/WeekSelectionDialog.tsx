@@ -1,8 +1,4 @@
 import { useEffect, useState } from 'react';
-import Dialog from '@mui/material/Dialog';
-import DialogTitle from '@mui/material/DialogTitle';
-import DialogContent from '@mui/material/DialogContent';
-import DialogActions from '@mui/material/DialogActions';
 import Button from '@mui/material/Button';
 import IconButton from '@mui/material/IconButton';
 import Stack from '@mui/material/Stack';
@@ -12,6 +8,7 @@ import ListItemButton from '@mui/material/ListItemButton';
 import Chip from '@mui/material/Chip';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
+import { ResponsiveDialog } from '@ui/components/ResponsiveDialog';
 import type { BranchId } from '@domain/shared/ids';
 import type { CalendarWeek } from '@domain/shared/CalendarWeek';
 import {
@@ -98,70 +95,70 @@ export function WeekSelectionDialog({
   const weeks = calendarWeeksInMonth(year, month);
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
-      <DialogTitle>
-        <Stack direction="row" alignItems="center" justifyContent="space-between">
-          <IconButton onClick={() => changeMonth(-1)} aria-label="Vorheriger Monat" size="small">
-            <ChevronLeftIcon />
-          </IconButton>
-          <Typography variant="subtitle1">
-            {MONTH_NAMES[month - 1]} {year}
-          </Typography>
-          <IconButton onClick={() => changeMonth(1)} aria-label="Nächster Monat" size="small">
-            <ChevronRightIcon />
-          </IconButton>
-        </Stack>
-      </DialogTitle>
-      <DialogContent dividers sx={{ p: 0 }}>
-        <List disablePadding>
-          {weeks.map((cw) => {
-            const schedule = schedules.find(
-              (s) => s.calendarWeek.year === cw.year && s.calendarWeek.week === cw.week,
-            );
-            // Worked hours: this is a branch figure, so hours credited without presence in the
-            // store (vacation days, "Sonstige" with hours) stay out of it.
-            const totalMinutes = schedule
-              ? createWeekView(schedule, absences, { employees: employeeList, isHoliday }).reduce(
-                  (sum, e) => sum + e.workedMinutes,
-                  0,
-                )
-              : null;
-            const isSelected = calendarWeeksEqual(cw, selectedWeek);
-            const isToday = calendarWeeksEqual(cw, today);
+    <ResponsiveDialog
+      open={open}
+      onClose={onClose}
+      title="Woche wählen"
+      maxWidth="xs"
+      dividers
+      actions={<Button onClick={onClose}>Schließen</Button>}
+    >
+      <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
+        <IconButton onClick={() => changeMonth(-1)} aria-label="Vorheriger Monat" size="small">
+          <ChevronLeftIcon />
+        </IconButton>
+        <Typography variant="subtitle1">
+          {MONTH_NAMES[month - 1]} {year}
+        </Typography>
+        <IconButton onClick={() => changeMonth(1)} aria-label="Nächster Monat" size="small">
+          <ChevronRightIcon />
+        </IconButton>
+      </Stack>
+      <List disablePadding>
+        {weeks.map((cw) => {
+          const schedule = schedules.find(
+            (s) => s.calendarWeek.year === cw.year && s.calendarWeek.week === cw.week,
+          );
+          // Worked hours: this is a branch figure, so hours credited without presence in the
+          // store (vacation days, "Sonstige" with hours) stay out of it.
+          const totalMinutes = schedule
+            ? createWeekView(schedule, absences, { employees: employeeList, isHoliday }).reduce(
+                (sum, e) => sum + e.workedMinutes,
+                0,
+              )
+            : null;
+          const isSelected = calendarWeeksEqual(cw, selectedWeek);
+          const isToday = calendarWeeksEqual(cw, today);
 
-            return (
-              <ListItemButton
-                key={`${cw.year}-${cw.week}`}
-                selected={isSelected}
-                onClick={() => {
-                  onWeekSelect(cw);
-                  onClose();
-                }}
-                sx={{ py: 1.5, px: 2 }}
-              >
-                <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ width: '100%' }}>
-                  <Stack direction="row" spacing={1} alignItems="center">
-                    <Typography variant="body2" fontWeight={isSelected ? 600 : 400}>
-                      {formatCalendarWeekRange(cw)}
-                    </Typography>
-                    {isToday && <Chip label="Heute" size="small" color="success" variant="outlined" />}
-                  </Stack>
-                  <Typography variant="body2" color="text.secondary">
-                    {!loaded
-                      ? '…'
-                      : totalMinutes != null
-                        ? `${minutesToDecimalHours(totalMinutes).toLocaleString('de-DE')} Std.`
-                        : 'kein Plan'}
+          return (
+            <ListItemButton
+              key={`${cw.year}-${cw.week}`}
+              selected={isSelected}
+              onClick={() => {
+                onWeekSelect(cw);
+                onClose();
+              }}
+              sx={{ py: 1.5, px: 2 }}
+            >
+              <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ width: '100%' }}>
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <Typography variant="body2" fontWeight={isSelected ? 600 : 400}>
+                    {formatCalendarWeekRange(cw)}
                   </Typography>
+                  {isToday && <Chip label="Heute" size="small" color="success" variant="outlined" />}
                 </Stack>
-              </ListItemButton>
-            );
-          })}
-        </List>
-      </DialogContent>
-      <DialogActions sx={{ px: 3, py: 1.5 }}>
-        <Button onClick={onClose}>Schließen</Button>
-      </DialogActions>
-    </Dialog>
+                <Typography variant="body2" color="text.secondary">
+                  {!loaded
+                    ? '…'
+                    : totalMinutes != null
+                      ? `${minutesToDecimalHours(totalMinutes).toLocaleString('de-DE')} Std.`
+                      : 'kein Plan'}
+                </Typography>
+              </Stack>
+            </ListItemButton>
+          );
+        })}
+      </List>
+    </ResponsiveDialog>
   );
 }

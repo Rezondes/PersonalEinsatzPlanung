@@ -1,8 +1,4 @@
 import { useEffect, useState } from 'react';
-import Dialog from '@mui/material/Dialog';
-import DialogTitle from '@mui/material/DialogTitle';
-import DialogContent from '@mui/material/DialogContent';
-import DialogActions from '@mui/material/DialogActions';
 import Button from '@mui/material/Button';
 import Table from '@mui/material/Table';
 import TableBody from '@mui/material/TableBody';
@@ -22,6 +18,7 @@ import type { Absence } from '@domain/absence/Absence';
 import { minutesToDecimalHours } from '@domain/schedule/scheduleCalculation';
 import { createWeekView, effectiveTargetMinutes } from '@application/schedule/scheduleAssessment';
 import { services } from '@infrastructure/services';
+import { ResponsiveDialog } from '@ui/components/ResponsiveDialog';
 import { DecimalTextField } from '@ui/components/DecimalTextField';
 import CircularProgress from '@mui/material/CircularProgress';
 import Stack from '@mui/material/Stack';
@@ -113,7 +110,12 @@ export function CarryOverPreviousWeekDialog({
       for (const row of newRows) {
         const existingAssignment = schedule.employeeAssignments.find((a) => a.employeeId === row.employee.id);
         const existingAdjustment = existingAssignment?.targetAdjustmentMinutes;
-        const minutes = existingAdjustment != null && existingAdjustment !== 0 ? existingAdjustment : row.suggestedMinutes;
+        // != null alone, not also "!== 0": withTargetAdjustment (domain/schedule/WeeklySchedule.ts)
+        // always stores the literal number it is given, so a deliberately-zeroed transfer is a real
+        // stored 0, distinguishable from "never set" (undefined) - treating a stored 0 as "never
+        // set" was the bug this replaced, since it silently replaced the user's own zero with a
+        // freshly recomputed suggestion every time the dialog was reopened.
+        const minutes = existingAdjustment != null ? existingAdjustment : row.suggestedMinutes;
         newInputs[row.employee.id] = minutesToDecimalHours(minutes);
       }
 
@@ -147,81 +149,81 @@ export function CarryOverPreviousWeekDialog({
   const previousWeek = previousCalendarWeek(selectedWeek);
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>
-        Mehr-/Minusstunden aus Vorwoche übertragen
-        <Typography variant="body2" color="text.secondary">
-          {formatCalendarWeekRange(previousWeek)}
-        </Typography>
-      </DialogTitle>
-      <DialogContent>
-        {loading && (
-          <Stack alignItems="center" spacing={2} sx={{ py: 4 }}>
-            <CircularProgress />
-            <Typography variant="body2" color="text.secondary">
-              Vorwoche wird geladen…
-            </Typography>
-          </Stack>
-        )}
-        {!loading && rows.length === 0 && (
-          <Alert severity="info">Keine aktiven Mitarbeiter für diese Filiale.</Alert>
-        )}
-        {!loading && rows.length > 0 && (
-          <TableContainer>
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell>Mitarbeiter</TableCell>
-                  <TableCell align="center">Vorwoche Ist</TableCell>
-                  <TableCell align="center">Vorwoche Soll</TableCell>
-                  <TableCell align="center">Vorschlag</TableCell>
-                  <TableCell align="center">Übernehmen (Std.)</TableCell>
+    <ResponsiveDialog
+      open={open}
+      onClose={onClose}
+      title="Mehr-/Minusstunden aus Vorwoche übertragen"
+      subtitle={formatCalendarWeekRange(previousWeek)}
+      maxWidth="sm"
+      actions={
+        <>
+          <Button onClick={onClose}>Abbrechen</Button>
+          <Button variant="contained" onClick={apply} disabled={loading || applying || rows.length === 0}>
+            Übernehmen
+          </Button>
+        </>
+      }
+    >
+      {loading && (
+        <Stack alignItems="center" spacing={2} sx={{ py: 4 }}>
+          <CircularProgress />
+          <Typography variant="body2" color="text.secondary">
+            Vorwoche wird geladen…
+          </Typography>
+        </Stack>
+      )}
+      {!loading && rows.length === 0 && (
+        <Alert severity="info">Keine aktiven Mitarbeiter für diese Filiale.</Alert>
+      )}
+      {!loading && rows.length > 0 && (
+        <TableContainer>
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell>Mitarbeiter</TableCell>
+                <TableCell align="center">Vorwoche Ist</TableCell>
+                <TableCell align="center">Vorwoche Soll</TableCell>
+                <TableCell align="center">Vorschlag</TableCell>
+                <TableCell align="center">Übernehmen (Std.)</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {rows.map((row) => (
+                <TableRow key={row.employee.id}>
+                  <TableCell>{fullName(row.employee)}</TableCell>
+                  <TableCell align="center">
+                    {row.previousActualMinutes != null ? formatHours(row.previousActualMinutes) : 'keine Daten'}
+                    {row.previousCreditedMinutes > 0 && (
+                      <Typography variant="caption" display="block" color="text.secondary">
+                        davon {formatHours(row.previousCreditedMinutes)} angerechnet
+                      </Typography>
+                    )}
+                  </TableCell>
+                  <TableCell align="center">
+                    {row.previousTargetMinutes != null ? formatHours(row.previousTargetMinutes) : '–'}
+                  </TableCell>
+                  <TableCell align="center">
+                    {row.previousActualMinutes != null
+                      ? `${row.suggestedMinutes > 0 ? '+' : ''}${formatHours(row.suggestedMinutes)}`
+                      : '–'}
+                  </TableCell>
+                  <TableCell align="center">
+                    <DecimalTextField
+                      size="small"
+                      value={inputs[row.employee.id]}
+                      onChange={(value) => setInputs((v) => ({ ...v, [row.employee.id]: value }))}
+                      sx={{ width: 100 }}
+                      // No visible label (the column header is it), so name the field for
+                      // screen readers per row. Empty means 0 here, which is a valid choice.
+                      slotProps={{ htmlInput: { 'aria-label': `Übernehmen (Std.) ${fullName(row.employee)}` } }}
+                    />
+                  </TableCell>
                 </TableRow>
-              </TableHead>
-              <TableBody>
-                {rows.map((row) => (
-                  <TableRow key={row.employee.id}>
-                    <TableCell>{fullName(row.employee)}</TableCell>
-                    <TableCell align="center">
-                      {row.previousActualMinutes != null ? formatHours(row.previousActualMinutes) : 'keine Daten'}
-                      {row.previousCreditedMinutes > 0 && (
-                        <Typography variant="caption" display="block" color="text.secondary">
-                          davon {formatHours(row.previousCreditedMinutes)} angerechnet
-                        </Typography>
-                      )}
-                    </TableCell>
-                    <TableCell align="center">
-                      {row.previousTargetMinutes != null ? formatHours(row.previousTargetMinutes) : '–'}
-                    </TableCell>
-                    <TableCell align="center">
-                      {row.previousActualMinutes != null
-                        ? `${row.suggestedMinutes > 0 ? '+' : ''}${formatHours(row.suggestedMinutes)}`
-                        : '–'}
-                    </TableCell>
-                    <TableCell align="center">
-                      <DecimalTextField
-                        size="small"
-                        value={inputs[row.employee.id]}
-                        onChange={(value) => setInputs((v) => ({ ...v, [row.employee.id]: value }))}
-                        sx={{ width: 100 }}
-                        // No visible label (the column header is it), so name the field for
-                        // screen readers per row. Empty means 0 here, which is a valid choice.
-                        slotProps={{ htmlInput: { 'aria-label': `Übernehmen (Std.) ${fullName(row.employee)}` } }}
-                      />
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        )}
-      </DialogContent>
-      <DialogActions sx={{ px: 3, pb: 2 }}>
-        <Button onClick={onClose}>Abbrechen</Button>
-        <Button variant="contained" onClick={apply} disabled={loading || applying || rows.length === 0}>
-          Übernehmen
-        </Button>
-      </DialogActions>
-    </Dialog>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      )}
+    </ResponsiveDialog>
   );
 }

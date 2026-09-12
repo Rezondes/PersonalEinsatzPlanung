@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, within, waitFor } from '@testing-library/react';
+import { render, screen, within, waitFor, cleanup } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { BranchId, EmployeeId } from '@domain/shared/ids';
 import type { CalendarWeek } from '@domain/shared/CalendarWeek';
@@ -39,6 +39,29 @@ function createDeferred<T>() {
   return { promise, resolve, reject };
 }
 
+/** jsdom has no real layout engine, so `window.matchMedia` is mocked per test to answer as if the
+ * viewport were `width` wide - MUI's `theme.breakpoints.up(key)` produces a `(min-width:...px)`
+ * query, which this parses back out. Copied from useBreakpoint.test.tsx / ScheduleView.test.tsx. */
+function mockViewportWidth(width: number) {
+  window.matchMedia = ((query: string) => {
+    const match = /min-width:\s*(\d+(?:\.\d+)?)px/.exec(query);
+    const minWidth = match ? Number(match[1]) : 0;
+    return {
+      matches: width >= minWidth,
+      media: query,
+      onchange: null,
+      addListener: () => {},
+      removeListener: () => {},
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      dispatchEvent: () => false,
+    } as unknown as MediaQueryList;
+  }) as typeof window.matchMedia;
+}
+
+const LAPTOP = 1700;
+const MOBILE = 500;
+
 const branchId = 'b1' as BranchId;
 const employee: EmployeeHoursInfo = { id: 'e1' as EmployeeId, holidayVacationHours: 6.25 };
 
@@ -73,10 +96,39 @@ function renderDialog(overrides: Partial<{ selectedWeek: CalendarWeek; absences:
 describe('WeekSelectionDialog', () => {
   beforeEach(() => {
     forBranchMock.mockReset();
+    // Every existing test below predates ResponsiveDialog and asserts against the centered-dialog
+    // shape (a single "Schließen" button); pinning laptop width keeps that true now that the
+    // component depends on useBreakpoint - without a mock, MUI's useMediaQuery silently falls back
+    // to "no match" for every query (see useMediaQuery's own supportMatchMedia guard), which reads
+    // as mobile/full-screen and would add a second, ambiguous "Schließen" close icon.
+    mockViewportWidth(LAPTOP);
   });
 
   afterEach(() => {
     vi.useRealTimers();
+    // @ts-expect-error -- undo the per-test stub, jsdom has no matchMedia of its own to restore
+    delete window.matchMedia;
+  });
+
+  it('renders as a full-screen sheet at a narrow viewport, and as a centered dialog at laptop width', async () => {
+    forBranchMock.mockResolvedValue([]);
+
+    // Two independent mounts, not a rerender of one instance: useBreakpoint's useMediaQuery is
+    // backed by useSyncExternalStore, which (like every other breakpoint test in this codebase,
+    // see useBreakpoint.test.tsx) is only ever exercised via a fresh mount per width, never a
+    // mid-mount viewport change. cleanup() removes the first dialog's own portal content from
+    // document.body before the second mounts, since MUI's Dialog portals there rather than into
+    // RTL's own container.
+    mockViewportWidth(MOBILE);
+    renderDialog();
+    expect(document.querySelector('.MuiDialog-paperFullScreen')).not.toBeNull();
+    await waitFor(() => expect(screen.queryByText('…')).not.toBeInTheDocument());
+    cleanup();
+
+    mockViewportWidth(LAPTOP);
+    renderDialog();
+    expect(document.querySelector('.MuiDialog-paperFullScreen')).toBeNull();
+    await waitFor(() => expect(screen.queryByText('…')).not.toBeInTheDocument());
   });
 
   it('shows "…" as every week\'s hours figure while the schedules are still loading', () => {
