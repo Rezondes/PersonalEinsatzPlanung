@@ -256,6 +256,83 @@ describe('MonthOverviewView', () => {
     expect(useCalendarWeekStore.getState().selectedWeek).toEqual(week1);
   });
 
+  it('shows 0 (not a dash) for a week with no WeeklySchedule of its own, as long as some other week this month has one', async () => {
+    selectBranch();
+    const employee = makeEmployee();
+    employeeForBranch.mockResolvedValue([employee]);
+    const weeks = calendarWeeksInMonth(currentYear, currentMonth);
+    expect(weeks.length).toBeGreaterThan(1);
+    const [week1, week2] = weeks;
+    const schedule = createWeeklySchedule(branch.id, week1, [employee.id]);
+    scheduleForBranch.mockResolvedValue([schedule]);
+
+    renderView();
+
+    const week2Cell = await screen.findByRole('button', {
+      name: `${fullName(employee)}, KW ${week2.week} bearbeiten`,
+    });
+    expect(week2Cell).toHaveTextContent('0');
+  });
+
+  it('dims an inactive employee\'s row and marks it with an "Inaktiv" chip, matching the Stammdaten convention', async () => {
+    selectBranch();
+    const inactive = makeEmployee({ id: 'e2' as EmployeeId, lastName: 'Alt', active: false });
+    employeeForBranch.mockResolvedValue([inactive]);
+    scheduleForBranch.mockResolvedValue([]);
+
+    renderView();
+
+    const nameCell = await screen.findByText(fullName(inactive));
+    const row = nameCell.closest('tr')!;
+    expect(within(row).getByText('Inaktiv')).toBeInTheDocument();
+    expect(row).toHaveStyle({ opacity: '0.55' });
+  });
+
+  it('gives only the first week cell of each row a tab stop, not every individual cell', async () => {
+    selectBranch();
+    const employee = makeEmployee();
+    employeeForBranch.mockResolvedValue([employee]);
+    const weeks = calendarWeeksInMonth(currentYear, currentMonth);
+    expect(weeks.length).toBeGreaterThan(1);
+    const schedule = createWeeklySchedule(branch.id, weeks[0], [employee.id]);
+    scheduleForBranch.mockResolvedValue([schedule]);
+
+    renderView();
+    await screen.findByText(fullName(employee));
+
+    const row = screen.getByText(fullName(employee)).closest('tr')!;
+    const weekButtons = within(row).getAllByRole('button');
+    expect(weekButtons).toHaveLength(weeks.length);
+    expect(weekButtons[0].tabIndex).toBe(0);
+    for (const button of weekButtons.slice(1)) {
+      expect(button.tabIndex).toBe(-1);
+    }
+  });
+
+  it('moves focus between a row\'s week cells with ArrowRight/ArrowLeft', async () => {
+    selectBranch();
+    const employee = makeEmployee();
+    employeeForBranch.mockResolvedValue([employee]);
+    const weeks = calendarWeeksInMonth(currentYear, currentMonth);
+    const schedule = createWeeklySchedule(branch.id, weeks[0], [employee.id]);
+    scheduleForBranch.mockResolvedValue([schedule]);
+    const user = userEvent.setup();
+
+    renderView();
+    await screen.findByText(fullName(employee));
+
+    const row = screen.getByText(fullName(employee)).closest('tr')!;
+    const weekButtons = within(row).getAllByRole('button');
+    weekButtons[0].focus();
+    expect(weekButtons[0]).toHaveFocus();
+
+    await user.keyboard('{ArrowRight}');
+    expect(weekButtons[1]).toHaveFocus();
+
+    await user.keyboard('{ArrowLeft}');
+    expect(weekButtons[0]).toHaveFocus();
+  });
+
   it('also jumps to the schedule on Enter when a data cell within a row is focused', async () => {
     selectBranch();
     const employee = makeEmployee();

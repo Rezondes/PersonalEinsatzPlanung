@@ -1,8 +1,9 @@
 import type { EmployeeId } from '@domain/shared/ids';
 import type { CalendarWeek, Weekday } from '@domain/shared/CalendarWeek';
-import { WEEKDAYS, dateForWeekday, calendarWeeksInMonth } from '@domain/shared/CalendarWeek';
+import { WEEKDAYS, dateForWeekday, calendarWeeksInMonth, calendarWeeksEqual } from '@domain/shared/CalendarWeek';
 import { toISODate } from '@domain/shared/DateFormat';
 import type { WeeklySchedule } from '@domain/schedule/WeeklySchedule';
+import { createWeeklySchedule } from '@domain/schedule/WeeklySchedule';
 import type { DayEntry } from '@domain/schedule/EmployeeWeekAssignment';
 import { dayEntryWorkedMinutes } from '@domain/schedule/scheduleCalculation';
 import type { Absence } from '@domain/absence/Absence';
@@ -263,35 +264,49 @@ export function createMonthOverview(
   context: WeekViewContext,
 ): MonthRow[] {
   const relevantWeeks = calendarWeeksInMonth(year, month);
-  const rowsByEmployee = new Map<EmployeeId, MonthRow>();
+  const schedulesThisMonth = schedules.filter((s) => relevantWeeks.some((cw) => calendarWeeksEqual(cw, s.calendarWeek)));
+
+  // Every employee this month is about at all - the union of everyone who has a real
+  // WeeklySchedule assignment in ANY week of it. A week that never got its own WeeklySchedule
+  // still gets an entry for exactly these employees (never a fabricated row for someone with
+  // nothing to do with this month), backfilled to 0 unless an absence spans into it.
+  const employeeIds = new Set<EmployeeId>();
+  for (const schedule of schedulesThisMonth) {
+    for (const assignment of schedule.employeeAssignments) {
+      employeeIds.add(assignment.employeeId);
+    }
+  }
+  if (employeeIds.size === 0) {
+    return [];
+  }
+  // Any schedule this month belongs to the branch every OTHER schedule this month belongs to
+  // (schedules are always fetched per branch, see MonthOverviewView) - safe to read from the first.
+  const branchId = schedulesThisMonth[0].branchId;
+
+  const rowsByEmployee = new Map<EmployeeId, MonthRow>(
+    [...employeeIds].map((employeeId) => [employeeId, { employeeId, weeks: [], totalNetMinutes: 0 }]),
+  );
 
   for (const cw of relevantWeeks) {
-    const schedule = schedules.find(
-      (s) => s.calendarWeek.year === cw.year && s.calendarWeek.week === cw.week,
-    );
-    if (!schedule) {
-      continue;
-    }
+    const schedule =
+      schedulesThisMonth.find((s) => calendarWeeksEqual(s.calendarWeek, cw)) ??
+      // No WeeklySchedule was ever created for this week - a synthetic empty one, run through the
+      // SAME createWeekView as a real week, so an absence spanning into it (e.g. a vacation booked
+      // for a week nobody has opened in the Wochenplanung yet) still credits hours instead of
+      // silently reading as 0.
+      createWeeklySchedule(branchId, cw, [...employeeIds]);
 
     // Reuses createWeekView instead of re-walking days/Absences here - the per-day overlay logic
     // (findAbsenceForDay + workedMinutesFor/creditedMinutesFor, including the half-day handling)
     // must only exist once.
     const weekView = createWeekView(schedule, absences, context);
+    const viewByEmployee = new Map(weekView.map((entry) => [entry.employeeId, entry]));
 
-    for (const entry of weekView) {
-      const existingRow = rowsByEmployee.get(entry.employeeId);
-      const weekRow: MonthWeekRow = { calendarWeek: cw, totalNetMinutes: entry.totalNetMinutes };
-
-      if (existingRow) {
-        existingRow.weeks.push(weekRow);
-        existingRow.totalNetMinutes += entry.totalNetMinutes;
-      } else {
-        rowsByEmployee.set(entry.employeeId, {
-          employeeId: entry.employeeId,
-          weeks: [weekRow],
-          totalNetMinutes: entry.totalNetMinutes,
-        });
-      }
+    for (const employeeId of employeeIds) {
+      const row = rowsByEmployee.get(employeeId)!;
+      const totalNetMinutes = viewByEmployee.get(employeeId)?.totalNetMinutes ?? 0;
+      row.weeks.push({ calendarWeek: cw, totalNetMinutes });
+      row.totalNetMinutes += totalNetMinutes;
     }
   }
 

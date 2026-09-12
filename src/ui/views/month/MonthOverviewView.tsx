@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import type { KeyboardEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
@@ -11,6 +12,7 @@ import TableCell from '@mui/material/TableCell';
 import TableContainer from '@mui/material/TableContainer';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
+import Chip from '@mui/material/Chip';
 import Alert from '@mui/material/Alert';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
@@ -34,6 +36,18 @@ const MONTH_NAMES = [
   'Januar', 'Februar', 'März', 'April', 'Mai', 'Juni',
   'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember',
 ];
+
+/** Moves focus to the previous/next week cell within the SAME row (header or data), so arrow keys
+ * still reach every column once only the first cell of each row is a Tab stop (see the tabIndex
+ * comment below) - a week cell is the only thing in a row carrying role="button", found via the
+ * same closest()-based DOM lookup ScheduleView's context-menu handler already uses for a similar
+ * "find the relevant cell" problem. */
+function focusAdjacentWeekCell(e: KeyboardEvent<HTMLElement>, direction: 1 | -1) {
+  const row = e.currentTarget.closest('tr');
+  const weekCells = Array.from(row?.querySelectorAll<HTMLElement>('[role="button"]') ?? []);
+  const index = weekCells.indexOf(e.currentTarget);
+  weekCells[index + direction]?.focus();
+}
 
 export function MonthOverviewView() {
   const { branch } = useSelectedBranch();
@@ -120,7 +134,7 @@ export function MonthOverviewView() {
               <TableCell align="right" sx={stickyHeaderRowSx()}>
                 Soll/Woche
               </TableCell>
-              {allWeeks.map((cw) => (
+              {allWeeks.map((cw, weekIndex) => (
                 <TableCell
                   key={`${cw.year}-${cw.week}`}
                   align="center"
@@ -130,10 +144,18 @@ export function MonthOverviewView() {
                     if (e.key === 'Enter' || e.key === ' ') {
                       e.preventDefault();
                       jumpToWeek(cw);
+                    } else if (e.key === 'ArrowRight') {
+                      focusAdjacentWeekCell(e, 1);
+                    } else if (e.key === 'ArrowLeft') {
+                      focusAdjacentWeekCell(e, -1);
                     }
                   }}
                   role="button"
-                  tabIndex={0}
+                  // Only the first week cell of a row is a Tab stop - with one row per employee
+                  // this used to add a tab stop per week per employee (75+ on a full month), a
+                  // keyboard trap rather than a shortcut. ArrowLeft/ArrowRight above still reach
+                  // every other week cell in the same row.
+                  tabIndex={weekIndex === 0 ? 0 : -1}
                   aria-label={`Zu Kalenderwoche ${cw.week} springen`}
                 >
                   KW {cw.week}
@@ -148,15 +170,20 @@ export function MonthOverviewView() {
             {employeeList.map((employee) => {
               const row = rows.find((r) => r.employeeId === employee.id);
               return (
-                <TableRow key={employee.id} hover>
-                  <TableCell sx={stickyFirstColumnSx}>{fullName(employee)}</TableCell>
+                <TableRow key={employee.id} hover sx={{ opacity: employee.active ? 1 : 0.55 }}>
+                  <TableCell sx={stickyFirstColumnSx}>
+                    <Stack direction="row" spacing={0.5} alignItems="center">
+                      {fullName(employee)}
+                      {!employee.active && <Chip size="small" label="Inaktiv" />}
+                    </Stack>
+                  </TableCell>
                   <TableCell align="right">
                     {formatHoursRangeGerman(
                       targetWeeklyHoursRange(employee.employmentType).min * 60,
                       targetWeeklyHoursRange(employee.employmentType).max * 60,
                     )}
                   </TableCell>
-                  {allWeeks.map((cw) => {
+                  {allWeeks.map((cw, weekIndex) => {
                     const weekValue = row?.weeks.find(
                       (w) => w.calendarWeek.year === cw.year && w.calendarWeek.week === cw.week,
                     );
@@ -170,10 +197,16 @@ export function MonthOverviewView() {
                           if (e.key === 'Enter' || e.key === ' ') {
                             e.preventDefault();
                             jumpToWeek(cw);
+                          } else if (e.key === 'ArrowRight') {
+                            focusAdjacentWeekCell(e, 1);
+                          } else if (e.key === 'ArrowLeft') {
+                            focusAdjacentWeekCell(e, -1);
                           }
                         }}
                         role="button"
-                        tabIndex={0}
+                        // See the matching comment on the header cell above - only the first week
+                        // cell of each row is a Tab stop, ArrowLeft/ArrowRight reach the rest.
+                        tabIndex={weekIndex === 0 ? 0 : -1}
                         aria-label={`${fullName(employee)}, KW ${cw.week} bearbeiten`}
                       >
                         {weekValue ? minutesToDecimalHours(weekValue.totalNetMinutes).toLocaleString('de-DE') : '–'}

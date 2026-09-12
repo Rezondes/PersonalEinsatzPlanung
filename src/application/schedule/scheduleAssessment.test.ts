@@ -1,13 +1,15 @@
 import { describe, it, expect } from 'vitest';
 import type { BranchId, EmployeeId } from '@domain/shared/ids';
 import type { CalendarWeek } from '@domain/shared/CalendarWeek';
+import { calendarWeeksInMonth, dateForWeekday } from '@domain/shared/CalendarWeek';
+import { toISODate } from '@domain/shared/DateFormat';
 import { createWeeklySchedule, withDayEntry, withTargetAdjustment } from '@domain/schedule/WeeklySchedule';
 import { createShift } from '@domain/schedule/Shift';
 import { clockTime } from '@domain/shared/ClockTime';
 import type { AbsenceId } from '@domain/shared/ids';
 import type { Absence } from '@domain/absence/Absence';
 import type { EmploymentType } from '@domain/employee/EmploymentType';
-import { createWeekView, effectiveTargetMinutes, effectiveTargetMinutesRange } from './scheduleAssessment';
+import { createMonthOverview, createWeekView, effectiveTargetMinutes, effectiveTargetMinutesRange } from './scheduleAssessment';
 
 const branchId = 'f1' as BranchId;
 const cw: CalendarWeek = { year: 2026, week: 37 };
@@ -197,5 +199,42 @@ describe('effectiveTargetMinutesRange', () => {
       min: 7 * 60,
       max: 11 * 60,
     });
+  });
+});
+
+describe('createMonthOverview', () => {
+  it('includes every week of the month in each row, not just the ones with a saved WeeklySchedule', () => {
+    const weeks = calendarWeeksInMonth(2026, 9);
+    // Guards the fixture itself: the assertions below only mean something if September 2026
+    // genuinely spans more weeks than the 2 given a real WeeklySchedule.
+    expect(weeks.length).toBeGreaterThan(2);
+    const scheduledWeeks = weeks.slice(0, 2);
+    const schedules = scheduledWeeks.map((w) => withDayEntry(createWeeklySchedule(branchId, w, [m1]), m1, 'Montag', shift8h));
+
+    const rows = createMonthOverview(schedules, 2026, 9, [], { employees });
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0].weeks.map((w) => w.calendarWeek.week)).toEqual(weeks.map((w) => w.week));
+    for (const cw of weeks.slice(2)) {
+      const weekRow = rows[0].weeks.find((w) => w.calendarWeek.week === cw.week)!;
+      expect(weekRow.totalNetMinutes).toBe(0);
+    }
+  });
+
+  it('still credits an absence spanning into a week with no saved WeeklySchedule of its own', () => {
+    const weeks = calendarWeeksInMonth(2026, 9);
+    const [scheduledWeek, unscheduledWeek] = weeks;
+    const schedule = withDayEntry(createWeeklySchedule(branchId, scheduledWeek, [m1]), m1, 'Montag', shift8h);
+    const vacationMonday = toISODate(dateForWeekday(unscheduledWeek, 'Montag'));
+    const vacation = absence({ type: 'Vacation', from: vacationMonday, to: vacationMonday });
+
+    const rows = createMonthOverview([schedule], 2026, 9, [vacation], { employees });
+
+    const unscheduledWeekRow = rows[0].weeks.find((w) => w.calendarWeek.week === unscheduledWeek.week)!;
+    expect(unscheduledWeekRow.totalNetMinutes).toBe(5 * 60);
+  });
+
+  it('returns no rows for a month where not a single schedule exists', () => {
+    expect(createMonthOverview([], 2026, 9, [], { employees })).toEqual([]);
   });
 });
