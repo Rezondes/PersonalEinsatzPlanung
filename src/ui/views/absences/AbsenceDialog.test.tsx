@@ -58,6 +58,19 @@ describe('AbsenceDialog', () => {
     createMock.mockImplementation(async (input) => ({ ...input, id: 'a1' as AbsenceId, createdAt: '' }));
   });
 
+  it('drops a checked half-day flag once the range is extended to multiple days', async () => {
+    const user = userEvent.setup();
+    renderDialog();
+
+    await user.click(screen.getByRole('checkbox', { name: 'Nur vormittags frei' }));
+    setDate('Bis', '2099-01-05'); // safely after "today" (Von), whatever "today" is at test time
+    expect(screen.queryByRole('checkbox', { name: 'Nur vormittags frei' })).not.toBeInTheDocument();
+
+    await user.click(save());
+
+    expect(createMock).toHaveBeenCalledWith(expect.objectContaining({ halfDay: undefined }));
+  });
+
   it('marks the fields, preselects the first employee and saves a vacation for today', async () => {
     const user = userEvent.setup();
     const { onClose, onSaved } = renderDialog();

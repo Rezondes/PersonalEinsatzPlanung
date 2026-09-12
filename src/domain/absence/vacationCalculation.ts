@@ -29,11 +29,15 @@ export function countWorkDays(
     return isHalfDay ? 0.5 : workDays.length;
   }
 
+  // Only deduct a boundary half-day when that boundary date is itself a real work day - a flagged
+  // Sunday/holiday boundary was never a full work day to begin with, so there is nothing to halve
+  // (and deducting anyway would under-charge entitlement by half a day).
+  const workDayISOs = new Set(workDays.map((day) => toISODate(day)));
   let count = workDays.length;
-  if (halfDay?.atStart) {
+  if (halfDay?.atStart && workDayISOs.has(from)) {
     count -= 0.5;
   }
-  if (halfDay?.atEnd) {
+  if (halfDay?.atEnd && workDayISOs.has(to)) {
     count -= 0.5;
   }
   return Math.max(count, 0);

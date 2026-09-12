@@ -39,6 +39,17 @@ describe('countWorkDays', () => {
     expect(countWorkDays('2026-09-30', '2026-10-03', undefined, isHoliday)).toBe(3); // Wed,Thu,Fri work, Sat is a holiday
     expect(countWorkDays('2026-09-30', '2026-10-03')).toBe(4); // without isHoliday, Saturday counts normally
   });
+
+  it('does not deduct a half-day at a boundary that is a Sunday (never a work day to begin with)', () => {
+    // 2026-09-13 is a Sunday, excluded from workDays; Mon-Sat = 6 real work days, no half to deduct
+    expect(countWorkDays('2026-09-13', '2026-09-17', { atStart: true, atEnd: false })).toBe(4);
+  });
+
+  it('does not deduct a half-day at a boundary that is a public holiday', () => {
+    const isHoliday = (d: string) => d === '2026-10-03';
+    // Wed 09-30 (half) .. Sat 10-03 (holiday, excluded) -> only Wed/Thu/Fri are real work days, half at end has nothing to deduct from
+    expect(countWorkDays('2026-09-30', '2026-10-03', { atStart: false, atEnd: true }, isHoliday)).toBe(3);
+  });
 });
 
 describe('countVacationDaysInYear', () => {

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Button from '@mui/material/Button';
 import TextField from '@mui/material/TextField';
 import MenuItem from '@mui/material/MenuItem';
@@ -86,6 +86,15 @@ export function AbsenceDialog({ employees, onClose, onSaved, onError }: AbsenceD
   );
 
   const singleDay = form.from === form.to;
+
+  // The half-day checkboxes are only rendered for a single-day Vacation (see below). Once the
+  // range becomes multi-day they disappear, but without this the checked value would silently
+  // survive in state and still be submitted on save - reset it the moment singleDay turns false.
+  useEffect(() => {
+    if (singleDay) return;
+    setForm((f) => (f.halfDayAtStart || f.halfDayAtEnd ? { ...f, halfDayAtStart: false, halfDayAtEnd: false } : f));
+  }, [singleDay]);
+
   const [saving, setSaving] = useState(false);
 
   const save = async () => {
