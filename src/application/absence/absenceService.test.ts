@@ -10,7 +10,7 @@ function fakeRepo(): AbsenceRepository {
   return {
     findAll: vi.fn(),
     findByEmployee: vi.fn(async () => []),
-    findByBranch: vi.fn(async () => []),
+    findByEmployeeIds: vi.fn(async () => []),
     save: vi.fn(async () => {}),
     delete: vi.fn(async () => {}),
     deleteAll: vi.fn(),
@@ -24,10 +24,10 @@ describe('absenceService', () => {
     expect(repo.findByEmployee).toHaveBeenCalledWith(m1);
   });
 
-  it('forBranch delegates to the repository', async () => {
+  it('forEmployees delegates to the repository', async () => {
     const repo = fakeRepo();
-    await createAbsenceService(repo).forBranch([m1]);
-    expect(repo.findByBranch).toHaveBeenCalledWith([m1]);
+    await createAbsenceService(repo).forEmployees([m1]);
+    expect(repo.findByEmployeeIds).toHaveBeenCalledWith([m1]);
   });
 
   it('create builds a new Absence and saves it', async () => {

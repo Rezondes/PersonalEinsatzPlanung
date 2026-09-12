@@ -7,7 +7,7 @@ export function useAbsences(employeeIds: EmployeeId[]) {
   const idsKey = employeeIds.join(',');
   const { data: absences, loading, reload } = useAsyncData<Absence[]>(
     [],
-    () => (employeeIds.length === 0 ? Promise.resolve([]) : services.absence.forBranch(employeeIds)),
+    () => (employeeIds.length === 0 ? Promise.resolve([]) : services.absence.forEmployees(employeeIds)),
     // idsKey instead of employeeIds itself: a new array reference every render would re-trigger
     // the effect chain on every render even when the actual ids haven't changed.
     [idsKey],

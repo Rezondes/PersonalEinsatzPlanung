@@ -56,7 +56,7 @@ export function PrintPreviewView() {
         services.branch.find(loadedSchedule.branchId),
         services.employee.forBranch(loadedSchedule.branchId),
       ]);
-      const loadedAbsences = await services.absence.forBranch(loadedEmployees.map((e) => e.id));
+      const loadedAbsences = await services.absence.forEmployees(loadedEmployees.map((e) => e.id));
 
       setSchedule(loadedSchedule);
       setBranch(loadedBranch);

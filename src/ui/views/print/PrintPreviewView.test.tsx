@@ -16,14 +16,14 @@ vi.mock('@infrastructure/services', () => ({
     schedule: { find: vi.fn() },
     branch: { find: vi.fn() },
     employee: { forBranch: vi.fn() },
-    absence: { forBranch: vi.fn() },
+    absence: { forEmployees: vi.fn() },
   },
 }));
 
 const scheduleFindMock = vi.mocked(services.schedule.find);
 const branchFindMock = vi.mocked(services.branch.find);
 const employeeForBranchMock = vi.mocked(services.employee.forBranch);
-const absenceForBranchMock = vi.mocked(services.absence.forBranch);
+const absenceForBranchMock = vi.mocked(services.absence.forEmployees);
 
 const branchId = 'branch-1' as BranchId;
 const cw = { year: 2026, week: 37 };

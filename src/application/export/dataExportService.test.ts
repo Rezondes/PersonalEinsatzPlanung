@@ -53,7 +53,7 @@ function fakeRepos(overrides: Partial<DataRepositories> = {}): DataRepositories 
     absence: {
       findAll: vi.fn(async () => []),
       findByEmployee: vi.fn(),
-      findByBranch: vi.fn(),
+      findByEmployeeIds: vi.fn(),
       save: vi.fn(async () => {}),
       delete: vi.fn(),
       deleteAll: vi.fn(async () => {}),

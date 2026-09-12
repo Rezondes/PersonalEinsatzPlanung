@@ -50,7 +50,7 @@ vi.mock('@infrastructure/services', () => ({
       applyTargetAdjustments: vi.fn(),
       forBranch: vi.fn(),
     },
-    absence: { forBranch: vi.fn(), create: vi.fn(), delete: vi.fn(), restore: vi.fn() },
+    absence: { forEmployees: vi.fn(), create: vi.fn(), delete: vi.fn(), restore: vi.fn() },
     shiftTemplate: { forBranch: vi.fn(), delete: vi.fn() },
     restPeriodCheck: { checkWeek: vi.fn(async () => []) },
   },
@@ -64,7 +64,7 @@ const scheduleSetDayEntryAndSave = vi.mocked(services.schedule.setDayEntryAndSav
 const scheduleFindForWeek = vi.mocked(services.schedule.findForWeek);
 const scheduleApplyTargetAdjustments = vi.mocked(services.schedule.applyTargetAdjustments);
 const scheduleForBranch = vi.mocked(services.schedule.forBranch);
-const absenceForBranch = vi.mocked(services.absence.forBranch);
+const absenceForBranch = vi.mocked(services.absence.forEmployees);
 const absenceCreate = vi.mocked(services.absence.create);
 const absenceDelete = vi.mocked(services.absence.delete);
 const absenceRestore = vi.mocked(services.absence.restore);

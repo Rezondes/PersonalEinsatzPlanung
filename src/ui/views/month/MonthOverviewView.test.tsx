@@ -22,13 +22,13 @@ vi.mock('@infrastructure/services', () => ({
   services: {
     branch: { all: vi.fn() },
     employee: { forBranch: vi.fn() },
-    absence: { forBranch: vi.fn() },
+    absence: { forEmployees: vi.fn() },
     schedule: { forBranch: vi.fn() },
   },
 }));
 
 const employeeForBranch = vi.mocked(services.employee.forBranch);
-const absenceForBranch = vi.mocked(services.absence.forBranch);
+const absenceForBranch = vi.mocked(services.absence.forEmployees);
 const scheduleForBranch = vi.mocked(services.schedule.forBranch);
 
 const MONTH_NAMES = [

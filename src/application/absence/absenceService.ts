@@ -7,7 +7,7 @@ export function createAbsenceService(repo: AbsenceRepository) {
   return {
     forEmployee: (employeeId: EmployeeId) => repo.findByEmployee(employeeId),
 
-    forBranch: (employeeIds: EmployeeId[]) => repo.findByBranch(employeeIds),
+    forEmployees: (employeeIds: EmployeeId[]) => repo.findByEmployeeIds(employeeIds),
 
     create: async (details: AbsenceInput) => {
       const absence = createAbsence(details);

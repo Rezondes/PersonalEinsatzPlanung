@@ -12,7 +12,7 @@ export class DexieAbsenceRepository implements AbsenceRepository {
     return db.absences.where('employeeId').equals(employeeId).toArray();
   }
 
-  async findByBranch(employeeIds: EmployeeId[]): Promise<Absence[]> {
+  async findByEmployeeIds(employeeIds: EmployeeId[]): Promise<Absence[]> {
     if (employeeIds.length === 0) {
       return [];
     }

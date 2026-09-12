@@ -18,12 +18,12 @@ vi.mock('@infrastructure/services', () => ({
   services: {
     branch: { all: vi.fn() },
     employee: { forBranch: vi.fn() },
-    absence: { forBranch: vi.fn(), create: vi.fn(), delete: vi.fn() },
+    absence: { forEmployees: vi.fn(), create: vi.fn(), delete: vi.fn() },
   },
 }));
 
 const employeeForBranchMock = vi.mocked(services.employee.forBranch);
-const absenceForBranchMock = vi.mocked(services.absence.forBranch);
+const absenceForBranchMock = vi.mocked(services.absence.forEmployees);
 const createMock = vi.mocked(services.absence.create);
 const deleteMock = vi.mocked(services.absence.delete);
 

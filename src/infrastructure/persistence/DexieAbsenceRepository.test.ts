@@ -72,17 +72,17 @@ describe('DexieAbsenceRepository', () => {
     });
   });
 
-  describe('findByBranch', () => {
+  describe('findByEmployeeIds', () => {
     it('returns the union of absences across the given employees', async () => {
       await db.absences.bulkPut([vacation, illness, other]);
 
-      const result = await repo.findByBranch([e1, e3]);
+      const result = await repo.findByEmployeeIds([e1, e3]);
       expect(result).toHaveLength(2);
       expect(result).toEqual(expect.arrayContaining([vacation, other]));
     });
 
     it('resolves to an empty array for an empty employeeIds list, without needing seeded data', async () => {
-      await expect(repo.findByBranch([])).resolves.toEqual([]);
+      await expect(repo.findByEmployeeIds([])).resolves.toEqual([]);
     });
   });
 
