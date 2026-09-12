@@ -67,13 +67,18 @@ export function createDataExportService(repos: DataRepositories) {
     },
 
     deleteAllData: async (): Promise<void> => {
-      await Promise.all([
-        repos.branch.deleteAll(),
-        repos.employee.deleteAll(),
-        repos.weeklySchedule.deleteAll(),
-        repos.absence.deleteAll(),
-        repos.shiftTemplate.deleteAll(),
-      ]);
+      // Atomic for the same reason importAndReplace is: a mid-way failure must not leave some
+      // stores cleared and others not, which would silently discard part of the user's data while
+      // reporting a generic "could not delete" error that implies nothing happened.
+      await repos.transaction(async () => {
+        await Promise.all([
+          repos.branch.deleteAll(),
+          repos.employee.deleteAll(),
+          repos.weeklySchedule.deleteAll(),
+          repos.absence.deleteAll(),
+          repos.shiftTemplate.deleteAll(),
+        ]);
+      });
     },
   };
 }

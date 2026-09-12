@@ -252,9 +252,11 @@ export class PepDatabase extends Dexie {
 
 export const db = new PepDatabase();
 
-/** Runs `fn` inside a single Dexie transaction spanning all 4 stores, so a multi-store write (e.g.
- * JSON import replace) either fully applies or fully rolls back - a failure partway through can
- * never leave the database with some stores cleared and others not yet repopulated. */
+/** Runs `fn` inside a single Dexie transaction spanning every store listed below, so a multi-store
+ * write (e.g. JSON import replace) either fully applies or fully rolls back - a failure partway
+ * through can never leave the database with some stores cleared and others not yet repopulated.
+ * When a new store is added, it has to be added to this list too, or a write to it falls outside
+ * the transaction and Dexie throws. */
 export function transaction<T>(fn: () => Promise<T>): Promise<T> {
   return db.transaction(
     'rw',

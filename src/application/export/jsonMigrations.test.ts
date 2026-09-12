@@ -48,6 +48,12 @@ describe('migrateToCurrentVersion', () => {
     expect(() => migrateToCurrentVersion({ ...validFile, formatVersion: 99 })).toThrow(DomainError);
   });
 
+  it('rejects a malformed formatVersion (0, negative, or non-integer) instead of treating it as already current', () => {
+    expect(() => migrateToCurrentVersion({ ...validFile, formatVersion: 0 })).toThrow(DomainError);
+    expect(() => migrateToCurrentVersion({ ...validFile, formatVersion: -1 })).toThrow(DomainError);
+    expect(() => migrateToCurrentVersion({ ...validFile, formatVersion: 1.5 })).toThrow(DomainError);
+  });
+
   it('rejects a v2 file without a data field', () => {
     expect(() => migrateToCurrentVersion({ formatVersion: 2 })).toThrow(DomainError);
   });

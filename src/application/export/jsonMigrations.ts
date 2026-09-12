@@ -311,6 +311,10 @@ export function migrateToCurrentVersion(rawData: unknown): PepExportFile {
     throw new DomainError('Die Datei enthält kein gültiges PEP-Exportformat.');
   }
 
+  if (!Number.isInteger(rawFile.formatVersion) || rawFile.formatVersion < 1) {
+    throw new DomainError('Die Datei enthält kein gültiges PEP-Exportformat (ungültige Formatversion).');
+  }
+
   if (rawFile.formatVersion === 1) {
     const fileV1 = rawData as unknown as { exportiertAm: unknown; daten: unknown };
     if (typeof fileV1.exportiertAm !== 'string' || !isValidV1DataStructure(fileV1.daten)) {

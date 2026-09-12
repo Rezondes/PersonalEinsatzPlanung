@@ -128,16 +128,16 @@ describe('dataExportService.importAndReplace', () => {
 });
 
 describe('dataExportService.deleteAllData', () => {
-  it('clears every store without a transaction wrapper', async () => {
+  it('clears every store atomically, inside the same transaction wrapper importAndReplace uses', async () => {
     const repos = fakeRepos();
 
     await createDataExportService(repos).deleteAllData();
 
+    expect(repos.transaction).toHaveBeenCalled();
     expect(repos.branch.deleteAll).toHaveBeenCalled();
     expect(repos.employee.deleteAll).toHaveBeenCalled();
     expect(repos.weeklySchedule.deleteAll).toHaveBeenCalled();
     expect(repos.absence.deleteAll).toHaveBeenCalled();
     expect(repos.shiftTemplate.deleteAll).toHaveBeenCalled();
-    expect(repos.transaction).not.toHaveBeenCalled();
   });
 });
