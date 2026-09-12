@@ -1,6 +1,6 @@
 import type { Weekday } from '@domain/shared/CalendarWeek';
 import type { Employee } from '@domain/employee/Employee';
-import { compareByLastName, isEmployedDuring, isEmployedOn } from '@domain/employee/Employee';
+import { compareByLastName, isEmployedOn, isPlannable } from '@domain/employee/Employee';
 import type { DayView, EmployeeWeekView } from '@application/schedule/scheduleAssessment';
 import { hasAnyEntry } from '@application/schedule/scheduleAssessment';
 
@@ -47,8 +47,7 @@ export function buildScheduleRows(
       continue;
     }
 
-    const employedThisWeek = isEmployedDuring(employee, weekStartISO, weekEndISO);
-    const editable = employee.active && employedThisWeek;
+    const editable = isPlannable(employee, weekStartISO, weekEndISO);
     if (!editable && !hasAnyEntry(view)) {
       continue;
     }

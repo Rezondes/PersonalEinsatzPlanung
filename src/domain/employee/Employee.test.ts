@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import type { BranchId } from '@domain/shared/ids';
 import { DomainValidationError } from '@domain/shared/DomainError';
-import { compareByLastName, createEmployee, isEmployedDuring, isEmployedOn } from './Employee';
+import { compareByLastName, createEmployee, isEmployedDuring, isEmployedOn, isPlannable } from './Employee';
 
 function m(lastName: string, firstName: string) {
   return { lastName, firstName };
@@ -88,5 +88,21 @@ describe('isEmployedDuring', () => {
 
   it('is true without any dates', () => {
     expect(isEmployedDuring({}, '2026-03-02', '2026-03-08')).toBe(true);
+  });
+});
+
+describe('isPlannable', () => {
+  const period = { active: true, entryDate: '2026-03-04', exitDate: '2026-03-06' };
+
+  it('is true when active and the employment period overlaps the range', () => {
+    expect(isPlannable(period, '2026-03-02', '2026-03-08')).toBe(true);
+  });
+
+  it('is false when inactive, even if the period overlaps', () => {
+    expect(isPlannable({ ...period, active: false }, '2026-03-02', '2026-03-08')).toBe(false);
+  });
+
+  it('is false when the employment period does not overlap, even if active', () => {
+    expect(isPlannable(period, '2026-03-09', '2026-03-15')).toBe(false);
   });
 });

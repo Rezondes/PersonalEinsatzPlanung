@@ -4,7 +4,7 @@ import type { CalendarWeek } from '@domain/shared/CalendarWeek';
 import { clockTime } from '@domain/shared/ClockTime';
 import { createShift } from '@domain/schedule/Shift';
 import type { Employee } from '@domain/employee/Employee';
-import { createWeeklySchedule, withDayEntry } from '@domain/schedule/WeeklySchedule';
+import { createWeeklySchedule, withDayEntry, withTargetAdjustment } from '@domain/schedule/WeeklySchedule';
 import type { WeeklyScheduleRepository } from '@application/ports/WeeklyScheduleRepository';
 import type { EmployeeRepository } from '@application/ports/EmployeeRepository';
 import { createScheduleService } from './scheduleService';
@@ -131,6 +131,21 @@ describe('scheduleService.copyFromPreviousWeek', () => {
     expect(e1Assignment?.days.Montag).toEqual(prevShift.employeeAssignments[0].days.Montag);
     expect(e2Assignment?.days.Montag).toEqual({ type: 'Off' });
     expect(scheduleRepo.save).toHaveBeenCalledWith(result);
+  });
+
+  it('does not carry over the previous week\'s targetAdjustmentMinutes (it was computed for THAT week, not this one)', async () => {
+    const prevWithAdjustment = withTargetAdjustment(createWeeklySchedule(branchId, previousWeek, [e1]), e1, 90);
+    const scheduleRepo = fakeScheduleRepo({
+      findByBranchAndWeek: vi.fn(async (_branchId: BranchId, cw: CalendarWeek) =>
+        cw.week === previousWeek.week ? prevWithAdjustment : null,
+      ),
+    });
+    const employeeRepo = fakeEmployeeRepo([employee(e1)]);
+
+    const result = await createScheduleService(scheduleRepo, employeeRepo).copyFromPreviousWeek(branchId, currentWeek);
+
+    const e1Assignment = result.employeeAssignments.find((a) => a.employeeId === e1);
+    expect(e1Assignment?.targetAdjustmentMinutes).toBeUndefined();
   });
 });
 

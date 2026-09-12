@@ -2,7 +2,7 @@ import type { BranchId, EmployeeId, WeeklyScheduleId } from '@domain/shared/ids'
 import type { CalendarWeek, Weekday } from '@domain/shared/CalendarWeek';
 import { dateForWeekday, mondayOfWeek, previousCalendarWeek } from '@domain/shared/CalendarWeek';
 import { toISODate } from '@domain/shared/DateFormat';
-import { isEmployedDuring } from '@domain/employee/Employee';
+import { isPlannable } from '@domain/employee/Employee';
 import type { WeeklySchedule } from '@domain/schedule/WeeklySchedule';
 import { createWeeklySchedule, withDayEntry, withTargetAdjustment } from '@domain/schedule/WeeklySchedule';
 import type { DayEntry } from '@domain/schedule/EmployeeWeekAssignment';
@@ -18,7 +18,7 @@ export function createScheduleService(repo: WeeklyScheduleRepository, employeeRe
     const employeeList = await employeeRepo.findByBranch(branchId);
     const from = toISODate(mondayOfWeek(cw));
     const to = toISODate(dateForWeekday(cw, 'Sonntag'));
-    return employeeList.filter((e) => e.active && isEmployedDuring(e, from, to)).map((e) => e.id);
+    return employeeList.filter((e) => isPlannable(e, from, to)).map((e) => e.id);
   }
 
   return {
@@ -72,7 +72,12 @@ export function createScheduleService(repo: WeeklyScheduleRepository, employeeRe
 
         const employeeAssignments = activeIds.map((employeeId) => {
           const previousWeekAssignment = previousWeek?.employeeAssignments.find((a) => a.employeeId === employeeId);
-          return previousWeekAssignment ?? emptyWeekAssignment(employeeId);
+          if (!previousWeekAssignment) {
+            return emptyWeekAssignment(employeeId);
+          }
+          // targetAdjustmentMinutes was computed FOR the previous week from the week before that -
+          // it is meaningless carried into a new week and must not come along with the copied days.
+          return { ...previousWeekAssignment, targetAdjustmentMinutes: undefined };
         });
 
         const schedule: WeeklySchedule = { ...createWeeklySchedule(branchId, cw, []), employeeAssignments };

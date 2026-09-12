@@ -88,6 +88,15 @@ export function isEmployedDuring(employee: EmploymentPeriod, fromISO: string, to
   return !(employee.exitDate && employee.exitDate < fromISO);
 }
 
+/** Whether the employee may be scheduled at all in this range: active AND their employment period
+ * overlaps it. The single shared definition of "plannable" - scheduleService.ts,
+ * printDataPreparation.ts and ui/views/schedule/scheduleRows.ts each used to reimplement this
+ * exact `active && isEmployedDuring(...)` check independently, a drift risk if the definition
+ * ever grows a third condition. */
+export function isPlannable(employee: Pick<Employee, 'active' | 'entryDate' | 'exitDate'>, fromISO: string, toISO: string): boolean {
+  return employee.active && isEmployedDuring(employee, fromISO, toISO);
+}
+
 /** Sorts by last name A-Z (first name as tiebreaker), German collation (so e.g. umlauts sort
  * correctly). Single source of truth for the "employees always sorted by last name" rule - used
  * for master data, monthly overview, absences, the weekly schedule table, and the print export,

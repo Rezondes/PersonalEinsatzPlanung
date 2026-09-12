@@ -2,7 +2,7 @@ import { WEEKDAYS, dateForWeekday, mondayOfWeek } from '@domain/shared/CalendarW
 import type { Weekday } from '@domain/shared/CalendarWeek';
 import { toISODate } from '@domain/shared/DateFormat';
 import type { Employee } from '@domain/employee/Employee';
-import { compareByLastName, isEmployedDuring } from '@domain/employee/Employee';
+import { compareByLastName, isPlannable } from '@domain/employee/Employee';
 import type { WeeklySchedule } from '@domain/schedule/WeeklySchedule';
 import type { Absence } from '@domain/absence/Absence';
 import type { Break } from '@domain/schedule/Break';
@@ -157,7 +157,7 @@ export function preparePrintData(
     // who may no longer be scheduled is only printed while they still carry entries. Without this,
     // every deactivated employee would occupy one of the nine columns per sheet with an empty
     // column and push real staff onto another sheet.
-    const plannable = employee.active && isEmployedDuring(employee, weekStart, weekEnd);
+    const plannable = isPlannable(employee, weekStart, weekEnd);
     if (!plannable && !hasAnyEntry(assignment)) {
       continue;
     }
