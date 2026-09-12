@@ -15,10 +15,11 @@ import { services } from '@infrastructure/services';
 import { useScheduleValidation } from './useScheduleValidation';
 
 vi.mock('@infrastructure/services', () => ({
-  services: { restPeriodCheck: { checkWeek: vi.fn() } },
+  services: { restPeriodCheck: { checkWeek: vi.fn() }, employee: { forBranch: vi.fn() } },
 }));
 
 const checkWeekMock = vi.mocked(services.restPeriodCheck.checkWeek);
+const employeeForBranchMock = vi.mocked(services.employee.forBranch);
 
 const branchId = 'b1' as BranchId;
 const m1 = 'm1' as EmployeeId;
@@ -67,6 +68,8 @@ function createDeferred<T>() {
 describe('useScheduleValidation', () => {
   beforeEach(() => {
     checkWeekMock.mockReset();
+    employeeForBranchMock.mockReset();
+    employeeForBranchMock.mockResolvedValue([]);
   });
 
   it('resolves to an empty array without calling checkWeek when schedule or branch is null', async () => {
@@ -141,7 +144,29 @@ describe('useScheduleValidation', () => {
     // The async rest-period check does its own absence-clearing per neighbouring week (see the
     // hook's doc comment and restPeriodCheckService), so it deliberately gets the RAW schedule
     // (with the leftover Monday shift still present) plus the absences list, not a pre-cleaned copy.
-    expect(checkWeekMock).toHaveBeenCalledWith(schedule, absencesWithVacation);
+    expect(checkWeekMock).toHaveBeenCalledWith(schedule, absencesWithVacation, []);
+  });
+
+  it('adds a JArbSchG youth violation for a minor employee, without affecting an adult in the same schedule', async () => {
+    let schedule = withDayEntry(
+      createWeeklySchedule(branchId, week, [m1, m2]),
+      m1,
+      'Montag',
+      shiftEntry('06:00', '21:00'), // past 20:00 -> youth night-work violation, harmless for an adult
+    );
+    schedule = withDayEntry(schedule, m2, 'Montag', shiftEntry('06:00', '21:00'));
+    employeeForBranchMock.mockResolvedValue([
+      { id: m1, birthDate: '2010-05-01' } as never,
+      { id: m2, birthDate: '1990-05-01' } as never,
+    ]);
+    checkWeekMock.mockResolvedValue([]);
+
+    const { result } = renderHook(() => useScheduleValidation(schedule, defaultBranch, EMPTY_ABSENCES));
+
+    await waitFor(() =>
+      expect(result.current).toContainEqual(expect.objectContaining({ rule: 'JArbSchG_14_Nachtruhe', employeeId: m1 })),
+    );
+    expect(result.current).not.toContainEqual(expect.objectContaining({ rule: 'JArbSchG_14_Nachtruhe', employeeId: m2 }));
   });
 
   it("does not let a stale checkWeek response overwrite a newer render's results", async () => {

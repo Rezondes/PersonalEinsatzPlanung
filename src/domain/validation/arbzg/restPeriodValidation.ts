@@ -24,7 +24,7 @@ export function shiftToDated(date: string, shift: Shift, employeeId: EmployeeId)
   return { employeeId, start, end };
 }
 
-function formatClockTime(date: Date): string {
+export function formatClockTime(date: Date): string {
   return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
 }
 

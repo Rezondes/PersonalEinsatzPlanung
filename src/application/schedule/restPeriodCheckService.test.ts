@@ -105,4 +105,26 @@ describe('restPeriodCheckService.checkWeek', () => {
 
     expect(results).toEqual([]);
   });
+
+  it('also reports a JArbSchG youth rest-period violation for a minor at a gap the adult 11h check would already accept', async () => {
+    const previous = withDayEntry(createWeeklySchedule(branchId, previousWeek, [m1]), m1, 'Sonntag', shift('06:00', '14:00'));
+    const current = withDayEntry(createWeeklySchedule(branchId, currentWeek, [m1]), m1, 'Montag', shift('01:30', '09:00')); // 11h30 gap
+    const repo = fakeRepo({ [previousWeek.week]: previous });
+
+    const results = await createRestPeriodCheckService(repo).checkWeek(current, [], [{ id: m1, birthDate: '2010-05-01' }]);
+
+    expect(results.some((r) => r.rule === 'JArbSchG_12_Ruhezeit')).toBe(true);
+  });
+
+  it('does not apply the youth rest-period rule for an adult, or when no employees are supplied', async () => {
+    const previous = withDayEntry(createWeeklySchedule(branchId, previousWeek, [m1]), m1, 'Sonntag', shift('06:00', '14:00'));
+    const current = withDayEntry(createWeeklySchedule(branchId, currentWeek, [m1]), m1, 'Montag', shift('01:30', '09:00'));
+    const repo = fakeRepo({ [previousWeek.week]: previous });
+
+    const asAdult = await createRestPeriodCheckService(repo).checkWeek(current, [], [{ id: m1, birthDate: '1990-05-01' }]);
+    expect(asAdult.some((r) => r.rule === 'JArbSchG_12_Ruhezeit')).toBe(false);
+
+    const withoutEmployees = await createRestPeriodCheckService(repo).checkWeek(current);
+    expect(withoutEmployees.some((r) => r.rule === 'JArbSchG_12_Ruhezeit')).toBe(false);
+  });
 });

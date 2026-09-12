@@ -4,8 +4,10 @@ import { toISODate } from '@domain/shared/DateFormat';
 import type { WeeklySchedule } from '@domain/schedule/WeeklySchedule';
 import { assignmentForEmployee } from '@domain/schedule/WeeklySchedule';
 import type { Absence } from '@domain/absence/Absence';
+import type { Employee } from '@domain/employee/Employee';
 import type { DatedShift } from '@domain/validation/arbzg/restPeriodValidation';
 import { shiftToDated, validateRestPeriodSequence } from '@domain/validation/arbzg/restPeriodValidation';
+import { validateYouthRestPeriodSequence } from '@domain/validation/arbzg/youthProtection';
 import type { ValidationResult } from '@domain/validation/ValidationResult';
 import type { WeeklyScheduleRepository } from '@application/ports/WeeklyScheduleRepository';
 import { scheduleWithoutAbsentDays } from '@application/schedule/scheduleAssessment';
@@ -41,7 +43,11 @@ function extractDatedShifts(schedule: WeeklySchedule, employeeId: EmployeeId): D
  * vacation/sick day would wrongly count toward the rest period. */
 export function createRestPeriodCheckService(repo: WeeklyScheduleRepository) {
   return {
-    checkWeek: async (schedule: WeeklySchedule, absences: Absence[] = []): Promise<ValidationResult[]> => {
+    checkWeek: async (
+      schedule: WeeklySchedule,
+      absences: Absence[] = [],
+      employees: Pick<Employee, 'id' | 'birthDate'>[] = [],
+    ): Promise<ValidationResult[]> => {
       const { branchId, calendarWeek } = schedule;
       const [previous, next] = await Promise.all([
         repo.findByBranchAndWeek(branchId, previousCalendarWeek(calendarWeek)),
@@ -52,9 +58,14 @@ export function createRestPeriodCheckService(repo: WeeklyScheduleRepository) {
         .filter((s): s is WeeklySchedule => s !== null)
         .map((s) => scheduleWithoutAbsentDays(s, absences));
 
-      return schedule.employeeAssignments.flatMap((assignment) =>
-        validateRestPeriodSequence(cleaned.flatMap((s) => extractDatedShifts(s, assignment.employeeId))),
-      );
+      return schedule.employeeAssignments.flatMap((assignment) => {
+        const datedShifts = cleaned.flatMap((s) => extractDatedShifts(s, assignment.employeeId));
+        const birthDate = employees.find((e) => e.id === assignment.employeeId)?.birthDate;
+        return [
+          ...validateRestPeriodSequence(datedShifts),
+          ...validateYouthRestPeriodSequence(datedShifts, birthDate),
+        ];
+      });
     },
   };
 }
