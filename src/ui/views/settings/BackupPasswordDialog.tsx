@@ -14,7 +14,7 @@ import { RequiredLegend } from '@ui/components/RequiredLegend';
 import { ResponsiveDialog } from '@ui/components/ResponsiveDialog';
 
 interface BackupPasswordDialogProps {
-  mode: 'set' | 'enter';
+  mode: 'set' | 'enter' | 'confirm';
   /** 'enter' mode only: message from a failed decrypt attempt on the SAME envelope, passed back in
    * by the parent after it catches `WrongPasswordError` so the dialog can show it inline and let
    * the user retry without closing the dialog or re-selecting the file. */
@@ -29,10 +29,15 @@ interface BackupPasswordDialogProps {
 /**
  * Sets or asks for the password a backup is encrypted with - never the backup content itself. Used
  * for three flows in `SettingsView`: setting/changing the password ('set'), obtaining it once per
- * session before an export when it isn't cached yet, and entering it to decrypt an import file
- * ('enter' for both). Only the last of these can fail (a wrong password), which is why `error` is a
- * prop rather than state owned here - the parent keeps the dialog mounted across retries so the
- * typed password and the file/envelope stay put.
+ * session before an export when it isn't cached yet ('confirm'), and entering it to decrypt an
+ * import file ('enter'). 'confirm' shows the same two-field, must-match layout as 'set' - the app
+ * never stores the actual password (see `backupPasswordSession.ts`), so re-typing it and comparing
+ * the two entries against EACH OTHER is the only way to catch a typo before it silently produces a
+ * backup nobody can open again - but unlike 'set' it must never call `setBackupPasswordConfigured`,
+ * since the password was already configured; this dialog is only confirming it, not (re)defining
+ * it. Only 'enter' can fail asynchronously (a wrong password against a real file), which is why
+ * `error` is a prop rather than state owned here - the parent keeps the dialog mounted across
+ * retries so the typed password and the file/envelope stay put.
  */
 type PasswordField = 'password' | 'confirmPassword';
 
@@ -50,7 +55,7 @@ export function BackupPasswordDialog({ mode, error = null, busy, onClose, onSubm
     if (password.length === 0) {
       errors.push({ field: 'password', message: 'Bitte Passwort eingeben.' });
     }
-    if (mode === 'set' && password.length > 0 && password !== confirmPassword) {
+    if ((mode === 'set' || mode === 'confirm') && password.length > 0 && password !== confirmPassword) {
       errors.push({ field: 'confirmPassword', message: 'Passwörter stimmen nicht überein.' });
     }
     return errors;
@@ -80,7 +85,13 @@ export function BackupPasswordDialog({ mode, error = null, busy, onClose, onSubm
     <ResponsiveDialog
       open
       onClose={busy ? undefined : onClose}
-      title={mode === 'set' ? 'Backup-Passwort festlegen' : 'Backup-Passwort eingeben'}
+      title={
+        mode === 'set'
+          ? 'Backup-Passwort festlegen'
+          : mode === 'confirm'
+            ? 'Backup-Passwort bestätigen'
+            : 'Backup-Passwort eingeben'
+      }
       maxWidth="xs"
       contentRef={validation.containerRef}
       actions={
@@ -115,6 +126,13 @@ export function BackupPasswordDialog({ mode, error = null, busy, onClose, onSubm
         </Alert>
       )}
 
+      {mode === 'confirm' && (
+        <Alert severity="info" sx={{ mb: 2 }} data-selectable>
+          Bitte gib das Backup-Passwort erneut ein, um dieses Backup zu verschlüsseln. So fällt ein Tippfehler
+          schon jetzt auf, statt erst bei einem späteren Wiederherstellungsversuch.
+        </Alert>
+      )}
+
       {mode === 'enter' && error && (
         <Alert severity="error" sx={{ mb: 2 }} data-selectable>
           {error}
@@ -136,7 +154,7 @@ export function BackupPasswordDialog({ mode, error = null, busy, onClose, onSubm
           disabled={busy}
           {...validation.fieldProps('password', ' ')}
         />
-        {mode === 'set' && (
+        {(mode === 'set' || mode === 'confirm') && (
           <TextField
             required
             fullWidth

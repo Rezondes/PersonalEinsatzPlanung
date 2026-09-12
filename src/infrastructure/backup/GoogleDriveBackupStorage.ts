@@ -17,6 +17,18 @@ interface DriveFileList {
   files?: DriveFile[];
 }
 
+/** Thrown by `call()` when a 401 survives the silent token-refresh retry - i.e. the user's Google
+ * session is actually gone (revoked consent, expired refresh token), not just one bad request. Its
+ * own class, rather than a plain `Error`, so `SettingsView` can catch this one case specifically
+ * and reset `driveSignedIn` back to the "not connected" UI state instead of leaving the buttons for
+ * an already-dead session on screen. */
+export class DriveSessionExpiredError extends Error {
+  constructor(message = 'Die Verbindung zu Google ist abgelaufen. Bitte melde dich erneut mit Google an.') {
+    super(message);
+    this.name = 'DriveSessionExpiredError';
+  }
+}
+
 function toRemoteBackup(file: DriveFile): RemoteBackup {
   return {
     id: file.id,
@@ -99,7 +111,7 @@ export class GoogleDriveBackupStorage implements BackupStorage {
         await requestAccessToken(true);
       } catch {
         clearAccessToken();
-        throw new Error('Die Verbindung zu Google ist abgelaufen. Bitte melde dich erneut mit Google an.');
+        throw new DriveSessionExpiredError();
       }
       return this.call(url, init, false);
     }

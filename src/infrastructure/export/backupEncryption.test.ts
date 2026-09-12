@@ -5,6 +5,7 @@
 // implementation directly, rather than depending on jsdom's (partial, version-dependent) coverage
 // of crypto.subtle.
 import { describe, it, expect } from 'vitest';
+import { DomainError } from '@domain/shared/DomainError';
 import type { PepExportFile } from '@application/export/jsonExportFormat';
 import { isEncryptedBackupEnvelope } from '@application/export/encryptedExportFormat';
 import { encryptBackup, decryptBackup, WrongPasswordError, PBKDF2_ITERATIONS } from './backupEncryption';
@@ -29,7 +30,7 @@ describe('backupEncryption', () => {
   });
 
   it('produces a cleartext envelope carrying the expected KDF/cipher parameters', async () => {
-    const envelope = await encryptBackup(sampleFile, 'pw');
+    const envelope = await encryptBackup(sampleFile, 'password');
     expect(envelope.encrypted).toBe(true);
     expect(envelope.envelopeVersion).toBe(1);
     expect(envelope.kdf).toMatchObject({ name: 'PBKDF2', hash: 'SHA-256', iterations: PBKDF2_ITERATIONS });
@@ -40,8 +41,8 @@ describe('backupEncryption', () => {
   });
 
   it('draws a fresh random salt and IV on every call, even for the same password', async () => {
-    const a = await encryptBackup(sampleFile, 'pw');
-    const b = await encryptBackup(sampleFile, 'pw');
+    const a = await encryptBackup(sampleFile, 'password');
+    const b = await encryptBackup(sampleFile, 'password');
     expect(a.kdf.salt).not.toBe(b.kdf.salt);
     expect(a.cipher.iv).not.toBe(b.cipher.iv);
     expect(a.ciphertext).not.toBe(b.ciphertext);
@@ -59,7 +60,7 @@ describe('backupEncryption', () => {
   });
 
   it('isEncryptedBackupEnvelope recognizes an envelope and rejects a legacy plaintext export file', async () => {
-    const envelope = await encryptBackup(sampleFile, 'pw');
+    const envelope = await encryptBackup(sampleFile, 'password');
     expect(isEncryptedBackupEnvelope(envelope)).toBe(true);
     expect(isEncryptedBackupEnvelope(sampleFile)).toBe(false);
   });
@@ -70,5 +71,19 @@ describe('backupEncryption', () => {
     expect(isEncryptedBackupEnvelope('a string')).toBe(false);
     expect(isEncryptedBackupEnvelope({})).toBe(false);
     expect(isEncryptedBackupEnvelope({ encrypted: true, envelopeVersion: 1 })).toBe(false);
+  });
+
+  it('rejects a password below the minimum length instead of silently encrypting with it', async () => {
+    await expect(encryptBackup(sampleFile, '1234567')).rejects.toThrow(DomainError);
+  });
+
+  it('accepts a password at exactly the minimum length', async () => {
+    await expect(encryptBackup(sampleFile, '12345678')).resolves.toBeDefined();
+  });
+
+  it('throws WrongPasswordError, not a raw browser exception, when the envelope contains malformed base64', async () => {
+    const envelope = await encryptBackup(sampleFile, 'correct horse battery staple');
+    const corrupted = { ...envelope, kdf: { ...envelope.kdf, salt: 'not-valid-base64!!!' } };
+    await expect(decryptBackup(corrupted, 'correct horse battery staple')).rejects.toThrow(WrongPasswordError);
   });
 });

@@ -11,6 +11,7 @@ import {
   setBackupPasswordConfigured,
 } from '@infrastructure/backup/backupPasswordSession';
 import { encryptBackup } from '@infrastructure/export/backupEncryption';
+import { DriveSessionExpiredError } from '@infrastructure/backup/GoogleDriveBackupStorage';
 import type { PepExportFile } from '@application/export/jsonExportFormat';
 import { SettingsView } from './SettingsView';
 
@@ -182,6 +183,19 @@ describe('SettingsView, Google Drive section', () => {
     expect(await screen.findByText('Die Verbindung zu Google ist abgelaufen.')).toBeInTheDocument();
     expect(screen.queryByText('Daten importieren?')).not.toBeInTheDocument();
   });
+
+  it('signs the user out of the UI when the session actually expired, not just this one request', async () => {
+    drive.isSignedIn.mockReturnValue(true);
+    drive.upload.mockRejectedValue(new DriveSessionExpiredError());
+    renderView();
+
+    await userEvent.click(await saveToDrive());
+
+    expect(
+      await screen.findByText('Die Verbindung zu Google ist abgelaufen. Bitte melde dich erneut mit Google an.'),
+    ).toBeInTheDocument();
+    expect(signInButton()).toBeInTheDocument();
+  });
 });
 
 const fakeExportFile: PepExportFile = {
@@ -235,5 +249,21 @@ describe('SettingsView, Backup-Passwort', () => {
     // The core regression check: decrypting someone else's backup must not silently change what
     // password the NEXT export from this browser uses.
     expect(getCachedPassword()).toBe('eigenesPasswort');
+  });
+
+  it('does not export when re-entering the configured password for a fresh export does not match', async () => {
+    const user = userEvent.setup();
+    // Configured but not cached this session, as if the app had just reloaded - exactly when
+    // getOrPromptPassword has to ask again before the export can proceed.
+    setBackupPasswordConfigured(true);
+    renderView();
+
+    await user.click(screen.getByRole('button', { name: 'Daten exportieren' }));
+    await user.type(await screen.findByLabelText(/^Passwort\s*\*?$/), 'meinPasswort');
+    await user.type(screen.getByLabelText(/^Passwort bestätigen/), 'anderesPasswort');
+    await user.click(screen.getByRole('button', { name: 'Bestätigen' }));
+
+    expect(await screen.findByText('Passwörter stimmen nicht überein.')).toBeInTheDocument();
+    expect(services.dataExport.export).not.toHaveBeenCalled();
   });
 });

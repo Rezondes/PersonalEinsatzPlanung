@@ -1,3 +1,4 @@
+import { DomainError } from '@domain/shared/DomainError';
 import type { PepExportFile } from '@application/export/jsonExportFormat';
 import type { EncryptedBackupEnvelope } from '@application/export/encryptedExportFormat';
 
@@ -18,6 +19,12 @@ export const PBKDF2_ITERATIONS = 600_000;
 
 const SALT_LENGTH_BYTES = 16;
 const IV_LENGTH_BYTES = 12;
+
+/** Enforced in `encryptBackup` itself, not just in `BackupPasswordDialog`, so every current and
+ * future caller is protected - the dialog is only one of several ways a password can reach this
+ * function. Only new backups are affected: `decryptBackup` never checks length, since an older
+ * backup encrypted before this check existed must stay readable regardless of its password. */
+const MIN_PASSWORD_LENGTH = 8;
 
 /** `btoa(String.fromCharCode(...bytes))` throws `RangeError: Maximum call stack size exceeded` once
  * `bytes` is more than a few tens of thousands of elements - a real risk here, since a backup can be
@@ -79,6 +86,9 @@ async function deriveKey(password: string, salt: Uint8Array, usages: KeyUsage[])
  * (never reused across calls, even for the same password), which is what makes reusing GCM with a
  * derived key safe here. */
 export async function encryptBackup(file: PepExportFile, password: string): Promise<EncryptedBackupEnvelope> {
+  if (password.length < MIN_PASSWORD_LENGTH) {
+    throw new DomainError(`Das Backup-Passwort muss mindestens ${MIN_PASSWORD_LENGTH} Zeichen lang sein.`);
+  }
   const salt = crypto.getRandomValues(new Uint8Array(SALT_LENGTH_BYTES));
   const iv = crypto.getRandomValues(new Uint8Array(IV_LENGTH_BYTES));
   const key = await deriveKey(password, salt, ['encrypt']);
@@ -106,13 +116,16 @@ export async function encryptBackup(file: PepExportFile, password: string): Prom
  * `services.dataExport.importAndReplace`, exactly like a legacy plaintext import - this function's
  * job ends at "the bytes decrypted to valid JSON". */
 export async function decryptBackup(envelope: EncryptedBackupEnvelope, password: string): Promise<unknown> {
-  const salt = new Uint8Array(base64ToBuffer(envelope.kdf.salt));
-  const iv = new Uint8Array(base64ToBuffer(envelope.cipher.iv));
-  const key = await deriveKey(password, salt, ['decrypt']);
-  const ciphertext = base64ToBuffer(envelope.ciphertext);
-
   let plaintext: ArrayBuffer;
   try {
+    // base64ToBuffer (via atob) throws a raw DOMException on malformed base64, e.g. a corrupted or
+    // truncated backup file - folded into the same catch as the actual decrypt so both a bad
+    // password and a bad file surface as the one WrongPasswordError the UI already handles,
+    // instead of an unhandled browser exception.
+    const salt = new Uint8Array(base64ToBuffer(envelope.kdf.salt));
+    const iv = new Uint8Array(base64ToBuffer(envelope.cipher.iv));
+    const key = await deriveKey(password, salt, ['decrypt']);
+    const ciphertext = base64ToBuffer(envelope.ciphertext);
     plaintext = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, ciphertext);
   } catch {
     // GCM already authenticated the ciphertext - there is nothing more to verify, so this catch is

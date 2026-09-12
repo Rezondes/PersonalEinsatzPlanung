@@ -49,6 +49,7 @@ import {
   setCachedPassword,
 } from '@infrastructure/backup/backupPasswordSession';
 import { encryptBackup, decryptBackup, WrongPasswordError } from '@infrastructure/export/backupEncryption';
+import { DriveSessionExpiredError } from '@infrastructure/backup/GoogleDriveBackupStorage';
 import { isEncryptedBackupEnvelope } from '@application/export/encryptedExportFormat';
 import type { EncryptedBackupEnvelope } from '@application/export/encryptedExportFormat';
 
@@ -95,10 +96,12 @@ export function SettingsView() {
   const [reloadingText, setReloadingText] = useState<string | null>(null);
 
   // 'set': the user is defining/changing the password. 'enterForExport': the password is
-  // configured but not cached this session and an export needs it. 'enterForImport': an encrypted
-  // backup file was chosen and needs decrypting. All three share one BackupPasswordDialog mount -
-  // exactly one can be open at a time - so they can never disagree about what the confirm button
-  // does.
+  // configured but not cached this session and an export needs it - rendered via the dialog's
+  // 'confirm' mode (two fields, must match) since the app never stores the actual password and so
+  // has no other way to catch a re-entry typo before it silently produces an unreadable backup.
+  // 'enterForImport': an encrypted backup file was chosen and needs decrypting, rendered via the
+  // dialog's single-field 'enter' mode. All three share one BackupPasswordDialog mount - exactly
+  // one can be open at a time - so they can never disagree about what the confirm button does.
   const [passwordDialogMode, setPasswordDialogMode] = useState<'set' | 'enterForExport' | 'enterForImport' | null>(
     null,
   );
@@ -162,8 +165,15 @@ export function SettingsView() {
     };
   }, [driveRestoring, online]);
 
-  const reportDriveError = (error: unknown, fallback: string) =>
+  const reportDriveError = (error: unknown, fallback: string) => {
+    // A DriveSessionExpiredError means the token refresh itself failed, i.e. the session is truly
+    // gone, not just this one request - without this, the UI would keep showing the "signed in"
+    // buttons for a connection that no longer works until the next full reload.
+    if (error instanceof DriveSessionExpiredError) {
+      setDriveSignedIn(false);
+    }
     notify.error(error instanceof Error ? error.message : fallback);
+  };
 
   const connectDrive = async () => {
     setDriveBusy(true);
@@ -698,7 +708,7 @@ export function SettingsView() {
 
       {passwordDialogMode && (
         <BackupPasswordDialog
-          mode={passwordDialogMode === 'set' ? 'set' : 'enter'}
+          mode={passwordDialogMode === 'set' ? 'set' : passwordDialogMode === 'enterForExport' ? 'confirm' : 'enter'}
           error={passwordDialogError}
           busy={passwordDialogBusy}
           onClose={closePasswordDialog}
