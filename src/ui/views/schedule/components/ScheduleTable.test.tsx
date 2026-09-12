@@ -145,6 +145,30 @@ describe('ScheduleTable', () => {
     expect(screen.getAllByRole('row')).toHaveLength(2);
   });
 
+  it('shows the hover highlight for a normal (editable) row', () => {
+    render(<ScheduleTable rows={rowsFor(employees)} weekDays={weekDays} validationResults={[]} onCellClick={() => {}} onToolDrop={() => {}} {...notAssigning} />);
+
+    const row = screen.getByText('Müller, Anna').closest('tr');
+    expect(row).toHaveClass('MuiTableRow-hover');
+  });
+
+  it('does not show the hover highlight for a locked (inactive) row', () => {
+    const inactiveEmployee: Employee = { ...employee(m1, 'Alt'), active: false };
+    const scheduleWithInactive = withDayEntry(
+      createWeeklySchedule(branchId, { year: 2026, week: 37 }, [inactiveEmployee.id]),
+      inactiveEmployee.id,
+      'Montag',
+      { type: 'Shift', shifts: [createShift(clockTime('06:00'), clockTime('14:00'))] },
+    );
+    const inactiveWeekView = createWeekView(scheduleWithInactive, [], { employees: [inactiveEmployee] });
+    const rows = buildScheduleRows(inactiveWeekView, [inactiveEmployee], '2026-09-07', '2026-09-13');
+
+    render(<ScheduleTable rows={rows} weekDays={weekDays} validationResults={[]} onCellClick={() => {}} onToolDrop={() => {}} {...notAssigning} />);
+
+    const row = screen.getByText('Alt, Anna').closest('tr');
+    expect(row).not.toHaveClass('MuiTableRow-hover');
+  });
+
   describe('assignMode (tap-to-assign)', () => {
     it('taps a free cell via onToolTap instead of onCellClick, labelled "zuweisen"', async () => {
       const user = userEvent.setup();

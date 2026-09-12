@@ -10,10 +10,17 @@ import type { ScheduleTool } from '../scheduleTools';
 import { OFF_TOOL } from '../scheduleTools';
 import { ScheduleToolbar } from './ScheduleToolbar';
 
+/** Tracks the width most recently passed to mockViewportWidth, so renderToolbar's default
+ * `touchMode` mirrors it automatically. In the real app ScheduleView derives both `layout` and
+ * `touchMode` from the exact same breakpoint and passes touchMode down as a prop - a test that
+ * mocked one independently of the other could exercise a combination the app can never produce. */
+let mockedWidth = 0;
+
 /** jsdom has no real layout engine, so `window.matchMedia` is mocked per test to answer as if the
  * viewport were `width` wide - MUI's `theme.breakpoints.up(key)` produces a `(min-width:...px)`
  * query, which this parses back out. Copied from useBreakpoint.test.tsx. */
 function mockViewportWidth(width: number) {
+  mockedWidth = width;
   window.matchMedia = ((query: string) => {
     const match = /min-width:\s*(\d+(?:\.\d+)?)px/.exec(query);
     const minWidth = match ? Number(match[1]) : 0;
@@ -65,6 +72,7 @@ function renderToolbar(overrides: Partial<ToolbarProps> = {}) {
     onCreate: vi.fn(),
     onEdit: vi.fn(),
     onDelete: vi.fn(),
+    touchMode: mockedWidth !== LAPTOP,
     assignModeActive: false,
     onFinishAssigning: vi.fn(),
     onCarryOver: vi.fn(),
@@ -198,12 +206,15 @@ describe('ScheduleToolbar', () => {
   });
 
   describe('assign-mode banner', () => {
-    it('is never shown at laptop width, even when assignModeActive is true', () => {
+    it('is shown at laptop width too when assignModeActive is true (independent of touchMode)', () => {
       mockViewportWidth(LAPTOP);
       renderToolbar({ assignModeActive: true, activeTool: { kind: 'template', template: templateA } });
 
-      expect(screen.queryByText('Tage antippen')).not.toBeInTheDocument();
-      expect(screen.queryByText('Frühschicht zuweisen')).not.toBeInTheDocument();
+      expect(screen.getByText('Frühschicht zuweisen')).toBeInTheDocument();
+      expect(screen.getByText('Tage antippen')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Zuweisen beenden' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Fertig' })).toBeInTheDocument();
+      // The tile row stays visible alongside the banner at laptop width too.
       expect(tileButton('Frühschicht')).toBeInTheDocument();
     });
 

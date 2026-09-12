@@ -1195,17 +1195,31 @@ describe('ScheduleView', () => {
       expect(scheduleSetDayEntryAndSave).not.toHaveBeenCalled();
     });
 
-    it('clicking a toolbar tile at laptop width does not arm tap-to-assign: a subsequent cell click still opens DayEditor', async () => {
+    it('clicking a toolbar tile at laptop width arms tap-to-assign: a subsequent cell click applies the tool instead of opening DayEditor', async () => {
+      shiftTemplateForBranch.mockResolvedValueOnce([templateA]);
+      scheduleGetOrCreate.mockResolvedValueOnce(createWeeklySchedule(branchId, SELECTED_WEEK, [employeeA.id, employeeB.id]));
+
       const { container } = renderScheduleView(LAPTOP);
       await screen.findByText(fullName(employeeA));
       const user = userEvent.setup();
 
-      await user.click(screen.getByText('Frei').closest('button') as HTMLButtonElement);
-      expect(screen.queryByText('Frei zuweisen')).not.toBeInTheDocument();
+      await user.click(screen.getByText('Frühschicht').closest('button') as HTMLButtonElement);
+      expect(screen.getByText('Frühschicht zuweisen')).toBeInTheDocument();
 
-      await user.click(cellEl(container, employeeA.id, 'Montag'));
+      await user.click(cellEl(container, employeeB.id, 'Montag'));
 
-      expect(await screen.findByText(`${employeeA.firstName} ${employeeA.lastName} · Montag`)).toBeInTheDocument();
+      await waitFor(() =>
+        expect(scheduleSetDayEntryAndSave).toHaveBeenCalledWith(
+          expect.anything(),
+          employeeB.id,
+          'Montag',
+          expect.objectContaining({
+            type: 'Shift',
+            shifts: [expect.objectContaining({ start: '06:00', end: '14:00' })],
+          }),
+        ),
+      );
+      expect(screen.queryByText(`${employeeB.firstName} ${employeeB.lastName} · Montag`)).not.toBeInTheDocument();
     });
 
     it('highlights a cell whose entry already matches the armed tool, and not a non-matching cell, with the assign-target style', async () => {
@@ -1310,7 +1324,7 @@ describe('ScheduleView', () => {
       );
     });
 
-    it('exits assign mode (banner disappears) when the layout switches from a touch width to laptop width', async () => {
+    it('keeps assign mode active (banner stays visible) when the layout switches from a touch width to laptop width', async () => {
       shiftTemplateForBranch.mockResolvedValueOnce([templateA]);
 
       const { rerender } = renderScheduleView(TABLET_LANDSCAPE);
@@ -1323,7 +1337,7 @@ describe('ScheduleView', () => {
       mockViewportWidth(LAPTOP);
       rerender(scheduleTree());
 
-      await waitFor(() => expect(screen.queryByText('Frühschicht zuweisen')).not.toBeInTheDocument());
+      expect(screen.getByText('Frühschicht zuweisen')).toBeInTheDocument();
     });
   });
 

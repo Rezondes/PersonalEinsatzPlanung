@@ -33,8 +33,13 @@ interface ScheduleToolbarProps {
   onCreate: () => void;
   onEdit: (template: ShiftTemplate) => void;
   onDelete: (template: ShiftTemplate) => void;
-  /** Touch-only: true once a tile tap has armed tap-to-assign (see ScheduleView.selectTool). Never
-   * true at the laptop breakpoint, where a tile click only arms drag-and-drop/"Einfügen" as before. */
+  /** True below the laptop breakpoint (ScheduleView derives this once from useBreakpoint() and
+   * passes it down, instead of this component deriving its own copy). Gates only the tile's
+   * `draggable`/drag handlers - a mouse-only fast path that only makes sense at laptop width -
+   * never the assign-mode banner below, which shows at every breakpoint. */
+  touchMode: boolean;
+  /** True once a tile tap/click has armed tap-to-assign (see ScheduleView.selectTool) - at every
+   * breakpoint, laptop included, so this is what actually gates whether the banner below shows. */
   assignModeActive: boolean;
   /** Clears assignModeActive AND the active tool - the banner's X and its "Fertig" button both call
    * this, matching the mockup's "Zuweisen beenden" affordance. */
@@ -53,17 +58,18 @@ interface ScheduleToolbarProps {
 }
 
 /**
- * The tool palette above the weekly grid. At the laptop breakpoint this is unchanged from before
- * the responsive redesign: a sticky horizontal row, tiles are draggable, a click only arms
- * "Einfügen"/paste. Below laptop every tile tap ALSO arms tap-to-assign (ScheduleView sets
- * assignModeActive), and the row is replaced by a green "Zuweisen-Modus" banner while that is
- * active - matching PEP Responsive.dc.html's Handy "Vorlagen-Sheet, Zuweisen-Modus" screen.
+ * The tool palette above the weekly grid. Every tile tap arms tap-to-assign at every breakpoint
+ * (ScheduleView sets assignModeActive) - a click/Enter on a tile followed by a click/Enter on a
+ * cell applies the tool, keyboard-operable with no drag gesture required. At the laptop breakpoint
+ * a tile is additionally draggable as a faster mouse-only path (see `touchMode`/`draggable` below);
+ * the "Zuweisen-Modus" banner shows alongside the tile row there too while assigning, matching
+ * PEP Responsive.dc.html's Handy "Vorlagen-Sheet, Zuweisen-Modus" screen at every width instead of
+ * only below laptop.
  *
- * Chrome differs only at the narrowest class: both tablet widths keep the same horizontal row as
- * laptop (compare the mockup's 4c/4d tablet renders, which never collapse it), tapping a tile there
- * both arms the tool and starts assigning. Only mobile collapses the row into a "Vorlagen &
- * Werkzeuge" bar that opens a bottom sheet - the mockup does this only for the 390px Handy class,
- * never for tablet.
+ * Chrome differs only at the narrowest class: both tablet widths and laptop keep the same
+ * horizontal row (compare the mockup's 4c/4d tablet renders, which never collapse it). Only mobile
+ * collapses the row into a "Vorlagen & Werkzeuge" bar that opens a bottom sheet - the mockup does
+ * this only for the 390px Handy class, never for tablet.
  */
 export function ScheduleToolbar({
   templates,
@@ -73,6 +79,7 @@ export function ScheduleToolbar({
   onCreate,
   onEdit,
   onDelete,
+  touchMode,
   assignModeActive,
   onFinishAssigning,
   onCarryOver,
@@ -81,7 +88,6 @@ export function ScheduleToolbar({
   headerFields,
 }: ScheduleToolbarProps) {
   const layout = useBreakpoint();
-  const touchMode = layout !== 'laptop';
   const collapsible = layout === 'mobile';
   const [sheetOpen, setSheetOpen] = useState(false);
   const [menuFor, setMenuFor] = useState<{ template: ShiftTemplate; anchor: HTMLElement } | null>(null);
@@ -268,12 +274,11 @@ export function ScheduleToolbar({
   );
 
   if (!collapsible) {
-    // Laptop (touchMode is always false there, so the banner Box below never renders - the Paper's
-    // only child stays the exact same Stack as before this phase) and both tablet widths (same
-    // chrome, tap-to-assign instead of/alongside drag) share this branch. Tablet has the width to
-    // keep the tile row visible even while assigning - unlike mobile's collapsed sheet below, there
-    // is no other way to reach a different tile there, so hiding the row would mean "Fertig" is the
-    // only way to switch tools mid-assignment.
+    // Laptop and both tablet widths (same chrome, tap-to-assign works the same everywhere, laptop
+    // additionally supports drag) share this branch. All three keep the tile row visible even while
+    // assigning - unlike mobile's collapsed sheet below, there is no other way to reach a different
+    // tile there, so hiding the row would mean "Fertig" is the only way to switch tools
+    // mid-assignment.
     return (
       <>
         <Paper
@@ -288,7 +293,7 @@ export function ScheduleToolbar({
             backgroundColor: 'background.paper',
           }}
         >
-          {touchMode && assignModeActive && <Box sx={{ borderBottom: '1px solid', borderColor: 'divider' }}>{assignBanner()}</Box>}
+          {assignModeActive && <Box sx={{ borderBottom: '1px solid', borderColor: 'divider' }}>{assignBanner()}</Box>}
           <Stack direction="row" spacing={1} alignItems="center" sx={{ p: 1, overflowX: 'auto', pb: 0.5 }}>
             {tools.map((tool) => renderTile(tool, false))}
             <Button size="small" startIcon={<AddIcon />} onClick={onCreate} sx={{ flexShrink: 0 }}>

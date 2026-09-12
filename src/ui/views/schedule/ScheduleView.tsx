@@ -112,11 +112,13 @@ export function ScheduleView() {
     y: number;
   } | null>(null);
   // The clipboard and the toolbar are the same thing: whatever is active here is what "Einfügen"
-  // pastes, what a dropped tile writes, and (below the laptop breakpoint) what a tapped cell writes.
+  // pastes, what a dropped tile writes, and what a clicked/tapped cell writes once assignModeActive
+  // is armed.
   const [activeTool, setActiveTool] = useState<ScheduleTool | null>(null);
-  // Touch-only: armed by selectTool below when a toolbar tile is tapped on a touch layout. Native
-  // HTML5 drag-and-drop stays mouse-only (ScheduleToolbar never renders a draggable tile below
-  // laptop), so this is the sole gate between "tap opens DayEditor" and "tap writes activeTool".
+  // Armed by selectTool below whenever a toolbar tile is clicked/tapped, at every breakpoint. Native
+  // HTML5 drag-and-drop stays an additional, mouse-only fast path at the laptop breakpoint (see
+  // touchMode below) - this is the sole gate between "click opens DayEditor" and "click writes
+  // activeTool", for both the mouse and touch/keyboard paths alike.
   const [assignModeActive, setAssignModeActive] = useState(false);
   const layout = useBreakpoint();
   const touchMode = layout !== 'laptop';
@@ -396,34 +398,31 @@ export function ScheduleView() {
     [applyTool],
   );
 
-  // ScheduleToolbar's onSelect below the laptop breakpoint - a tile tap both arms the tool (as at
-  // laptop) and starts tap-to-assign, since there is no drag gesture to arm it for instead.
-  const selectTool = useCallback(
-    (tool: ScheduleTool) => {
-      setActiveTool(tool);
-      if (touchMode) setAssignModeActive(true);
-    },
-    [touchMode],
-  );
+  // ScheduleToolbar's onSelect at every breakpoint - a tile click/tap arms the tool AND starts
+  // tap-to-assign, so a subsequent click/Enter on a cell applies it without requiring a drag
+  // gesture (drag remains an additional, faster mouse-only path at the laptop breakpoint).
+  const selectTool = useCallback((tool: ScheduleTool) => {
+    setActiveTool(tool);
+    setAssignModeActive(true);
+  }, []);
 
   const finishAssigning = useCallback(() => {
     setAssignModeActive(false);
     setActiveTool(null);
   }, []);
 
-  // Leaving touch mode (widening/maximizing the window, undocking a tablet past 1620px) or
-  // switching branches must drop out of tap-to-assign entirely. Neither is covered by any other
-  // reset: ScheduleTable's own assignMode prop is `assignModeActive` completely unguarded by
-  // touchMode, so without this a stale true would keep routing plain taps on the (now byte-for-
-  // byte-required-identical) laptop grid into onToolTap instead of opening DayEditor; and without
-  // resetting on branch.id, a template armed under one branch would silently get written into a
-  // different branch's cells the moment assign mode is still active when the user switches -
-  // toolToDayEntry never checks template.branchId. activeTool deliberately keeps surviving WEEK
-  // navigation (selectedWeek is not a dependency here) - that persistence is a separate, existing,
-  // intentional design (see the clipboard/toolbar comment above).
+  // Switching branches must drop out of tap-to-assign entirely: without resetting on branch.id, a
+  // template armed under one branch would silently get written into a different branch's cells the
+  // moment assign mode is still active when the user switches - toolToDayEntry never checks
+  // template.branchId. Deliberately NOT keyed on touchMode/layout: assignModeActive now applies at
+  // every breakpoint (see selectTool above), so a tool armed at one width must keep surviving a
+  // window resize (widening/maximizing, undocking a tablet past the laptop breakpoint) instead of
+  // silently dropping the user's selection. activeTool deliberately keeps surviving WEEK navigation
+  // (selectedWeek is not a dependency here) - that persistence is a separate, existing, intentional
+  // design (see the clipboard/toolbar comment above).
   useEffect(() => {
     finishAssigning();
-  }, [touchMode, branch?.id, finishAssigning]);
+  }, [branch?.id, finishAssigning]);
 
   // ScheduleTable only calls this for a cell canReceiveEntry already accepted (same trust boundary
   // as toolDrop above, which never re-checks droppable either). Tapping a cell that already shows
@@ -745,6 +744,7 @@ export function ScheduleView() {
             onCreate={() => setTemplateDialog({ template: null })}
             onEdit={(template) => setTemplateDialog({ template })}
             onDelete={setTemplateDeleteTarget}
+            touchMode={touchMode}
             assignModeActive={assignModeActive}
             onFinishAssigning={finishAssigning}
             onCarryOver={() => setCarryOverOpen(true)}
