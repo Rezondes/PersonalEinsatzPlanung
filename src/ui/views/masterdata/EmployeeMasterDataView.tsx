@@ -32,9 +32,12 @@ import { employmentTypeLabel, targetWeeklyHoursRange } from '@domain/employee/Em
 import type { EmploymentTypeKind } from '@domain/employee/EmploymentType';
 import { formatISODateGerman } from '@domain/shared/DateFormat';
 import { isMinor } from '@domain/validation/arbzg/youthProtection';
+import { remainingVacationByEmployee } from '@domain/absence/vacationCalculation';
+import { createHolidayCheck } from '@infrastructure/holidays/germanHolidays';
 import { services } from '@infrastructure/services';
 import { useSelectedBranch } from '@ui/hooks/useBranch';
 import { useEmployeeList } from '@ui/hooks/useEmployeeList';
+import { useAbsences } from '@ui/hooks/useAbsences';
 import { useTableSort } from '@ui/hooks/useTableSort';
 import { useBreakpoint } from '@ui/hooks/useBreakpoint';
 import { useActivationToggle } from '@ui/hooks/useActivationToggle';
@@ -52,10 +55,10 @@ type SortKey = 'name' | 'jobTitle' | 'employment' | 'hours' | 'vacation' | 'holi
 type StatusFilter = 'all' | 'active' | 'inactive';
 type EmploymentFilter = 'all' | EmploymentTypeKind;
 
-const COLUMN_COUNT = 8;
+const COLUMN_COUNT = 9;
 // Tätigkeit and Std./Urlaubstag fold into the Name cell / drop out at tablet width - see the Name
-// TableCell and the layout checks below.
-const COLUMN_COUNT_TABLET = 6;
+// TableCell and the layout checks below. Resturlaub stays visible at both widths.
+const COLUMN_COUNT_TABLET = 7;
 
 /** German collation, like compareByLastName - a plain "a < b" would sort umlauts wrongly. */
 function compareText(a: string, b: string): number {
@@ -126,10 +129,12 @@ function getRowActions(
  * another <button> is invalid HTML (see BranchCard's identical comment). */
 function EmployeeCard({
   employee,
+  remainingVacationDays,
   onTap,
   onLongPress,
 }: {
   employee: Employee;
+  remainingVacationDays: number;
   onTap: () => void;
   onLongPress: () => void;
 }) {
@@ -195,6 +200,9 @@ function EmployeeCard({
               {employee.vacationEntitlementPerYear.toLocaleString('de-DE')} Urlaubstage
             </Typography>
           </Stack>
+          <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
+            {remainingVacationDays.toLocaleString('de-DE')} Resturlaub
+          </Typography>
         </Box>
         <ChevronRightIcon sx={{ color: 'rgba(0,0,0,0.38)', flexShrink: 0, mt: 0.5 }} />
       </ButtonBase>
@@ -248,6 +256,16 @@ export function EmployeeMasterDataView() {
     });
     return sortRows(filtered, COMPARATORS);
   }, [employeeList, search, statusFilter, employmentFilter, sortRows]);
+
+  const { absences } = useAbsences(employeeList.map((emp) => emp.id));
+  // Guarded (not `branch!`) since this runs even on the render where branch is still null - the
+  // early return below happens after every hook, matching every other hook call in this component.
+  const isHoliday = useMemo(() => (branch ? createHolidayCheck(branch.federalState) : () => false), [branch]);
+  const currentYear = new Date().getFullYear();
+  const remainingVacation = useMemo(
+    () => remainingVacationByEmployee(employeeList, absences, currentYear, isHoliday),
+    [employeeList, absences, currentYear, isHoliday],
+  );
 
   if (!branch) {
     return <Alert severity="info">Bitte zuerst oben eine Filiale auswählen oder anlegen.</Alert>;
@@ -335,7 +353,12 @@ export function EmployeeMasterDataView() {
           getKey={(emp) => emp.id}
           emptyMessage={employeeList.length === 0 ? 'Noch kein Mitarbeiter angelegt.' : 'Kein Mitarbeiter passt zu den Filtern.'}
           renderCard={(emp) => (
-            <EmployeeCard employee={emp} onTap={() => setDialog({ employee: emp })} onLongPress={() => setSheetEmployee(emp)} />
+            <EmployeeCard
+              employee={emp}
+              remainingVacationDays={remainingVacation.get(emp.id) ?? 0}
+              onTap={() => setDialog({ employee: emp })}
+              onLongPress={() => setSheetEmployee(emp)}
+            />
           )}
         >
           <TableContainer component={Paper} sx={{ height: '100%' }}>
@@ -359,6 +382,7 @@ export function EmployeeMasterDataView() {
                   <TableCell>
                     <TableSortLabel {...headProps('vacation')}>Urlaub/Jahr</TableSortLabel>
                   </TableCell>
+                  <TableCell>Resturlaub</TableCell>
                   {layout === 'laptop' && (
                     <TableCell>
                       <TableSortLabel {...headProps('holidayHours')}>Std./Urlaubstag</TableSortLabel>
@@ -432,6 +456,7 @@ export function EmployeeMasterDataView() {
                       </TableCell>
                       <TableCell>{weeklyHoursText(emp)}</TableCell>
                       <TableCell>{emp.vacationEntitlementPerYear.toLocaleString('de-DE')}</TableCell>
+                      <TableCell>{(remainingVacation.get(emp.id) ?? 0).toLocaleString('de-DE')}</TableCell>
                       {layout === 'laptop' && <TableCell>{(emp.holidayVacationHours ?? 0).toLocaleString('de-DE')}</TableCell>}
                       <TableCell>
                         <Chip size="small" label={emp.active ? 'Aktiv' : 'Inaktiv'} color={emp.active ? 'success' : 'default'} />

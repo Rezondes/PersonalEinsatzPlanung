@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor, within, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
-import type { BranchId, EmployeeId } from '@domain/shared/ids';
+import type { AbsenceId, BranchId, EmployeeId } from '@domain/shared/ids';
 import type { Branch } from '@domain/branch/Branch';
 import type { Employee } from '@domain/employee/Employee';
 import { services } from '@infrastructure/services';
@@ -21,6 +21,7 @@ vi.mock('@infrastructure/services', () => ({
       create: vi.fn(),
       update: vi.fn(),
     },
+    absence: { forEmployees: vi.fn() },
   },
 }));
 
@@ -29,6 +30,7 @@ const forBranchMock = vi.mocked(services.employee.forBranch);
 const changeActiveStatusMock = vi.mocked(services.employee.changeActiveStatus);
 const createMock = vi.mocked(services.employee.create);
 const updateMock = vi.mocked(services.employee.update);
+const forEmployeesMock = vi.mocked(services.absence.forEmployees);
 
 /** Same helper as src/ui/hooks/useBreakpoint.test.tsx - jsdom has no layout engine, so
  * window.matchMedia is mocked to answer as if the viewport were `width` wide. */
@@ -161,6 +163,7 @@ describe('EmployeeMasterDataView', () => {
     changeActiveStatusMock.mockResolvedValue(anna);
     createMock.mockResolvedValue(anna);
     updateMock.mockResolvedValue(anna);
+    forEmployeesMock.mockResolvedValue([]);
   });
 
   afterEach(() => {
@@ -211,6 +214,47 @@ describe('EmployeeMasterDataView', () => {
     }
 
     expect(screen.getByTitle('Minderjährig — Jugendarbeitsschutz beachten')).toBeInTheDocument();
+  });
+
+  it('shows a Resturlaub column reflecting taken vacation days for the current year, full entitlement when none were taken', async () => {
+    mockViewportWidth(1700);
+    const year = new Date().getFullYear();
+    // A 14-day range always contains exactly 2 Sundays regardless of which weekday it starts on,
+    // and February in Niedersachsen carries no public holiday (Easter can never fall that early) -
+    // so this is deterministically 12 work days taken, whatever year the test happens to run in.
+    forEmployeesMock.mockResolvedValue([
+      {
+        id: 'abs1' as AbsenceId,
+        employeeId: anna.id,
+        type: 'Vacation',
+        from: `${year}-02-02`,
+        to: `${year}-02-15`,
+        createdAt: '2026-01-01T00:00:00.000Z',
+      },
+    ]);
+    renderView();
+    await screen.findByText('Bauer, Anna');
+
+    expect(screen.getByRole('columnheader', { name: 'Resturlaub' })).toBeInTheDocument();
+
+    // Anna: vacationEntitlementPerYear 28, 12 work days taken -> 16 remaining.
+    const annaRow = screen.getByText('Bauer, Anna').closest('tr') as HTMLElement;
+    expect(await within(annaRow).findByText('16')).toBeInTheDocument();
+
+    // Ben has no absences in this test - his Resturlaub shows the full, unchanged entitlement (30),
+    // same as his Urlaub/Jahr column, so "30" appears twice in his row.
+    const benRow = screen.getByText('Cengiz, Ben').closest('tr') as HTMLElement;
+    expect(within(benRow).getAllByText('30')).toHaveLength(2);
+  });
+
+  it('shows the Resturlaub figure as a compact line on the mobile card too', async () => {
+    mockViewportWidth(500);
+    renderView();
+    await screen.findByText('Bauer, Anna');
+
+    const card = screen.getByText('Bauer, Anna').closest('button') as HTMLButtonElement;
+    // Anna has no absences in this test, so her card shows the full entitlement (28).
+    expect(within(card).getByText('28 Resturlaub')).toBeInTheDocument();
   });
 
   it('search narrows the visible employees by name or job title, and clearing restores them', async () => {
