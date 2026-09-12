@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { render, screen, waitFor, within, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import type { BranchId, EmployeeId } from '@domain/shared/ids';
@@ -451,7 +451,9 @@ describe('EmployeeMasterDataView', () => {
     await user.click(screen.getByRole('button', { name: 'Engel, David aktivieren' }));
 
     expect(screen.getByText('Mitarbeiter aktivieren?')).toBeInTheDocument();
-    expect(screen.getByText('Engel, David wird wieder als aktiv markiert.')).toBeInTheDocument();
+    expect(
+      screen.getByText('Engel, David wird wieder als aktiv markiert und kann wieder in der Wochenplanung eingeplant werden.'),
+    ).toBeInTheDocument();
 
     expect(screen.getAllByText('Aktiv')).toHaveLength(4);
     expect(screen.getAllByText('Inaktiv')).toHaveLength(1);
@@ -465,6 +467,44 @@ describe('EmployeeMasterDataView', () => {
     await waitFor(() => expect(screen.getAllByText('Aktiv')).toHaveLength(5));
     expect(screen.queryByText('Inaktiv')).not.toBeInTheDocument();
     expect(forBranchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('opens the edit dialog when an employee card is focused and Enter is pressed (keyboard activation)', async () => {
+    mockViewportWidth(500);
+    const user = userEvent.setup();
+    renderView();
+    await screen.findByText('Bauer, Anna');
+
+    const card = screen.getByText('Bauer, Anna').closest('button') as HTMLButtonElement;
+    act(() => card.focus());
+    await user.keyboard('{Enter}');
+
+    expect(screen.getByText('Mitarbeiter bearbeiten')).toBeInTheDocument();
+  });
+
+  it("opens the action sheet via a click on the card's visible kebab icon, independent of long-press", async () => {
+    mockViewportWidth(500);
+    const user = userEvent.setup();
+    renderView();
+    await screen.findByText('Bauer, Anna');
+
+    await user.click(screen.getByRole('button', { name: 'Weitere Aktionen für Bauer, Anna' }));
+
+    expect(screen.getByRole('button', { name: 'Bearbeiten' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Deaktivieren/ })).toBeInTheDocument();
+  });
+
+  it("opens the action sheet when the card's kebab icon is focused and Enter is pressed, without also opening the edit dialog", async () => {
+    mockViewportWidth(500);
+    const user = userEvent.setup();
+    renderView();
+    await screen.findByText('Bauer, Anna');
+
+    act(() => screen.getByRole('button', { name: 'Weitere Aktionen für Bauer, Anna' }).focus());
+    await user.keyboard('{Enter}');
+
+    expect(screen.getByRole('button', { name: 'Bearbeiten' })).toBeInTheDocument();
+    expect(screen.queryByText('Mitarbeiter bearbeiten')).not.toBeInTheDocument();
   });
 
   it('reports an error and still closes the confirm dialog when the status change fails', async () => {

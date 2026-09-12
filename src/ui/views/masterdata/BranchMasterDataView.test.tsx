@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { render, screen, waitFor, within, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import type { BranchId } from '@domain/shared/ids';
@@ -240,6 +240,44 @@ describe('BranchMasterDataView', () => {
     expect(screen.queryByRole('heading', { name: 'Neue Filiale' })).not.toBeInTheDocument();
     expect(createMock).not.toHaveBeenCalled();
     expect(allMock).not.toHaveBeenCalled();
+  });
+
+  it('opens the edit dialog when a branch card is focused and Enter is pressed (keyboard activation)', async () => {
+    const user = userEvent.setup();
+    const branch = makeBranch({ name: 'Filiale Nord' });
+    seedBranches([branch]);
+    renderView();
+
+    const card = screen.getByText('001 Filiale Nord').closest('button') as HTMLButtonElement;
+    act(() => card.focus());
+    await user.keyboard('{Enter}');
+
+    expect(screen.getByRole('heading', { name: 'Filiale bearbeiten' })).toBeInTheDocument();
+  });
+
+  it("opens the action sheet via a click on the card's visible kebab icon, independent of long-press", async () => {
+    const user = userEvent.setup();
+    const branch = makeBranch({ name: 'Filiale Nord' });
+    seedBranches([branch]);
+    renderView();
+
+    await user.click(screen.getByRole('button', { name: 'Weitere Aktionen für Filiale Nord' }));
+
+    expect(screen.getByRole('button', { name: 'Bearbeiten' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Deaktivieren/ })).toBeInTheDocument();
+  });
+
+  it("opens the action sheet when the card's kebab icon is focused and Enter is pressed, without also opening the edit dialog", async () => {
+    const user = userEvent.setup();
+    const branch = makeBranch({ name: 'Filiale Nord' });
+    seedBranches([branch]);
+    renderView();
+
+    act(() => screen.getByRole('button', { name: 'Weitere Aktionen für Filiale Nord' }).focus());
+    await user.keyboard('{Enter}');
+
+    expect(screen.getByRole('button', { name: 'Bearbeiten' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Filiale bearbeiten' })).not.toBeInTheDocument();
   });
 
   it("offers only the status toggle, not edit, among the edit dialog's own secondary actions, and routes it into the confirm dialog", async () => {

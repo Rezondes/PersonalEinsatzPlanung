@@ -25,6 +25,7 @@ import type { Branch } from '@domain/branch/Branch';
 import { services } from '@infrastructure/services';
 import { useBranchList } from '@ui/hooks/useBranch';
 import { useBreakpoint } from '@ui/hooks/useBreakpoint';
+import { useActivationToggle } from '@ui/hooks/useActivationToggle';
 import { ConfirmDialog } from '@ui/components/ConfirmDialog';
 import { stickyFirstColumnSx } from '@ui/components/stickyFirstColumn';
 import { ResponsiveDataList } from '@ui/components/ResponsiveList/ResponsiveDataList';
@@ -52,42 +53,62 @@ function getRowActions(branch: Branch, onEdit: (b: Branch) => void, onToggle: (b
   ];
 }
 
-/** Mobile card: whole card taps to edit, long-press opens the action sheet - same pattern as
- * EmployeeMasterDataView's card. */
+/** Mobile card: the ButtonBase portion taps/keyboard-activates to edit, long-press OR the visible
+ * kebab icon opens the action sheet - same pattern as EmployeeMasterDataView's card. The kebab is a
+ * sibling of the ButtonBase, not nested inside it: a <button> inside another <button> is invalid
+ * HTML and React warns (validateDOMNesting), matching the reasoning already documented on
+ * ScheduleToolbar's assign banner. Without it, deactivating/reactivating a card was reachable only
+ * via a timed long-press gesture, which has no keyboard equivalent. */
 function BranchCard({ branch, onTap, onLongPress }: { branch: Branch; onTap: () => void; onLongPress: () => void }) {
   const handlers = useLongPress({ onTap, onLongPress });
   return (
-    <ButtonBase
-      {...handlers}
+    <Box
       sx={{
         display: 'flex',
         alignItems: 'center',
-        gap: 1.5,
+        gap: 0.5,
         width: '100%',
         minHeight: 76,
-        p: '10px 12px 10px 12px',
+        pr: 0.5,
         bgcolor: 'background.paper',
         border: '1px solid',
         borderColor: 'divider',
         borderRadius: 2,
-        textAlign: 'left',
         opacity: branch.active ? 1 : 0.55,
       }}
     >
-      <Avatar src={branch.logoBase64 ?? undefined} variant="rounded" sx={{ bgcolor: '#eef3f1', flexShrink: 0 }}>
-        <StoreOutlinedIcon sx={{ color: '#2f5d50' }} fontSize="small" />
-      </Avatar>
-      <Box sx={{ flex: 1, minWidth: 0 }}>
-        <Typography variant="body2" fontWeight={500} noWrap>
-          {branch.branchNumber} {branch.name}
-        </Typography>
-        <Typography variant="caption" color="text.secondary">
-          {branch.address.city || '-'} · {branch.federalState}
-        </Typography>
-      </Box>
-      <Chip size="small" label={branch.active ? 'Aktiv' : 'Inaktiv'} color={branch.active ? 'success' : 'default'} sx={{ flexShrink: 0 }} />
-      <ChevronRightIcon sx={{ color: 'rgba(0,0,0,0.38)', flexShrink: 0 }} />
-    </ButtonBase>
+      <ButtonBase
+        {...handlers}
+        sx={{
+          display: 'flex',
+          flex: 1,
+          minWidth: 0,
+          alignItems: 'center',
+          gap: 1.5,
+          minHeight: 76,
+          p: '10px 4px 10px 12px',
+          textAlign: 'left',
+          borderRadius: 2,
+        }}
+      >
+        <Avatar src={branch.logoBase64 ?? undefined} variant="rounded" sx={{ bgcolor: '#eef3f1', flexShrink: 0 }}>
+          <StoreOutlinedIcon sx={{ color: '#2f5d50' }} fontSize="small" />
+        </Avatar>
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <Typography variant="body2" fontWeight={500} noWrap>
+            {branch.branchNumber} {branch.name}
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            {branch.address.city || '-'} · {branch.federalState}
+          </Typography>
+        </Box>
+        <Chip size="small" label={branch.active ? 'Aktiv' : 'Inaktiv'} color={branch.active ? 'success' : 'default'} sx={{ flexShrink: 0 }} />
+        <ChevronRightIcon sx={{ color: 'rgba(0,0,0,0.38)', flexShrink: 0 }} />
+      </ButtonBase>
+      <IconButton onClick={onLongPress} aria-label={`Weitere Aktionen für ${branch.name}`} sx={{ flexShrink: 0 }}>
+        <MoreVertIcon />
+      </IconButton>
+    </Box>
   );
 }
 
@@ -96,25 +117,18 @@ export function BranchMasterDataView() {
   const { branches, loading, reload } = useBranchList();
   // null = closed; { branch: null } = "Neue Filiale"; { branch } = edit. Mounted only while open.
   const [dialog, setDialog] = useState<{ branch: Branch | null } | null>(null);
-  const [statusTarget, setStatusTarget] = useState<Branch | null>(null);
+  const {
+    target: statusTarget,
+    request: requestStatusChange,
+    cancel: cancelStatusChange,
+    confirm: changeStatus,
+  } = useActivationToggle(services.branch, reload);
   const [sheetBranch, setSheetBranch] = useState<Branch | null>(null);
 
   usePageActions({
     fullBleedPage: true,
     fab: { label: 'Neue Filiale', icon: AddIcon, onClick: () => setDialog({ branch: null }) },
   });
-
-  const changeStatus = async () => {
-    if (!statusTarget) return;
-    try {
-      await services.branch.changeActiveStatus(statusTarget, !statusTarget.active);
-      await reload();
-    } catch (e) {
-      notify.report(e, 'Status konnte nicht geändert werden');
-    } finally {
-      setStatusTarget(null);
-    }
-  };
 
   const columnCount = layout === 'laptop' ? COLUMN_COUNT : COLUMN_COUNT_TABLET;
 
@@ -213,7 +227,7 @@ export function BranchMasterDataView() {
                             </IconButton>
                             <IconButton
                               size="small"
-                              onClick={() => setStatusTarget(b)}
+                              onClick={() => requestStatusChange(b)}
                               aria-label={b.active ? `${b.name} deaktivieren` : `${b.name} aktivieren`}
                             >
                               {b.active ? <ToggleOnOutlinedIcon fontSize="small" /> : <ToggleOffOutlinedIcon fontSize="small" />}
@@ -248,7 +262,7 @@ export function BranchMasterDataView() {
           onError={notify.report}
           secondaryActions={
             dialog.branch
-              ? getRowActions(dialog.branch, (b) => setDialog({ branch: b }), (b) => setStatusTarget(b)).filter((a) => a.key !== 'edit')
+              ? getRowActions(dialog.branch, (b) => setDialog({ branch: b }), (b) => requestStatusChange(b)).filter((a) => a.key !== 'edit')
               : undefined
           }
         />
@@ -264,7 +278,7 @@ export function BranchMasterDataView() {
         }
         confirmText={statusTarget?.active ? 'Deaktivieren' : 'Aktivieren'}
         onConfirm={changeStatus}
-        onCancel={() => setStatusTarget(null)}
+        onCancel={cancelStatusChange}
       />
 
       <RowActionSheet
@@ -272,7 +286,7 @@ export function BranchMasterDataView() {
         onClose={() => setSheetBranch(null)}
         title={sheetBranch ? `${sheetBranch.branchNumber} ${sheetBranch.name}` : ''}
         subtitle={sheetBranch ? `${sheetBranch.address.city || '-'} · ${sheetBranch.federalState}` : undefined}
-        actions={sheetBranch ? getRowActions(sheetBranch, (b) => setDialog({ branch: b }), (b) => setStatusTarget(b)) : []}
+        actions={sheetBranch ? getRowActions(sheetBranch, (b) => setDialog({ branch: b }), (b) => requestStatusChange(b)) : []}
       />
     </Box>
   );

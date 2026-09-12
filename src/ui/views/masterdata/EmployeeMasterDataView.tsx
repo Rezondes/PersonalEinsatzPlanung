@@ -37,6 +37,7 @@ import { useSelectedBranch } from '@ui/hooks/useBranch';
 import { useEmployeeList } from '@ui/hooks/useEmployeeList';
 import { useTableSort } from '@ui/hooks/useTableSort';
 import { useBreakpoint } from '@ui/hooks/useBreakpoint';
+import { useActivationToggle } from '@ui/hooks/useActivationToggle';
 import { ConfirmDialog } from '@ui/components/ConfirmDialog';
 import { stickyFirstColumnSx } from '@ui/components/stickyFirstColumn';
 import { ResponsiveDataList } from '@ui/components/ResponsiveList/ResponsiveDataList';
@@ -118,8 +119,11 @@ function getRowActions(
   ];
 }
 
-/** Mobile card: the whole card is the primary action (tap = edit), long-press opens the action
- * sheet - matches the mockup's "row = one target" pattern, replacing per-row icon buttons. */
+/** Mobile card: the ButtonBase portion is the primary action (tap/keyboard = edit), long-press OR
+ * the visible kebab icon opens the action sheet - matches the mockup's "row = one target" pattern,
+ * replacing per-row icon buttons, while still giving the second action its own focusable, labelled
+ * control. The kebab is a sibling of the ButtonBase, not nested inside it - a <button> inside
+ * another <button> is invalid HTML (see BranchCard's identical comment). */
 function EmployeeCard({
   employee,
   onTap,
@@ -132,56 +136,76 @@ function EmployeeCard({
   const handlers = useLongPress({ onTap, onLongPress });
   const minor = isMinor(employee.birthDate, new Date());
   return (
-    <ButtonBase
-      {...handlers}
+    <Box
       sx={{
         display: 'flex',
         alignItems: 'flex-start',
-        gap: 1,
+        gap: 0.5,
         width: '100%',
         minHeight: 76,
-        p: '12px 12px 12px 14px',
+        pr: 0.5,
         bgcolor: 'background.paper',
         border: '1px solid',
         borderColor: 'divider',
         borderRadius: 2,
-        textAlign: 'left',
         opacity: employee.active ? 1 : 0.55,
       }}
     >
-      <Box sx={{ flex: 1, minWidth: 0 }}>
-        <Stack direction="row" spacing={1} alignItems="center">
-          <Typography variant="body2" fontWeight={500} noWrap>
-            {fullName(employee)}
-          </Typography>
-          {minor && (
-            <ChildCareOutlinedIcon
-              fontSize="small"
-              sx={{ color: 'text.secondary', flexShrink: 0 }}
-              titleAccess="Minderjährig — Jugendarbeitsschutz beachten"
+      <ButtonBase
+        {...handlers}
+        sx={{
+          display: 'flex',
+          flex: 1,
+          minWidth: 0,
+          alignItems: 'flex-start',
+          gap: 1,
+          minHeight: 76,
+          p: '12px 4px 12px 14px',
+          textAlign: 'left',
+          borderRadius: 2,
+        }}
+      >
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <Stack direction="row" spacing={1} alignItems="center">
+            <Typography variant="body2" fontWeight={500} noWrap>
+              {fullName(employee)}
+            </Typography>
+            {minor && (
+              <ChildCareOutlinedIcon
+                fontSize="small"
+                sx={{ color: 'text.secondary', flexShrink: 0 }}
+                titleAccess="Minderjährig — Jugendarbeitsschutz beachten"
+              />
+            )}
+            <Chip
+              size="small"
+              label={employee.active ? 'Aktiv' : 'Inaktiv'}
+              color={employee.active ? 'success' : 'default'}
+              sx={{ ml: 'auto', flexShrink: 0 }}
             />
-          )}
-          <Chip
-            size="small"
-            label={employee.active ? 'Aktiv' : 'Inaktiv'}
-            color={employee.active ? 'success' : 'default'}
-            sx={{ ml: 'auto', flexShrink: 0 }}
-          />
-        </Stack>
-        <Typography variant="body2" color="text.secondary">
-          {employee.jobTitle} · {employmentTypeLabel(employee.employmentType)}
-        </Typography>
-        <Stack direction="row" spacing={2} sx={{ mt: 0.5 }}>
-          <Typography variant="caption" color="text.secondary">
-            {weeklyHoursText(employee)} Std./Wo.
+          </Stack>
+          <Typography variant="body2" color="text.secondary">
+            {employee.jobTitle} · {employmentTypeLabel(employee.employmentType)}
           </Typography>
-          <Typography variant="caption" color="text.secondary">
-            {employee.vacationEntitlementPerYear.toLocaleString('de-DE')} Urlaubstage
-          </Typography>
-        </Stack>
-      </Box>
-      <ChevronRightIcon sx={{ color: 'rgba(0,0,0,0.38)', flexShrink: 0, mt: 0.5 }} />
-    </ButtonBase>
+          <Stack direction="row" spacing={2} sx={{ mt: 0.5 }}>
+            <Typography variant="caption" color="text.secondary">
+              {weeklyHoursText(employee)} Std./Wo.
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              {employee.vacationEntitlementPerYear.toLocaleString('de-DE')} Urlaubstage
+            </Typography>
+          </Stack>
+        </Box>
+        <ChevronRightIcon sx={{ color: 'rgba(0,0,0,0.38)', flexShrink: 0, mt: 0.5 }} />
+      </ButtonBase>
+      <IconButton
+        onClick={onLongPress}
+        aria-label={`Weitere Aktionen für ${fullName(employee)}`}
+        sx={{ flexShrink: 0, mt: 0.5 }}
+      >
+        <MoreVertIcon />
+      </IconButton>
+    </Box>
   );
 }
 
@@ -192,7 +216,12 @@ export function EmployeeMasterDataView() {
   // null = closed; { employee: null } = "Neuer Mitarbeiter"; { employee } = edit. The dialog is
   // mounted only while open so its form state starts fresh each time.
   const [dialog, setDialog] = useState<{ employee: Employee | null } | null>(null);
-  const [statusTarget, setStatusTarget] = useState<Employee | null>(null);
+  const {
+    target: statusTarget,
+    request: requestStatusChange,
+    cancel: cancelStatusChange,
+    confirm: changeStatus,
+  } = useActivationToggle(services.employee, reload);
   const [sheetEmployee, setSheetEmployee] = useState<Employee | null>(null);
   const [search, setSearch] = useState('');
   // Both filters default to "Alle": opening the view must never hide records the user expects.
@@ -219,18 +248,6 @@ export function EmployeeMasterDataView() {
     });
     return sortRows(filtered, COMPARATORS);
   }, [employeeList, search, statusFilter, employmentFilter, sortRows]);
-
-  const changeStatus = async () => {
-    if (!statusTarget) return;
-    try {
-      await services.employee.changeActiveStatus(statusTarget, !statusTarget.active);
-      await reload();
-    } catch (e) {
-      notify.report(e, 'Status konnte nicht geändert werden');
-    } finally {
-      setStatusTarget(null);
-    }
-  };
 
   if (!branch) {
     return <Alert severity="info">Bitte zuerst oben eine Filiale auswählen oder anlegen.</Alert>;
@@ -427,7 +444,7 @@ export function EmployeeMasterDataView() {
                             </IconButton>
                             <IconButton
                               size="small"
-                              onClick={() => setStatusTarget(emp)}
+                              onClick={() => requestStatusChange(emp)}
                               aria-label={emp.active ? `${fullName(emp)} deaktivieren` : `${fullName(emp)} aktivieren`}
                             >
                               {emp.active ? <ToggleOnOutlinedIcon fontSize="small" /> : <ToggleOffOutlinedIcon fontSize="small" />}
@@ -463,7 +480,7 @@ export function EmployeeMasterDataView() {
           onError={notify.report}
           secondaryActions={
             dialog.employee
-              ? getRowActions(dialog.employee, (e) => setDialog({ employee: e }), (e) => setStatusTarget(e)).filter(
+              ? getRowActions(dialog.employee, (e) => setDialog({ employee: e }), (e) => requestStatusChange(e)).filter(
                   (a) => a.key !== 'edit',
                 )
               : undefined
@@ -477,11 +494,11 @@ export function EmployeeMasterDataView() {
         text={
           statusTarget?.active
             ? `${statusTarget ? fullName(statusTarget) : ''} wird als inaktiv markiert und nicht mehr in der Wochenplanung eingeplant. Bereits erfasste Wochenpläne und Abwesenheiten bleiben vollständig erhalten und werden dort weiterhin schreibgeschützt angezeigt; der Mitarbeiter kann jederzeit wieder aktiviert werden.`
-            : `${statusTarget ? fullName(statusTarget) : ''} wird wieder als aktiv markiert.`
+            : `${statusTarget ? fullName(statusTarget) : ''} wird wieder als aktiv markiert und kann wieder in der Wochenplanung eingeplant werden.`
         }
         confirmText={statusTarget?.active ? 'Deaktivieren' : 'Aktivieren'}
         onConfirm={changeStatus}
-        onCancel={() => setStatusTarget(null)}
+        onCancel={cancelStatusChange}
       />
 
       <RowActionSheet
@@ -489,7 +506,7 @@ export function EmployeeMasterDataView() {
         onClose={() => setSheetEmployee(null)}
         title={sheetEmployee ? fullName(sheetEmployee) : ''}
         subtitle={sheetEmployee ? `${sheetEmployee.jobTitle} · ${employmentTypeLabel(sheetEmployee.employmentType)}` : undefined}
-        actions={sheetEmployee ? getRowActions(sheetEmployee, (e) => setDialog({ employee: e }), (e) => setStatusTarget(e)) : []}
+        actions={sheetEmployee ? getRowActions(sheetEmployee, (e) => setDialog({ employee: e }), (e) => requestStatusChange(e)) : []}
       />
     </Box>
   );
