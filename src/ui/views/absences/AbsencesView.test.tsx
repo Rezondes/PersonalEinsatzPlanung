@@ -542,6 +542,33 @@ describe('AbsencesView', () => {
       await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
       await waitFor(() => expect(screen.queryByText('Urlaub')).not.toBeInTheDocument());
       expect(screen.getByText('Noch keine Abwesenheiten erfasst.')).toBeInTheDocument();
+      expect(await screen.findByText('Abwesenheit wurde gelöscht.')).toBeInTheDocument();
+    });
+
+    it('shows a busy state while deleting: disables Abbrechen, spins the confirm button, blocks dismissal (H8)', async () => {
+      const user = userEvent.setup();
+      employeeForBranchMock.mockResolvedValue([e1]);
+      absenceForBranchMock.mockResolvedValueOnce([a1]).mockResolvedValue([]);
+      let resolveDelete!: () => void;
+      deleteMock.mockReturnValueOnce(
+        new Promise<void>((res) => {
+          resolveDelete = res;
+        }),
+      );
+      renderView();
+
+      await screen.findByText('Urlaub');
+      await user.click(screen.getByRole('button', { name: 'Abwesenheit von Bauer, Anna löschen' }));
+      const dialog = screen.getByRole('dialog');
+      await user.click(within(dialog).getByRole('button', { name: 'Löschen' }));
+
+      expect(within(dialog).getByRole('button', { name: 'Abbrechen' })).toBeDisabled();
+      expect(within(dialog).getByRole('progressbar')).toBeInTheDocument();
+      await user.keyboard('{Escape}');
+      expect(screen.getByRole('dialog')).toBeInTheDocument();
+
+      resolveDelete();
+      await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
     });
 
     it('does not delete when the confirm dialog is cancelled', async () => {

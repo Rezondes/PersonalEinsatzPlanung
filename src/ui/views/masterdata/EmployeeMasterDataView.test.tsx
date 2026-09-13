@@ -540,6 +540,9 @@ describe('EmployeeMasterDataView', () => {
 
     expect(screen.getAllByText('Aktiv')).toHaveLength(4);
     expect(screen.getAllByText('Inaktiv')).toHaveLength(1);
+    // Dangerous per getRowActions (employee.active), so the confirm button must actually be red,
+    // not the app's green primary color (M15).
+    expect(screen.getByRole('button', { name: 'Deaktivieren' })).toHaveClass('MuiButton-containedError');
 
     forBranchMock.mockResolvedValueOnce(employees.map((e) => (e.id === anna.id ? { ...e, active: false } : e)));
 
@@ -549,6 +552,33 @@ describe('EmployeeMasterDataView', () => {
     await waitFor(() => expect(screen.queryByText('Mitarbeiter deaktivieren?')).not.toBeInTheDocument());
     await waitFor(() => expect(screen.getAllByText('Inaktiv')).toHaveLength(2));
     expect(screen.getAllByText('Aktiv')).toHaveLength(3);
+    expect(await screen.findByText('Mitarbeiter wurde deaktiviert.')).toBeInTheDocument();
+  });
+
+  it('shows a busy state while changing status: disables Abbrechen, spins the confirm button, blocks dismissal (M15)', async () => {
+    mockViewportWidth(1700);
+    const user = userEvent.setup();
+    renderView();
+    await screen.findByText('Bauer, Anna');
+
+    let resolveStatus!: (value: Employee) => void;
+    changeActiveStatusMock.mockReturnValueOnce(
+      new Promise<Employee>((res) => {
+        resolveStatus = res;
+      }),
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Bauer, Anna deaktivieren' }));
+    await user.click(screen.getByRole('button', { name: 'Deaktivieren' }));
+
+    expect(screen.getByRole('button', { name: 'Abbrechen' })).toBeDisabled();
+    expect(screen.getByRole('progressbar')).toBeInTheDocument();
+    await user.keyboard('{Escape}');
+    expect(screen.getByText('Mitarbeiter deaktivieren?')).toBeInTheDocument();
+
+    forBranchMock.mockResolvedValueOnce(employees.map((e) => (e.id === anna.id ? { ...e, active: false } : e)));
+    resolveStatus({ ...anna, active: false });
+    await waitFor(() => expect(screen.queryByText('Mitarbeiter deaktivieren?')).not.toBeInTheDocument());
   });
 
   it('activates an inactive employee via the confirm dialog with its own pinned text', async () => {

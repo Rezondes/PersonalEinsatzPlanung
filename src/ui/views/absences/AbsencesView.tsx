@@ -173,6 +173,7 @@ export function AbsencesView() {
   const [holidaysDialogOpen, setHolidaysDialogOpen] = useState(false);
   const [sheetAbsence, setSheetAbsence] = useState<Absence | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Absence | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const [employeeFilter, setEmployeeFilter] = useState<string>(ALL);
   const [typeFilter, setTypeFilter] = useState<TypeFilter>(ALL);
   // Empty = "Alle" (every year), same meaning ALL had for the single-select this replaces.
@@ -255,12 +256,15 @@ export function AbsencesView() {
 
   const deleteAbsence = async () => {
     if (!deleteTarget) return;
+    setDeleting(true);
     try {
       await services.absence.delete(deleteTarget.id);
       await reload();
+      notify.success('Abwesenheit wurde gelöscht.');
     } catch (e) {
       notify.report(e, 'Abwesenheit konnte nicht gelöscht werden');
     } finally {
+      setDeleting(false);
       setDeleteTarget(null);
     }
   };
@@ -523,6 +527,7 @@ export function AbsencesView() {
         text="Dieser Eintrag wird unwiderruflich entfernt."
         confirmText="Löschen"
         dangerous
+        busy={deleting}
         onConfirm={deleteAbsence}
         onCancel={() => setDeleteTarget(null)}
       />

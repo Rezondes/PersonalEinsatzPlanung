@@ -151,14 +151,21 @@ export function CarryOverPreviousWeekDialog({
   return (
     <ResponsiveDialog
       open={open}
-      onClose={onClose}
+      onClose={applying ? undefined : onClose}
       title="Mehr-/Minusstunden aus Vorwoche übertragen"
       subtitle={formatCalendarWeekRange(previousWeek)}
       maxWidth="sm"
       actions={
         <>
-          <Button onClick={onClose}>Abbrechen</Button>
-          <Button variant="contained" onClick={apply} disabled={loading || applying || rows.length === 0}>
+          <Button onClick={onClose} disabled={applying}>
+            Abbrechen
+          </Button>
+          <Button
+            variant="contained"
+            onClick={apply}
+            disabled={loading || applying || rows.length === 0}
+            startIcon={applying ? <CircularProgress size={16} color="inherit" /> : undefined}
+          >
             Übernehmen
           </Button>
         </>

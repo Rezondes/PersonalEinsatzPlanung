@@ -170,11 +170,42 @@ describe('BranchMasterDataView', () => {
       ),
     ).toBeInTheDocument();
 
+    // Dangerous per getRowActions (branch.active), so the confirm button must actually be red,
+    // not the app's green primary color (M15).
+    expect(screen.getByRole('button', { name: 'Deaktivieren' })).toHaveClass('MuiButton-containedError');
+
     await user.click(screen.getByRole('button', { name: 'Deaktivieren' }));
 
     expect(changeActiveStatusMock).toHaveBeenCalledWith(branch, false);
     await waitFor(() => expect(allMock).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(screen.getByText('Inaktiv')).toBeInTheDocument());
+    expect(await screen.findByText('Filiale wurde deaktiviert.')).toBeInTheDocument();
+  });
+
+  it('shows a busy state while changing status: disables Abbrechen, spins the confirm button, blocks dismissal (M15)', async () => {
+    mockViewportWidth(1700);
+    const user = userEvent.setup();
+    const branch = makeBranch({ name: 'Filiale Nord', active: true });
+    seedBranches([branch]);
+    let resolveStatus!: (value: Branch) => void;
+    changeActiveStatusMock.mockReturnValueOnce(
+      new Promise<Branch>((res) => {
+        resolveStatus = res;
+      }),
+    );
+    renderView();
+
+    await user.click(screen.getByRole('button', { name: 'Filiale Nord deaktivieren' }));
+    await user.click(screen.getByRole('button', { name: 'Deaktivieren' }));
+
+    expect(screen.getByRole('button', { name: 'Abbrechen' })).toBeDisabled();
+    expect(screen.getByRole('progressbar')).toBeInTheDocument();
+    await user.keyboard('{Escape}');
+    expect(screen.getByRole('heading', { name: 'Filiale deaktivieren?' })).toBeInTheDocument();
+
+    allMock.mockResolvedValueOnce([{ ...branch, active: false }]);
+    resolveStatus({ ...branch, active: false });
+    await waitFor(() => expect(screen.queryByRole('heading', { name: 'Filiale deaktivieren?' })).not.toBeInTheDocument());
   });
 
   it('opens the activate confirmation with the pinned title and text for an inactive branch', async () => {

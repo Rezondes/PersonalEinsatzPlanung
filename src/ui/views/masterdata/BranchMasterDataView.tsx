@@ -122,7 +122,8 @@ export function BranchMasterDataView() {
     request: requestStatusChange,
     cancel: cancelStatusChange,
     confirm: changeStatus,
-  } = useActivationToggle(services.branch, reload);
+    busy: statusChangeBusy,
+  } = useActivationToggle(services.branch, reload, 'Filiale');
   const [sheetBranch, setSheetBranch] = useState<Branch | null>(null);
 
   usePageActions({
@@ -277,6 +278,8 @@ export function BranchMasterDataView() {
             : `${statusTarget?.name} wird wieder als aktiv markiert und erscheint wieder in der Filial-Auswahl.`
         }
         confirmText={statusTarget?.active ? 'Deaktivieren' : 'Aktivieren'}
+        dangerous={!!statusTarget?.active}
+        busy={statusChangeBusy}
         onConfirm={changeStatus}
         onCancel={cancelStatusChange}
       />

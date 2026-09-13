@@ -280,7 +280,8 @@ export function EmployeeMasterDataView() {
     request: requestStatusChange,
     cancel: cancelStatusChange,
     confirm: changeStatus,
-  } = useActivationToggle(services.employee, reload);
+    busy: statusChangeBusy,
+  } = useActivationToggle(services.employee, reload, 'Mitarbeiter');
   const [sheetEmployee, setSheetEmployee] = useState<Employee | null>(null);
   const [search, setSearch] = useState('');
   // Both filters default to "Alle": opening the view must never hide records the user expects.
@@ -586,6 +587,8 @@ export function EmployeeMasterDataView() {
             : `${statusTarget ? fullName(statusTarget) : ''} wird wieder als aktiv markiert und kann wieder in der Wochenplanung eingeplant werden.`
         }
         confirmText={statusTarget?.active ? 'Deaktivieren' : 'Aktivieren'}
+        dangerous={!!statusTarget?.active}
+        busy={statusChangeBusy}
         onConfirm={changeStatus}
         onCancel={cancelStatusChange}
       />

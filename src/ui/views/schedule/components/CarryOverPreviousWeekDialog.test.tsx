@@ -381,6 +381,27 @@ describe('CarryOverPreviousWeekDialog', () => {
     expect(onClose).toHaveBeenCalled();
   });
 
+  it('shows a busy state while applying: disables Abbrechen, spins Übernehmen, blocks dismissal (M14)', async () => {
+    const user = userEvent.setup();
+    const e1 = 'e1' as EmployeeId;
+    findForWeekMock.mockResolvedValue(null);
+    const currentSchedule = createWeeklySchedule(branchId, currentWeek, [e1]);
+    const applyDeferred = createDeferred<WeeklySchedule>();
+    applyMock.mockReturnValue(applyDeferred.promise);
+    const { onClose } = renderDialog({ schedule: currentSchedule, employeeList: [employee(e1)] });
+
+    await screen.findAllByRole('row');
+    await user.click(screen.getByRole('button', { name: 'Übernehmen' }));
+
+    expect(screen.getByRole('button', { name: 'Abbrechen' })).toBeDisabled();
+    expect(screen.getByRole('progressbar')).toBeInTheDocument();
+    await user.keyboard('{Escape}');
+    expect(onClose).not.toHaveBeenCalled();
+
+    applyDeferred.resolve({ ...currentSchedule, updatedAt: '2026-09-11T00:00:00.000Z' });
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+  });
+
   it('reports a rejected findForWeek with the pinned context and stops the loading spinner', async () => {
     findForWeekMock.mockRejectedValue(new Error('IndexedDB nicht verfügbar'));
     const e1 = 'e1' as EmployeeId;

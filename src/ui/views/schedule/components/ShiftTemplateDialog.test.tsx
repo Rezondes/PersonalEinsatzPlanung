@@ -102,6 +102,36 @@ describe('ShiftTemplateDialog', () => {
     expect(onClose).toHaveBeenCalled();
   });
 
+  it('shows a busy state while saving: disables Abbrechen, spins Speichern, blocks dismissal (M13)', async () => {
+    const user = userEvent.setup();
+    let resolveCreate!: (value: ShiftTemplate) => void;
+    createMock.mockReturnValueOnce(
+      new Promise<ShiftTemplate>((res) => {
+        resolveCreate = res;
+      }),
+    );
+    const { onClose } = renderDialog();
+
+    await user.type(textbox('Bezeichnung'), 'Frühschicht');
+    await user.click(save());
+
+    expect(screen.getByRole('button', { name: 'Abbrechen' })).toBeDisabled();
+    expect(screen.getByRole('progressbar')).toBeInTheDocument();
+    await user.keyboard('{Escape}');
+    expect(onClose).not.toHaveBeenCalled();
+
+    resolveCreate({
+      id: 'new' as ShiftTemplateId,
+      branchId,
+      name: 'Frühschicht',
+      kind: 'Shift',
+      shifts: [createShift(clockTime('06:00'), clockTime('14:00'))],
+      createdAt: '',
+      updatedAt: '',
+    });
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+  });
+
   it('updates an existing template instead of creating a second one', async () => {
     const user = userEvent.setup();
     const existing: ShiftTemplate = {

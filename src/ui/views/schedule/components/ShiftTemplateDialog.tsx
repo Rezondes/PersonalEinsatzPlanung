@@ -4,6 +4,7 @@ import TextField from '@mui/material/TextField';
 import Stack from '@mui/material/Stack';
 import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
+import CircularProgress from '@mui/material/CircularProgress';
 import type { BranchId } from '@domain/shared/ids';
 import type { ShiftTemplate } from '@domain/schedule/ShiftTemplate';
 import { validateShiftTemplate } from '@domain/schedule/shiftTemplateValidation';
@@ -133,14 +134,21 @@ export function ShiftTemplateDialog({
   return (
     <ResponsiveDialog
       open
-      onClose={onClose}
+      onClose={saving ? undefined : onClose}
       title={template ? 'Vorlage bearbeiten' : 'Neue Vorlage'}
       contentRef={validation.containerRef}
       actions={
         <>
           <FormErrorNotice errors={validation.errors} />
-          <Button onClick={onClose}>Abbrechen</Button>
-          <Button variant="contained" onClick={save} disabled={saving}>
+          <Button onClick={onClose} disabled={saving}>
+            Abbrechen
+          </Button>
+          <Button
+            variant="contained"
+            onClick={save}
+            disabled={saving}
+            startIcon={saving ? <CircularProgress size={16} color="inherit" /> : undefined}
+          >
             Speichern
           </Button>
         </>
