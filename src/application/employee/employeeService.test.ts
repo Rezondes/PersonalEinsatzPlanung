@@ -35,17 +35,21 @@ function employee(overrides: Partial<Employee> = {}): Employee {
 }
 
 describe('employeeService', () => {
-  it('forBranch sorts the repository results by last name', async () => {
+  it('forBranch sorts the repository results by last name, without mutating the array the repository returned (N11)', async () => {
     const repo = fakeRepo();
-    repo.findByBranch = vi.fn(async () => [
+    const unsorted = [
       employee({ id: 'm2' as EmployeeId, lastName: 'Zimmer', firstName: 'Bea' }),
       employee({ id: 'm1' as EmployeeId, lastName: 'Anders', firstName: 'Uwe' }),
-    ]);
+    ];
+    repo.findByBranch = vi.fn(async () => unsorted);
 
     const result = await createEmployeeService(repo).forBranch(branchId);
 
     expect(result.map((e) => e.lastName)).toEqual(['Anders', 'Zimmer']);
     expect(repo.findByBranch).toHaveBeenCalledWith(branchId);
+    // Sorting must happen on a copy - mutating the array a repository handed back could surprise a
+    // caller still holding the same reference.
+    expect(unsorted.map((e) => e.lastName)).toEqual(['Zimmer', 'Anders']);
   });
 
   it('find delegates to the repository', async () => {

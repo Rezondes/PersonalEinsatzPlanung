@@ -3,6 +3,7 @@ import type { Absence } from '@domain/absence/Absence';
 
 export interface AbsenceRepository {
   findAll(): Promise<Absence[]>;
+  findById(id: AbsenceId): Promise<Absence | null>;
   findByEmployee(employeeId: EmployeeId): Promise<Absence[]>;
   findByEmployeeIds(employeeIds: EmployeeId[]): Promise<Absence[]>;
   save(absence: Absence): Promise<void>;

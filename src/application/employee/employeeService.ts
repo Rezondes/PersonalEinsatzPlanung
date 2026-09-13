@@ -7,8 +7,9 @@ import type { EmployeeRepository } from '@application/ports/EmployeeRepository';
 export function createEmployeeService(repo: EmployeeRepository) {
   return {
     // Sorted by last name A-Z here (not left to callers) so every view listing employees for a
-    // Branch is consistent by construction.
-    forBranch: async (branchId: BranchId) => (await repo.findByBranch(branchId)).sort(compareByLastName),
+    // Branch is consistent by construction. On a copy, not in place - mutating the array the
+    // repository returned could surprise a caller still holding the same reference.
+    forBranch: async (branchId: BranchId) => [...(await repo.findByBranch(branchId))].sort(compareByLastName),
 
     find: (id: EmployeeId) => repo.findById(id),
 

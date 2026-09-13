@@ -9,6 +9,7 @@ const m1 = 'm1' as EmployeeId;
 function fakeRepo(): AbsenceRepository {
   return {
     findAll: vi.fn(),
+    findById: vi.fn(async () => null),
     findByEmployee: vi.fn(async () => []),
     findByEmployeeIds: vi.fn(async () => []),
     save: vi.fn(async () => {}),

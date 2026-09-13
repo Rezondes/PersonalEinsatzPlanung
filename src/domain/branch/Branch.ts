@@ -40,6 +40,13 @@ export interface Branch {
   updatedAt: string;
 }
 
+/** Sorts by name A-Z, German collation - single source of truth for "branches always sorted by
+ * name", matching Employee's own compareByLastName and ShiftTemplate's compareShiftTemplatesByName
+ * so every list-returning service in the app is consistently sorted by construction. */
+export function compareByName(a: Pick<Branch, 'name'>, b: Pick<Branch, 'name'>): number {
+  return a.name.localeCompare(b.name, 'de');
+}
+
 export function createBranch(details: {
   name: string;
   branchNumber: string;

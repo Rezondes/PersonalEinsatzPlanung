@@ -3,6 +3,7 @@ import type { ShiftTemplate } from '@domain/schedule/ShiftTemplate';
 
 export interface ShiftTemplateRepository {
   findAll(): Promise<ShiftTemplate[]>;
+  findById(id: ShiftTemplateId): Promise<ShiftTemplate | null>;
   findByBranch(branchId: BranchId): Promise<ShiftTemplate[]>;
   save(template: ShiftTemplate): Promise<void>;
   delete(id: ShiftTemplateId): Promise<void>;

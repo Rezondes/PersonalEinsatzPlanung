@@ -5,9 +5,11 @@ import type { ShiftTemplateRepository } from '@application/ports/ShiftTemplateRe
 
 export function createShiftTemplateService(repo: ShiftTemplateRepository) {
   return {
-    // Sorted here (not left to callers) so the toolbar order is the same everywhere by construction.
+    // Sorted here (not left to callers) so the toolbar order is the same everywhere by
+    // construction. On a copy, not in place - mutating the array the repository returned could
+    // surprise a caller still holding the same reference.
     forBranch: async (branchId: BranchId) =>
-      (await repo.findByBranch(branchId)).sort(compareShiftTemplatesByName),
+      [...(await repo.findByBranch(branchId))].sort(compareShiftTemplatesByName),
 
     create: async (details: CreateShiftTemplateInput) => {
       const template = createShiftTemplate(details);

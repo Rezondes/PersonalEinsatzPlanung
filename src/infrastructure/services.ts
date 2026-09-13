@@ -17,7 +17,7 @@ import { transaction } from './persistence/db';
 export const services = {
   branch: createBranchService(repositories.branch),
   employee: createEmployeeService(repositories.employee),
-  schedule: createScheduleService(repositories.weeklySchedule, repositories.employee),
+  schedule: createScheduleService({ repo: repositories.weeklySchedule, employeeRepo: repositories.employee }),
   restPeriodCheck: createRestPeriodCheckService(repositories.weeklySchedule),
   absence: createAbsenceService(repositories.absence),
   holidayBulkCreation: createHolidayBulkCreationService(repositories.absence),

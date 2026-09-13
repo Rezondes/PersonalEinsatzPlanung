@@ -67,6 +67,32 @@ describe('branchService', () => {
     expect(repo.save).toHaveBeenCalledWith(updated);
   });
 
+  it('create() rejects a branchNumber that is already taken by another branch (N12)', async () => {
+    const repo = fakeRepo();
+    repo.findAll = vi.fn(async () => [existingBranch({ branchNumber: '2504' })]);
+
+    await expect(
+      createBranchService(repo).create({ name: 'Filiale Neu', branchNumber: '2504', federalState: 'Niedersachsen' }),
+    ).rejects.toThrow('Diese Filialnummer ist bereits vergeben.');
+    expect(repo.save).not.toHaveBeenCalled();
+  });
+
+  it('update() rejects renaming to a branchNumber already taken by a different branch, but allows keeping its own unchanged number (N12)', async () => {
+    const repo = fakeRepo();
+    const own = existingBranch({ id: 'b1' as BranchId, branchNumber: '2504' });
+    const other = existingBranch({ id: 'b2' as BranchId, branchNumber: '9999' });
+    repo.findAll = vi.fn(async () => [own, other]);
+
+    await expect(createBranchService(repo).update({ ...own, branchNumber: '9999' })).rejects.toThrow(
+      'Diese Filialnummer ist bereits vergeben.',
+    );
+    expect(repo.save).not.toHaveBeenCalled();
+
+    const updated = await createBranchService(repo).update({ ...own, name: 'Filiale Umbenannt' });
+    expect(updated.name).toBe('Filiale Umbenannt');
+    expect(repo.save).toHaveBeenCalledWith(updated);
+  });
+
   it('changeActiveStatus flips active without hard-deleting', async () => {
     const repo = fakeRepo();
     const branch = existingBranch({ active: true });

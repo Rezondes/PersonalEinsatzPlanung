@@ -68,7 +68,7 @@ describe('scheduleService.getOrCreate', () => {
       employee('e3' as EmployeeId, { exitDate: '2026-08-01' }),
     ]);
 
-    const schedule = await createScheduleService(scheduleRepo, employeeRepo).getOrCreate(branchId, currentWeek);
+    const schedule = await createScheduleService({ repo: scheduleRepo, employeeRepo }).getOrCreate(branchId, currentWeek);
 
     expect(schedule.employeeAssignments.map((a) => a.employeeId)).toEqual([e1]);
     expect(scheduleRepo.save).toHaveBeenCalledWith(schedule);
@@ -76,14 +76,17 @@ describe('scheduleService.getOrCreate', () => {
   });
 
   it('self-heals: appends empty assignments for employees hired after the schedule was created', async () => {
-    const existing = createWeeklySchedule(branchId, currentWeek, [e1]);
+    const existing = { ...createWeeklySchedule(branchId, currentWeek, [e1]), updatedAt: '2020-01-01T00:00:00.000Z' };
     const scheduleRepo = fakeScheduleRepo({ findByBranchAndWeek: vi.fn(async () => existing) });
     const employeeRepo = fakeEmployeeRepo([employee(e1), employee(e2)]);
 
-    const result = await createScheduleService(scheduleRepo, employeeRepo).getOrCreate(branchId, currentWeek);
+    const result = await createScheduleService({ repo: scheduleRepo, employeeRepo }).getOrCreate(branchId, currentWeek);
 
     expect(result.employeeAssignments.map((a) => a.employeeId).sort()).toEqual([e1, e2].sort());
     expect(scheduleRepo.save).toHaveBeenCalledWith(result);
+    // The self-heal writes a real change (a new assignment) - updatedAt must reflect that instead
+    // of silently carrying the stale timestamp forward (N11).
+    expect(result.updatedAt).not.toBe('2020-01-01T00:00:00.000Z');
   });
 
   it('does not save again when every active employee already has an assignment', async () => {
@@ -91,7 +94,7 @@ describe('scheduleService.getOrCreate', () => {
     const scheduleRepo = fakeScheduleRepo({ findByBranchAndWeek: vi.fn(async () => existing) });
     const employeeRepo = fakeEmployeeRepo([employee(e1)]);
 
-    const result = await createScheduleService(scheduleRepo, employeeRepo).getOrCreate(branchId, currentWeek);
+    const result = await createScheduleService({ repo: scheduleRepo, employeeRepo }).getOrCreate(branchId, currentWeek);
 
     expect(result).toBe(existing);
     expect(scheduleRepo.save).not.toHaveBeenCalled();
@@ -104,7 +107,7 @@ describe('scheduleService.copyFromPreviousWeek', () => {
     const scheduleRepo = fakeScheduleRepo({ findByBranchAndWeek: vi.fn(async () => existing) });
     const employeeRepo = fakeEmployeeRepo([employee(e1)]);
 
-    const result = await createScheduleService(scheduleRepo, employeeRepo).copyFromPreviousWeek(branchId, currentWeek);
+    const result = await createScheduleService({ repo: scheduleRepo, employeeRepo }).copyFromPreviousWeek(branchId, currentWeek);
 
     expect(result).toBe(existing);
     expect(scheduleRepo.save).not.toHaveBeenCalled();
@@ -124,7 +127,7 @@ describe('scheduleService.copyFromPreviousWeek', () => {
     });
     const employeeRepo = fakeEmployeeRepo([employee(e1), employee(e2)]);
 
-    const result = await createScheduleService(scheduleRepo, employeeRepo).copyFromPreviousWeek(branchId, currentWeek);
+    const result = await createScheduleService({ repo: scheduleRepo, employeeRepo }).copyFromPreviousWeek(branchId, currentWeek);
 
     const e1Assignment = result.employeeAssignments.find((a) => a.employeeId === e1);
     const e2Assignment = result.employeeAssignments.find((a) => a.employeeId === e2);
@@ -142,7 +145,7 @@ describe('scheduleService.copyFromPreviousWeek', () => {
     });
     const employeeRepo = fakeEmployeeRepo([employee(e1)]);
 
-    const result = await createScheduleService(scheduleRepo, employeeRepo).copyFromPreviousWeek(branchId, currentWeek);
+    const result = await createScheduleService({ repo: scheduleRepo, employeeRepo }).copyFromPreviousWeek(branchId, currentWeek);
 
     const e1Assignment = result.employeeAssignments.find((a) => a.employeeId === e1);
     expect(e1Assignment?.targetAdjustmentMinutes).toBeUndefined();
@@ -155,7 +158,7 @@ describe('scheduleService other operations', () => {
     const scheduleRepo = fakeScheduleRepo();
     const employeeRepo = fakeEmployeeRepo([]);
 
-    const updated = await createScheduleService(scheduleRepo, employeeRepo).save(schedule);
+    const updated = await createScheduleService({ repo: scheduleRepo, employeeRepo }).save(schedule);
 
     expect(updated.updatedAt).not.toBe(schedule.updatedAt);
     expect(scheduleRepo.save).toHaveBeenCalledWith(updated);
@@ -167,7 +170,7 @@ describe('scheduleService other operations', () => {
     const employeeRepo = fakeEmployeeRepo([]);
     const entry = { type: 'Shift' as const, shifts: [createShift(clockTime('08:00'), clockTime('16:00'))] };
 
-    const updated = await createScheduleService(scheduleRepo, employeeRepo).setDayEntryAndSave(
+    const updated = await createScheduleService({ repo: scheduleRepo, employeeRepo }).setDayEntryAndSave(
       schedule,
       e1,
       'Montag',
@@ -181,7 +184,7 @@ describe('scheduleService other operations', () => {
   it('forBranch, find and findForWeek delegate to the repository', async () => {
     const scheduleRepo = fakeScheduleRepo();
     const employeeRepo = fakeEmployeeRepo([]);
-    const service = createScheduleService(scheduleRepo, employeeRepo);
+    const service = createScheduleService({ repo: scheduleRepo, employeeRepo });
 
     await service.forBranch(branchId);
     await service.find('w1' as WeeklyScheduleId);
@@ -199,7 +202,7 @@ describe('scheduleService other operations', () => {
     const entry = { type: 'Shift' as const, shifts: [createShift(clockTime('08:00'), clockTime('16:00'))] };
     const offEntry = { type: 'Off' as const };
 
-    const updated = await createScheduleService(scheduleRepo, employeeRepo).setDayEntriesAndSave(schedule, [
+    const updated = await createScheduleService({ repo: scheduleRepo, employeeRepo }).setDayEntriesAndSave(schedule, [
       { employeeId: e1, day: 'Montag', entry },
       { employeeId: e2, day: 'Dienstag', entry: offEntry },
     ]);
@@ -215,7 +218,7 @@ describe('scheduleService other operations', () => {
     const scheduleRepo = fakeScheduleRepo();
     const employeeRepo = fakeEmployeeRepo([]);
 
-    const updated = await createScheduleService(scheduleRepo, employeeRepo).applyTargetAdjustments(schedule, [
+    const updated = await createScheduleService({ repo: scheduleRepo, employeeRepo }).applyTargetAdjustments(schedule, [
       { employeeId: e1, minutes: 30 },
       { employeeId: e2, minutes: -15 },
     ]);

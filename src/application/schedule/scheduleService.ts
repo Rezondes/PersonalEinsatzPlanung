@@ -10,7 +10,13 @@ import { emptyWeekAssignment } from '@domain/schedule/EmployeeWeekAssignment';
 import type { WeeklyScheduleRepository } from '@application/ports/WeeklyScheduleRepository';
 import type { EmployeeRepository } from '@application/ports/EmployeeRepository';
 
-export function createScheduleService(repo: WeeklyScheduleRepository, employeeRepo: EmployeeRepository) {
+export function createScheduleService({
+  repo,
+  employeeRepo,
+}: {
+  repo: WeeklyScheduleRepository;
+  employeeRepo: EmployeeRepository;
+}) {
   /** Who may be scheduled in that week: active, and their employment period actually overlaps it.
    * Someone who left last year is not silently added to next year's schedules, and a new hire is
    * not added to weeks before their first day. */
@@ -46,6 +52,7 @@ export function createScheduleService(repo: WeeklyScheduleRepository, employeeRe
           const completed: WeeklySchedule = {
             ...existing,
             employeeAssignments: [...existing.employeeAssignments, ...missingIds.map(emptyWeekAssignment)],
+            updatedAt: new Date().toISOString(),
           };
           await repo.save(completed);
           return completed;

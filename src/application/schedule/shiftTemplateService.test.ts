@@ -11,6 +11,7 @@ const branchId = 'b1' as BranchId;
 function fakeRepo(): ShiftTemplateRepository {
   return {
     findAll: vi.fn(),
+    findById: vi.fn(async () => null),
     findByBranch: vi.fn(async () => []),
     save: vi.fn(async () => {}),
     delete: vi.fn(async () => {}),
@@ -32,17 +33,21 @@ function template(overrides: Partial<Extract<ShiftTemplate, { kind: 'Shift' }>> 
 }
 
 describe('shiftTemplateService', () => {
-  it('forBranch sorts the repository results by name', async () => {
+  it('forBranch sorts the repository results by name, without mutating the array the repository returned (N11)', async () => {
     const repo = fakeRepo();
-    repo.findByBranch = vi.fn(async () => [
+    const unsorted = [
       template({ id: 't2' as ShiftTemplateId, name: 'Spätschicht' }),
       template({ id: 't1' as ShiftTemplateId, name: 'Frühschicht' }),
-    ]);
+    ];
+    repo.findByBranch = vi.fn(async () => unsorted);
 
     const result = await createShiftTemplateService(repo).forBranch(branchId);
 
     expect(result.map((t) => t.name)).toEqual(['Frühschicht', 'Spätschicht']);
     expect(repo.findByBranch).toHaveBeenCalledWith(branchId);
+    // Sorting must happen on a copy - mutating the array a repository handed back could surprise a
+    // caller still holding the same reference.
+    expect(unsorted.map((t) => t.name)).toEqual(['Spätschicht', 'Frühschicht']);
   });
 
   it('create builds a new ShiftTemplate and saves it', async () => {

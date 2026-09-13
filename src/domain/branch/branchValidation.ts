@@ -4,7 +4,10 @@ import type { FieldError } from '@domain/validation/FieldError';
 export type BranchField = 'name' | 'branchNumber';
 
 /** Field rules for creating a branch. Address fields are optional (they only appear on the printed
- * form), the federal state is always preselected in the dialog. Not applied on update paths. */
+ * form), the federal state is always preselected in the dialog. Not applied on update paths.
+ * Deliberately does NOT check branchNumber uniqueness (N12): this is a pure function with no
+ * repository access, and uniqueness needs to see every other branch to judge. That check lives in
+ * branchService.create/update instead, which already has repo.findAll() to scan. */
 export function validateBranch(draft: { name: string; branchNumber: string }): FieldError<BranchField>[] {
   const errors: FieldError<BranchField>[] = [];
   if (!draft.name.trim()) {
