@@ -1,6 +1,5 @@
 import type { BranchId, ShiftTemplateId } from '@domain/shared/ids';
-import type { Shift } from '@domain/schedule/Shift';
-import type { ShiftTemplate } from '@domain/schedule/ShiftTemplate';
+import type { ShiftTemplate, CreateShiftTemplateInput } from '@domain/schedule/ShiftTemplate';
 import { compareShiftTemplatesByName, createShiftTemplate } from '@domain/schedule/ShiftTemplate';
 import type { ShiftTemplateRepository } from '@application/ports/ShiftTemplateRepository';
 
@@ -10,7 +9,7 @@ export function createShiftTemplateService(repo: ShiftTemplateRepository) {
     forBranch: async (branchId: BranchId) =>
       (await repo.findByBranch(branchId)).sort(compareShiftTemplatesByName),
 
-    create: async (details: { branchId: BranchId; name: string; shifts: Shift[] }) => {
+    create: async (details: CreateShiftTemplateInput) => {
       const template = createShiftTemplate(details);
       await repo.save(template);
       return template;

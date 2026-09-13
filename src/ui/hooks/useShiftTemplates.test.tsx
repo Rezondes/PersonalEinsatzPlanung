@@ -15,11 +15,12 @@ const forBranchMock = vi.mocked(services.shiftTemplate.forBranch);
 const branchId = 'b1' as BranchId;
 const otherBranchId = 'b2' as BranchId;
 
-function template(overrides: Partial<ShiftTemplate> = {}): ShiftTemplate {
+function template(overrides: Partial<Extract<ShiftTemplate, { kind: 'Shift' }>> = {}): ShiftTemplate {
   return {
     id: 't1' as ShiftTemplateId,
     branchId,
     name: 'Frühschicht',
+    kind: 'Shift',
     shifts: [createShift(clockTime('06:00'), clockTime('14:00'))],
     createdAt: '2026-01-01T00:00:00.000Z',
     updatedAt: '2026-01-01T00:00:00.000Z',

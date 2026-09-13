@@ -93,6 +93,7 @@ describe('ShiftTemplateDialog', () => {
     await waitFor(() => expect(onSaved).toHaveBeenCalledTimes(1));
     expect(createMock).toHaveBeenCalledTimes(1);
     const payload = createMock.mock.calls[0][0];
+    if (payload.kind !== 'Shift') throw new Error('expected a Shift-kind payload');
     expect(payload.branchId).toBe(branchId);
     expect(payload.name).toBe('Frühschicht');
     expect(payload.shifts).toHaveLength(1);
@@ -107,6 +108,7 @@ describe('ShiftTemplateDialog', () => {
       id: 't1' as ShiftTemplateId,
       branchId,
       name: 'Spätschicht',
+      kind: 'Shift',
       shifts: [createShift(clockTime('14:00'), clockTime('20:00'))],
       createdAt: '2026-01-01T00:00:00.000Z',
       updatedAt: '2026-01-01T00:00:00.000Z',
@@ -123,5 +125,69 @@ describe('ShiftTemplateDialog', () => {
     expect(updateMock).toHaveBeenCalledTimes(1);
     expect(updateMock.mock.calls[0][0].id).toBe(existing.id);
     expect(updateMock.mock.calls[0][0].name).toBe('Abenddienst');
+  });
+
+  describe('Sonstiges mode', () => {
+    it('switches to a Stunden field instead of the shift list, keeping the one Bezeichnung field', async () => {
+      const user = userEvent.setup();
+      renderDialog();
+
+      await user.click(screen.getByRole('button', { name: 'Sonstiges' }));
+
+      expect(screen.queryByLabelText((t) => t.replace('*', '').trim() === 'Beginn')).not.toBeInTheDocument();
+      expect(textbox('Bezeichnung')).toBeInTheDocument();
+      expect(screen.getByLabelText((t) => t.includes('Stunden'))).toBeInTheDocument();
+    });
+
+    it('reports the missing Bezeichnung once (not twice), focuses it and saves nothing', async () => {
+      const user = userEvent.setup();
+      renderDialog();
+
+      await user.click(screen.getByRole('button', { name: 'Sonstiges' }));
+      await user.click(save());
+
+      expect(screen.getAllByText('Bitte Bezeichnung eingeben.')).toHaveLength(1);
+      expect(textbox('Bezeichnung')).toHaveFocus();
+      expect(createMock).not.toHaveBeenCalled();
+    });
+
+    it('creates an Other-kind template using the Bezeichnung as both the template name and the absence label, plus the entered hours', async () => {
+      const user = userEvent.setup();
+      const { onSaved } = renderDialog();
+
+      await user.type(textbox('Bezeichnung'), 'Inventur');
+      await user.click(screen.getByRole('button', { name: 'Sonstiges' }));
+      const hoursField = screen.getByLabelText((t) => t.includes('Stunden'));
+      await user.type(hoursField, '4');
+      await user.click(save());
+
+      await waitFor(() => expect(onSaved).toHaveBeenCalledTimes(1));
+      expect(createMock).toHaveBeenCalledTimes(1);
+      const payload = createMock.mock.calls[0][0];
+      expect(payload).toMatchObject({ branchId, name: 'Inventur', kind: 'Other', label: 'Inventur', hoursPerDay: 4 });
+      expect((payload as { shifts?: unknown }).shifts).toBeUndefined();
+    });
+
+    it('prefills and updates an existing Other-kind template', async () => {
+      const user = userEvent.setup();
+      const existing: ShiftTemplate = {
+        id: 't2' as ShiftTemplateId,
+        branchId,
+        name: 'Feiertag',
+        kind: 'Other',
+        label: 'Feiertag',
+        hoursPerDay: 8,
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z',
+      };
+      const { onSaved } = renderDialog(existing);
+
+      expect(screen.getByRole('button', { name: 'Sonstiges', pressed: true })).toBeInTheDocument();
+      await user.click(save());
+
+      await waitFor(() => expect(onSaved).toHaveBeenCalledTimes(1));
+      expect(updateMock).toHaveBeenCalledTimes(1);
+      expect(updateMock.mock.calls[0][0]).toMatchObject({ id: 't2', kind: 'Other', label: 'Feiertag', hoursPerDay: 8 });
+    });
   });
 });

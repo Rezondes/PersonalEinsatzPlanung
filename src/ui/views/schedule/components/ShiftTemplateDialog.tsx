@@ -2,9 +2,12 @@ import { useState } from 'react';
 import Button from '@mui/material/Button';
 import TextField from '@mui/material/TextField';
 import Stack from '@mui/material/Stack';
+import ToggleButton from '@mui/material/ToggleButton';
+import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import type { BranchId } from '@domain/shared/ids';
 import type { ShiftTemplate } from '@domain/schedule/ShiftTemplate';
 import { validateShiftTemplate } from '@domain/schedule/shiftTemplateValidation';
+import type { ShiftTemplateDraft } from '@domain/schedule/shiftTemplateValidation';
 import type { ShiftDraft } from '@domain/schedule/shiftDraft';
 import {
   SHIFT_LIST_FIELD,
@@ -18,7 +21,10 @@ import { useFormValidation } from '@ui/hooks/useFormValidation';
 import { RequiredLegend } from '@ui/components/RequiredLegend';
 import { FormErrorNotice } from '@ui/components/FormErrorNotice';
 import { ResponsiveDialog } from '@ui/components/ResponsiveDialog';
+import { DecimalTextField } from '@ui/components/DecimalTextField';
 import { ShiftListEditor } from './ShiftListEditor';
+
+type TemplateKind = ShiftTemplateDraft['kind'];
 
 interface ShiftTemplateDialogProps {
   branchId: BranchId;
@@ -43,32 +49,77 @@ export function ShiftTemplateDialog({
   onSaved,
   onError,
 }: ShiftTemplateDialogProps) {
+  const [kind, setKind] = useState<TemplateKind>(template?.kind ?? 'Shift');
   const [name, setName] = useState(template?.name ?? '');
   const [drafts, setDrafts] = useState<ShiftDraft[]>(() => {
-    if (template) {
+    if (template?.kind === 'Shift') {
       return template.shifts.map(shiftToDraft);
     }
     return initialDrafts && initialDrafts.length > 0 ? initialDrafts : [newShiftDraft()];
   });
+  const [hoursPerDay, setHoursPerDay] = useState<number | undefined>(
+    template?.kind === 'Other' ? template.hoursPerDay : undefined,
+  );
   const [saving, setSaving] = useState(false);
 
-  const validation = useFormValidation<string>(() => [
-    ...validateShiftTemplate({ name, shiftCount: drafts.length }),
-    // validateShiftDrafts reports an empty list on the same field, so that one message is dropped
-    // here - the template rule above already covers it and two identical texts would be noise.
-    ...validateShiftDrafts(drafts).filter((e) => e.field !== SHIFT_LIST_FIELD),
-  ]);
+  // Other-kind templates use the single "Bezeichnung" field for both the toolbar tile's own name
+  // AND the absence's label applied to a day - asking for the same text twice would be pointless
+  // friction, unlike the Shift kind where the name is toolbar-only organization and never appears
+  // on the day itself (the shift times do).
+  const validation = useFormValidation<string>(() =>
+    kind === 'Shift'
+      ? [
+          ...validateShiftTemplate({ kind: 'Shift', name, shiftCount: drafts.length }),
+          // validateShiftDrafts reports an empty list on the same field, so that one message is
+          // dropped here - the template rule above already covers it and two identical texts would
+          // be noise.
+          ...validateShiftDrafts(drafts).filter((e) => e.field !== SHIFT_LIST_FIELD),
+        ]
+      : // The 'label' field error is always identical to the 'name' one here (same value) - dropped
+        // the same way the Shift-kind branch above drops validateShiftDrafts' duplicate message.
+        validateShiftTemplate({ kind: 'Other', name, label: name, hoursPerDay }).filter((e) => e.field !== 'label'),
+  );
 
   const save = async () => {
     if (!validation.submit()) return;
-    const shifts = shiftDraftsToShifts(drafts);
+    const trimmedName = name.trim();
 
     setSaving(true);
     try {
-      if (template) {
-        await services.shiftTemplate.update({ ...template, name: name.trim(), shifts });
+      if (kind === 'Shift') {
+        const shifts = shiftDraftsToShifts(drafts);
+        // Built explicitly rather than {...template, ...} when template exists: template may
+        // currently be the OTHER kind (switching kind while editing), and spreading it would leave
+        // a stale label/hoursPerDay field on the persisted object even though TypeScript no longer
+        // names it once `kind` is overridden.
+        if (template) {
+          await services.shiftTemplate.update({
+            id: template.id,
+            branchId: template.branchId,
+            createdAt: template.createdAt,
+            updatedAt: template.updatedAt,
+            name: trimmedName,
+            kind: 'Shift',
+            shifts,
+          });
+        } else {
+          await services.shiftTemplate.create({ branchId, name: trimmedName, kind: 'Shift', shifts });
+        }
       } else {
-        await services.shiftTemplate.create({ branchId, name: name.trim(), shifts });
+        if (template) {
+          await services.shiftTemplate.update({
+            id: template.id,
+            branchId: template.branchId,
+            createdAt: template.createdAt,
+            updatedAt: template.updatedAt,
+            name: trimmedName,
+            kind: 'Other',
+            label: trimmedName,
+            hoursPerDay,
+          });
+        } else {
+          await services.shiftTemplate.create({ branchId, name: trimmedName, kind: 'Other', label: trimmedName, hoursPerDay });
+        }
       }
       onClose();
       await onSaved();
@@ -97,6 +148,16 @@ export function ShiftTemplateDialog({
     >
       <RequiredLegend />
         <Stack spacing={2} sx={{ mt: 1 }}>
+          <ToggleButtonGroup
+            value={kind}
+            exclusive
+            onChange={(_e, value: TemplateKind | null) => value && setKind(value)}
+            aria-label="Art der Vorlage"
+            size="small"
+          >
+            <ToggleButton value="Shift">Arbeitszeit</ToggleButton>
+            <ToggleButton value="Other">Sonstiges</ToggleButton>
+          </ToggleButtonGroup>
           <TextField
             label="Bezeichnung"
             required
@@ -106,7 +167,18 @@ export function ShiftTemplateDialog({
             fullWidth
             {...validation.fieldProps('name')}
           />
-          <ShiftListEditor drafts={drafts} onChange={setDrafts} fieldProps={validation.fieldProps} />
+          {kind === 'Shift' ? (
+            <ShiftListEditor drafts={drafts} onChange={setDrafts} fieldProps={validation.fieldProps} />
+          ) : (
+            <DecimalTextField
+              label="Stunden (optional)"
+              value={hoursPerDay}
+              onChange={setHoursPerDay}
+              sx={{ width: 200 }}
+              helperText="Zählen für den Mitarbeiter, an dem die Vorlage angewendet wird."
+              {...validation.fieldProps('hoursPerDay')}
+            />
+          )}
         </Stack>
     </ResponsiveDialog>
   );

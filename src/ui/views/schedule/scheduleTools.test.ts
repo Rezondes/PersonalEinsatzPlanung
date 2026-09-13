@@ -1,11 +1,20 @@
 import { describe, it, expect } from 'vitest';
-import type { BranchId } from '@domain/shared/ids';
+import type { AbsenceId, BranchId, EmployeeId } from '@domain/shared/ids';
 import { clockTime } from '@domain/shared/ClockTime';
 import { createShift } from '@domain/schedule/Shift';
 import { createBreak } from '@domain/schedule/Break';
 import { createShiftTemplate } from '@domain/schedule/ShiftTemplate';
 import type { DayEntry } from '@domain/schedule/EmployeeWeekAssignment';
-import { OFF_TOOL, dayEntryMatchesTool, toolKey, toolLabel, toolSummary, toolToDayEntry } from './scheduleTools';
+import {
+  OFF_TOOL,
+  dayEntryMatchesTool,
+  toolKey,
+  toolLabel,
+  toolMatchesCell,
+  toolSummary,
+  toolToAbsenceDraft,
+  toolToDayEntry,
+} from './scheduleTools';
 
 const branchId = 'b1' as BranchId;
 
@@ -14,7 +23,8 @@ function shiftWithBreak() {
   return { ...shift, breaks: [createBreak(30, clockTime('10:00'))] };
 }
 
-const template = createShiftTemplate({ branchId, name: 'Frühschicht', shifts: [shiftWithBreak()] });
+const template = createShiftTemplate({ branchId, name: 'Frühschicht', kind: 'Shift', shifts: [shiftWithBreak()] });
+const otherTemplate = createShiftTemplate({ branchId, name: 'Inventur', kind: 'Other', label: 'Inventur', hoursPerDay: 4 });
 
 describe('toolToDayEntry', () => {
   it('empties the day for the Frei tool', () => {
@@ -69,9 +79,9 @@ describe('dayEntryMatchesTool', () => {
   });
 
   it('does not match when the shift times differ', () => {
-    const otherTemplate = createShiftTemplate({ branchId, name: 'Spätschicht', shifts: [createShift(clockTime('14:00'), clockTime('22:00'))] });
+    const laterTemplate = createShiftTemplate({ branchId, name: 'Spätschicht', kind: 'Shift', shifts: [createShift(clockTime('14:00'), clockTime('22:00'))] });
     const applied = toolToDayEntry({ kind: 'template', template });
-    expect(dayEntryMatchesTool(applied, { kind: 'template', template: otherTemplate })).toBe(false);
+    expect(dayEntryMatchesTool(applied, { kind: 'template', template: laterTemplate })).toBe(false);
   });
 
   it('does not match a Shift entry against Off, or vice versa', () => {
@@ -87,7 +97,7 @@ describe('dayEntryMatchesTool', () => {
     // freshly-applied template would - that must still count as a match.
     const morning = createShift(clockTime('06:00'), clockTime('10:00'));
     const afternoon = createShift(clockTime('14:00'), clockTime('18:00'));
-    const splitTemplate = createShiftTemplate({ branchId, name: 'Split', shifts: [morning, afternoon] });
+    const splitTemplate = createShiftTemplate({ branchId, name: 'Split', kind: 'Shift', shifts: [morning, afternoon] });
     const reordered: DayEntry = {
       type: 'Shift',
       shifts: [
@@ -101,7 +111,7 @@ describe('dayEntryMatchesTool', () => {
   it('does not match two shifts against one shift that happens to equal one of them', () => {
     const morning = createShift(clockTime('06:00'), clockTime('10:00'));
     const afternoon = createShift(clockTime('14:00'), clockTime('18:00'));
-    const oneShiftTemplate = createShiftTemplate({ branchId, name: 'Morgens', shifts: [morning] });
+    const oneShiftTemplate = createShiftTemplate({ branchId, name: 'Morgens', kind: 'Shift', shifts: [morning] });
     const twoShifts: DayEntry = { type: 'Shift', shifts: [morning, afternoon] };
     expect(dayEntryMatchesTool(twoShifts, { kind: 'template', template: oneShiftTemplate })).toBe(false);
   });
@@ -122,5 +132,67 @@ describe('tool labels', () => {
   it('keys a template by its id, so tiles stay stable across reloads', () => {
     expect(toolKey({ kind: 'template', template })).toBe(`template:${template.id}`);
     expect(toolKey(OFF_TOOL)).toBe('off');
+  });
+
+  it('summarises an Other-kind template by its label and hours', () => {
+    expect(toolLabel({ kind: 'template', template: otherTemplate })).toBe('Inventur');
+    expect(toolSummary({ kind: 'template', template: otherTemplate })).toBe('Sonstige · Inventur · 4 Std.');
+  });
+});
+
+describe('toolToAbsenceDraft', () => {
+  it('returns the label and hours for an Other-kind template', () => {
+    expect(toolToAbsenceDraft({ kind: 'template', template: otherTemplate })).toEqual({
+      label: 'Inventur',
+      hoursPerDay: 4,
+    });
+  });
+
+  it('returns null for a Shift-kind template, the clipboard, and the Frei tool', () => {
+    expect(toolToAbsenceDraft({ kind: 'template', template })).toBeNull();
+    expect(toolToAbsenceDraft({ kind: 'clipboard', entry: { type: 'Off' } })).toBeNull();
+    expect(toolToAbsenceDraft(OFF_TOOL)).toBeNull();
+  });
+});
+
+describe('toolMatchesCell', () => {
+  const otherDayView = (overrides: Partial<{ label: string; hoursPerDay?: number; from: string; to: string }> = {}) => ({
+    entry: { type: 'Off' as const },
+    absence: {
+      id: 'a1' as AbsenceId,
+      employeeId: 'e1' as EmployeeId,
+      type: 'Other' as const,
+      from: '2026-03-10',
+      to: '2026-03-10',
+      label: 'Inventur',
+      hoursPerDay: 4,
+      createdAt: '2026-01-01T00:00:00.000Z',
+      ...overrides,
+    },
+  });
+
+  it('matches an Other-kind template against an identical single-day Other absence on the cell', () => {
+    expect(toolMatchesCell(otherDayView(), { kind: 'template', template: otherTemplate })).toBe(true);
+  });
+
+  it('does not match when the label or hours differ', () => {
+    expect(toolMatchesCell(otherDayView({ label: 'Fortbildung' }), { kind: 'template', template: otherTemplate })).toBe(false);
+    expect(toolMatchesCell(otherDayView({ hoursPerDay: 8 }), { kind: 'template', template: otherTemplate })).toBe(false);
+  });
+
+  it('does not match a multi-day absence, even with the same label/hours', () => {
+    expect(
+      toolMatchesCell(otherDayView({ from: '2026-03-09', to: '2026-03-10' }), { kind: 'template', template: otherTemplate }),
+    ).toBe(false);
+  });
+
+  it('does not match a cell with no absence at all', () => {
+    expect(toolMatchesCell({ entry: { type: 'Off' } }, { kind: 'template', template: otherTemplate })).toBe(false);
+  });
+
+  it('falls back to dayEntryMatchesTool for a Shift-kind template, unaffected by an unrelated absence field', () => {
+    const applied = toolToDayEntry({ kind: 'template', template });
+    expect(toolMatchesCell({ entry: applied }, { kind: 'template', template })).toBe(true);
+    expect(toolMatchesCell({ entry: { type: 'Off' } }, { kind: 'template', template })).toBe(false);
   });
 });

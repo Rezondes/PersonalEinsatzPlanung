@@ -1,6 +1,7 @@
 import { DomainError } from '@domain/shared/DomainError';
 import type { Employee } from '@domain/employee/Employee';
 import { defaultHolidayVacationHours } from '@domain/employee/EmploymentType';
+import type { ShiftTemplate } from '@domain/schedule/ShiftTemplate';
 import type { PepExportFile } from './jsonExportFormat';
 import { CURRENT_FORMAT_VERSION } from './jsonExportFormat';
 
@@ -215,6 +216,24 @@ interface PepExportFileV3 {
   data: Omit<PepExportFile['data'], 'shiftTemplates'>;
 }
 
+/** Shape of a ShiftTemplate in a formatVersion-4 file: before `kind` existed, every template was
+ * implicitly working time - the 'Other' (Sonstiges) kind did not exist yet. Extracts the Shift-kind
+ * union member first, then omits `kind` from that single object type - plain
+ * `Omit<ShiftTemplate, 'kind'>` over the whole union would collapse to the intersection of keys
+ * (see domain/absence/CLAUDE.md) and silently lose `shifts`. Going through Extract also keeps the
+ * branded `id`/`branchId` types intact, unlike a hand-written plain-string interface. */
+type ShiftTemplateV4 = Omit<Extract<ShiftTemplate, { kind: 'Shift' }>, 'kind'>;
+
+/**
+ * Shape of a formatVersion-4 export file: identical to the current one except that ShiftTemplate
+ * did not have `kind` yet.
+ */
+interface PepExportFileV4 {
+  formatVersion: 4;
+  exportedAt: string;
+  data: Omit<PepExportFile['data'], 'shiftTemplates'> & { shiftTemplates: ShiftTemplateV4[] };
+}
+
 /** Migrates a formatVersion-1 file (German field names, pre-rename) to the v2 structure
  * (English field names). Only field renames - no value transformations, since the rename left every
  * stored value (dates, minutes, weekday keys, federal-state names) unchanged. */
@@ -250,12 +269,31 @@ function migrateV2ToV3(fileV2: PepExportFileV2): PepExportFileV3 {
 }
 
 /** Migrates a formatVersion-3 file to v4, which added the reusable shift templates. There is
- * nothing to derive from older data: a backup taken before the feature existed simply has none. */
-function migrateV3ToV4(fileV3: PepExportFileV3): PepExportFile {
+ * nothing to derive from older data: a backup taken before the feature existed simply has none.
+ * Stamps the literal 4, not CURRENT_FORMAT_VERSION - this step's own output shape (PepExportFileV4)
+ * is fixed regardless of how many versions exist after it; only the last step in a migration chain
+ * should ever stamp the current constant. */
+function migrateV3ToV4(fileV3: PepExportFileV3): PepExportFileV4 {
   return {
-    formatVersion: CURRENT_FORMAT_VERSION,
+    formatVersion: 4,
     exportedAt: fileV3.exportedAt,
     data: { ...fileV3.data, shiftTemplates: [] },
+  };
+}
+
+/** Migrates a formatVersion-4 file to v5: ShiftTemplate.kind became a required discriminant so a
+ * template can also represent a reusable Sonstiges absence, not just working time. Every v4
+ * template is backfilled to kind:'Shift', the only kind that existed at the time - the same rule
+ * the Dexie version(5) upgrade applies, so a restored backup and a locally upgraded database end up
+ * with identical values. */
+function migrateV4ToV5(fileV4: PepExportFileV4): PepExportFile {
+  return {
+    formatVersion: CURRENT_FORMAT_VERSION,
+    exportedAt: fileV4.exportedAt,
+    data: {
+      ...fileV4.data,
+      shiftTemplates: fileV4.data.shiftTemplates.map((template) => ({ ...template, kind: 'Shift' as const })),
+    },
   };
 }
 
@@ -290,8 +328,8 @@ function isValidV1DataStructure(daten: unknown): daten is PepExportFileV1['daten
 
 /**
  * Brings an imported export file up to the current formatVersion by running the migrations in
- * sequence: v1 (pre-rename, German field names) -> v2 -> v3 -> v4. Future versions add another
- * migrateVxToVy(data) step to the chain, before the data is written to Dexie.
+ * sequence: v1 (pre-rename, German field names) -> v2 -> v3 -> v4 -> v5. Future versions add
+ * another migrateVxToVy(data) step to the chain, before the data is written to Dexie.
  *
  * Only checks the top-level shape (formatVersion + the 4 data arrays exist and are arrays), not
  * every field of every record - deep per-record validation is out of scope (YAGNI, the file only
@@ -320,7 +358,7 @@ export function migrateToCurrentVersion(rawData: unknown): PepExportFile {
     if (typeof fileV1.exportiertAm !== 'string' || !isValidV1DataStructure(fileV1.daten)) {
       throw new DomainError('Die Datei enthält kein gültiges PEP-Exportformat (fehlende oder beschädigte Datenfelder).');
     }
-    return migrateV3ToV4(migrateV2ToV3(migrateV1ToV2(rawData as PepExportFileV1)));
+    return migrateV4ToV5(migrateV3ToV4(migrateV2ToV3(migrateV1ToV2(rawData as PepExportFileV1))));
   }
 
   if (rawFile.formatVersion > CURRENT_FORMAT_VERSION) {
@@ -337,10 +375,13 @@ export function migrateToCurrentVersion(rawData: unknown): PepExportFile {
   }
 
   if (rawFile.formatVersion === 2) {
-    return migrateV3ToV4(migrateV2ToV3(rawData as unknown as PepExportFileV2));
+    return migrateV4ToV5(migrateV3ToV4(migrateV2ToV3(rawData as unknown as PepExportFileV2)));
   }
   if (rawFile.formatVersion === 3) {
-    return migrateV3ToV4(rawData as unknown as PepExportFileV3);
+    return migrateV4ToV5(migrateV3ToV4(rawData as unknown as PepExportFileV3));
+  }
+  if (rawFile.formatVersion === 4) {
+    return migrateV4ToV5(rawData as unknown as PepExportFileV4);
   }
 
   // Already current. The fallback keeps a hand-edited file without the array from crashing the

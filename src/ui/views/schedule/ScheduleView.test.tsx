@@ -171,13 +171,28 @@ function makeTemplate(id: string, name: string, shift = createShift(clockTime('0
     id: id as ShiftTemplateId,
     branchId,
     name,
+    kind: 'Shift',
     shifts: [shift],
     createdAt: '2026-01-01T00:00:00.000Z',
     updatedAt: '2026-01-01T00:00:00.000Z',
   };
 }
 
+function makeOtherTemplate(id: string, name: string, label: string, hoursPerDay?: number): ShiftTemplate {
+  return {
+    id: id as ShiftTemplateId,
+    branchId,
+    name,
+    kind: 'Other',
+    label,
+    hoursPerDay,
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+  };
+}
+
 const templateA = makeTemplate('t1', 'Frühschicht', createShift(clockTime('06:00'), clockTime('14:00')));
+const templateOther = makeOtherTemplate('t2', 'Inventur', 'Inventur', 4);
 
 function scheduleTree() {
   return (
@@ -1220,6 +1235,61 @@ describe('ScheduleView', () => {
         ),
       );
       expect(screen.queryByText(`${employeeB.firstName} ${employeeB.lastName} · Montag`)).not.toBeInTheDocument();
+    });
+
+    it('dragging an Other-kind template onto a cell creates the absence instead of writing a DayEntry, and one Strg+Z undoes it', async () => {
+      shiftTemplateForBranch.mockResolvedValueOnce([templateOther]);
+      scheduleGetOrCreate.mockResolvedValueOnce(createWeeklySchedule(branchId, SELECTED_WEEK, [employeeA.id, employeeB.id]));
+
+      const { container } = renderScheduleView(LAPTOP);
+      await screen.findByText(fullName(employeeA));
+
+      const tile = screen.getByText('Inventur').closest('button') as HTMLButtonElement;
+      const fakeDataTransfer = { types: [TOOL_MIME], setData: vi.fn(), effectAllowed: '', dropEffect: '' };
+      fireEvent.dragStart(tile, { dataTransfer: fakeDataTransfer });
+      fireEvent.drop(cellEl(container, employeeA.id, 'Montag'), { dataTransfer: fakeDataTransfer });
+
+      await waitFor(() =>
+        expect(absenceCreate).toHaveBeenCalledWith({
+          employeeId: employeeA.id,
+          type: 'Other',
+          from: MONTAG,
+          to: MONTAG,
+          label: 'Inventur',
+          hoursPerDay: 4,
+        }),
+      );
+      expect(scheduleSetDayEntryAndSave).not.toHaveBeenCalled();
+      await screen.findByRole('button', { name: 'Rückgängig' });
+      const created = await absenceCreate.mock.results[0].value;
+
+      act(() => {
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'z', ctrlKey: true, bubbles: true }));
+      });
+
+      await waitFor(() => expect(scheduleSave).toHaveBeenCalledTimes(1));
+      await waitFor(() => expect(absenceDelete).toHaveBeenCalledWith(created.id));
+    });
+
+    it('tapping a cell with an armed Other-kind template applies it via tap-to-assign too, not just drag-and-drop', async () => {
+      shiftTemplateForBranch.mockResolvedValueOnce([templateOther]);
+      scheduleGetOrCreate.mockResolvedValueOnce(createWeeklySchedule(branchId, SELECTED_WEEK, [employeeA.id, employeeB.id]));
+
+      const { container } = renderScheduleView(LAPTOP);
+      await screen.findByText(fullName(employeeA));
+      const user = userEvent.setup();
+
+      await user.click(screen.getByText('Inventur').closest('button') as HTMLButtonElement);
+      expect(screen.getByText('Inventur zuweisen')).toBeInTheDocument();
+
+      await user.click(cellEl(container, employeeB.id, 'Montag'));
+
+      await waitFor(() =>
+        expect(absenceCreate).toHaveBeenCalledWith(
+          expect.objectContaining({ employeeId: employeeB.id, type: 'Other', label: 'Inventur', hoursPerDay: 4 }),
+        ),
+      );
+      expect(scheduleSetDayEntryAndSave).not.toHaveBeenCalled();
     });
 
     it('highlights a cell whose entry already matches the armed tool, and not a non-matching cell, with the assign-target style', async () => {

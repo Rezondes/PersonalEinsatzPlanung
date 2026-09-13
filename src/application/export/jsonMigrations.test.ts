@@ -3,7 +3,7 @@ import { DomainError } from '@domain/shared/DomainError';
 import { migrateToCurrentVersion } from './jsonMigrations';
 
 const validFile = {
-  formatVersion: 4,
+  formatVersion: 5,
   exportedAt: '2026-09-07T00:00:00.000Z',
   data: { branches: [], employees: [], weeklySchedules: [], absences: [], shiftTemplates: [] },
 };
@@ -31,13 +31,39 @@ describe('migrateToCurrentVersion', () => {
       data: { branches: [], employees: [], weeklySchedules: [], absences: [] },
     };
     const migrated = migrateToCurrentVersion(fileV3);
-    expect(migrated.formatVersion).toBe(4);
+    expect(migrated.formatVersion).toBe(5);
     expect(migrated.data.shiftTemplates).toEqual([]);
+  });
+
+  it('backfills kind:"Shift" onto every template in a v4 file', () => {
+    const fileV4 = {
+      formatVersion: 4,
+      exportedAt: '2026-09-07T00:00:00.000Z',
+      data: {
+        branches: [],
+        employees: [],
+        weeklySchedules: [],
+        absences: [],
+        shiftTemplates: [
+          {
+            id: 't1',
+            branchId: 'b1',
+            name: 'Frühschicht',
+            shifts: [{ id: 's1', start: '06:00', end: '14:00', endsNextDay: false, breaks: [] }],
+            createdAt: '2026-01-01T00:00:00.000Z',
+            updatedAt: '2026-01-01T00:00:00.000Z',
+          },
+        ],
+      },
+    };
+    const migrated = migrateToCurrentVersion(fileV4);
+    expect(migrated.formatVersion).toBe(5);
+    expect(migrated.data.shiftTemplates).toEqual([{ ...fileV4.data.shiftTemplates[0], kind: 'Shift' }]);
   });
 
   it('tolerates a current-version file whose shift-template list is missing', () => {
     const withoutTemplates = {
-      formatVersion: 4,
+      formatVersion: 5,
       exportedAt: '2026-09-07T00:00:00.000Z',
       data: { branches: [], employees: [], weeklySchedules: [], absences: [] },
     };
@@ -180,7 +206,7 @@ describe('migrateToCurrentVersion', () => {
 
     const migrated = migrateToCurrentVersion(fileV1);
 
-    expect(migrated.formatVersion).toBe(4);
+    expect(migrated.formatVersion).toBe(5);
     expect(migrated.exportedAt).toBe('2025-01-01T00:00:00.000Z');
 
     expect(migrated.data.branches).toEqual([

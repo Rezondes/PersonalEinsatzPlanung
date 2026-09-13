@@ -18,11 +18,12 @@ function fakeRepo(): ShiftTemplateRepository {
   };
 }
 
-function template(overrides: Partial<ShiftTemplate> = {}): ShiftTemplate {
+function template(overrides: Partial<Extract<ShiftTemplate, { kind: 'Shift' }>> = {}): ShiftTemplate {
   return {
     id: 't1' as ShiftTemplateId,
     branchId,
     name: 'Frühschicht',
+    kind: 'Shift',
     shifts: [createShift(clockTime('06:00'), clockTime('14:00'))],
     createdAt: '2026-01-01T00:00:00.000Z',
     updatedAt: '2026-01-01T00:00:00.000Z',
@@ -49,10 +50,26 @@ describe('shiftTemplateService', () => {
     const created = await createShiftTemplateService(repo).create({
       branchId,
       name: 'Frühschicht',
+      kind: 'Shift',
       shifts: [createShift(clockTime('06:00'), clockTime('14:00'))],
     });
 
     expect(created.id).toBeTruthy();
+    expect(repo.save).toHaveBeenCalledWith(created);
+  });
+
+  it('create builds a new Other-kind ShiftTemplate and saves it', async () => {
+    const repo = fakeRepo();
+    const created = await createShiftTemplateService(repo).create({
+      branchId,
+      name: 'Inventur',
+      kind: 'Other',
+      label: 'Inventur',
+      hoursPerDay: 4,
+    });
+
+    expect(created.id).toBeTruthy();
+    expect(created).toMatchObject({ kind: 'Other', label: 'Inventur', hoursPerDay: 4 });
     expect(repo.save).toHaveBeenCalledWith(created);
   });
 

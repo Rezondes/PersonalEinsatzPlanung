@@ -11,7 +11,7 @@ import { isEncryptedBackupEnvelope } from '@application/export/encryptedExportFo
 import { encryptBackup, decryptBackup, WrongPasswordError, PBKDF2_ITERATIONS } from './backupEncryption';
 
 const sampleFile: PepExportFile = {
-  formatVersion: 4,
+  formatVersion: 5,
   exportedAt: '2026-09-07T00:00:00.000Z',
   data: {
     branches: [],

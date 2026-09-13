@@ -542,6 +542,7 @@ describe('transaction()', () => {
           id: templateId,
           branchId,
           name: 'Frühschicht',
+          kind: 'Shift',
           shifts: [createShift(clockTime('08:00'), clockTime('16:00'))],
           createdAt: '2026-01-01T00:00:00.000Z',
           updatedAt: '2026-01-01T00:00:00.000Z',

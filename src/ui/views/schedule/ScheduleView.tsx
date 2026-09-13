@@ -63,7 +63,7 @@ import { useScheduleValidation } from './useScheduleValidation';
 import { buildScheduleRows, canReceiveEntry, isCellLocked, isNotYetScheduled } from './scheduleRows';
 import type { ScheduleRow } from './scheduleRows';
 import type { ScheduleTool } from './scheduleTools';
-import { OFF_TOOL, dayEntryMatchesTool, toolToDayEntry } from './scheduleTools';
+import { OFF_TOOL, toolMatchesCell, toolToAbsenceDraft, toolToDayEntry } from './scheduleTools';
 import { useBreakpoint } from '@ui/hooks/useBreakpoint';
 import { usePageActions } from '@ui/app/PageActionsContext';
 import { ScheduleToolbar } from './components/ScheduleToolbar';
@@ -273,48 +273,56 @@ export function ScheduleView() {
     setEntryInCell(editorState.employeeId, editorState.dayView, entry);
   };
 
+  /** Writes a one-day Absence into a cell: deletes any existing single-day absence there first,
+   * then creates the new one - both recorded as one undoable step. Shared by DayEditor's "Sonstige"
+   * tab (via saveAbsence below) and applyTool's Other-kind-template path, so there is exactly one
+   * place that implements "replace this cell's absence". The schedule aggregate itself is untouched
+   * here; the step still carries it (before === after) so an undo restores a consistent pair. */
+  const writeAbsenceToCell = useCallback(
+    (employeeId: EmployeeId, dayView: DayView, type: AbsenceType, details?: AbsenceDetails) =>
+      run(async () => {
+        const before = scheduleRef.current;
+        if (!before) return null;
+
+        const absenceOps: AbsenceOp[] = [];
+        const existing = dayView.absence;
+        // Simpler than an update across the discriminated union: replace the existing entry (if
+        // any) instead of trying to migrate it type-safely between the different kinds.
+        if (existing && existing.from === dayView.date && existing.to === dayView.date) {
+          await services.absence.delete(existing.id);
+          absenceOps.push({ kind: 'deleted', absence: existing });
+        }
+
+        const created =
+          type === 'Other'
+            ? await services.absence.create({
+                employeeId,
+                type: 'Other',
+                from: dayView.date,
+                to: dayView.date,
+                // Both callers only reach this branch with a non-empty label; createAbsence rejects
+                // an empty one, so nothing silently falls back to a placeholder text.
+                label: details?.label ?? '',
+                hoursPerDay: details?.hoursPerDay,
+              })
+            : await services.absence.create({
+                employeeId,
+                type,
+                from: dayView.date,
+                to: dayView.date,
+                creditedMinutesOverride: details?.creditedMinutesOverride,
+              });
+        absenceOps.push({ kind: 'created', absence: created });
+        await reloadAbsences();
+
+        return { scheduleBefore: before, scheduleAfter: before, absenceOps };
+      }, 'Abwesenheit konnte nicht gespeichert werden'),
+    [run, reloadAbsences],
+  );
+
   const saveAbsence = (type: AbsenceType, details?: AbsenceDetails) => {
     if (!editorState) return;
-    const { employeeId, dayView } = editorState;
-    run(async () => {
-      const before = scheduleRef.current;
-      if (!before) return null;
-
-      const absenceOps: AbsenceOp[] = [];
-      const existing = dayView.absence;
-      // Simpler than an update across the discriminated union: replace the existing entry (if any)
-      // instead of trying to migrate it type-safely between the different kinds.
-      if (existing && existing.from === dayView.date && existing.to === dayView.date) {
-        await services.absence.delete(existing.id);
-        absenceOps.push({ kind: 'deleted', absence: existing });
-      }
-
-      const created =
-        type === 'Other'
-          ? await services.absence.create({
-              employeeId,
-              type: 'Other',
-              from: dayView.date,
-              to: dayView.date,
-              // DayEditor only calls this with a non-empty label for 'Other'; createAbsence rejects
-              // an empty one, so nothing silently falls back to a placeholder text.
-              label: details?.label ?? '',
-              hoursPerDay: details?.hoursPerDay,
-            })
-          : await services.absence.create({
-              employeeId,
-              type,
-              from: dayView.date,
-              to: dayView.date,
-              creditedMinutesOverride: details?.creditedMinutesOverride,
-            });
-      absenceOps.push({ kind: 'created', absence: created });
-      await reloadAbsences();
-
-      // The schedule aggregate itself is untouched here; the step still carries it so an undo
-      // restores a consistent pair.
-      return { scheduleBefore: before, scheduleAfter: before, absenceOps };
-    }, 'Abwesenheit konnte nicht gespeichert werden');
+    writeAbsenceToCell(editorState.employeeId, editorState.dayView, type, details);
   };
 
   /** Both the header fields (save on blur) and the carry-over dialog hand back an already saved
@@ -366,6 +374,10 @@ export function ScheduleView() {
     return () => document.removeEventListener('contextmenu', handler);
   }, [visibleRows]);
 
+  // Deliberately copies only dayView.entry, never dayView.absence: the clipboard tool is a
+  // DayEntry, the same structural limit toolToDayEntry has (see domain/schedule/CLAUDE.md). A cell
+  // showing a Sonstiges absence has nothing useful to copy this way - only a saved Vorlage can
+  // (re-)apply one, via toolToAbsenceDraft.
   const copy = () => {
     if (!contextMenu) return;
     setActiveTool({ kind: 'clipboard', entry: contextMenu.dayView.entry });
@@ -382,10 +394,19 @@ export function ScheduleView() {
     setTemplateDialog({ template: null, drafts: entry.shifts.map(shiftToDraft) });
   };
 
+  // The one place that decides which of the two write paths a tool needs: an Other-kind template
+  // has no DayEntry representation at all (see domain/schedule/ShiftTemplate.ts), so it goes
+  // through writeAbsenceToCell instead of setEntryInCell - shared by drag-and-drop (toolDrop),
+  // tap-to-assign (toolTap) and "Einfügen" (paste), which all call this one function.
   const applyTool = useCallback(
-    (tool: ScheduleTool, employeeId: EmployeeId, dayView: DayView) =>
-      setEntryInCell(employeeId, dayView, toolToDayEntry(tool)),
-    [setEntryInCell],
+    (tool: ScheduleTool, employeeId: EmployeeId, dayView: DayView) => {
+      const absenceDraft = toolToAbsenceDraft(tool);
+      if (absenceDraft) {
+        return writeAbsenceToCell(employeeId, dayView, 'Other', absenceDraft);
+      }
+      return setEntryInCell(employeeId, dayView, toolToDayEntry(tool));
+    },
+    [setEntryInCell, writeAbsenceToCell],
   );
 
   const toolDrop = useCallback(
@@ -442,14 +463,14 @@ export function ScheduleView() {
   const toolTap = useCallback(
     (employeeId: EmployeeId, dayView: DayView) => {
       if (!activeTool) return;
-      const toWrite = dayEntryMatchesTool(dayView.entry, activeTool) ? OFF_TOOL : activeTool;
+      const toWrite = toolMatchesCell(dayView, activeTool) ? OFF_TOOL : activeTool;
       applyTool(toWrite, employeeId, dayView);
     },
     [activeTool, applyTool],
   );
 
   const isAssignTarget = useCallback(
-    (_employeeId: EmployeeId, dayView: DayView) => !!activeTool && dayEntryMatchesTool(dayView.entry, activeTool),
+    (_employeeId: EmployeeId, dayView: DayView) => !!activeTool && toolMatchesCell(dayView, activeTool),
     [activeTool],
   );
 

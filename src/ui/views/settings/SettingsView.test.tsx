@@ -199,7 +199,7 @@ describe('SettingsView, Google Drive section', () => {
 });
 
 const fakeExportFile: PepExportFile = {
-  formatVersion: 4,
+  formatVersion: 5,
   exportedAt: '2026-09-08T12:00:00.000Z',
   data: { branches: [], employees: [], weeklySchedules: [], absences: [], shiftTemplates: [] },
 };

@@ -49,6 +49,7 @@ function makeTemplate(id: string, name: string, shift = createShift(clockTime('0
     id: id as ShiftTemplateId,
     branchId,
     name,
+    kind: 'Shift',
     shifts: [shift],
     createdAt: '2026-01-01T00:00:00.000Z',
     updatedAt: '2026-01-01T00:00:00.000Z',

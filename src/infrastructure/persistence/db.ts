@@ -245,8 +245,28 @@ export class PepDatabase extends Dexie {
       shiftTemplates: 'id, branchId',
     });
 
+    // v5: ShiftTemplate.kind became a required discriminant ('Shift' | 'Other') so a template can
+    // also represent a reusable Sonstiges absence, not just working time (see
+    // domain/schedule/ShiftTemplate.ts). No .stores() call, no index changes - same shape as v3.
+    // Records written before this field existed are backfilled to 'Shift', the only kind that
+    // existed at the time, so the type stays honest. Without this, an existing template silently
+    // stopped being applicable at all: toolToDayEntry/toolSummary both branch on `kind === 'Shift'`
+    // and would otherwise treat every pre-v5 template as an empty Other-kind one - the worst kind of
+    // regression, since applying a saved Vorlage would silently write an empty day instead of its
+    // shift.
+    this.version(5).upgrade(async (tx) => {
+      await tx
+        .table<ShiftTemplate, string>('shiftTemplates')
+        .toCollection()
+        .modify((template) => {
+          if (!(template as { kind?: string }).kind) {
+            (template as { kind: string }).kind = 'Shift';
+          }
+        });
+    });
+
     // Further structural changes to the IndexedDB schema are added as their own version, e.g.:
-    // this.version(5).stores({ ... }).upgrade(tx => { ... });
+    // this.version(6).stores({ ... }).upgrade(tx => { ... });
   }
 }
 

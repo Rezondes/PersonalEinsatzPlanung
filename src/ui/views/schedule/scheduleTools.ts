@@ -1,6 +1,7 @@
 import type { DayEntry } from '@domain/schedule/EmployeeWeekAssignment';
 import type { Shift } from '@domain/schedule/Shift';
 import type { ShiftTemplate } from '@domain/schedule/ShiftTemplate';
+import type { Absence } from '@domain/absence/Absence';
 import { minutesToDecimalHours, shiftNetMinutes } from '@domain/schedule/scheduleCalculation';
 
 /** Marker type on the drag payload. During dragover the browser hides the DATA of a drag but not
@@ -45,19 +46,37 @@ function withFreshIds(shifts: Shift[]): Shift[] {
 /**
  * The day entry this tool writes into a cell. A manual netMinutesOverride is deliberately never
  * carried along: it corrects one specific day (same rule the clipboard already followed), and a
- * template cannot even represent one - it holds Shift[], not a DayEntry.
+ * Shift-kind template cannot even represent one - it holds Shift[], not a DayEntry.
+ *
+ * An Other-kind template has no DayEntry representation at all (see domain/schedule/ShiftTemplate.ts
+ * - Absence is a separate aggregate). Callers must check toolToAbsenceDraft FIRST and only fall
+ * back to this function when it returns null; the 'Off' returned here for that case is a harmless
+ * default that should never actually be reached in the real apply paths (ScheduleView.applyTool).
  */
 export function toolToDayEntry(tool: ScheduleTool): DayEntry {
   switch (tool.kind) {
     case 'off':
       return { type: 'Off' };
     case 'template':
-      return { type: 'Shift', shifts: withFreshIds(tool.template.shifts) };
+      return tool.template.kind === 'Shift'
+        ? { type: 'Shift', shifts: withFreshIds(tool.template.shifts) }
+        : { type: 'Off' };
     case 'clipboard':
       return tool.entry.type === 'Shift'
         ? { type: 'Shift', shifts: withFreshIds(tool.entry.shifts) }
         : { type: 'Off' };
   }
+}
+
+/** The Sonstiges absence this tool would write, or null for every tool that writes a DayEntry
+ * instead (off, clipboard, a Shift-kind template). The one place that decides which of the two
+ * different write paths (schedule.setDayEntryAndSave vs. absence.create/delete) a tool needs -
+ * see ScheduleView.applyTool. */
+export function toolToAbsenceDraft(tool: ScheduleTool): { label: string; hoursPerDay?: number } | null {
+  if (tool.kind === 'template' && tool.template.kind === 'Other') {
+    return { label: tool.template.label, hoursPerDay: tool.template.hoursPerDay };
+  }
+  return null;
 }
 
 function shiftsMatch(a: Shift, b: Shift): boolean {
@@ -94,6 +113,28 @@ export function dayEntryMatchesTool(entry: DayEntry, tool: ScheduleTool): boolea
   });
 }
 
+/**
+ * Whether a cell already shows what applying `tool` there would produce - the Other-kind
+ * counterpart to dayEntryMatchesTool, used by the same tap-to-assign toggle-off and
+ * isAssignTarget highlight. Falls back to dayEntryMatchesTool unchanged for every other tool
+ * (off, clipboard, a Shift-kind template), so existing callers only need to switch which function
+ * they call, not add a branch of their own.
+ */
+export function toolMatchesCell(dayView: { entry: DayEntry; absence?: Absence }, tool: ScheduleTool): boolean {
+  const absenceDraft = toolToAbsenceDraft(tool);
+  if (absenceDraft) {
+    const absence = dayView.absence;
+    return (
+      !!absence &&
+      absence.type === 'Other' &&
+      absence.from === absence.to &&
+      absence.label === absenceDraft.label &&
+      absence.hoursPerDay === absenceDraft.hoursPerDay
+    );
+  }
+  return dayEntryMatchesTool(dayView.entry, tool);
+}
+
 export function toolLabel(tool: ScheduleTool): string {
   switch (tool.kind) {
     case 'off':
@@ -116,12 +157,20 @@ function shiftsSummary(shifts: Shift[]): string {
 
 /** Second line of a toolbar tile: the times behind the name, so two templates with similar names
  * stay distinguishable. */
+/** hoursPerDay is already a plain number of hours (see domain/absence/Absence.ts), unlike the
+ * Shift-kind summary above which starts from minutes - no minutesToDecimalHours conversion here. */
+function otherSummary(label: string, hoursPerDay?: number): string {
+  return hoursPerDay === undefined ? `Sonstige · ${label}` : `Sonstige · ${label} · ${hoursPerDay.toLocaleString('de-DE')} Std.`;
+}
+
 export function toolSummary(tool: ScheduleTool): string {
   switch (tool.kind) {
     case 'off':
       return 'Tag leeren';
     case 'template':
-      return shiftsSummary(tool.template.shifts);
+      return tool.template.kind === 'Shift'
+        ? shiftsSummary(tool.template.shifts)
+        : otherSummary(tool.template.label, tool.template.hoursPerDay);
     case 'clipboard':
       return tool.entry.type === 'Shift' ? shiftsSummary(tool.entry.shifts) : 'Frei';
   }

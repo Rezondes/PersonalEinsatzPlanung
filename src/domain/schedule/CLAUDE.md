@@ -32,16 +32,28 @@ WeeklySchedule is keyed by `(branchId, CalendarWeek)` - one aggregate per branch
   is loaded - otherwise newly hired staff would silently be missing from already-created weekly
   schedules. This was a bug found and fixed during implementation.
 
-`ShiftTemplate` is the reusable working time behind the Wochenplanung toolbar. Three decisions are
+`ShiftTemplate` is the reusable tile behind the Wochenplanung toolbar. It is a discriminated union
+of two kinds, `{kind:'Shift', shifts: Shift[]}` and `{kind:'Other', label, hoursPerDay?}` - a
+template is working time OR a one-day "Sonstiges" absence, never Urlaub/Feiertag/Krankheit (those
+are not the kind of recurring, reusable configuration a template exists for). Several decisions are
 load-bearing:
 
-- It holds `Shift[]`, **not** a `DayEntry`. An empty day is the fixed "Frei" tool in the toolbar, not
-  something the user creates, so `shifts` is guaranteed non-empty - and a per-day
-  `netMinutesOverride` cannot even be represented in a template, which is exactly right: an override
-  corrects one specific day.
-- Applying a template **copies** its shifts with fresh ids (`ui/views/schedule/scheduleTools.ts`).
-  A weekly schedule never references a template, so renaming or deleting one later can never change
-  hours that were already planned. This is why the template service may hard-delete, unlike
-  Branch/Employee which are soft-deleted.
+- A Shift-kind template holds `Shift[]`, **not** a `DayEntry`. An empty day is the fixed "Frei" tool
+  in the toolbar, not something the user creates, so `shifts` is guaranteed non-empty - and a
+  per-day `netMinutesOverride` cannot even be represented in a template, which is exactly right: an
+  override corrects one specific day. An Other-kind template has no `DayEntry` representation at
+  all: `Absence` is a separate aggregate (see below), so applying one goes through
+  `ui/views/schedule/ScheduleView.tsx`'s `writeAbsenceToCell` (delete-then-create), not
+  `schedule.setDayEntryAndSave` - `ui/views/schedule/scheduleTools.ts`'s `toolToAbsenceDraft` is the
+  one place that decides which of the two write paths a given tool needs.
+- Applying a Shift-kind template **copies** its shifts with fresh ids
+  (`ui/views/schedule/scheduleTools.ts`); applying an Other-kind template creates a fresh
+  one-day Absence. Either way, nothing a template produces ever references the template itself, so
+  renaming or deleting one later can never change hours or absences that were already planned. This
+  is why the template service may hard-delete, unlike Branch/Employee which are soft-deleted.
 - It belongs to a Branch: opening hours differ per store, so another branch's shifts would only be
   noise in the toolbar.
+- Copying a cell that holds a Sonstiges absence into the clipboard is deliberately **not**
+  supported (the clipboard tool is structurally limited to `DayEntry`, same as `toolToDayEntry`) -
+  only the toolbar's own Vorlagen apply an Other-kind tool. See the comment on `saveAsTemplate`'s
+  caller in `ScheduleView.tsx`.
