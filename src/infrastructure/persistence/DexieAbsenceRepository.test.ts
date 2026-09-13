@@ -42,19 +42,14 @@ beforeEach(async () => {
   await db.absences.clear();
 });
 
+// Generic findAll/save/delete/deleteAll behavior is covered once, against a real table, in
+// DexieCrudRepository.test.ts - this file only needs findByEmployee/findByEmployeeIds plus a
+// shape round-trip.
 describe('DexieAbsenceRepository', () => {
-  describe('findAll', () => {
-    it('returns an empty array when nothing is stored', async () => {
-      await expect(repo.findAll()).resolves.toEqual([]);
-    });
+  it('round-trips a full Absence through the real absences table', async () => {
+    await repo.save(vacation);
 
-    it('returns every stored absence', async () => {
-      await db.absences.bulkPut([vacation, illness, other]);
-
-      const all = await repo.findAll();
-      expect(all).toHaveLength(3);
-      expect(all).toEqual(expect.arrayContaining([vacation, illness, other]));
-    });
+    await expect(repo.findAll()).resolves.toEqual([vacation]);
   });
 
   describe('findByEmployee', () => {
@@ -86,42 +81,4 @@ describe('DexieAbsenceRepository', () => {
     });
   });
 
-  describe('save', () => {
-    it('inserts a new absence', async () => {
-      await repo.save(vacation);
-
-      await expect(repo.findAll()).resolves.toEqual([vacation]);
-    });
-
-    it('upserts when saving an absence with an existing id', async () => {
-      await repo.save(vacation);
-      const updated: Absence = { ...vacation, to: '2026-09-12' };
-
-      await repo.save(updated);
-
-      const all = await repo.findAll();
-      expect(all).toHaveLength(1);
-      expect(all[0]).toEqual(updated);
-    });
-  });
-
-  describe('delete', () => {
-    it('removes only the absence with the given id', async () => {
-      await db.absences.bulkPut([vacation, illness]);
-
-      await repo.delete(vacation.id);
-
-      await expect(repo.findAll()).resolves.toEqual([illness]);
-    });
-  });
-
-  describe('deleteAll', () => {
-    it('clears every stored absence', async () => {
-      await db.absences.bulkPut([vacation, illness, other]);
-
-      await repo.deleteAll();
-
-      await expect(repo.findAll()).resolves.toEqual([]);
-    });
-  });
 });

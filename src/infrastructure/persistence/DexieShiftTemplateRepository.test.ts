@@ -22,27 +22,20 @@ function template(overrides: Partial<Extract<ShiftTemplate, { kind: 'Shift' }>> 
   };
 }
 
+// Generic findAll/save/delete/deleteAll behavior is covered once, against a real table, in
+// DexieCrudRepository.test.ts - this file only needs findByBranch plus a shape round-trip.
 describe('DexieShiftTemplateRepository', () => {
   beforeEach(async () => {
     await db.shiftTemplates.clear();
   });
 
-  it('findAll returns an empty array when the store is empty', async () => {
+  it('round-trips a full ShiftTemplate through the real shiftTemplates table', async () => {
     const repo = new DexieShiftTemplateRepository();
-    await expect(repo.findAll()).resolves.toEqual([]);
-  });
+    const t1 = template({ id: 't1' as ShiftTemplateId });
 
-  it('findAll returns every stored template', async () => {
-    const repo = new DexieShiftTemplateRepository();
-    const t1 = template({ id: 't1' as ShiftTemplateId, branchId: branchA });
-    const t2 = template({ id: 't2' as ShiftTemplateId, branchId: branchB, name: 'Spätschicht' });
     await repo.save(t1);
-    await repo.save(t2);
 
-    const result = await repo.findAll();
-
-    expect(result).toHaveLength(2);
-    expect(result.map((t) => t.id).sort()).toEqual(['t1', 't2']);
+    await expect(repo.findAll()).resolves.toEqual([t1]);
   });
 
   it('findByBranch filters by the branchId index', async () => {
@@ -68,30 +61,7 @@ describe('DexieShiftTemplateRepository', () => {
     await expect(repo.findByBranch(branchB)).resolves.toEqual([]);
   });
 
-  it('save inserts a new template', async () => {
-    const repo = new DexieShiftTemplateRepository();
-    const t1 = template();
-
-    await repo.save(t1);
-
-    const stored = await db.shiftTemplates.get(t1.id);
-    expect(stored).toEqual(t1);
-  });
-
-  it('save upserts an existing template rather than duplicating it', async () => {
-    const repo = new DexieShiftTemplateRepository();
-    const t1 = template();
-    await repo.save(t1);
-
-    const updated: ShiftTemplate = { ...t1, name: 'Umbenannt', updatedAt: '2026-01-02T00:00:00.000Z' };
-    await repo.save(updated);
-
-    const all = await repo.findAll();
-    expect(all).toHaveLength(1);
-    expect(all[0].name).toBe('Umbenannt');
-  });
-
-  it('delete permanently removes the template, not a soft-delete flag', async () => {
+  it('delete permanently removes the template, not a soft-delete flag (unlike Branch/Employee)', async () => {
     const repo = new DexieShiftTemplateRepository();
     const t1 = template({ id: 't1' as ShiftTemplateId });
     await repo.save(t1);
@@ -100,22 +70,5 @@ describe('DexieShiftTemplateRepository', () => {
 
     const stored = await db.shiftTemplates.get(t1.id);
     expect(stored).toBeUndefined();
-    await expect(repo.findAll()).resolves.toEqual([]);
-  });
-
-  it('delete on a non-existent id does not throw', async () => {
-    const repo = new DexieShiftTemplateRepository();
-    await expect(repo.delete('missing' as ShiftTemplateId)).resolves.toBeUndefined();
-  });
-
-  it('deleteAll clears every template across branches', async () => {
-    const repo = new DexieShiftTemplateRepository();
-    await repo.save(template({ id: 't1' as ShiftTemplateId, branchId: branchA }));
-    await repo.save(template({ id: 't2' as ShiftTemplateId, branchId: branchB }));
-
-    await repo.deleteAll();
-
-    await expect(repo.findAll()).resolves.toEqual([]);
-    await expect(db.shiftTemplates.count()).resolves.toBe(0);
   });
 });

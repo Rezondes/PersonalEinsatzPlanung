@@ -1,5 +1,6 @@
 import Dexie from 'dexie';
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
+import { notify } from '@ui/app/store/notificationStore';
 import { PepDatabase, db, transaction } from './db';
 import { defaultHolidayVacationHours } from '@domain/employee/EmploymentType';
 import { clockTime } from '@domain/shared/ClockTime';
@@ -438,6 +439,73 @@ describe('PepDatabase v3 holidayVacationHours backfill', () => {
     await upgraded.open();
     const employees = await upgraded.employees.toArray();
     expect(employees[0].holidayVacationHours).toBe(7.5);
+    upgraded.close();
+  });
+});
+
+describe('PepDatabase multi-tab safety (versionchange)', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('closes an older open connection and notifies the user when another connection opens a newer schema version', async () => {
+    await Dexie.delete(DB_NAME);
+    const instanceA = new PepDatabase();
+    await instanceA.open();
+    expect(instanceA.isOpen()).toBe(true);
+
+    const errorSpy = vi.spyOn(notify, 'error');
+
+    // Dexie opens its own declared version N against the native IndexedDB API at version N*10
+    // (Dexie's own internal convention, leaving room for sub-versions), so PepDatabase's declared
+    // version 5 is really native version 50 here - this raw open has to ask for more than that to
+    // register as "newer" and trigger versionchange on instanceA.
+    await new Promise<void>((resolve, reject) => {
+      const openRequest = indexedDB.open(DB_NAME, 51);
+      openRequest.onupgradeneeded = () => {};
+      openRequest.onsuccess = () => {
+        openRequest.result.close();
+        resolve();
+      };
+      openRequest.onerror = () => reject(openRequest.error);
+    });
+
+    expect(instanceA.isOpen()).toBe(false);
+    expect(errorSpy).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('PepDatabase v4 -> v5 shiftTemplates.kind backfill', () => {
+  it('backfills kind: Shift on a v4-shaped template that predates the field, against an already-populated database', async () => {
+    await Dexie.delete(DB_NAME);
+    const seed = new Dexie(DB_NAME);
+    seed.version(2).stores({
+      branches: 'id, branchNumber, active',
+      employees: 'id, branchId, active, [branchId+active]',
+      weeklySchedules: 'id, branchId, [branchId+calendarWeek.year+calendarWeek.week]',
+      absences: 'id, employeeId, type, from, [employeeId+from]',
+    });
+    seed.version(4).stores({
+      shiftTemplates: 'id, branchId',
+    });
+    await seed.open();
+    // A real v4 record: no `kind` field existed yet at this schema version.
+    await seed.table('shiftTemplates').add({
+      id: 't1',
+      branchId: 'b1',
+      name: 'Frühschicht',
+      shifts: [{ id: 's1', start: '06:00', end: '14:00', endsNextDay: false, breaks: [] }],
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    });
+    seed.close();
+
+    const upgraded = new PepDatabase();
+    await upgraded.open();
+    const templates = await upgraded.shiftTemplates.toArray();
+    expect(templates).toHaveLength(1);
+    expect(templates[0].kind).toBe('Shift');
+    expect(templates[0].name).toBe('Frühschicht');
     upgraded.close();
   });
 });

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import type { BranchId, WeeklyScheduleId, EmployeeId } from '@domain/shared/ids';
+import type { BranchId, EmployeeId } from '@domain/shared/ids';
 import type { CalendarWeek } from '@domain/shared/CalendarWeek';
 import { createWeeklySchedule } from '@domain/schedule/WeeklySchedule';
 import { db } from './db';
@@ -16,17 +16,17 @@ beforeEach(async () => {
   await db.weeklySchedules.clear();
 });
 
+// Generic findAll/findById/save/delete/deleteAll behavior is covered once, against a real table,
+// in DexieCrudRepository.test.ts - this file only needs findByBranch, findByBranchAndWeek and this
+// repository's own transaction() method.
 describe('DexieWeeklyScheduleRepository', () => {
-  it('findAll returns every saved schedule', async () => {
+  it('round-trips a full WeeklySchedule through the real weeklySchedules table', async () => {
     const repo = new DexieWeeklyScheduleRepository();
-    const s1 = createWeeklySchedule(branchA, week37, [e1]);
-    const s2 = createWeeklySchedule(branchB, week38, [e1]);
-    await repo.save(s1);
-    await repo.save(s2);
+    const schedule = createWeeklySchedule(branchA, week37, [e1]);
 
-    const all = await repo.findAll();
+    await repo.save(schedule);
 
-    expect(all.map((s) => s.id).sort()).toEqual([s1.id, s2.id].sort());
+    await expect(repo.findById(schedule.id)).resolves.toEqual(schedule);
   });
 
   it('findByBranch returns only schedules for that branch', async () => {
@@ -41,20 +41,6 @@ describe('DexieWeeklyScheduleRepository', () => {
     const forBranchA = await repo.findByBranch(branchA);
 
     expect(forBranchA.map((s) => s.id).sort()).toEqual([s1.id, s2.id].sort());
-  });
-
-  it('findById returns the matching schedule', async () => {
-    const repo = new DexieWeeklyScheduleRepository();
-    const schedule = createWeeklySchedule(branchA, week37, [e1]);
-    await repo.save(schedule);
-
-    await expect(repo.findById(schedule.id)).resolves.toEqual(schedule);
-  });
-
-  it('findById returns null when nothing matches', async () => {
-    const repo = new DexieWeeklyScheduleRepository();
-
-    await expect(repo.findById('missing' as WeeklyScheduleId)).resolves.toBeNull();
   });
 
   describe('findByBranchAndWeek', () => {
@@ -92,41 +78,6 @@ describe('DexieWeeklyScheduleRepository', () => {
 
       await expect(repo.findByBranchAndWeek(branchB, week37)).resolves.toBeNull();
     });
-  });
-
-  it('save upserts an existing schedule', async () => {
-    const repo = new DexieWeeklyScheduleRepository();
-    const schedule = createWeeklySchedule(branchA, week37, [e1]);
-    await repo.save(schedule);
-
-    const updated = { ...schedule, plannedWeeklyRevenue: 12345 };
-    await repo.save(updated);
-
-    await expect(repo.findById(schedule.id)).resolves.toEqual(updated);
-    await expect(repo.findAll()).resolves.toHaveLength(1);
-  });
-
-  it('delete removes only the targeted schedule', async () => {
-    const repo = new DexieWeeklyScheduleRepository();
-    const s1 = createWeeklySchedule(branchA, week37, [e1]);
-    const s2 = createWeeklySchedule(branchA, week38, [e1]);
-    await repo.save(s1);
-    await repo.save(s2);
-
-    await repo.delete(s1.id);
-
-    await expect(repo.findById(s1.id)).resolves.toBeNull();
-    await expect(repo.findById(s2.id)).resolves.toEqual(s2);
-  });
-
-  it('deleteAll clears every schedule', async () => {
-    const repo = new DexieWeeklyScheduleRepository();
-    await repo.save(createWeeklySchedule(branchA, week37, [e1]));
-    await repo.save(createWeeklySchedule(branchB, week38, [e1]));
-
-    await repo.deleteAll();
-
-    await expect(repo.findAll()).resolves.toEqual([]);
   });
 
   it('transaction persists a write made inside it', async () => {

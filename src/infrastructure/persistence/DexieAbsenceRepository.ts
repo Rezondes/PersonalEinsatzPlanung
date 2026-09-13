@@ -1,11 +1,12 @@
 import type { AbsenceId, EmployeeId } from '@domain/shared/ids';
 import type { Absence } from '@domain/absence/Absence';
 import type { AbsenceRepository } from '@application/ports/AbsenceRepository';
+import { DexieCrudRepository } from './DexieCrudRepository';
 import { db } from './db';
 
-export class DexieAbsenceRepository implements AbsenceRepository {
-  async findAll(): Promise<Absence[]> {
-    return db.absences.toArray();
+export class DexieAbsenceRepository extends DexieCrudRepository<Absence, AbsenceId> implements AbsenceRepository {
+  constructor() {
+    super(db.absences);
   }
 
   async findByEmployee(employeeId: EmployeeId): Promise<Absence[]> {
@@ -17,17 +18,5 @@ export class DexieAbsenceRepository implements AbsenceRepository {
       return [];
     }
     return db.absences.where('employeeId').anyOf(employeeIds).toArray();
-  }
-
-  async save(absence: Absence): Promise<void> {
-    await db.absences.put(absence);
-  }
-
-  async delete(id: AbsenceId): Promise<void> {
-    await db.absences.delete(id);
-  }
-
-  async deleteAll(): Promise<void> {
-    await db.absences.clear();
   }
 }

@@ -5,6 +5,8 @@ import { defaultHolidayVacationHours } from '@domain/employee/EmploymentType';
 import type { WeeklySchedule } from '@domain/schedule/WeeklySchedule';
 import type { Absence } from '@domain/absence/Absence';
 import type { ShiftTemplate } from '@domain/schedule/ShiftTemplate';
+import type { BranchId, EmployeeId, WeeklyScheduleId, AbsenceId, ShiftTemplateId } from '@domain/shared/ids';
+import { notify } from '@ui/app/store/notificationStore';
 
 // --- v1 -> v2 record shapes (pre-rename, German field names) -------------------------------
 // Kept only so the version(2) upgrade below can transform existing local IndexedDB records from
@@ -177,11 +179,11 @@ function migrateAbsenceV1(a: AbwesenheitV1): Absence {
 }
 
 export class PepDatabase extends Dexie {
-  branches!: Table<Branch, string>;
-  employees!: Table<Employee, string>;
-  weeklySchedules!: Table<WeeklySchedule, string>;
-  absences!: Table<Absence, string>;
-  shiftTemplates!: Table<ShiftTemplate, string>;
+  branches!: Table<Branch, BranchId>;
+  employees!: Table<Employee, EmployeeId>;
+  weeklySchedules!: Table<WeeklySchedule, WeeklyScheduleId>;
+  absences!: Table<Absence, AbsenceId>;
+  shiftTemplates!: Table<ShiftTemplate, ShiftTemplateId>;
 
   constructor() {
     super('pep-datenbank');
@@ -267,6 +269,32 @@ export class PepDatabase extends Dexie {
 
     // Further structural changes to the IndexedDB schema are added as their own version, e.g.:
     // this.version(6).stores({ ... }).upgrade(tx => { ... });
+
+    // Multi-tab safety: a schema upgrade (a new deployed version bumping this.version(N)) can only
+    // run once every OTHER open connection to this same database closes. Dexie's own default
+    // 'versionchange' handler already closes silently on our behalf - registering one here doesn't
+    // change that, it REPLACES the default (Dexie only closes if you tell it to), so `this.close()`
+    // stays required - but without a notification, the next write in that other tab throws a bare
+    // DatabaseClosedError with no explanation, directly contradicting this app's own update promise
+    // ("alte Tabs laufen weiter, bis der Nutzer 'Jetzt laden' klickt", see src/ui/CLAUDE.md's PWA
+    // section): a tab that can no longer save is not "running" from the user's point of view.
+    this.on('versionchange', () => {
+      this.close();
+      notify.error(
+        'Diese Ansicht wurde in einem anderen Tab aktualisiert und ist jetzt nicht mehr aktuell. Bitte lade die Seite neu, bevor du weiterarbeitest.',
+      );
+    });
+
+    // Fires on the connection ATTEMPTING the upgrade if some other connection has not closed by the
+    // time the upgrade needs to run - which the handler above makes rare in practice (this app's own
+    // tabs close immediately), but a stale connection with no such handler (e.g. a very old cached
+    // tab from before this fix existed) can still hold things up. Deliberately not covered by an
+    // automated test: reproducing it needs a second connection that both predates this handler AND
+    // never closes, which cannot be simulated without contriving a second schema version purely for
+    // the test - the 'versionchange' test above already covers the actual fix.
+    this.on('blocked', () => {
+      notify.error('Ein Update wartet auf ein anderes geöffnetes Tab dieser App. Bitte schließe oder lade alle offenen Tabs neu.');
+    });
   }
 }
 

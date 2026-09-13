@@ -20,6 +20,9 @@ function makeBranch(overrides: Partial<Branch> = {}): Branch {
   };
 }
 
+// Generic findAll/findById/save/delete/deleteAll behavior is covered once, against a real table,
+// in DexieCrudRepository.test.ts - this file only needs to confirm DexieBranchRepository wires up
+// to the actual branches table and shape correctly.
 describe('DexieBranchRepository', () => {
   const repository = new DexieBranchRepository();
 
@@ -27,80 +30,12 @@ describe('DexieBranchRepository', () => {
     await db.branches.clear();
   });
 
-  describe('findAll', () => {
-    it('returns an empty array when the table is empty', async () => {
-      await expect(repository.findAll()).resolves.toEqual([]);
-    });
+  it('round-trips a full Branch through the real branches table', async () => {
+    const branch = makeBranch({ id: 'branch-1' as BranchId });
 
-    it('returns saved records', async () => {
-      const branchA = makeBranch({ id: 'branch-1' as BranchId, name: 'Filiale Nord' });
-      const branchB = makeBranch({ id: 'branch-2' as BranchId, name: 'Filiale Süd' });
+    await repository.save(branch);
 
-      await repository.save(branchA);
-      await repository.save(branchB);
-
-      const all = await repository.findAll();
-      expect(all).toHaveLength(2);
-      expect(all).toEqual(expect.arrayContaining([branchA, branchB]));
-    });
-  });
-
-  describe('findById', () => {
-    it('returns null for a missing id', async () => {
-      await expect(repository.findById('missing' as BranchId)).resolves.toBeNull();
-    });
-
-    it('returns the exact record for an existing id', async () => {
-      const branch = makeBranch({ id: 'branch-1' as BranchId });
-      await repository.save(branch);
-
-      await expect(repository.findById('branch-1' as BranchId)).resolves.toEqual(branch);
-    });
-  });
-
-  describe('save', () => {
-    it('inserts a new record', async () => {
-      const branch = makeBranch({ id: 'branch-1' as BranchId });
-      await repository.save(branch);
-
-      await expect(repository.findAll()).resolves.toEqual([branch]);
-    });
-
-    it('overwrites an existing record with the same id instead of duplicating it', async () => {
-      const branch = makeBranch({ id: 'branch-1' as BranchId, name: 'Filiale Nord', active: true });
-      await repository.save(branch);
-
-      const updated: Branch = { ...branch, name: 'Filiale Nord (umbenannt)', active: false };
-      await repository.save(updated);
-
-      const all = await repository.findAll();
-      expect(all).toHaveLength(1);
-      expect(all[0]).toEqual(updated);
-    });
-  });
-
-  describe('delete', () => {
-    it('removes exactly the targeted record and leaves others untouched', async () => {
-      const branchA = makeBranch({ id: 'branch-1' as BranchId });
-      const branchB = makeBranch({ id: 'branch-2' as BranchId });
-      await repository.save(branchA);
-      await repository.save(branchB);
-
-      await repository.delete('branch-1' as BranchId);
-
-      await expect(repository.findById('branch-1' as BranchId)).resolves.toBeNull();
-      await expect(repository.findAll()).resolves.toEqual([branchB]);
-    });
-  });
-
-  describe('deleteAll', () => {
-    it('empties the table', async () => {
-      await repository.save(makeBranch({ id: 'branch-1' as BranchId }));
-      await repository.save(makeBranch({ id: 'branch-2' as BranchId }));
-
-      await repository.deleteAll();
-
-      await expect(repository.findAll()).resolves.toEqual([]);
-    });
+    await expect(repository.findById('branch-1' as BranchId)).resolves.toEqual(branch);
+    await expect(repository.findAll()).resolves.toEqual([branch]);
   });
 });
