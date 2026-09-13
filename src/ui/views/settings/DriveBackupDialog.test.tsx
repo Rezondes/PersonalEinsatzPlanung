@@ -40,6 +40,13 @@ describe('DriveBackupDialog', () => {
     deleteMock.mockResolvedValue(undefined);
   });
 
+  it('announces the loading state to screen readers while the list is being fetched (M26)', () => {
+    listMock.mockReturnValue(new Promise(() => {}));
+    renderDialog();
+
+    expect(screen.getByRole('status')).toHaveTextContent('Sicherungen werden geladen…');
+  });
+
   it('lists the backups with a German date and their size', async () => {
     listMock.mockResolvedValue([backup()]);
     renderDialog();

@@ -350,7 +350,7 @@ describe('ScheduleView', () => {
       renderScheduleView();
       await screen.findByText(fullName(employeeA));
 
-      await userEvent.setup().type(screen.getByPlaceholderText('Mitarbeiter suchen'), 'zzz-nobody');
+      await userEvent.setup().type(screen.getByLabelText('Mitarbeiter suchen'), 'zzz-nobody');
 
       expect(await screen.findByText('Kein Mitarbeiter gefunden.')).toBeInTheDocument();
       expect(screen.queryByText(fullName(employeeA))).not.toBeInTheDocument();
@@ -407,7 +407,7 @@ describe('ScheduleView', () => {
       expect(container.textContent).toContain(expectedHeader);
 
       // Filters employeeB (Schulz) out of the visible rows...
-      await userEvent.setup().type(screen.getByPlaceholderText('Mitarbeiter suchen'), 'Müller');
+      await userEvent.setup().type(screen.getByLabelText('Mitarbeiter suchen'), 'Müller');
       await waitFor(() => expect(screen.queryByText(fullName(employeeB))).not.toBeInTheDocument());
       expect(screen.getByText(fullName(employeeA))).toBeInTheDocument();
 
@@ -432,7 +432,7 @@ describe('ScheduleView', () => {
       expect(container.textContent).toContain(expectedCountText);
 
       // Filters employeeB (the unplanned one) out of the visible rows entirely.
-      await userEvent.setup().type(screen.getByPlaceholderText('Mitarbeiter suchen'), 'Müller');
+      await userEvent.setup().type(screen.getByLabelText('Mitarbeiter suchen'), 'Müller');
       await waitFor(() => expect(screen.queryByText(fullName(employeeB))).not.toBeInTheDocument());
 
       // A `visibleRows`-based bug would now show 0 here - it must stay 1.
@@ -480,7 +480,7 @@ describe('ScheduleView', () => {
       expect(screen.getByText(fullName(employeeB))).toBeInTheDocument();
 
       const user = userEvent.setup();
-      const search = screen.getByPlaceholderText('Mitarbeiter suchen');
+      const search = screen.getByLabelText('Mitarbeiter suchen');
       await user.type(search, 'MÜLLER');
 
       expect(screen.getByText(fullName(employeeA))).toBeInTheDocument();
@@ -1625,6 +1625,17 @@ describe('ScheduleView', () => {
       await screen.findByText(fullName(employeeA));
 
       await userEvent.setup().click(screen.getByText(formatCalendarWeekRange(SELECTED_WEEK)));
+
+      expect(await screen.findByRole('button', { name: 'Schließen' })).toBeInTheDocument();
+    });
+
+    it('opens WeekSelectionDialog via the keyboard, focusing the week-range text and pressing Enter (H5)', async () => {
+      renderScheduleView();
+      await screen.findByText(fullName(employeeA));
+
+      const weekRange = screen.getByText(formatCalendarWeekRange(SELECTED_WEEK));
+      act(() => weekRange.focus());
+      await userEvent.setup().keyboard('{Enter}');
 
       expect(await screen.findByRole('button', { name: 'Schließen' })).toBeInTheDocument();
     });

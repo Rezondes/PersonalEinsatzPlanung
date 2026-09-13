@@ -63,6 +63,11 @@ interface ScheduleTableProps {
    * happens with a selection once made, same as activeTool for assignMode. */
   selectedCells: Set<string>;
   onToggleCellSelection: (employeeId: EmployeeId, dayView: DayView) => void;
+  /** True on touch breakpoints (tablet/mobile) - the two warning-icon Tooltips below stay
+   * click-to-toggle only there (N20). Optional, defaulting to the safer "no hover" behavior, so
+   * the many existing tests that don't care about hover-vs-touch don't all need updating for a
+   * prop irrelevant to what they verify. */
+  touchMode?: boolean;
 }
 
 const LOCK_LABEL: Record<RowLockReason, string> = {
@@ -76,6 +81,18 @@ const NO_RESULTS: ValidationResult[] = [];
  * without duplicating this one-liner. */
 export function cellKey(employeeId: EmployeeId, date: string): string {
   return `${employeeId}|${date}`;
+}
+
+/** One-line summary of a cell's current content, for the aria-label (H6) - mirrors the exact same
+ * branching the cell's own visible content below uses, so the two can never drift apart. */
+function cellSummaryText(dayView: DayView): string {
+  if (dayView.absenceCoversWholeDay && dayView.absence) {
+    return absenceKindLabel(dayView.absence.type);
+  }
+  if (dayView.entry.type === 'Shift' && dayView.entry.shifts.length > 0) {
+    return dayView.entry.shifts.map((s) => `${s.start}-${s.end}`).join(', ');
+  }
+  return 'frei';
 }
 
 /** How far the actual hours fall outside the target band. Zero while they are inside it, which for
@@ -106,6 +123,7 @@ export const ScheduleTable = memo(function ScheduleTable({
   selectionMode,
   selectedCells,
   onToggleCellSelection,
+  touchMode = true,
 }: ScheduleTableProps) {
   const layout = useBreakpoint();
   // Kept HERE and not in ScheduleView on purpose: dragover fires continuously, and a highlight in
@@ -237,9 +255,10 @@ export const ScheduleTable = memo(function ScheduleTable({
                         title={`${differenceMinutes > 0 ? '+' : ''}${formatHoursGerman(differenceMinutes)} Std. ${differenceMinutes > 0 ? 'über' : 'unter'} Soll (${formatHoursRangeGerman(target.min, target.max)} Std.)`}
                         arrow
                         open={openTooltipKey === `deviation|${view.employeeId}`}
+                        onOpen={() => setOpenTooltipKey(`deviation|${view.employeeId}`)}
                         onClose={() => setOpenTooltipKey(null)}
                         disableFocusListener
-                        disableHoverListener
+                        disableHoverListener={touchMode}
                         disableTouchListener
                       >
                         <Box
@@ -319,10 +338,10 @@ export const ScheduleTable = memo(function ScheduleTable({
                         ...(selectable ? { 'aria-checked': isSelected } : {}),
                         tabIndex: 0,
                         'aria-label': selectable
-                          ? `${dayView.day} auswählen`
+                          ? `${fullName(employee)}, ${dayView.day}, ${cellSummaryText(dayView)} auswählen`
                           : assignMode && droppable
-                            ? `${dayView.day} zuweisen`
-                            : `${dayView.day} bearbeiten`,
+                            ? `${fullName(employee)}, ${dayView.day}, ${cellSummaryText(dayView)} zuweisen`
+                            : `${fullName(employee)}, ${dayView.day}, ${cellSummaryText(dayView)} bearbeiten`,
                         onClick: activateCell,
                         onKeyDown: (e: KeyboardEvent) => {
                           // Ignores a keydown that bubbled up from a nested interactive element
@@ -418,9 +437,10 @@ export const ScheduleTable = memo(function ScheduleTable({
                           }
                           arrow
                           open={openTooltipKey === warningKey}
+                          onOpen={() => setOpenTooltipKey(warningKey)}
                           onClose={() => setOpenTooltipKey(null)}
                           disableFocusListener
-                          disableHoverListener
+                          disableHoverListener={touchMode}
                           disableTouchListener
                         >
                           {/* A dedicated tap target (not the whole cell, which already opens the

@@ -306,10 +306,7 @@ describe('EmployeeMasterDataView', () => {
     const { container } = renderView();
     await screen.findByText('Bauer, Anna');
 
-    // The view's aria-label ends up on the TextField's outer wrapper, not the native input (a
-    // pre-existing MUI quirk, not something this test should paper over), and placeholder text
-    // does not contribute to the accessible name either - so the input is found by placeholder.
-    const search = screen.getByPlaceholderText('Name oder Tätigkeit');
+    const search = screen.getByLabelText('Mitarbeiter suchen');
     await user.type(search, 'aushilfe');
 
     expect(screen.getByText('1 von 5 Mitarbeitern')).toBeInTheDocument();

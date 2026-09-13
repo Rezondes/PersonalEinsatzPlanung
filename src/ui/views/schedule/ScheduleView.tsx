@@ -692,7 +692,22 @@ export function ScheduleView() {
             variant="body2"
             color="text.secondary"
             onClick={() => setWeekSelectionOpen(true)}
-            sx={{ cursor: 'pointer', textDecoration: 'underline', textDecorationStyle: 'dotted', width: 'fit-content' }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                setWeekSelectionOpen(true);
+              }
+            }}
+            role="button"
+            tabIndex={0}
+            aria-label={`${formatCalendarWeekRange(selectedWeek)}, andere Woche auswählen`}
+            sx={{
+              cursor: 'pointer',
+              textDecoration: 'underline',
+              textDecorationStyle: 'dotted',
+              width: 'fit-content',
+              '&:focus-visible': { outline: '2px solid #2f5d50', outlineOffset: 2 },
+            }}
           >
             {formatCalendarWeekRange(selectedWeek)}
           </Typography>
@@ -714,10 +729,12 @@ export function ScheduleView() {
             <ValidationNotices
               results={validationResults}
               employeeList={employeeList}
-              renderTrigger={({ errorCount, warningCount, onClick }) => (
+              renderTrigger={({ errorCount, warningCount, onClick, expanded }) => (
                 <Button
                   size="small"
                   onClick={onClick}
+                  aria-expanded={expanded}
+                  aria-haspopup="dialog"
                   sx={{
                     backgroundColor: '#fbeaea',
                     border: '1px solid #e5a3a0',
@@ -840,11 +857,13 @@ export function ScheduleView() {
               <ValidationNotices
                 results={validationResults}
                 employeeList={employeeList}
-                renderTrigger={({ errorCount, warningCount, onClick }) => (
+                renderTrigger={({ errorCount, warningCount, onClick, expanded }) => (
                   <Box
                     component="button"
                     type="button"
                     onClick={onClick}
+                    aria-expanded={expanded}
+                    aria-haspopup="dialog"
                     sx={{
                       ...chipSx,
                       backgroundColor: '#fbeaea',
@@ -886,7 +905,10 @@ export function ScheduleView() {
           placeholder="Mitarbeiter suchen"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          aria-label="Mitarbeiter suchen"
+          // A top-level aria-label prop lands on TextField's outer wrapper, not the native input
+          // getByLabelText/screen readers need - inputProps forwards down to that inner element
+          // (same fix as AppHeader.tsx's Filiale Select, see its comment there).
+          inputProps={{ 'aria-label': 'Mitarbeiter suchen' }}
           sx={{ mb: 2, width: 280 }}
           InputProps={{
             startAdornment: (
@@ -940,6 +962,7 @@ export function ScheduleView() {
                 selectionMode={selectionModeActive}
                 selectedCells={selectedCells}
                 onToggleCellSelection={toggleCellSelection}
+                touchMode={touchMode}
               />
             )}
 

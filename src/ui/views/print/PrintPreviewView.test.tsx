@@ -105,7 +105,7 @@ describe('PrintPreviewView', () => {
 
     renderPrintPreview(['/print/s1']);
 
-    expect(screen.getByText('Wochenplan wird geladen…')).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent('Wochenplan wird geladen…');
     expect(screen.getByRole('progressbar')).toBeInTheDocument();
   });
 

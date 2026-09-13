@@ -157,7 +157,7 @@ describe('CarryOverPreviousWeekDialog', () => {
     });
 
     expect(screen.getByRole('progressbar')).toBeInTheDocument();
-    expect(screen.getByText('Vorwoche wird geladen…')).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent('Vorwoche wird geladen…');
 
     deferred.resolve(null);
     await waitFor(() => expect(screen.queryByRole('progressbar')).not.toBeInTheDocument());

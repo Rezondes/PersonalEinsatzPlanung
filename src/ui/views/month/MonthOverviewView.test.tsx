@@ -208,7 +208,7 @@ describe('MonthOverviewView', () => {
     await act(async () => {
       useBranchSelectionStore.setState({ selectedBranchId: branchB.id });
     });
-    const cellName = `${fullName(employee)}, KW ${week1.week} bearbeiten`;
+    const cellName = `${fullName(employee)}, KW ${week1.week}, 8 Std. bearbeiten`;
     await waitFor(() => expect(screen.getByRole('button', { name: cellName })).toHaveTextContent('8'));
 
     // Branch A's slow response finally arrives AFTER branch B's data is already showing - it must
@@ -257,12 +257,12 @@ describe('MonthOverviewView', () => {
     renderView();
 
     const assignedCell = await screen.findByRole('button', {
-      name: `${fullName(assigned)}, KW ${week1.week} bearbeiten`,
+      name: `${fullName(assigned)}, KW ${week1.week}, 0 Std. bearbeiten`,
     });
     expect(assignedCell).toHaveTextContent('0');
 
     const unassignedCell = screen.getByRole('button', {
-      name: `${fullName(unassigned)}, KW ${week1.week} bearbeiten`,
+      name: `${fullName(unassigned)}, KW ${week1.week}, keine Einträge bearbeiten`,
     });
     expect(unassignedCell).toHaveTextContent('–');
   });
@@ -404,6 +404,24 @@ describe('MonthOverviewView', () => {
     expect(useCalendarWeekStore.getState().selectedWeek).toEqual(week1);
   });
 
+  it('puts the interactive role/aria-label on an inner element, not the <td> itself, for both the week header and a data cell (N23)', async () => {
+    selectBranch();
+    const employee = makeEmployee();
+    employeeForBranch.mockResolvedValue([employee]);
+    const weeks = calendarWeeksInMonth(currentYear, currentMonth);
+    const week1 = weeks[0];
+    scheduleForBranch.mockResolvedValue([createWeeklySchedule(branch.id, week1, [employee.id])]);
+    renderView();
+
+    const header = await screen.findByRole('button', { name: `Zu Kalenderwoche ${week1.week} springen` });
+    expect(header.tagName).not.toBe('TH');
+    expect(header.closest('th')).not.toBeNull();
+
+    const dataCell = screen.getByRole('button', { name: `${fullName(employee)}, KW ${week1.week}, 0 Std. bearbeiten` });
+    expect(dataCell.tagName).not.toBe('TD');
+    expect(dataCell.closest('td')).not.toBeNull();
+  });
+
   it('also jumps to the schedule on Enter when the week header is focused', async () => {
     selectBranch();
     const employee = makeEmployee();
@@ -436,7 +454,7 @@ describe('MonthOverviewView', () => {
     renderView();
 
     const week2Cell = await screen.findByRole('button', {
-      name: `${fullName(employee)}, KW ${week2.week} bearbeiten`,
+      name: `${fullName(employee)}, KW ${week2.week}, 0 Std. bearbeiten`,
     });
     expect(week2Cell).toHaveTextContent('0');
   });
@@ -524,7 +542,7 @@ describe('MonthOverviewView', () => {
     const user = userEvent.setup();
     renderView();
 
-    const cell = await screen.findByRole('button', { name: `${fullName(employee)}, KW ${week1.week} bearbeiten` });
+    const cell = await screen.findByRole('button', { name: `${fullName(employee)}, KW ${week1.week}, 0 Std. bearbeiten` });
     cell.focus();
     await user.keyboard('{Enter}');
 
@@ -642,7 +660,7 @@ describe('MonthOverviewView', () => {
     expect(screen.getByText(/Ruhezeit/)).toBeInTheDocument();
 
     const violatingCell = await screen.findByRole('button', {
-      name: `${fullName(employee)}, KW ${weeks[0].week} bearbeiten`,
+      name: `${fullName(employee)}, KW ${weeks[0].week}, 14 Std. bearbeiten`,
     });
     const warningIcon = within(violatingCell).getByRole('button', { name: 'Hinweis anzeigen' });
     await user.click(warningIcon);
@@ -653,7 +671,9 @@ describe('MonthOverviewView', () => {
     // Clicking the icon must not also trigger the cell's own "jump to week" navigation.
     expect(screen.queryByText('schedule-route-landed')).not.toBeInTheDocument();
 
-    const cleanCell = screen.getByRole('button', { name: `${fullName(employee)}, KW ${weeks[1].week} bearbeiten` });
+    const cleanCell = screen.getByRole('button', {
+      name: `${fullName(employee)}, KW ${weeks[1].week}, 0 Std. bearbeiten`,
+    });
     expect(within(cleanCell).queryByRole('button', { name: 'Hinweis anzeigen' })).not.toBeInTheDocument();
   });
 

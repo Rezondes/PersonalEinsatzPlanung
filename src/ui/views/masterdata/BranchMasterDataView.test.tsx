@@ -134,11 +134,11 @@ describe('BranchMasterDataView', () => {
     expect(screen.getByText('Filiale Nord')).toBeInTheDocument();
     expect(screen.getByText('Filiale Süd')).toBeInTheDocument();
 
-    await user.type(screen.getByPlaceholderText('Name, Nummer oder Ort'), 'München');
+    await user.type(screen.getByLabelText('Filiale suchen'), 'München');
     expect(screen.queryByText('Filiale Nord')).not.toBeInTheDocument();
     expect(screen.getByText('Filiale Süd')).toBeInTheDocument();
 
-    await user.clear(screen.getByPlaceholderText('Name, Nummer oder Ort'));
+    await user.clear(screen.getByLabelText('Filiale suchen'));
     expect(screen.getByText('Filiale Nord')).toBeInTheDocument();
     expect(screen.getByText('Filiale Süd')).toBeInTheDocument();
   });

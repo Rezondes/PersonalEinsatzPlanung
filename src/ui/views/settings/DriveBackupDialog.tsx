@@ -100,7 +100,7 @@ export function DriveBackupDialog({ busy = false, onClose, onSelect, onError }: 
           {!error && (backups === null || busy) && (
             <Stack direction="row" spacing={2} alignItems="center" sx={{ py: 2 }}>
               <CircularProgress size={20} />
-              <Typography variant="body2" color="text.secondary">
+              <Typography role="status" variant="body2" color="text.secondary">
                 {busy ? 'Sicherung wird geladen…' : 'Sicherungen werden geladen…'}
               </Typography>
             </Stack>

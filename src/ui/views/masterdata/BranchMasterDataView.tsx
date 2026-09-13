@@ -197,7 +197,10 @@ export function BranchMasterDataView() {
         <TextField
           size="small"
           placeholder="Name, Nummer oder Ort"
-          aria-label="Filiale suchen"
+          // A top-level aria-label prop lands on TextField's outer wrapper, not the native input
+          // getByLabelText/screen readers need - inputProps forwards down to that inner element
+          // (same fix as AppHeader.tsx's Filiale Select, see its comment there).
+          inputProps={{ 'aria-label': 'Filiale suchen' }}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           sx={{ width: 260 }}

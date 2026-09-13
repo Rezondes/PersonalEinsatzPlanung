@@ -239,30 +239,32 @@ export function MonthOverviewView() {
                 Soll/Woche
               </TableCell>
               {allWeeks.map((cw, weekIndex) => (
-                <TableCell
-                  key={`${cw.year}-${cw.week}`}
-                  align="center"
-                  sx={{ ...stickyHeaderRowSx(), cursor: 'pointer', '&:focus-visible': { outline: '2px solid #2f5d50', outlineOffset: -2 } }}
-                  onClick={() => jumpToWeek(cw)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      jumpToWeek(cw);
-                    } else if (e.key === 'ArrowRight') {
-                      focusAdjacentWeekCell(e, 1);
-                    } else if (e.key === 'ArrowLeft') {
-                      focusAdjacentWeekCell(e, -1);
-                    }
-                  }}
-                  role="button"
-                  // Only the first week cell of a row is a Tab stop - with one row per employee
-                  // this used to add a tab stop per week per employee (75+ on a full month), a
-                  // keyboard trap rather than a shortcut. ArrowLeft/ArrowRight above still reach
-                  // every other week cell in the same row.
-                  tabIndex={weekIndex === 0 ? 0 : -1}
-                  aria-label={`Zu Kalenderwoche ${cw.week} springen`}
-                >
-                  KW {cw.week}
+                <TableCell key={`${cw.year}-${cw.week}`} align="center" sx={stickyHeaderRowSx()}>
+                  {/* Interactive role/aria-label live on this inner Box, not the <th> itself
+                      (N23) - matches ScheduleTable.tsx's own correct pattern. */}
+                  <Box
+                    onClick={() => jumpToWeek(cw)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        jumpToWeek(cw);
+                      } else if (e.key === 'ArrowRight') {
+                        focusAdjacentWeekCell(e, 1);
+                      } else if (e.key === 'ArrowLeft') {
+                        focusAdjacentWeekCell(e, -1);
+                      }
+                    }}
+                    role="button"
+                    // Only the first week cell of a row is a Tab stop - with one row per employee
+                    // this used to add a tab stop per week per employee (75+ on a full month), a
+                    // keyboard trap rather than a shortcut. ArrowLeft/ArrowRight above still reach
+                    // every other week cell in the same row.
+                    tabIndex={weekIndex === 0 ? 0 : -1}
+                    aria-label={`Zu Kalenderwoche ${cw.week} springen`}
+                    sx={{ cursor: 'pointer', display: 'inline-block', '&:focus-visible': { outline: '2px solid #2f5d50', outlineOffset: -2 } }}
+                  >
+                    KW {cw.week}
+                  </Box>
                 </TableCell>
               ))}
               <TableCell align="right" sx={stickyHeaderRowSx()}>
@@ -301,15 +303,14 @@ export function MonthOverviewView() {
                     const weekResults = weekValidation.get(cellKey) ?? [];
                     const hasError = weekResults.some((r) => r.severity === 'error');
                     const hasWarning = weekResults.some((r) => r.severity === 'warning');
+                    const hoursText = weekValue ? `${formatHoursGerman(weekValue.totalNetMinutes)} Std.` : 'keine Einträge';
                     return (
-                      <TableCell
-                        key={`${cw.year}-${cw.week}`}
-                        align="center"
-                        sx={{
-                          position: 'relative',
-                          cursor: 'pointer',
-                          '&:focus-visible': { outline: '2px solid #2f5d50', outlineOffset: -2 },
-                        }}
+                      <TableCell key={`${cw.year}-${cw.week}`} align="center">
+                      {/* Interactive role/aria-label live on this inner Box, not the <td> itself
+                          (N23) - matches ScheduleTable.tsx's own correct pattern. position:relative
+                          moves here too, so the absolutely-positioned warning icon below (now a
+                          descendant, not a TableCell-level sibling) still anchors correctly. */}
+                      <Box
                         onClick={() => jumpToWeek(cw)}
                         onKeyDown={(e) => {
                           if (e.key === 'Enter' || e.key === ' ') {
@@ -325,7 +326,12 @@ export function MonthOverviewView() {
                         // See the matching comment on the header cell above - only the first week
                         // cell of each row is a Tab stop, ArrowLeft/ArrowRight reach the rest.
                         tabIndex={weekIndex === 0 ? 0 : -1}
-                        aria-label={`${fullName(employee)}, KW ${cw.week} bearbeiten`}
+                        aria-label={`${fullName(employee)}, KW ${cw.week}, ${hoursText} bearbeiten`}
+                        sx={{
+                          position: 'relative',
+                          cursor: 'pointer',
+                          '&:focus-visible': { outline: '2px solid #2f5d50', outlineOffset: -2 },
+                        }}
                       >
                         {(hasError || hasWarning) && (
                           <Tooltip
@@ -372,6 +378,7 @@ export function MonthOverviewView() {
                           </Tooltip>
                         )}
                         {weekValue ? formatHoursGerman(weekValue.totalNetMinutes) : '–'}
+                      </Box>
                       </TableCell>
                     );
                   })}

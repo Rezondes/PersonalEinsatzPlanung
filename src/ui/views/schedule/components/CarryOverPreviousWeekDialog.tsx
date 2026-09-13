@@ -170,7 +170,7 @@ export function CarryOverPreviousWeekDialog({
       {loading && (
         <Stack alignItems="center" spacing={2} sx={{ py: 4 }}>
           <CircularProgress />
-          <Typography variant="body2" color="text.secondary">
+          <Typography role="status" variant="body2" color="text.secondary">
             Vorwoche wird geladen…
           </Typography>
         </Stack>

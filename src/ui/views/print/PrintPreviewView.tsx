@@ -74,7 +74,7 @@ export function PrintPreviewView() {
     return (
       <Stack alignItems="center" spacing={2} sx={{ py: 8 }}>
         <CircularProgress />
-        <Typography variant="body2" color="text.secondary">
+        <Typography role="status" variant="body2" color="text.secondary">
           Wochenplan wird geladen…
         </Typography>
       </Stack>

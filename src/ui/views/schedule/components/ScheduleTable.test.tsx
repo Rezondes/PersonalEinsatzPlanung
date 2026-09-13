@@ -76,6 +76,76 @@ describe('ScheduleTable', () => {
     expect(screen.getAllByText('frei')).toHaveLength(13);
   });
 
+  it('names the employee, day and current content in a cell\'s aria-label, not just the day (H6)', () => {
+    render(<ScheduleTable rows={rowsFor(employees)} weekDays={weekDays} validationResults={[]} onCellClick={() => {}} onToolDrop={() => {}} {...notAssigning} {...noSelection} />);
+
+    expect(screen.getByRole('button', { name: 'Müller, Anna, Montag, 06:00-14:00 bearbeiten' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Müller, Anna, Dienstag, frei bearbeiten' })).toBeInTheDocument();
+  });
+
+  it('names the whole-day absence kind in a cell\'s aria-label instead of "frei" (H6)', () => {
+    const illness: Absence = {
+      id: 'a1' as AbsenceId,
+      employeeId: m2,
+      type: 'Illness',
+      from: '2026-09-07',
+      to: '2026-09-07',
+      createdAt: '2026-01-01T00:00:00.000Z',
+    };
+    const weekViewWithIllness = createWeekView(schedule, [illness], { employees });
+    const rows = buildScheduleRows(weekViewWithIllness, employees, '2026-09-07', '2026-09-13');
+
+    render(<ScheduleTable rows={rows} weekDays={weekDays} validationResults={[]} onCellClick={() => {}} onToolDrop={() => {}} {...notAssigning} {...noSelection} />);
+
+    expect(screen.getByRole('button', { name: 'Schulz, Anna, Montag, Krankheit bearbeiten' })).toBeInTheDocument();
+  });
+
+  it('shows the Soll-deviation tooltip on hover when not touchMode, and hides it again on unhover (N20)', async () => {
+    const user = userEvent.setup();
+    render(
+      <ScheduleTable
+        rows={rowsFor(employees)}
+        weekDays={weekDays}
+        validationResults={[]}
+        onCellClick={() => {}}
+        onToolDrop={() => {}}
+        touchMode={false}
+        {...notAssigning}
+        {...noSelection}
+      />,
+    );
+
+    const deviationIcon = screen.getAllByRole('button', { name: 'Abweichung von Soll anzeigen' })[0];
+    await user.hover(deviationIcon);
+    expect(await screen.findByText(/Std\. unter Soll/)).toBeInTheDocument();
+
+    await user.unhover(deviationIcon);
+    await waitFor(() => expect(screen.queryByText(/Std\. unter Soll/)).not.toBeInTheDocument());
+  });
+
+  it('does not show the Soll-deviation tooltip on hover while touchMode - still opens via click (N20)', async () => {
+    const user = userEvent.setup();
+    render(
+      <ScheduleTable
+        rows={rowsFor(employees)}
+        weekDays={weekDays}
+        validationResults={[]}
+        onCellClick={() => {}}
+        onToolDrop={() => {}}
+        touchMode
+        {...notAssigning}
+        {...noSelection}
+      />,
+    );
+
+    const deviationIcon = screen.getAllByRole('button', { name: 'Abweichung von Soll anzeigen' })[0];
+    await user.hover(deviationIcon);
+    expect(screen.queryByText(/Std\. unter Soll/)).not.toBeInTheDocument();
+
+    await user.click(deviationIcon);
+    expect(await screen.findByText(/Std\. unter Soll/)).toBeInTheDocument();
+  });
+
   it('labels a whole-day Illness absence "Krankheit", not the shorter "Krank" this table used to show on its own (M27)', () => {
     const illness: Absence = {
       id: 'a1' as AbsenceId,
@@ -160,7 +230,7 @@ describe('ScheduleTable', () => {
     const onCellClick = vi.fn();
     render(<ScheduleTable rows={rowsFor(employees)} weekDays={weekDays} validationResults={[]} onCellClick={onCellClick} onToolDrop={() => {}} {...notAssigning} {...noSelection} />);
 
-    const [, tuesdayOfSecondRow] = screen.getAllByRole('button', { name: 'Dienstag bearbeiten' });
+    const tuesdayOfSecondRow = screen.getByRole('button', { name: 'Schulz, Anna, Dienstag, frei bearbeiten' });
     await user.click(tuesdayOfSecondRow);
 
     expect(onCellClick).toHaveBeenCalledWith(m2, expect.objectContaining({ day: 'Dienstag', date: '2026-09-08' }));
@@ -216,7 +286,7 @@ describe('ScheduleTable', () => {
         />,
       );
 
-      const [, tuesdayOfSecondRow] = screen.getAllByRole('button', { name: 'Dienstag zuweisen' });
+      const tuesdayOfSecondRow = screen.getByRole('button', { name: 'Schulz, Anna, Dienstag, frei zuweisen' });
       await user.click(tuesdayOfSecondRow);
 
       expect(onToolTap).toHaveBeenCalledWith(m2, expect.objectContaining({ day: 'Dienstag', date: '2026-09-08' }));
@@ -245,7 +315,7 @@ describe('ScheduleTable', () => {
         />,
       );
 
-      const [mondayOfFirstRow] = screen.getAllByRole('button', { name: 'Montag zuweisen' });
+      const mondayOfFirstRow = screen.getByRole('button', { name: 'Müller, Anna, Montag, 06:00-14:00 zuweisen' });
       await user.click(mondayOfFirstRow);
 
       expect(onToolTap).toHaveBeenCalledWith(m1, expect.objectContaining({ day: 'Montag' }));
@@ -267,7 +337,7 @@ describe('ScheduleTable', () => {
         />,
       );
 
-      const [mondayOfFirstRow] = screen.getAllByRole('button', { name: 'Montag zuweisen' });
+      const mondayOfFirstRow = screen.getByRole('button', { name: 'Müller, Anna, Montag, 06:00-14:00 zuweisen' });
       expect(mondayOfFirstRow).toHaveStyle({ backgroundColor: '#dce9e3', border: '1px solid #2f5d50' });
     });
   });
@@ -290,7 +360,7 @@ describe('ScheduleTable', () => {
         />,
       );
 
-      const [, tuesdayOfSecondRow] = screen.getAllByRole('checkbox', { name: 'Dienstag auswählen' });
+      const tuesdayOfSecondRow = screen.getByRole('checkbox', { name: 'Schulz, Anna, Dienstag, frei auswählen' });
       await user.click(tuesdayOfSecondRow);
 
       expect(onToggleCellSelection).toHaveBeenCalledWith(m2, expect.objectContaining({ day: 'Dienstag', date: '2026-09-08' }));
@@ -311,7 +381,7 @@ describe('ScheduleTable', () => {
         />,
       );
 
-      const [, tuesdayOfSecondRow] = screen.getAllByRole('checkbox', { name: 'Dienstag auswählen' });
+      const tuesdayOfSecondRow = screen.getByRole('checkbox', { name: 'Schulz, Anna, Dienstag, frei auswählen' });
       expect(tuesdayOfSecondRow).toHaveAttribute('aria-checked', 'true');
     });
 
@@ -365,7 +435,7 @@ describe('ScheduleTable', () => {
       );
 
       // Only m2's Montag gets a checkbox - m1's is covered by the multi-day vacation.
-      expect(screen.getAllByRole('checkbox', { name: 'Montag auswählen' })).toHaveLength(1);
+      expect(screen.getAllByRole('checkbox', { name: 'Schulz, Anna, Montag, frei auswählen' })).toHaveLength(1);
     });
   });
 });

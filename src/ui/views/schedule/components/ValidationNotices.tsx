@@ -20,6 +20,9 @@ interface ValidationNoticesProps {
     errorCount: number;
     warningCount: number;
     onClick: (e: MouseEvent<HTMLElement>) => void;
+    /** So a custom trigger can set aria-expanded itself (M24) - the default Button below already
+     * conveys this through its own visible "anzeigen"/"ausblenden" label text. */
+    expanded: boolean;
   }) => ReactNode;
 }
 
@@ -54,7 +57,7 @@ export function ValidationNotices({ results, employeeList, renderTrigger }: Vali
   return (
     <>
       {renderTrigger ? (
-        renderTrigger({ errorCount: errors.length, warningCount: warnings.length, onClick: open })
+        renderTrigger({ errorCount: errors.length, warningCount: warnings.length, onClick: open, expanded })
       ) : (
         <Button size="small" onClick={open}>
           {errors.length} Fehler, {warnings.length} Warnung(en) {expanded ? 'ausblenden' : 'anzeigen'}

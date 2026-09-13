@@ -163,6 +163,34 @@ describe('ValidationNotices', () => {
     expect(screen.getByText('Warnung B.')).toBeInTheDocument();
   });
 
+  it('passes expanded to renderTrigger, so a custom trigger can announce its own open/closed state (M24)', async () => {
+    const user = userEvent.setup();
+    const results: ValidationResult[] = [
+      { rule: 'r1', severity: 'error', message: 'Fehler A.', employeeId: employee1.id, date: '2026-09-07' },
+    ];
+    render(
+      <ValidationNotices
+        results={results}
+        employeeList={employeeList}
+        renderTrigger={({ onClick, expanded }) => (
+          <button type="button" aria-expanded={expanded} aria-haspopup="dialog" onClick={onClick}>
+            Fehler
+          </button>
+        )}
+      />,
+    );
+
+    const button = screen.getByRole('button');
+    expect(button).toHaveAttribute('aria-expanded', 'false');
+
+    await user.click(button);
+    await screen.findByRole('alert');
+    expect(button).toHaveAttribute('aria-expanded', 'true');
+
+    await user.keyboard('{Escape}');
+    await waitFor(() => expect(button).toHaveAttribute('aria-expanded', 'false'));
+  });
+
   it('closes the Popover on Escape and reverts the trigger label back to anzeigen', async () => {
     const user = userEvent.setup();
     const results: ValidationResult[] = [
