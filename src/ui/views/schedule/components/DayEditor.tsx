@@ -17,8 +17,9 @@ import {
   validateShiftDrafts,
 } from '@domain/schedule/shiftDraft';
 import type { DayEntry } from '@domain/schedule/EmployeeWeekAssignment';
-import { shiftNetMinutes, minutesToDecimalHours } from '@domain/schedule/scheduleCalculation';
+import { shiftNetMinutes, minutesToDecimalHours, formatHoursGerman } from '@domain/schedule/scheduleCalculation';
 import type { Absence, AbsenceType } from '@domain/absence/Absence';
+import { absenceKindLabel } from '@domain/absence/Absence';
 import { formatISODateGerman } from '@domain/shared/DateFormat';
 import type { Weekday } from '@domain/shared/CalendarWeek';
 import { CREDITED_OVERRIDE_FIELD, validateAbsence } from '@domain/absence/absenceValidation';
@@ -71,19 +72,6 @@ interface DayEditorProps {
   /** Only relevant for the youth-protection live check below; omitted entirely for an employee
    * with no birth date on file, same as everywhere else in the app (see Employee.birthDate). */
   birthDate?: string;
-}
-
-function absenceTypeLabel(type: Absence['type']): string {
-  switch (type) {
-    case 'Vacation':
-      return 'Urlaub';
-    case 'Illness':
-      return 'Krankheit';
-    case 'PublicHoliday':
-      return 'Feiertag';
-    case 'Other':
-      return 'Sonstige';
-  }
 }
 
 export function DayEditor({
@@ -261,7 +249,7 @@ export function DayEditor({
         actions={<Button onClick={onClose}>Schließen</Button>}
       >
         <Alert severity="info">
-          {employeeName} ist an diesem Tag im Rahmen eines mehrtägigen Eintrags ({absenceTypeLabel(absence.type)},{' '}
+          {employeeName} ist an diesem Tag im Rahmen eines mehrtägigen Eintrags ({absenceKindLabel(absence.type)},{' '}
           {formatISODateGerman(absence.from)} bis {formatISODateGerman(absence.to)}) abwesend. Bitte bearbeite oder lösche diesen Eintrag über den
           Tab „Abwesenheiten“.
         </Alert>
@@ -270,7 +258,7 @@ export function DayEditor({
   }
 
   const calculatedNetText = parsedShifts
-    ? minutesToDecimalHours(parsedShifts.reduce((sum, shift) => sum + shiftNetMinutes(shift), 0)).toLocaleString('de-DE')
+    ? formatHoursGerman(parsedShifts.reduce((sum, shift) => sum + shiftNetMinutes(shift), 0))
     : '–';
 
   return (

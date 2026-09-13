@@ -20,12 +20,12 @@ import { formatISODateShortGerman } from '@domain/shared/DateFormat';
 import type { EmployeeId } from '@domain/shared/ids';
 import { fullName } from '@domain/employee/Employee';
 import {
+  formatHoursGerman,
   formatHoursRangeGerman,
-  minutesToDecimalHours,
   shiftBreakMinutes,
 } from '@domain/schedule/scheduleCalculation';
 import type { ValidationResult } from '@domain/validation/ValidationResult';
-import type { AbsenceType } from '@domain/absence/Absence';
+import { absenceKindLabel } from '@domain/absence/Absence';
 import type { DayView } from '@application/schedule/scheduleAssessment';
 import { effectiveTargetMinutesRange } from '@application/schedule/scheduleAssessment';
 import type { RowLockReason, ScheduleRow } from '../scheduleRows';
@@ -63,19 +63,6 @@ interface ScheduleTableProps {
    * happens with a selection once made, same as activeTool for assignMode. */
   selectedCells: Set<string>;
   onToggleCellSelection: (employeeId: EmployeeId, dayView: DayView) => void;
-}
-
-function absenceText(type: AbsenceType): string {
-  switch (type) {
-    case 'Vacation':
-      return 'Urlaub';
-    case 'Illness':
-      return 'Krank';
-    case 'PublicHoliday':
-      return 'Feiertag';
-    case 'Other':
-      return 'Sonstige';
-  }
 }
 
 const LOCK_LABEL: Record<RowLockReason, string> = {
@@ -243,11 +230,11 @@ export const ScheduleTable = memo(function ScheduleTable({
                   </Typography>
                   <Stack direction="row" spacing={0.5} alignItems="center">
                     <Typography variant="caption" color="text.secondary">
-                      {minutesToDecimalHours(view.totalNetMinutes).toLocaleString('de-DE')} / {formatHoursRangeGerman(target.min, target.max)} Std.
+                      {formatHoursGerman(view.totalNetMinutes)} / {formatHoursRangeGerman(target.min, target.max)} Std.
                     </Typography>
                     {differenceMinutes !== 0 && (
                       <Tooltip
-                        title={`${differenceMinutes > 0 ? '+' : ''}${minutesToDecimalHours(differenceMinutes).toLocaleString('de-DE')} Std. ${differenceMinutes > 0 ? 'über' : 'unter'} Soll (${formatHoursRangeGerman(target.min, target.max)} Std.)`}
+                        title={`${differenceMinutes > 0 ? '+' : ''}${formatHoursGerman(differenceMinutes)} Std. ${differenceMinutes > 0 ? 'über' : 'unter'} Soll (${formatHoursRangeGerman(target.min, target.max)} Std.)`}
                         arrow
                         open={openTooltipKey === `deviation|${view.employeeId}`}
                         onClose={() => setOpenTooltipKey(null)}
@@ -470,11 +457,11 @@ export const ScheduleTable = memo(function ScheduleTable({
                       {dayView.absenceCoversWholeDay && dayView.absence ? (
                         <>
                           <Typography variant="body2" color="#2f5d50" fontWeight={500}>
-                            {absenceText(dayView.absence.type)}
+                            {absenceKindLabel(dayView.absence.type)}
                           </Typography>
                           {dayView.creditedMinutes > 0 && (
                             <Typography variant="caption" color="text.secondary">
-                              {minutesToDecimalHours(dayView.creditedMinutes).toLocaleString('de-DE')} Std.
+                              {formatHoursGerman(dayView.creditedMinutes)} Std.
                               angerechnet
                             </Typography>
                           )}
@@ -483,7 +470,7 @@ export const ScheduleTable = memo(function ScheduleTable({
                         <>
                           {dayView.absence && (
                             <Typography variant="caption" display="block" color="#2f5d50" fontWeight={500}>
-                              {absenceText(dayView.absence.type)} (halbtags)
+                              {absenceKindLabel(dayView.absence.type)} (halbtags)
                             </Typography>
                           )}
                           {dayView.entry.shifts.map((s) => (
@@ -492,14 +479,14 @@ export const ScheduleTable = memo(function ScheduleTable({
                             </Typography>
                           ))}
                           <Typography variant="caption" color="text.secondary">
-                            {minutesToDecimalHours(dayView.workedMinutes).toLocaleString('de-DE')} Std.
+                            {formatHoursGerman(dayView.workedMinutes)} Std.
                             {hasOverride && ' (manuell)'}
                             {breakMinutes > 0 &&
-                              ` · ${minutesToDecimalHours(breakMinutes).toLocaleString('de-DE')} Std. Pause`}
+                              ` · ${formatHoursGerman(breakMinutes)} Std. Pause`}
                           </Typography>
                           {dayView.creditedMinutes > 0 && (
                             <Typography variant="caption" display="block" color="text.secondary">
-                              + {minutesToDecimalHours(dayView.creditedMinutes).toLocaleString('de-DE')} Std.
+                              + {formatHoursGerman(dayView.creditedMinutes)} Std.
                               angerechnet
                             </Typography>
                           )}

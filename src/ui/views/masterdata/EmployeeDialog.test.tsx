@@ -94,7 +94,7 @@ describe('EmployeeDialog', () => {
     await user.type(textbox('Urlaubsanspruch/Jahr (Tage)'), '-1');
     expect(screen.getByText('Darf nicht negativ sein.')).toBeInTheDocument();
 
-    await chooseEmploymentType(user, 'Geringfügig beschäftigt (Minijob)');
+    await chooseEmploymentType(user, 'Geringfügig beschäftigt');
     await user.type(textbox('Min. Std./Woche'), '12');
     await user.type(textbox('Max. Std./Woche'), '10');
     expect(screen.getByText('Min. Std. darf nicht über Max. Std. liegen.')).toBeInTheDocument();
@@ -132,7 +132,7 @@ describe('EmployeeDialog', () => {
     const user = userEvent.setup();
     renderDialog();
 
-    await chooseEmploymentType(user, 'Geringfügig beschäftigt (Minijob)');
+    await chooseEmploymentType(user, 'Geringfügig beschäftigt');
     expect(textbox('Max. Std./Monat (optional)')).not.toBeRequired();
 
     await user.type(textbox('Vorname'), 'Anna');

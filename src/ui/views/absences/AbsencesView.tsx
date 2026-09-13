@@ -27,6 +27,7 @@ import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import { formatISODateGerman } from '@domain/shared/DateFormat';
 import type { Absence, AbsenceType } from '@domain/absence/Absence';
+import { absenceTypeLabel, absenceKindLabel } from '@domain/absence/Absence';
 import type { Employee } from '@domain/employee/Employee';
 import { compareByLastName, fullName } from '@domain/employee/Employee';
 import { services } from '@infrastructure/services';
@@ -51,34 +52,6 @@ type TypeFilter = 'all' | AbsenceType;
 
 const ALL = 'all';
 const COLUMN_COUNT = 6;
-
-function absenceTypeLabel(a: Absence): string {
-  switch (a.type) {
-    case 'Vacation':
-      return 'Urlaub';
-    case 'Illness':
-      return 'Krankheit';
-    case 'PublicHoliday':
-      return 'Feiertag';
-    case 'Other':
-      return a.label;
-  }
-}
-
-/** The plain kind, independent of the free-text label an "Other" entry carries - so sorting by
- * "Art" groups all Sonstige entries together instead of scattering them by their label. */
-function absenceKindLabel(a: Absence): string {
-  switch (a.type) {
-    case 'Vacation':
-      return 'Urlaub';
-    case 'Illness':
-      return 'Krankheit';
-    case 'PublicHoliday':
-      return 'Feiertag';
-    case 'Other':
-      return 'Sonstige';
-  }
-}
 
 function getAbsenceRowActions(
   absence: Absence,
@@ -231,7 +204,7 @@ export function AbsencesView() {
         if (!empA || !empB) return 0;
         return compareByLastName(empA, empB) || a.from.localeCompare(b.from);
       },
-      type: (a, b) => absenceKindLabel(a).localeCompare(absenceKindLabel(b), 'de') || a.from.localeCompare(b.from),
+      type: (a, b) => absenceKindLabel(a.type).localeCompare(absenceKindLabel(b.type), 'de') || a.from.localeCompare(b.from),
       from: (a, b) => a.from.localeCompare(b.from),
       to: (a, b) => a.to.localeCompare(b.to),
     };

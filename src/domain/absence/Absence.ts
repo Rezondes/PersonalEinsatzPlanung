@@ -49,6 +49,39 @@ export type Absence =
  * union, so a future 5th absence type only ever has to be added here. */
 export type AbsenceType = Absence['type'];
 
+/** The absence's own specific label: the fixed German name for Vacation/Illness/PublicHoliday, or
+ * an "Other" absence's own free-text label. Single source of truth, replacing four copies that had
+ * quietly drifted (one said "Krank" instead of "Krankheit") - see EmploymentType.ts's
+ * employmentTypeLabel for the same pattern applied to EmploymentType. */
+export function absenceTypeLabel(absence: Absence): string {
+  switch (absence.type) {
+    case 'Vacation':
+      return 'Urlaub';
+    case 'Illness':
+      return 'Krankheit';
+    case 'PublicHoliday':
+      return 'Feiertag';
+    case 'Other':
+      return absence.label;
+  }
+}
+
+/** The plain kind, independent of an "Other" absence's own free-text label - e.g. so sorting by
+ * "Art" groups every Sonstige entry together instead of scattering them by their label, and so a
+ * caller holding only the type (not a full Absence) can still show something. */
+export function absenceKindLabel(type: AbsenceType): string {
+  switch (type) {
+    case 'Vacation':
+      return 'Urlaub';
+    case 'Illness':
+      return 'Krankheit';
+    case 'PublicHoliday':
+      return 'Feiertag';
+    case 'Other':
+      return 'Sonstige';
+  }
+}
+
 /** Plain Omit<Union, K> loses the discriminated-union structure (keyof a union forms the
  * intersection of keys); this distributive variant applies Omit to each union member individually,
  * so e.g. 'label' on type: 'Other' stays required/type-safe. */

@@ -32,7 +32,7 @@ import { targetWeeklyHoursRange } from '@domain/employee/EmploymentType';
 import { createMonthOverview } from '@application/schedule/scheduleAssessment';
 import { createMonthValidation } from '@application/schedule/scheduleValidation';
 import { buildMonthCsv } from '@application/export/monthCsvExport';
-import { formatHoursRangeGerman, minutesToDecimalHours } from '@domain/schedule/scheduleCalculation';
+import { formatHoursGerman, formatHoursRangeGerman } from '@domain/schedule/scheduleCalculation';
 import { services } from '@infrastructure/services';
 import { createHolidayCheck } from '@infrastructure/holidays/germanHolidays';
 import { downloadTextFile } from '@infrastructure/export/fileAccess';
@@ -355,16 +355,16 @@ export function MonthOverviewView() {
                             </Box>
                           </Tooltip>
                         )}
-                        {weekValue ? minutesToDecimalHours(weekValue.totalNetMinutes).toLocaleString('de-DE') : '–'}
+                        {weekValue ? formatHoursGerman(weekValue.totalNetMinutes) : '–'}
                       </TableCell>
                     );
                   })}
                   <TableCell align="right">
                     <Stack direction="row" spacing={0.5} alignItems="center" justifyContent="flex-end">
-                      <Typography fontWeight={500}>{minutesToDecimalHours(totalNetMinutes).toLocaleString('de-DE')}</Typography>
+                      <Typography fontWeight={500}>{formatHoursGerman(totalNetMinutes)}</Typography>
                       {overMonthlyLimit && (
                         <Tooltip
-                          title={`${minutesToDecimalHours(totalNetMinutes).toLocaleString('de-DE')} Std. diesen Monat, Grenze ${monthlyLimit!.toLocaleString('de-DE')} Std./Monat`}
+                          title={`${formatHoursGerman(totalNetMinutes)} Std. diesen Monat, Grenze ${monthlyLimit!.toLocaleString('de-DE')} Std./Monat`}
                           arrow
                           open={warningOpenFor === employee.id}
                           onClose={() => setWarningOpenFor(null)}

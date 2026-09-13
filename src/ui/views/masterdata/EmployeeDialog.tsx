@@ -8,6 +8,7 @@ import CircularProgress from '@mui/material/CircularProgress';
 import type { BranchId } from '@domain/shared/ids';
 import type { Employee } from '@domain/employee/Employee';
 import type { EmploymentType, EmploymentTypeKind } from '@domain/employee/EmploymentType';
+import { employmentTypeLabel } from '@domain/employee/EmploymentType';
 import { validateEmployee } from '@domain/employee/employeeValidation';
 import type { EmployeeField, EmploymentTypeDraft } from '@domain/employee/employeeValidation';
 import { JOB_TITLE_SUGGESTIONS } from '@domain/employee/jobTitleSuggestions';
@@ -212,7 +213,7 @@ export function EmployeeDialog({ branchId, employee, onClose, onSaved, onError, 
           >
             <MenuItem value="FullTime">Vollzeit</MenuItem>
             <MenuItem value="PartTime">Teilzeit</MenuItem>
-            <MenuItem value="Minijob">Geringfügig beschäftigt (Minijob)</MenuItem>
+            <MenuItem value="Minijob">{employmentTypeLabel({ type: 'Minijob', minHours: 0, maxHours: 0 })}</MenuItem>
           </TextField>
 
           {form.type === 'Minijob' ? (

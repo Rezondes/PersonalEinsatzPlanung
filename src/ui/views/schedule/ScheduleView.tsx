@@ -39,7 +39,7 @@ import { toISODate } from '@domain/shared/DateFormat';
 import type { Weekday } from '@domain/shared/CalendarWeek';
 import type { EmployeeId } from '@domain/shared/ids';
 import { fullName } from '@domain/employee/Employee';
-import { formatHoursRangeGerman, minutesToDecimalHours } from '@domain/schedule/scheduleCalculation';
+import { formatHoursGerman, formatHoursRangeGerman } from '@domain/schedule/scheduleCalculation';
 import { createWeekView, effectiveTargetMinutesRange } from '@application/schedule/scheduleAssessment';
 import type { DayView } from '@application/schedule/scheduleAssessment';
 import type { DayEntry } from '@domain/schedule/EmployeeWeekAssignment';
@@ -705,7 +705,7 @@ export function ScheduleView() {
           <Stack direction="row" gap={1} alignItems="center">
             <Box sx={{ border: '1px solid #e0e0dc', borderRadius: 1, px: 1.5, py: 0.75 }}>
               <Typography variant="body2">
-                Ist {minutesToDecimalHours(totalWorkedMinutes).toLocaleString('de-DE')} /{' '}
+                Ist {formatHoursGerman(totalWorkedMinutes)} /{' '}
                 {formatHoursRangeGerman(totalTarget.min, totalTarget.max)} Soll ·{' '}
                 {absencesLoading ? '–' : notYetScheduledCount.toLocaleString('de-DE')} noch nicht eingeplant
               </Typography>
@@ -820,8 +820,8 @@ export function ScheduleView() {
           // two narrower artboards.
           const istSollText =
             layout === 'mobile'
-              ? `${minutesToDecimalHours(totalWorkedMinutes).toLocaleString('de-DE')} / ${formatHoursRangeGerman(totalTarget.min, totalTarget.max)}`
-              : `Ist ${minutesToDecimalHours(totalWorkedMinutes).toLocaleString('de-DE')} von ${formatHoursRangeGerman(totalTarget.min, totalTarget.max)} Soll`;
+              ? `${formatHoursGerman(totalWorkedMinutes)} / ${formatHoursRangeGerman(totalTarget.min, totalTarget.max)}`
+              : `Ist ${formatHoursGerman(totalWorkedMinutes)} von ${formatHoursRangeGerman(totalTarget.min, totalTarget.max)} Soll`;
 
           return (
             <Stack direction="row" gap={1} sx={{ mb: 2, overflowX: 'auto', pb: 0.5 }}>

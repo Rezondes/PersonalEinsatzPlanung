@@ -25,7 +25,7 @@ import {
 import type { WeeklySchedule } from '@domain/schedule/WeeklySchedule';
 import type { Absence } from '@domain/absence/Absence';
 import type { EmployeeHoursInfo } from '@application/schedule/scheduleAssessment';
-import { minutesToDecimalHours } from '@domain/schedule/scheduleCalculation';
+import { formatHoursGerman } from '@domain/schedule/scheduleCalculation';
 import { createWeekView } from '@application/schedule/scheduleAssessment';
 import { services } from '@infrastructure/services';
 
@@ -176,7 +176,7 @@ export function WeekSelectionDialog({
                   {!loaded
                     ? '…'
                     : totalMinutes != null
-                      ? `${minutesToDecimalHours(totalMinutes).toLocaleString('de-DE')} Std.`
+                      ? `${formatHoursGerman(totalMinutes)} Std.`
                       : 'kein Plan'}
                 </Typography>
               </Stack>

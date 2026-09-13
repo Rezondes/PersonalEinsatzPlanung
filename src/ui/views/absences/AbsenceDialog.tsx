@@ -11,6 +11,7 @@ import { toISODate, formatISODateGerman } from '@domain/shared/DateFormat';
 import type { Employee } from '@domain/employee/Employee';
 import { fullName } from '@domain/employee/Employee';
 import type { Absence, AbsenceInput, AbsenceType } from '@domain/absence/Absence';
+import { absenceTypeLabel } from '@domain/absence/Absence';
 import { CREDITED_OVERRIDE_FIELD, validateAbsence } from '@domain/absence/absenceValidation';
 import type { AbsenceField } from '@domain/absence/absenceValidation';
 import { findConflictingAbsences } from '@domain/absence/absenceOverlap';
@@ -22,22 +23,6 @@ import { FormErrorNotice } from '@ui/components/FormErrorNotice';
 import CircularProgress from '@mui/material/CircularProgress';
 import { ResponsiveDialog } from '@ui/components/ResponsiveDialog';
 import { ConfirmDialog } from '@ui/components/ConfirmDialog';
-
-/** Duplicated on purpose from the (unexported) label switch in AbsencesView.tsx - four lines of
- * German labels do not justify a shared module, same call made for shiftTemplateValidation.ts's
- * label/hoursPerDay rules during the ShiftTemplate work. */
-function absenceTypeLabel(a: Absence): string {
-  switch (a.type) {
-    case 'Vacation':
-      return 'Urlaub';
-    case 'Illness':
-      return 'Krankheit';
-    case 'PublicHoliday':
-      return 'Feiertag';
-    case 'Other':
-      return a.label;
-  }
-}
 
 function formatConflict(a: Absence): string {
   const range =

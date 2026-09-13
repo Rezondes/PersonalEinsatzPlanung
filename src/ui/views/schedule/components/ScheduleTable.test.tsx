@@ -76,6 +76,24 @@ describe('ScheduleTable', () => {
     expect(screen.getAllByText('frei')).toHaveLength(13);
   });
 
+  it('labels a whole-day Illness absence "Krankheit", not the shorter "Krank" this table used to show on its own (M27)', () => {
+    const illness: Absence = {
+      id: 'a1' as AbsenceId,
+      employeeId: m2,
+      type: 'Illness',
+      from: '2026-09-07',
+      to: '2026-09-07',
+      createdAt: '2026-01-01T00:00:00.000Z',
+    };
+    const weekViewWithIllness = createWeekView(schedule, [illness], { employees });
+    const rows = buildScheduleRows(weekViewWithIllness, employees, '2026-09-07', '2026-09-13');
+
+    render(<ScheduleTable rows={rows} weekDays={weekDays} validationResults={[]} onCellClick={() => {}} onToolDrop={() => {}} {...notAssigning} {...noSelection} />);
+
+    expect(screen.getByText('Krankheit')).toBeInTheDocument();
+    expect(screen.queryByText('Krank')).not.toBeInTheDocument();
+  });
+
   it('shows a dedicated warning icon for a cell with a dated validation result, ignores week-level ones, and tapping it toggles the tooltip without also opening the cell', async () => {
     const user = userEvent.setup();
     const onCellClick = vi.fn();

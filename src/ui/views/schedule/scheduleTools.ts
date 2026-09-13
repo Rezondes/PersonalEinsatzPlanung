@@ -2,7 +2,7 @@ import type { DayEntry } from '@domain/schedule/EmployeeWeekAssignment';
 import type { Shift } from '@domain/schedule/Shift';
 import type { ShiftTemplate } from '@domain/schedule/ShiftTemplate';
 import type { Absence } from '@domain/absence/Absence';
-import { minutesToDecimalHours, shiftNetMinutes } from '@domain/schedule/scheduleCalculation';
+import { formatHoursGerman, shiftNetMinutes } from '@domain/schedule/scheduleCalculation';
 
 /** Marker type on the drag payload. During dragover the browser hides the DATA of a drag but not
  * its types, so this is the only thing a drop target can check to tell one of our tools apart from
@@ -152,7 +152,7 @@ function shiftsSummary(shifts: Shift[]): string {
   }
   const times = shifts.map((s) => `${s.start}-${s.end}`).join(' / ');
   const netMinutes = shifts.reduce((sum, s) => sum + shiftNetMinutes(s), 0);
-  return `${times} · ${minutesToDecimalHours(netMinutes).toLocaleString('de-DE')} Std.`;
+  return `${times} · ${formatHoursGerman(netMinutes)} Std.`;
 }
 
 /** Second line of a toolbar tile: the times behind the name, so two templates with similar names

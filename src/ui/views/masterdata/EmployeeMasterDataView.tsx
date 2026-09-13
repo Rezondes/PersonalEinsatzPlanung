@@ -395,7 +395,7 @@ export function EmployeeMasterDataView() {
             <MenuItem value="all">Alle</MenuItem>
             <MenuItem value="FullTime">Vollzeit</MenuItem>
             <MenuItem value="PartTime">Teilzeit</MenuItem>
-            <MenuItem value="Minijob">Geringfügig beschäftigt</MenuItem>
+            <MenuItem value="Minijob">{employmentTypeLabel({ type: 'Minijob', minHours: 0, maxHours: 0 })}</MenuItem>
           </TextField>
           <Typography variant="body2" color="text.secondary">
             {visibleEmployees.length} von {employeeList.length} Mitarbeitern

@@ -20,7 +20,7 @@ import {
   shiftFieldKey,
   validateShiftDrafts,
 } from '@domain/schedule/shiftDraft';
-import { shiftNetMinutes, minutesToDecimalHours } from '@domain/schedule/scheduleCalculation';
+import { shiftNetMinutes, formatHoursGerman } from '@domain/schedule/scheduleCalculation';
 import type { FieldValidationProps } from '@ui/hooks/useFormValidation';
 import { DecimalTextField } from '@ui/components/DecimalTextField';
 
@@ -74,7 +74,7 @@ export function ShiftListEditor({ drafts, onChange, fieldProps }: ShiftListEdito
     <>
       {drafts.map((shift, index) => {
         const parsed = parseShiftDraft(shift);
-        const netText = parsed ? minutesToDecimalHours(shiftNetMinutes(parsed)).toLocaleString('de-DE') : '–';
+        const netText = parsed ? formatHoursGerman(shiftNetMinutes(parsed)) : '–';
         return (
           <Stack key={shift.id} spacing={1.5} sx={{ p: 2, border: '1px solid #e0e0dc', borderRadius: 2 }}>
             <Stack direction="row" justifyContent="space-between" alignItems="center">
@@ -82,7 +82,7 @@ export function ShiftListEditor({ drafts, onChange, fieldProps }: ShiftListEdito
                 Schicht {index + 1} · {netText} Std. netto
               </Typography>
               {drafts.length > 1 && (
-                <IconButton size="small" onClick={() => removeShift(shift.id)} aria-label="Schicht entfernen">
+                <IconButton size="small" onClick={() => removeShift(shift.id)} aria-label={`Schicht ${index + 1} entfernen`}>
                   <DeleteOutlineIcon fontSize="small" />
                 </IconButton>
               )}
@@ -150,7 +150,12 @@ export function ShiftListEditor({ drafts, onChange, fieldProps }: ShiftListEdito
                   sx={{ width: 140 }}
                   {...fieldProps(breakFieldKey(brk.id, 'durationMinutes'))}
                 />
-                <IconButton size="small" onClick={() => removeBreak(shift.id, brk.id)} aria-label="Pause entfernen" sx={{ mt: 0.5 }}>
+                <IconButton
+                  size="small"
+                  onClick={() => removeBreak(shift.id, brk.id)}
+                  aria-label={`Pause entfernen (Schicht ${index + 1})`}
+                  sx={{ mt: 0.5 }}
+                >
                   <DeleteOutlineIcon fontSize="small" />
                 </IconButton>
               </Stack>

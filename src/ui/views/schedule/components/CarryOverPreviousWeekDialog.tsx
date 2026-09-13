@@ -15,7 +15,7 @@ import type { WeeklySchedule } from '@domain/schedule/WeeklySchedule';
 import type { Employee } from '@domain/employee/Employee';
 import { fullName } from '@domain/employee/Employee';
 import type { Absence } from '@domain/absence/Absence';
-import { minutesToDecimalHours } from '@domain/schedule/scheduleCalculation';
+import { formatHoursGerman, minutesToDecimalHours } from '@domain/schedule/scheduleCalculation';
 import { createWeekView, effectiveTargetMinutes } from '@application/schedule/scheduleAssessment';
 import { services } from '@infrastructure/services';
 import { ResponsiveDialog } from '@ui/components/ResponsiveDialog';
@@ -45,10 +45,6 @@ interface RowData {
   previousCreditedMinutes: number;
   previousTargetMinutes: number | null;
   suggestedMinutes: number;
-}
-
-function formatHours(minutes: number): string {
-  return minutesToDecimalHours(minutes).toLocaleString('de-DE');
 }
 
 /** Modal für die Übernahme von Mehr-/Minusstunden aus der Vorwoche (Punkt 6): berechnet je aktivem
@@ -199,19 +195,19 @@ export function CarryOverPreviousWeekDialog({
                 <TableRow key={row.employee.id}>
                   <TableCell>{fullName(row.employee)}</TableCell>
                   <TableCell align="center">
-                    {row.previousActualMinutes != null ? formatHours(row.previousActualMinutes) : 'keine Daten'}
+                    {row.previousActualMinutes != null ? formatHoursGerman(row.previousActualMinutes) : 'keine Daten'}
                     {row.previousCreditedMinutes > 0 && (
                       <Typography variant="caption" display="block" color="text.secondary">
-                        davon {formatHours(row.previousCreditedMinutes)} angerechnet
+                        davon {formatHoursGerman(row.previousCreditedMinutes)} angerechnet
                       </Typography>
                     )}
                   </TableCell>
                   <TableCell align="center">
-                    {row.previousTargetMinutes != null ? formatHours(row.previousTargetMinutes) : '–'}
+                    {row.previousTargetMinutes != null ? formatHoursGerman(row.previousTargetMinutes) : '–'}
                   </TableCell>
                   <TableCell align="center">
                     {row.previousActualMinutes != null
-                      ? `${row.suggestedMinutes > 0 ? '+' : ''}${formatHours(row.suggestedMinutes)}`
+                      ? `${row.suggestedMinutes > 0 ? '+' : ''}${formatHoursGerman(row.suggestedMinutes)}`
                       : '–'}
                   </TableCell>
                   <TableCell align="center">
