@@ -5,6 +5,23 @@ import type { EmployeeId } from '@domain/shared/ids';
 import { toISODate } from '@domain/shared/DateFormat';
 import type { Absence } from './Absence';
 
+/** Jan 1 / Dec 31 of `year`, as ISO date strings - the one shared definition of "a calendar year"
+ * behind every function below that clips a range or a period to a single year. */
+function yearBounds(year: number): { start: string; end: string } {
+  return { start: `${year}-01-01`, end: `${year}-12-31` };
+}
+
+/** Clips the inclusive range [from, to] to `year`, returning null when the range does not
+ * intersect that year at all (rather than a range with `from > to`, which every caller would
+ * otherwise have to check for separately). Plain string comparison is correct for ISO dates (same
+ * reasoning as isEmployedOn). */
+function clipToYear(from: string, to: string, year: number): { from: string; to: string } | null {
+  const { start, end } = yearBounds(year);
+  const clippedFrom = from < start ? start : from;
+  const clippedTo = to > end ? end : to;
+  return clippedFrom > clippedTo ? null : { from: clippedFrom, to: clippedTo };
+}
+
 /** Counts work days (Mon-Sat, 6-day week per BUrlG practice) in the period, excluding Sundays and,
  * if `isHoliday` is given, public holidays - a public holiday isn't a work day the employee would
  * otherwise have worked, so taking vacation on it (or a range including it) should not consume
@@ -53,17 +70,14 @@ export function countVacationDaysInYear(
   year: number,
   isHoliday?: (isoDate: string) => boolean,
 ): number {
-  const yearStart = `${year}-01-01`;
-  const yearEnd = `${year}-12-31`;
-
   return absences
     .filter((a): a is Extract<Absence, { type: 'Vacation' }> => a.type === 'Vacation')
     .reduce((sum, a) => {
-      const from = a.from < yearStart ? yearStart : a.from;
-      const to = a.to > yearEnd ? yearEnd : a.to;
-      if (from > to) {
+      const clipped = clipToYear(a.from, a.to, year);
+      if (!clipped) {
         return sum;
       }
+      const { from, to } = clipped;
       const halfDay = {
         atStart: from === a.from && !!a.halfDay?.atStart,
         atEnd: to === a.to && !!a.halfDay?.atEnd,
@@ -81,15 +95,13 @@ type EmploymentPeriod = Pick<Employee, 'entryDate' | 'exitDate'>;
  * must only call this once they know entry or exit actually falls inside `year` (see
  * proRatedVacationEntitlement) - it does not itself check that. */
 function monthsEmployedIn(employee: EmploymentPeriod, year: number): number {
-  const yearStart = `${year}-01-01`;
-  const yearEnd = `${year}-12-31`;
-  const from = employee.entryDate && employee.entryDate > yearStart ? employee.entryDate : yearStart;
-  const to = employee.exitDate && employee.exitDate < yearEnd ? employee.exitDate : yearEnd;
-  if (from > to) {
+  const { start: yearStart, end: yearEnd } = yearBounds(year);
+  const clipped = clipToYear(employee.entryDate ?? yearStart, employee.exitDate ?? yearEnd, year);
+  if (!clipped) {
     return 0;
   }
-  const fromMonth = Number(from.slice(5, 7));
-  const toMonth = Number(to.slice(5, 7));
+  const fromMonth = Number(clipped.from.slice(5, 7));
+  const toMonth = Number(clipped.to.slice(5, 7));
   return toMonth - fromMonth + 1;
 }
 
@@ -99,13 +111,20 @@ function monthsEmployedIn(employee: EmploymentPeriod, year: number): number {
  * entitlement completely unchanged, matching behavior from before this function existed. The
  * resulting day count is rounded to the nearest whole day (kaufmännisch, i.e. standard
  * round-half-up) since a raw fractional result finer than the app's existing half-day granularity
- * would not be usable anywhere entitlement is actually booked against. */
+ * would not be usable anywhere entitlement is actually booked against.
+ *
+ * Guards with isEmployedDuring first (same pattern as carriedOverVacationDays below): neither entry
+ * nor exit falling inside `year` is ALSO true for an employee not employed during `year` at all
+ * (e.g. hired the following year) - without this guard that case fell into the same branch as
+ * "employed the whole year" and wrongly returned the full entitlement instead of 0. */
 export function proRatedVacationEntitlement(
   employee: Pick<Employee, 'vacationEntitlementPerYear'> & EmploymentPeriod,
   year: number,
 ): number {
-  const yearStart = `${year}-01-01`;
-  const yearEnd = `${year}-12-31`;
+  const { start: yearStart, end: yearEnd } = yearBounds(year);
+  if (!isEmployedDuring(employee, yearStart, yearEnd)) {
+    return 0;
+  }
   const entersThisYear = !!employee.entryDate && employee.entryDate >= yearStart && employee.entryDate <= yearEnd;
   const exitsThisYear = !!employee.exitDate && employee.exitDate >= yearStart && employee.exitDate <= yearEnd;
   if (!entersThisYear && !exitsThisYear) {
@@ -143,7 +162,8 @@ export function carriedOverVacationDays(
   if (toISODate(referenceDate) > deadline) {
     return 0;
   }
-  if (!isEmployedDuring(employee, `${priorYear}-01-01`, `${priorYear}-12-31`)) {
+  const { start: priorYearStart, end: priorYearEnd } = yearBounds(priorYear);
+  if (!isEmployedDuring(employee, priorYearStart, priorYearEnd)) {
     return 0;
   }
   const daysTaken = countVacationDaysInYear(priorYearAbsences, priorYear, isHoliday);

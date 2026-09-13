@@ -119,6 +119,16 @@ describe('proRatedVacationEntitlement', () => {
     const employee = { vacationEntitlementPerYear: 30 };
     expect(proRatedVacationEntitlement(employee, 2026)).toBe(30);
   });
+
+  it('returns 0 for an employee not employed at all yet during the given year, instead of misreading it as employed the whole year', () => {
+    const notYetHired = { vacationEntitlementPerYear: 30, entryDate: '2027-01-01' };
+    expect(proRatedVacationEntitlement(notYetHired, 2026)).toBe(0);
+  });
+
+  it('returns 0 for an employee who had already exited before the given year', () => {
+    const alreadyLeft = { vacationEntitlementPerYear: 30, exitDate: '2025-06-30' };
+    expect(proRatedVacationEntitlement(alreadyLeft, 2026)).toBe(0);
+  });
 });
 
 describe('calculateRemainingVacation', () => {
