@@ -34,6 +34,11 @@
       wird erst geladen, wenn der Nutzer aktiv auf "Mit Google anmelden" klickt, siehe
       infrastructure/backup/googleIdentity.ts. Bitte nicht weiter öffnen als hier nötig.
 
+      Der Eintrag für api.github.com öffnet ausschließlich die Änderungen-Seite (Changelog):
+      liest die eigenen, öffentlichen GitHub-Releases dieses Projekts, ohne Zugangsdaten und ohne
+      Nutzerdaten - siehe infrastructure/changelog/githubReleases.ts. Wird nur beim Öffnen dieser
+      einen Seite aufgerufen, nicht beim App-Start.
+
       Für den Service Worker musste hier NICHTS geöffnet werden, das ist kein Versehen:
       navigator.serviceWorker.register() fällt über worker-src auf script-src zurück, wo 'self'
       bereits steht, und <link rel="manifest"> über manifest-src auf default-src 'self'. Ein
@@ -41,7 +46,7 @@
     -->
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; connect-src 'self' https://www.googleapis.com https://accounts.google.com ws://localhost:* wss://localhost:*; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' https://accounts.google.com; frame-src https://accounts.google.com; font-src 'self' data:"
+      content="default-src 'self'; connect-src 'self' https://www.googleapis.com https://accounts.google.com https://api.github.com ws://localhost:* wss://localhost:*; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' https://accounts.google.com; frame-src https://accounts.google.com; font-src 'self' data:"
     />
     <title>Personaleinsatzplanung</title>
   </head>

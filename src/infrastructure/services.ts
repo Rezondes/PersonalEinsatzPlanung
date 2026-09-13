@@ -6,6 +6,7 @@ import { createAbsenceService } from '@application/absence/absenceService';
 import { createShiftTemplateService } from '@application/schedule/shiftTemplateService';
 import { createDataExportService } from '@application/export/dataExportService';
 import { GoogleDriveBackupStorage } from './backup/GoogleDriveBackupStorage';
+import { fetchChangelog } from './changelog/githubReleases';
 import { repositories } from './repositories';
 import { transaction } from './persistence/db';
 
@@ -22,4 +23,8 @@ export const services = {
   dataExport: createDataExportService({ ...repositories, transaction }),
   // Optional remote destination for the backup, next to the local file download.
   backupStorage: new GoogleDriveBackupStorage(),
+  // Reads the project's own public GitHub Releases as the in-app changelog - see
+  // infrastructure/changelog/githubReleases.ts for why this is a deliberate exception to "no
+  // outbound requests".
+  changelog: { fetchChangelog },
 };

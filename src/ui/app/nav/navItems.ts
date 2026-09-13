@@ -7,6 +7,7 @@ import StoreOutlinedIcon from '@mui/icons-material/StoreOutlined';
 import ShieldOutlinedIcon from '@mui/icons-material/ShieldOutlined';
 import GavelOutlinedIcon from '@mui/icons-material/GavelOutlined';
 import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
+import HistoryOutlinedIcon from '@mui/icons-material/HistoryOutlined';
 import MoreHorizOutlinedIcon from '@mui/icons-material/MoreHorizOutlined';
 
 export interface NavItem {
@@ -32,6 +33,7 @@ export const MAIN_NAV_ITEMS: NavItem[] = [
 
 /** Secondary destinations, shown inline on LaptopNav and in a footer section on NavRail. */
 export const FOOTER_NAV_ITEMS: NavItem[] = [
+  { path: '/changelog', label: 'Änderungen', icon: HistoryOutlinedIcon },
   { path: '/privacy', label: 'Datenschutz', icon: ShieldOutlinedIcon },
   { path: '/terms', label: 'Nutzungsbedingungen', icon: GavelOutlinedIcon },
   { path: '/settings', label: 'Einstellungen', icon: SettingsOutlinedIcon },
@@ -56,6 +58,6 @@ export const BOTTOM_TABS: BottomTab[] = [
     path: '/more',
     label: 'Mehr',
     icon: MoreHorizOutlinedIcon,
-    matchPaths: ['/more', '/branches', '/settings', '/privacy', '/terms'],
+    matchPaths: ['/more', '/branches', '/settings', '/privacy', '/terms', '/changelog'],
   },
 ];

@@ -44,3 +44,32 @@ jobs:
     steps:
       - id: deployment
         uses: actions/deploy-pages@v4
+
+  # Creates one GitHub Release per successful deploy, its notes the commit messages since the
+  # previous release - the in-app "Änderungen" page (src/ui/views/changelog/ChangelogView.tsx)
+  # reads these back via the public GitHub API. Deliberately its own job, not a step inside `build`
+  # or `deploy`: it needs full git history (fetch-depth: 0) and contents:write, neither of which the
+  # other two jobs should carry - `build` only ever reads the checkout it already has, and `deploy`
+  # only needs the`pages`/`id-token` permissions it already has.
+  changelog:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: deploy
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          PREV_TAG=$(gh release list --limit 1 --json tagName --jq '.[0].tagName' 2>/dev/null || true)
+          RANGE="${PREV_TAG:+$PREV_TAG..}HEAD"
+          LOG=$(git log "$RANGE" --pretty=format:'- %s (%h)' --no-merges)
+          echo "${LOG:-- Erstveröffentlichung.}" > /tmp/changelog-notes.md
+          gh release create "deploy-${GITHUB_SHA::7}" \
+            --title "Deploy $(date -u +'%Y-%m-%d %H:%M') UTC" \
+            --notes-file /tmp/changelog-notes.md \
+            --target "$GITHUB_SHA"

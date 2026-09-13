@@ -120,6 +120,17 @@ Speichern. Every data-entry dialog follows the same pattern (see `EmployeeDialog
     copied into `public/` could only be referenced absolutely, and CSS has no `BASE_URL` escape
     hatch, so it would 404 on Pages and silently fall back to a system font.
 
+## Änderungen-Seite (Changelog)
+
+`views/changelog/ChangelogView.tsx` reads the project's own public GitHub Releases
+(`infrastructure/changelog/githubReleases.ts`) - the second deliberate, isolated exception to "no
+outbound requests" next to Google Drive (see `infrastructure/CLAUDE.md` and `PrivacyView.tsx`).
+Each release is created by `.github/workflows/deploy.yml`'s `changelog` job after every real deploy,
+its notes the commit messages since the previous release. The fetch is unauthenticated (the repo is
+public), read-only, and only ever happens while this one page is open - not on app start. `index.html`'s
+CSP `connect-src` needs `https://api.github.com` for this to work; do not widen it further than that
+one host.
+
 ## Google-Drive-Abschnitt in den Einstellungen
 
 `SettingsView`'s Drive section has three states, not two: restoring, connected, not connected. The

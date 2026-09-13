@@ -9,6 +9,7 @@ import { PrintPreviewView } from '@ui/views/print/PrintPreviewView';
 import { SettingsView } from '@ui/views/settings/SettingsView';
 import { PrivacyView } from '@ui/views/settings/PrivacyView';
 import { TermsView } from '@ui/views/settings/TermsView';
+import { ChangelogView } from '@ui/views/changelog/ChangelogView';
 import { MorePage } from './nav/MorePage';
 
 export const router = createHashRouter([
@@ -27,6 +28,7 @@ export const router = createHashRouter([
       { path: 'employees', element: <EmployeeMasterDataView /> },
       { path: 'absences', element: <AbsencesView /> },
       { path: 'settings', element: <SettingsView /> },
+      { path: 'changelog', element: <ChangelogView /> },
       { path: 'privacy', element: <PrivacyView /> },
       { path: 'terms', element: <TermsView /> },
       { path: 'more', element: <MorePage /> },

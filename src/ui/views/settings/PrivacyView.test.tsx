@@ -29,7 +29,7 @@ const SECTIONS: Array<{ title: string; text: string }> = [
   },
   {
     title: 'Werden Nutzungsdaten oder Tracking-Informationen erhoben?',
-    text: 'Nein. Die App bindet keine Analyse- oder Tracking-Dienste ein. Auch die Schriftart wird nicht nachgeladen, sondern ist Teil der App selbst, damit kein Schriftanbieter erfährt, wann du sie benutzt. Der Anmeldecode von Google wird erst in dem Moment geladen, in dem du auf „Mit Google anmelden“ klickst. Ohne diesen Klick nimmt die App zu keinem fremden Server Verbindung auf.',
+    text: 'Nein. Die App bindet keine Analyse- oder Tracking-Dienste ein. Auch die Schriftart wird nicht nachgeladen, sondern ist Teil der App selbst, damit kein Schriftanbieter erfährt, wann du sie benutzt. Der Anmeldecode von Google wird erst in dem Moment geladen, in dem du auf „Mit Google anmelden“ klickst. Die einzigen zwei Ausnahmen, bei denen die App von sich aus eine Verbindung zu einem fremden Server aufbaut: dieser Google-Anmeldecode, und das Laden der Seite „Änderungen“, die die öffentlichen, anonymen Versionshinweise dieses Projekts direkt von GitHub anzeigt (ohne Zugangsdaten, ohne dass dabei irgendwelche deiner Daten übertragen werden). Ohne einen Klick auf eine dieser beiden Stellen nimmt die App zu keinem fremden Server Verbindung auf.',
   },
 ];
 

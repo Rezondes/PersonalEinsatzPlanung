@@ -13,6 +13,7 @@ const ROUTE_TITLES: Record<string, string> = {
   '/employees': 'Mitarbeiter',
   '/absences': 'Abwesenheiten',
   '/branches': 'Filialen',
+  '/changelog': 'Änderungen',
   '/privacy': 'Datenschutz',
   '/terms': 'Nutzungsbedingungen',
   '/settings': 'Einstellungen',
