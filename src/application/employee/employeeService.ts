@@ -43,8 +43,5 @@ export function createEmployeeService(repo: EmployeeRepository) {
       return updated;
     },
 
-    delete: (id: EmployeeId) => repo.delete(id),
   };
 }
-
-export type EmployeeService = ReturnType<typeof createEmployeeService>;

@@ -27,5 +27,3 @@ export function createShiftTemplateService(repo: ShiftTemplateRepository) {
     delete: (id: ShiftTemplateId) => repo.delete(id),
   };
 }
-
-export type ShiftTemplateService = ReturnType<typeof createShiftTemplateService>;

@@ -1,7 +1,6 @@
 import { clockTimeToMinutes } from '@domain/shared/ClockTime';
-import { WEEKDAYS } from '@domain/shared/CalendarWeek';
 import type { Shift } from './Shift';
-import type { DayEntry, EmployeeWeekAssignment } from './EmployeeWeekAssignment';
+import type { DayEntry } from './EmployeeWeekAssignment';
 
 export function shiftGrossMinutes(shift: Shift): number {
   const start = clockTimeToMinutes(shift.start);
@@ -37,10 +36,6 @@ export function dayEntryWorkedMinutes(entry: DayEntry): number {
     return entry.netMinutesOverride;
   }
   return dayEntryNetMinutes(entry);
-}
-
-export function weekAssignmentNetMinutes(assignment: EmployeeWeekAssignment): number {
-  return WEEKDAYS.reduce((sum, day) => sum + dayEntryNetMinutes(assignment.days[day]), 0);
 }
 
 /** Rounds to 2 decimal places (e.g. 7.5 hrs) to avoid float rounding artifacts in the display. */

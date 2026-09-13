@@ -94,9 +94,4 @@ describe('employeeService', () => {
     expect(repo.delete).not.toHaveBeenCalled();
   });
 
-  it('delete calls the repository with the given id', async () => {
-    const repo = fakeRepo();
-    await createEmployeeService(repo).delete('m1' as EmployeeId);
-    expect(repo.delete).toHaveBeenCalledWith('m1');
-  });
 });

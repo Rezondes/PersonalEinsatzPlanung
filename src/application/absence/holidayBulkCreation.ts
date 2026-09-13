@@ -53,5 +53,3 @@ export function createHolidayBulkCreationService(repo: AbsenceRepository) {
     },
   };
 }
-
-export type HolidayBulkCreationService = ReturnType<typeof createHolidayBulkCreationService>;

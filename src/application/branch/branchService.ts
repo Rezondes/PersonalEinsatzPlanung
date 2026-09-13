@@ -36,8 +36,5 @@ export function createBranchService(repo: BranchRepository) {
       return updated;
     },
 
-    delete: (id: BranchId) => repo.delete(id),
   };
 }
-
-export type BranchService = ReturnType<typeof createBranchService>;

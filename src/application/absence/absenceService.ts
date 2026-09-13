@@ -5,8 +5,6 @@ import type { AbsenceRepository } from '@application/ports/AbsenceRepository';
 
 export function createAbsenceService(repo: AbsenceRepository) {
   return {
-    forEmployee: (employeeId: EmployeeId) => repo.findByEmployee(employeeId),
-
     forEmployees: (employeeIds: EmployeeId[]) => repo.findByEmployeeIds(employeeIds),
 
     create: async (details: AbsenceInput) => {
@@ -33,5 +31,3 @@ export function createAbsenceService(repo: AbsenceRepository) {
     delete: (id: AbsenceId) => repo.delete(id),
   };
 }
-
-export type AbsenceService = ReturnType<typeof createAbsenceService>;

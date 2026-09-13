@@ -79,9 +79,4 @@ describe('branchService', () => {
     expect(repo.delete).not.toHaveBeenCalled();
   });
 
-  it('delete calls the repository with the given id', async () => {
-    const repo = fakeRepo();
-    await createBranchService(repo).delete('b1' as BranchId);
-    expect(repo.delete).toHaveBeenCalledWith('b1');
-  });
 });

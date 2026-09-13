@@ -18,12 +18,6 @@ function fakeRepo(): AbsenceRepository {
 }
 
 describe('absenceService', () => {
-  it('forEmployee delegates to the repository', async () => {
-    const repo = fakeRepo();
-    await createAbsenceService(repo).forEmployee(m1);
-    expect(repo.findByEmployee).toHaveBeenCalledWith(m1);
-  });
-
   it('forEmployees delegates to the repository', async () => {
     const repo = fakeRepo();
     await createAbsenceService(repo).forEmployees([m1]);

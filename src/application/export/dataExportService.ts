@@ -82,5 +82,3 @@ export function createDataExportService(repos: DataRepositories) {
     },
   };
 }
-
-export type DataExportService = ReturnType<typeof createDataExportService>;

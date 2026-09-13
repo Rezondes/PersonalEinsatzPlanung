@@ -10,10 +10,7 @@ import {
   dayEntryWorkedMinutes,
   formatHoursGerman,
   formatHoursRangeGerman,
-  weekAssignmentNetMinutes,
 } from './scheduleCalculation';
-import { emptyWeekAssignment } from './EmployeeWeekAssignment';
-import type { EmployeeId } from '@domain/shared/ids';
 
 describe('shiftGrossMinutes', () => {
   it('calculates the gross minutes of a normal day shift', () => {
@@ -46,26 +43,6 @@ describe('minutesToDecimalHours', () => {
     expect(minutesToDecimalHours(450)).toBe(7.5);
     expect(minutesToDecimalHours(30)).toBe(0.5);
     expect(minutesToDecimalHours(400)).toBeCloseTo(6.67, 2);
-  });
-});
-
-describe('weekAssignmentNetMinutes', () => {
-  it('correctly sums multiple shifts per day and multiple days (split shift)', () => {
-    const employeeId = 'm1' as EmployeeId;
-    const assignment = emptyWeekAssignment(employeeId);
-
-    assignment.days.Montag = {
-      type: 'Shift',
-      shifts: [createShift(clockTime('06:00'), clockTime('08:00')), createShift(clockTime('14:00'), clockTime('18:00'))],
-    };
-    assignment.days.Dienstag = { type: 'Shift', shifts: [createShift(clockTime('06:00'), clockTime('12:30'))] };
-
-    expect(weekAssignmentNetMinutes(assignment)).toBe(2 * 60 + 4 * 60 + 6.5 * 60);
-  });
-
-  it('counts days off as 0 minutes', () => {
-    const assignment = emptyWeekAssignment('m1' as EmployeeId);
-    expect(weekAssignmentNetMinutes(assignment)).toBe(0);
   });
 });
 

@@ -138,5 +138,3 @@ export function createScheduleService(repo: WeeklyScheduleRepository, employeeRe
     },
   };
 }
-
-export type ScheduleService = ReturnType<typeof createScheduleService>;
