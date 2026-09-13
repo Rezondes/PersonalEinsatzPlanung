@@ -19,6 +19,7 @@ import TextField from '@mui/material/TextField';
 import MenuItem from '@mui/material/MenuItem';
 import Checkbox from '@mui/material/Checkbox';
 import ListItemText from '@mui/material/ListItemText';
+import Tooltip from '@mui/material/Tooltip';
 import AddIcon from '@mui/icons-material/Add';
 import EventAvailableOutlinedIcon from '@mui/icons-material/EventAvailableOutlined';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
@@ -165,7 +166,7 @@ export function AbsencesView() {
   const { employeeList } = useEmployeeList(branch?.id ?? null);
   const activeEmployees = employeeList.filter((emp) => emp.active);
   const employeeIds = employeeList.map((emp) => emp.id);
-  const { absences, reload } = useAbsences(employeeIds);
+  const { absences, loading: absencesLoading, reload } = useAbsences(employeeIds);
   // Mounted only while open, so the form starts fresh each time. null = closed; { absence: null } =
   // "Erfassen"; { absence } = edit.
   const [dialog, setDialog] = useState<{ absence: Absence | null } | null>(null);
@@ -179,8 +180,18 @@ export function AbsencesView() {
   // Newest first, the order this view had before it became sortable.
   const sort = useTableSort<SortKey>('from', 'desc');
 
+  // Registered whenever a branch is selected, regardless of whether there are active employees -
+  // MobileFab now shows it disabled instead of omitting it entirely when there are none, so the
+  // one touch affordance on this page does not silently vanish without explanation (N18).
   usePageActions({
-    fab: activeEmployees.length > 0 ? { label: 'Erfassen', icon: AddIcon, onClick: () => setDialog({ absence: null }) } : undefined,
+    fab: branch
+      ? {
+          label: 'Erfassen',
+          icon: AddIcon,
+          onClick: () => setDialog({ absence: null }),
+          disabled: activeEmployees.length === 0,
+        }
+      : undefined,
     fullBleedPage: true,
   });
 
@@ -277,22 +288,33 @@ export function AbsencesView() {
         {/* Hidden on mobile: MobileFab (registered above via usePageActions, label "Erfassen"
             matching the mockup) is the primary action there. */}
         <Stack direction="row" spacing={1} sx={{ display: { xs: 'none', sm: 'flex' } }}>
-          <Button
-            variant="outlined"
-            startIcon={<AddIcon />}
-            onClick={() => setDialog({ absence: null })}
-            disabled={activeEmployees.length === 0}
-          >
-            Abwesenheit erfassen
-          </Button>
-          <Button
-            variant="outlined"
-            startIcon={<EventAvailableOutlinedIcon />}
-            onClick={() => setHolidaysDialogOpen(true)}
-            disabled={activeEmployees.length === 0}
-          >
-            Feiertage anlegen
-          </Button>
+          {/* Tooltip on a disabled button never fires - MUI's own documented workaround is a plain
+              span wrapper, which still receives the pointer/focus events the button itself no
+              longer does (N18). */}
+          <Tooltip title={activeEmployees.length === 0 ? 'Es sind keine aktiven Mitarbeiter vorhanden.' : ''}>
+            <span>
+              <Button
+                variant="outlined"
+                startIcon={<AddIcon />}
+                onClick={() => setDialog({ absence: null })}
+                disabled={activeEmployees.length === 0}
+              >
+                Abwesenheit erfassen
+              </Button>
+            </span>
+          </Tooltip>
+          <Tooltip title={activeEmployees.length === 0 ? 'Es sind keine aktiven Mitarbeiter vorhanden.' : ''}>
+            <span>
+              <Button
+                variant="outlined"
+                startIcon={<EventAvailableOutlinedIcon />}
+                onClick={() => setHolidaysDialogOpen(true)}
+                disabled={activeEmployees.length === 0}
+              >
+                Feiertage anlegen
+              </Button>
+            </span>
+          </Tooltip>
         </Stack>
       </Stack>
 
@@ -365,7 +387,13 @@ export function AbsencesView() {
         <ResponsiveDataList
           rows={visibleAbsences}
           getKey={(a) => a.id}
-          emptyMessage={absences.length === 0 ? 'Noch keine Abwesenheiten erfasst.' : 'Kein Eintrag passt zu den Filtern.'}
+          emptyMessage={
+            absencesLoading
+              ? ''
+              : absences.length === 0
+                ? 'Noch keine Abwesenheiten erfasst.'
+                : 'Kein Eintrag passt zu den Filtern.'
+          }
           renderCard={(a) => (
             <AbsenceCard
               absence={a}
@@ -396,7 +424,7 @@ export function AbsencesView() {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {absences.length === 0 && (
+                {!absencesLoading && absences.length === 0 && (
                   <TableRow>
                     <TableCell colSpan={columnCount}>
                       <Typography color="text.secondary" sx={{ py: 2 }}>
@@ -405,7 +433,7 @@ export function AbsencesView() {
                     </TableCell>
                   </TableRow>
                 )}
-                {absences.length > 0 && visibleAbsences.length === 0 && (
+                {!absencesLoading && absences.length > 0 && visibleAbsences.length === 0 && (
                   <TableRow>
                     <TableCell colSpan={columnCount}>
                       <Typography color="text.secondary" sx={{ py: 2 }}>

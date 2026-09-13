@@ -8,6 +8,10 @@ export interface FabAction {
    * inline `<AddIcon />` at the call site doesn't create a new element identity every render. */
   icon: SvgIconComponent;
   onClick: () => void;
+  /** Shows the Fab in MUI's disabled state instead of omitting it entirely - a view whose primary
+   * action is only temporarily unavailable (e.g. no active employees yet) should say so, not make
+   * its one touch affordance vanish without explanation (see AbsencesView.tsx, N18). */
+  disabled?: boolean;
 }
 
 export interface PageActions {
@@ -60,12 +64,12 @@ export function usePageActions(actions: PageActions): void {
       return;
     }
     const stableFab: FabAction | undefined = fab
-      ? { label: fab.label, icon: fab.icon, onClick: () => onClickRef.current?.() }
+      ? { label: fab.label, icon: fab.icon, onClick: () => onClickRef.current?.(), disabled: fab.disabled }
       : undefined;
     setActions({ fab: stableFab, fullBleedPage });
     return () => setActions({});
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on label/icon/fullBleedPage by design, see above
-  }, [setActions, fab?.label, fab?.icon, fullBleedPage]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on label/icon/fullBleedPage/disabled by design, see above
+  }, [setActions, fab?.label, fab?.icon, fab?.disabled, fullBleedPage]);
 }
 
 /** Read by MobileFab only. */

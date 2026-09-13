@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { render, screen, waitFor, within, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import type { BranchId, EmployeeId, AbsenceId } from '@domain/shared/ids';
@@ -12,7 +12,17 @@ import { useBranchesStore } from '@ui/app/store/branchesStore';
 import { useBranchSelectionStore } from '@ui/app/store/branchSelectionStore';
 import { AppNotifications } from '@ui/app/AppNotifications';
 import { useNotificationStore } from '@ui/app/store/notificationStore';
+import { PageActionsProvider } from '@ui/app/PageActionsContext';
+import { MobileFab } from '@ui/app/nav/MobileFab';
 import { AbsencesView } from './AbsencesView';
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((res) => {
+    resolve = res;
+  });
+  return { promise, resolve };
+}
 
 vi.mock('@infrastructure/services', () => ({
   services: {
@@ -106,10 +116,13 @@ const a5 = vacation('a5', 'ghost' as EmployeeId, '2026-05-01', '2026-05-01');
 
 const renderView = () =>
   render(
-    <MemoryRouter>
-      <AbsencesView />
-      <AppNotifications />
-    </MemoryRouter>,
+    <PageActionsProvider>
+      <MemoryRouter>
+        <AbsencesView />
+        <AppNotifications />
+      </MemoryRouter>
+      <MobileFab />
+    </PageActionsProvider>,
   );
 
 const table = () => screen.getByRole('table');
@@ -152,7 +165,59 @@ describe('AbsencesView', () => {
       absenceForBranchMock.mockResolvedValue([]);
       renderView();
 
+      // employeeIds starts empty (employees haven't loaded yet), so useAbsences resolves once
+      // immediately via its own empty-array short-circuit before re-fetching for real once e1
+      // loads - a legitimate loading->loaded->loading->loaded double-cycle, not a bug (see
+      // useAbsences.ts). Waiting for the REAL call first, rather than a bare findByText, avoids
+      // grabbing the transient first (pre-e1) appearance of this same message and then finding it
+      // detached again a moment later when the second, real load starts.
+      await waitFor(() => expect(absenceForBranchMock).toHaveBeenCalledWith([e1.id]));
       expect(await screen.findByText('Noch keine Abwesenheiten erfasst.')).toBeInTheDocument();
+    });
+
+    it('does not flash the empty-state message while absences are still loading', async () => {
+      employeeForBranchMock.mockResolvedValue([e1]);
+      const absencesLoad = deferred<Absence[]>();
+      absenceForBranchMock.mockReturnValue(absencesLoad.promise);
+      renderView();
+
+      // employeeIds starts empty, so useAbsences resolves once immediately via its own
+      // empty-array short-circuit before e1 has even loaded, then re-fetches for real (this time
+      // hitting absenceForBranchMock, hence our deferred promise) once employeeIds becomes non-empty
+      // - a legitimate loading->loaded->loading cycle (see useAbsences.ts), not something this test
+      // is about. Waiting for the real, deferred fetch to actually have started is what puts us in
+      // the window this test means to check, rather than racing that earlier, unrelated cycle.
+      await waitFor(() => expect(absenceForBranchMock).toHaveBeenCalledWith([e1.id]));
+      expect(screen.queryByText('Noch keine Abwesenheiten erfasst.')).not.toBeInTheDocument();
+
+      await act(async () => {
+        absencesLoad.resolve([]);
+        await absencesLoad.promise;
+      });
+
+      expect(screen.getByText('Noch keine Abwesenheiten erfasst.')).toBeInTheDocument();
+    });
+
+    it('shows a disabled FAB (not none at all) and a tooltip on the laptop buttons when there are no active employees', async () => {
+      const user = userEvent.setup();
+      employeeForBranchMock.mockResolvedValue([e3]); // e3 is inactive
+      absenceForBranchMock.mockResolvedValue([]);
+      renderView();
+
+      await screen.findByText('Noch keine Abwesenheiten erfasst.');
+
+      expect(erfassenButton()).toBeDisabled();
+      expect(feiertageButton()).toBeDisabled();
+
+      const fab = screen.getByRole('button', { name: 'Erfassen' });
+      expect(fab).toBeInTheDocument();
+      expect(fab).toBeDisabled();
+
+      // A disabled button has pointer-events:none, so it never receives a real hover - MUI's own
+      // documented workaround (used in production here too, see AbsencesView.tsx) is a span
+      // wrapper around it that the Tooltip actually listens on.
+      await user.hover(erfassenButton().parentElement as HTMLElement);
+      expect(await screen.findByRole('tooltip')).toHaveTextContent(/aktiven Mitarbeiter/i);
     });
 
     it('renders employee names, type labels, Std./Tag and date ranges for a mix of absence types', async () => {

@@ -17,6 +17,7 @@ export function MobileFab() {
       variant="extended"
       color="primary"
       onClick={fab.onClick}
+      disabled={fab.disabled}
       sx={{
         position: 'fixed',
         right: 16,

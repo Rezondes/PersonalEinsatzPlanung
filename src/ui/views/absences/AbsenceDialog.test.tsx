@@ -112,6 +112,39 @@ describe('AbsenceDialog', () => {
     expect(onClose).toHaveBeenCalled();
   });
 
+  it('does not carry a note typed while Vacation was selected over to a save under Sonstige', async () => {
+    const user = userEvent.setup();
+    const { onSaved } = renderDialog();
+
+    await user.type(screen.getByLabelText('Notiz (optional)'), 'Ski-Urlaub');
+    await chooseType(user, 'Sonstige');
+    await user.type(screen.getByRole('textbox', { name: 'Bezeichnung' }), 'Fortbildung');
+    await user.click(save());
+
+    await waitFor(() => expect(onSaved).toHaveBeenCalledTimes(1));
+    expect(createMock).toHaveBeenCalledWith(expect.objectContaining({ type: 'Other', note: undefined }));
+  });
+
+  it('keeps an existing Other absence\'s own note untouched when only the dates are edited (deliberate roundtrip, not a leak)', async () => {
+    const user = userEvent.setup();
+    const existingOther: Absence = {
+      id: 'existing-other' as AbsenceId,
+      employeeId: m1,
+      type: 'Other',
+      from: '2026-03-01',
+      to: '2026-03-01',
+      label: 'Fortbildung',
+      note: 'Wichtige Schulung',
+      createdAt: '2026-01-01T00:00:00.000Z',
+    } as Absence;
+    const { onSaved } = renderDialog([], existingOther);
+
+    await user.click(save());
+
+    await waitFor(() => expect(onSaved).toHaveBeenCalledTimes(1));
+    expect(updateMock).toHaveBeenCalledWith(expect.objectContaining({ note: 'Wichtige Schulung' }));
+  });
+
   it('requires a Bezeichnung for Sonstige and saves it trimmed instead of a placeholder', async () => {
     const user = userEvent.setup();
     renderDialog();

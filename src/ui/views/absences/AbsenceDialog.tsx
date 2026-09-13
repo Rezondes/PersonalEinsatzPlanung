@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Button from '@mui/material/Button';
 import TextField from '@mui/material/TextField';
 import MenuItem from '@mui/material/MenuItem';
@@ -146,6 +146,22 @@ export function AbsenceDialog({ employees, absences, absence, onClose, onSaved, 
     if (singleDay) return;
     setForm((f) => (f.halfDayAtStart || f.halfDayAtEnd ? { ...f, halfDayAtStart: false, halfDayAtEnd: false } : f));
   }, [singleDay]);
+
+  // The note field is only rendered for Vacation (see below); Sonstige's own note is domain-real
+  // but has no editing UI here (see formFromAbsence's comment) and Illness/PublicHoliday never save
+  // one at all. Without this, a note typed while Vacation was selected would silently survive a
+  // switch to Sonstige and get saved under it (M16) - the leak this specifically guards against.
+  // Keyed on the ACTUAL transition (was Vacation, now isn't), not "currently isn't Vacation": the
+  // latter would also fire on the very first render whenever editing an existing non-Vacation
+  // absence, wiping the exact prefilled note formFromAbsence deliberately roundtrips unchanged.
+  const previousTypeRef = useRef(form.type);
+  useEffect(() => {
+    const wasVacation = previousTypeRef.current === 'Vacation';
+    previousTypeRef.current = form.type;
+    if (wasVacation && form.type !== 'Vacation') {
+      setForm((f) => (f.note ? { ...f, note: '' } : f));
+    }
+  }, [form.type]);
 
   const [saving, setSaving] = useState(false);
   const [showConfirmation, setShowConfirmation] = useState(false);
