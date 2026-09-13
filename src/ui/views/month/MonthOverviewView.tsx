@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { KeyboardEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Box from '@mui/material/Box';
@@ -18,6 +18,7 @@ import TableRow from '@mui/material/TableRow';
 import Chip from '@mui/material/Chip';
 import Alert from '@mui/material/Alert';
 import Tooltip from '@mui/material/Tooltip';
+import CircularProgress from '@mui/material/CircularProgress';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
@@ -39,6 +40,7 @@ import { notify } from '@ui/app/store/notificationStore';
 import { useSelectedBranch } from '@ui/hooks/useBranch';
 import { useEmployeeList } from '@ui/hooks/useEmployeeList';
 import { useAbsences } from '@ui/hooks/useAbsences';
+import { useAsyncData } from '@ui/hooks/useAsyncData';
 import { useBreakpoint } from '@ui/hooks/useBreakpoint';
 import { useCalendarWeekStore } from '@ui/app/store/calendarWeekStore';
 import { usePageActions } from '@ui/app/PageActionsContext';
@@ -65,17 +67,20 @@ export function MonthOverviewView() {
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
-  const [schedules, setSchedules] = useState<WeeklySchedule[]>([]);
   const navigate = useNavigate();
   const setSelectedWeek = useCalendarWeekStore((s) => s.setSelectedWeek);
   // Controlled (not hover) so a tap works on mobile too, matching ScheduleTable's identical
   // deviation-warning tooltip pattern; only one employee's warning open at a time.
   const [warningOpenFor, setWarningOpenFor] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!branch) return;
-    services.schedule.forBranch(branch.id).then(setSchedules);
-  }, [branch]);
+  // useAsyncData (not a bare useState+useEffect) for the same reason every other selection-scoped
+  // load in this app uses it: error reporting, a loading flag, and a guard against a slow response
+  // for a since-abandoned branch overwriting a faster one for the branch since switched to.
+  const { data: schedules, loading: schedulesLoading } = useAsyncData<WeeklySchedule[]>(
+    [],
+    () => (branch ? services.schedule.forBranch(branch.id) : Promise.resolve([])),
+    [branch],
+  );
 
   // Guarded (not `branch!`) since these run even on the render where branch is still null - the
   // early return below happens after every hook, matching EmployeeMasterDataView's identical
@@ -197,10 +202,18 @@ export function MonthOverviewView() {
         Ruhezeit-Prüfung über Wochengrenzen hinweg findet hier nicht statt.
       </Typography>
 
-      {/* Bounded height, self-scrolling (both axes) - see stickyFirstColumn.ts for why a sticky
+      {schedulesLoading ? (
+        <Stack alignItems="center" justifyContent="center" spacing={2} sx={{ flex: 1, minHeight: 0 }}>
+          <CircularProgress />
+          <Typography role="status" variant="body2" color="text.secondary">
+            Wird geladen…
+          </Typography>
+        </Stack>
+      ) : (
+      /* Bounded height, self-scrolling (both axes) - see stickyFirstColumn.ts for why a sticky
           header row and horizontal scroll on a real <table> can't coexist any other way. height:
           '100%', not a vh cap: the root Box above gives this a flex:1 region bounded by the header
-          Stack, at every breakpoint, and this needs to fill exactly that. */}
+          Stack, at every breakpoint, and this needs to fill exactly that. */
       <TableContainer component={Paper} sx={{ flex: 1, minHeight: 0, height: '100%' }}>
         <Table size="small">
           <TableHead>
@@ -378,6 +391,7 @@ export function MonthOverviewView() {
           </TableBody>
         </Table>
       </TableContainer>
+      )}
     </Box>
   );
 }

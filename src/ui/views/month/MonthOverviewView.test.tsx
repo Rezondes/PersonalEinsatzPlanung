@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, within, waitFor } from '@testing-library/react';
+import { render, screen, within, waitFor, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import type { BranchId, EmployeeId } from '@domain/shared/ids';
@@ -10,6 +10,7 @@ import { targetWeeklyHoursRange } from '@domain/employee/EmploymentType';
 import { formatHoursRangeGerman } from '@domain/schedule/scheduleCalculation';
 import type { CalendarWeek, Weekday } from '@domain/shared/CalendarWeek';
 import { calendarWeeksInMonth } from '@domain/shared/CalendarWeek';
+import type { WeeklySchedule } from '@domain/schedule/WeeklySchedule';
 import { createWeeklySchedule, withDayEntry } from '@domain/schedule/WeeklySchedule';
 import { createShift } from '@domain/schedule/Shift';
 import { clockTime } from '@domain/shared/ClockTime';
@@ -100,6 +101,16 @@ function scheduleWithWeekdayShifts(
   );
 }
 
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+  return { promise, resolve, reject };
+}
+
 function selectBranch() {
   useBranchesStore.setState({ branches: [branch], loading: false, loaded: true });
   useBranchSelectionStore.setState({ selectedBranchId: branch.id });
@@ -149,6 +160,68 @@ describe('MonthOverviewView', () => {
     expect(await screen.findByText('Bitte zuerst oben eine Filiale auswählen oder anlegen.')).toBeInTheDocument();
     expect(screen.queryByRole('table')).not.toBeInTheDocument();
     expect(scheduleForBranch).not.toHaveBeenCalled();
+  });
+
+  it('shows a loading indicator while schedules are still loading, then the table once they resolve', async () => {
+    selectBranch();
+    employeeForBranch.mockResolvedValue([]);
+    const schedulesLoad = deferred<WeeklySchedule[]>();
+    scheduleForBranch.mockReturnValue(schedulesLoad.promise);
+
+    renderView();
+
+    expect(await screen.findByRole('status')).toHaveTextContent(/wird geladen/i);
+    expect(screen.queryByRole('table')).not.toBeInTheDocument();
+
+    schedulesLoad.resolve([]);
+    await waitFor(() => expect(screen.getByRole('table')).toBeInTheDocument());
+  });
+
+  it('reports an error via the shared notification store when loading schedules fails', async () => {
+    selectBranch();
+    employeeForBranch.mockResolvedValue([]);
+    scheduleForBranch.mockRejectedValue(new Error('Verbindung unterbrochen'));
+
+    renderView();
+
+    expect(await screen.findByText('Daten konnten nicht geladen werden: Verbindung unterbrochen')).toBeInTheDocument();
+  });
+
+  it('does not let a slow load for the previous branch overwrite a faster one for the branch switched to afterwards', async () => {
+    const branchB: Branch = { ...branch, id: 'b2' as BranchId, name: 'Filiale Süd' };
+    useBranchesStore.setState({ branches: [branch, branchB], loading: false, loaded: true });
+    useBranchSelectionStore.setState({ selectedBranchId: branch.id });
+    const employee = makeEmployee();
+    employeeForBranch.mockResolvedValue([employee]);
+    const week1 = calendarWeeksInMonth(currentYear, currentMonth)[0];
+    const scheduleForBranchB = scheduleWithWeekdayShifts(employee.id, week1, ['Montag'], 8);
+
+    const slowForBranchA = deferred<WeeklySchedule[]>();
+    scheduleForBranch.mockImplementation(async (id: BranchId) =>
+      id === branch.id ? slowForBranchA.promise : [scheduleForBranchB],
+    );
+
+    renderView();
+    await screen.findByText(currentMonthLabel);
+
+    await act(async () => {
+      useBranchSelectionStore.setState({ selectedBranchId: branchB.id });
+    });
+    const cellName = `${fullName(employee)}, KW ${week1.week} bearbeiten`;
+    await waitFor(() => expect(screen.getByRole('button', { name: cellName })).toHaveTextContent('8'));
+
+    // Branch A's slow response finally arrives AFTER branch B's data is already showing - it must
+    // not silently overwrite the table with branch A's (empty) schedule. Re-querying fresh below
+    // (not reusing the element found above) matters: the unguarded bug does not just blank the
+    // cell's text, it drops the whole KW column from the table (createMonthOverview returns no
+    // rows at all for an empty schedules array) - a stale element reference would keep reporting
+    // its last-known text ('8') even after React detaches it from the tree entirely.
+    await act(async () => {
+      slowForBranchA.resolve([]);
+      await slowForBranchA.promise;
+    });
+
+    expect(screen.getByRole('button', { name: cellName })).toHaveTextContent('8');
   });
 
   it('renders the current month/year and one row per employee with no schedule data loaded', async () => {
