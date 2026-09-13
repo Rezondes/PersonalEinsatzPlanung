@@ -4,7 +4,7 @@ import { dateForWeekday, mondayOfWeek, previousCalendarWeek } from '@domain/shar
 import { toISODate } from '@domain/shared/DateFormat';
 import { isPlannable } from '@domain/employee/Employee';
 import type { WeeklySchedule } from '@domain/schedule/WeeklySchedule';
-import { createWeeklySchedule, withDayEntry, withTargetAdjustment } from '@domain/schedule/WeeklySchedule';
+import { createWeeklySchedule, withDayEntry, withDayEntries, withTargetAdjustment } from '@domain/schedule/WeeklySchedule';
 import type { DayEntry } from '@domain/schedule/EmployeeWeekAssignment';
 import { emptyWeekAssignment } from '@domain/schedule/EmployeeWeekAssignment';
 import type { WeeklyScheduleRepository } from '@application/ports/WeeklyScheduleRepository';
@@ -99,6 +99,18 @@ export function createScheduleService(repo: WeeklyScheduleRepository, employeeRe
       entry: DayEntry,
     ): Promise<WeeklySchedule> => {
       const updated = withDayEntry(schedule, employeeId, day, entry);
+      await repo.save(updated);
+      return updated;
+    },
+
+    /** Applies a batch of day-entry writes (e.g. the Wochenplanung's multi-cell bulk edit) and
+     * saves the result once - see domain/schedule/WeeklySchedule.ts's withDayEntries for why this
+     * isn't just setDayEntryAndSave called in a loop. */
+    setDayEntriesAndSave: async (
+      schedule: WeeklySchedule,
+      writes: { employeeId: EmployeeId; day: Weekday; entry: DayEntry }[],
+    ): Promise<WeeklySchedule> => {
+      const updated = withDayEntries(schedule, writes);
       await repo.save(updated);
       return updated;
     },

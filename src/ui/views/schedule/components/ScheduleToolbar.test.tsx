@@ -76,6 +76,11 @@ function renderToolbar(overrides: Partial<ToolbarProps> = {}) {
     touchMode: mockedWidth !== LAPTOP,
     assignModeActive: false,
     onFinishAssigning: vi.fn(),
+    selectionModeActive: false,
+    onToggleSelectionMode: vi.fn(),
+    selectedCount: 0,
+    onApplyToSelection: vi.fn(),
+    onFinishSelecting: vi.fn(),
     onCarryOver: vi.fn(),
     onPrint: vi.fn(),
     printAvailable: false,
@@ -253,6 +258,129 @@ describe('ScheduleToolbar', () => {
 
       await user.click(screen.getByRole('button', { name: 'Fertig' }));
       expect(onFinishAssigning).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('selection mode (Mehrfachauswahl)', () => {
+    it('renders the toggle button reflecting selectionModeActive via aria-pressed, at laptop width', () => {
+      mockViewportWidth(LAPTOP);
+      renderToolbar();
+
+      expect(screen.getByRole('button', { name: 'Mehrfachauswahl' })).toHaveAttribute('aria-pressed', 'false');
+    });
+
+    it('calls onToggleSelectionMode when the toggle button is clicked', async () => {
+      const user = userEvent.setup();
+      mockViewportWidth(LAPTOP);
+      const { onToggleSelectionMode } = renderToolbar();
+
+      await user.click(screen.getByRole('button', { name: 'Mehrfachauswahl' }));
+
+      expect(onToggleSelectionMode).toHaveBeenCalledTimes(1);
+    });
+
+    it('shows the selection banner with the selected count instead of the tile row\'s toggle state, at laptop width', () => {
+      mockViewportWidth(LAPTOP);
+      renderToolbar({ selectionModeActive: true, selectedCount: 3 });
+
+      expect(screen.getByText('3 Zellen ausgewählt')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Auswahl beenden' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Fertig' })).toBeInTheDocument();
+      // The tile row stays visible alongside the banner, so a tool can still be picked.
+      expect(tileButton('Frühschicht')).toBeInTheDocument();
+    });
+
+    it('shows the selection banner at tablet width too', () => {
+      mockViewportWidth(TABLET_LANDSCAPE);
+      renderToolbar({ selectionModeActive: true, selectedCount: 1 });
+
+      expect(screen.getByText('1 Zellen ausgewählt')).toBeInTheDocument();
+    });
+
+    it('calls onFinishSelecting when the selection banner\'s close icon is clicked', async () => {
+      const user = userEvent.setup();
+      mockViewportWidth(LAPTOP);
+      const { onFinishSelecting } = renderToolbar({ selectionModeActive: true, selectedCount: 2 });
+
+      await user.click(screen.getByRole('button', { name: 'Auswahl beenden' }));
+      expect(onFinishSelecting).toHaveBeenCalledTimes(1);
+    });
+
+    it('calls onFinishSelecting when the selection banner\'s "Fertig" button is clicked', async () => {
+      const user = userEvent.setup();
+      mockViewportWidth(LAPTOP);
+      const { onFinishSelecting } = renderToolbar({ selectionModeActive: true, selectedCount: 2 });
+
+      await user.click(screen.getByRole('button', { name: 'Fertig' }));
+      expect(onFinishSelecting).toHaveBeenCalledTimes(1);
+    });
+
+    it('routes a tile click to onApplyToSelection instead of onSelect while selectionModeActive is true', async () => {
+      const user = userEvent.setup();
+      mockViewportWidth(LAPTOP);
+      const { onSelect, onApplyToSelection } = renderToolbar({ selectionModeActive: true, selectedCount: 2 });
+
+      await user.click(tileButton('Frei'));
+
+      expect(onApplyToSelection).toHaveBeenCalledWith(OFF_TOOL);
+      expect(onSelect).not.toHaveBeenCalled();
+    });
+
+    it('prefers the selection banner over the assign banner if both were somehow active at once', () => {
+      mockViewportWidth(LAPTOP);
+      renderToolbar({
+        selectionModeActive: true,
+        selectedCount: 1,
+        assignModeActive: true,
+        activeTool: { kind: 'template', template: templateA },
+      });
+
+      expect(screen.getByText('1 Zellen ausgewählt')).toBeInTheDocument();
+      expect(screen.queryByText('Frühschicht zuweisen')).not.toBeInTheDocument();
+    });
+
+    it('replaces the mobile bar with the selection banner when selectionModeActive is true', () => {
+      mockViewportWidth(MOBILE);
+      renderToolbar({ selectionModeActive: true, selectedCount: 4 });
+
+      expect(within(bar()).queryByText('Weitere Aktionen')).not.toBeInTheDocument();
+      expect(within(bar()).getByText('4 Zellen ausgewählt')).toBeInTheDocument();
+    });
+
+    it('opens the sheet when the mobile selection banner label is tapped, distinct from the close icon', async () => {
+      const user = userEvent.setup();
+      mockViewportWidth(MOBILE);
+      const { onFinishSelecting } = renderToolbar({ selectionModeActive: true, selectedCount: 2 });
+
+      await user.click(within(bar()).getByText('2 Zellen ausgewählt'));
+
+      expect(onFinishSelecting).not.toHaveBeenCalled();
+      expect(screen.getByText('header-fields-probe')).toBeVisible();
+    });
+
+    it('shows the toggle button inside the mobile sheet\'s Aktionen section', async () => {
+      const user = userEvent.setup();
+      mockViewportWidth(MOBILE);
+      const { onToggleSelectionMode } = renderToolbar();
+
+      await user.click(within(bar()).getByRole('button'));
+      await user.click(screen.getByRole('button', { name: 'Mehrfachauswahl' }));
+
+      expect(onToggleSelectionMode).toHaveBeenCalledTimes(1);
+      await waitFor(() => expect(screen.queryByRole('button', { name: 'Vorwoche übertragen' })).not.toBeInTheDocument());
+    });
+
+    it('routes a tile click inside the mobile sheet to onApplyToSelection and closes the sheet', async () => {
+      const user = userEvent.setup();
+      mockViewportWidth(MOBILE);
+      const { onSelect, onApplyToSelection } = renderToolbar({ selectionModeActive: true, selectedCount: 2 });
+
+      await user.click(within(bar()).getByText('2 Zellen ausgewählt'));
+      await user.click(tileButton('Frühschicht'));
+
+      expect(onApplyToSelection).toHaveBeenCalledWith({ kind: 'template', template: templateA });
+      expect(onSelect).not.toHaveBeenCalled();
+      await waitFor(() => expect(tileButton('Frühschicht')).not.toBeVisible());
     });
   });
 

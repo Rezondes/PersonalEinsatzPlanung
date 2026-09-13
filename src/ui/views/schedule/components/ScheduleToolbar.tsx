@@ -17,6 +17,7 @@ import CloseIcon from '@mui/icons-material/Close';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import SwapHorizOutlinedIcon from '@mui/icons-material/SwapHorizOutlined';
 import PrintOutlinedIcon from '@mui/icons-material/PrintOutlined';
+import ChecklistOutlinedIcon from '@mui/icons-material/ChecklistOutlined';
 import type { ShiftTemplate } from '@domain/schedule/ShiftTemplate';
 import type { ScheduleTool } from '../scheduleTools';
 import { OFF_TOOL, TOOL_MIME, toolKey, toolLabel, toolSummary } from '../scheduleTools';
@@ -44,6 +45,24 @@ interface ScheduleToolbarProps {
   /** Clears assignModeActive AND the active tool - the banner's X and its "Fertig" button both call
    * this, matching the mockup's "Zuweisen beenden" affordance. */
   onFinishAssigning: () => void;
+  /** True once the "Mehrfachauswahl" toggle armed selection mode (see ScheduleView.toggleSelectionMode)
+   * - mutually exclusive with assignModeActive, enforced by the parent, never both at once. While
+   * active, a tile tap applies the tool to every selected cell (onApplyToSelection) instead of
+   * arming tap-to-assign (onSelect). */
+  selectionModeActive: boolean;
+  /** The toolbar's own toggle button - entering also cancels any in-progress tap-to-assign, leaving
+   * clears it again (see onFinishSelecting for the banner's own, separate exit affordance). */
+  onToggleSelectionMode: () => void;
+  /** How many cells are currently marked in ScheduleTable - shown in the selection banner. Zero
+   * still shows the banner (selection mode is active from the moment the toggle is pressed, not
+   * only once the first cell is picked). */
+  selectedCount: number;
+  /** Applies `tool` to every currently selected cell in one step - every tile (Frei included) calls
+   * this instead of onSelect while selectionModeActive is true. */
+  onApplyToSelection: (tool: ScheduleTool) => void;
+  /** Clears selectedCells AND selectionModeActive - the selection banner's X and its "Fertig" button
+   * both call this, mirroring onFinishAssigning. */
+  onFinishSelecting: () => void;
   /** Mobile-only "Aktionen" section of the "Weitere Aktionen" sheet - on laptop/tablet these stay
    * in ScheduleView's own header instead, which has room for them; only the collapsible (mobile)
    * branch below ever renders this section. */
@@ -82,6 +101,11 @@ export function ScheduleToolbar({
   touchMode,
   assignModeActive,
   onFinishAssigning,
+  selectionModeActive,
+  onToggleSelectionMode,
+  selectedCount,
+  onApplyToSelection,
+  onFinishSelecting,
   onCarryOver,
   onPrint,
   printAvailable,
@@ -101,9 +125,14 @@ export function ScheduleToolbar({
   const activeKey = activeTool ? toolKey(activeTool) : null;
 
   const selectTool = (tool: ScheduleTool) => {
-    onSelect(tool);
-    // The sheet is only ever how a touch user REACHES a tile - once armed there is nothing left to
-    // do inside it. Reopening it (tapping the banner) is how they switch tools mid-assignment.
+    if (selectionModeActive) {
+      onApplyToSelection(tool);
+    } else {
+      onSelect(tool);
+    }
+    // The sheet is only ever how a touch user REACHES a tile - once armed/applied there is nothing
+    // left to do inside it. Reopening it (tapping the banner) is how they switch tools mid-assignment
+    // or mid-selection.
     if (collapsible) setSheetOpen(false);
   };
 
@@ -273,6 +302,79 @@ export function ScheduleToolbar({
     </Box>
   );
 
+  // Same shape as assignBanner (see the comment there on why the middle Box is a plain div unless
+  // onOpenSheet is given) - a distinct function, not a parameterized variant, since the two modes
+  // are mutually exclusive and never need to share one call site. Count is always plural ("N Zellen
+  // ausgewählt", even at 1) matching this file's own "{templates.length} Vorlagen" precedent.
+  const selectionBanner = (onOpenSheet?: () => void) => (
+    <Box
+      sx={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 1,
+        width: '100%',
+        minHeight: 52,
+        px: 1,
+        backgroundColor: '#2f5d50',
+        color: '#ffffff',
+      }}
+    >
+      <IconButton aria-label="Auswahl beenden" onClick={onFinishSelecting} sx={{ color: '#ffffff', ml: -0.5 }}>
+        <CloseIcon />
+      </IconButton>
+      <Box
+        component={onOpenSheet ? 'button' : 'div'}
+        type={onOpenSheet ? 'button' : undefined}
+        onClick={onOpenSheet}
+        sx={{
+          flex: 1,
+          minWidth: 0,
+          border: 'none',
+          background: 'transparent',
+          color: 'inherit',
+          font: 'inherit',
+          textAlign: 'left',
+          py: 0.5,
+          borderRadius: 1,
+          cursor: onOpenSheet ? 'pointer' : 'default',
+          '&:focus-visible': { outline: '2px solid #ffffff', outlineOffset: 2 },
+        }}
+      >
+        <Typography variant="body2" fontWeight={500} noWrap>
+          {selectedCount} Zellen ausgewählt
+        </Typography>
+        <Typography variant="caption" noWrap display="block" sx={{ opacity: 0.85 }}>
+          Werkzeug antippen zum Anwenden
+        </Typography>
+      </Box>
+      <Button
+        onClick={onFinishSelecting}
+        sx={{
+          color: '#ffffff',
+          border: '1px solid rgba(255,255,255,0.6)',
+          borderRadius: 5,
+          flexShrink: 0,
+          '&:hover': { borderColor: '#ffffff', backgroundColor: 'rgba(255,255,255,0.08)' },
+        }}
+      >
+        Fertig
+      </Button>
+    </Box>
+  );
+
+  const selectionToggleButton = (
+    <Button
+      size="small"
+      startIcon={<ChecklistOutlinedIcon />}
+      aria-pressed={selectionModeActive}
+      onClick={onToggleSelectionMode}
+      variant={selectionModeActive ? 'contained' : 'text'}
+      sx={{ flexShrink: 0 }}
+    >
+      Mehrfachauswahl
+    </Button>
+  );
+
   if (!collapsible) {
     // Laptop and both tablet widths (same chrome, tap-to-assign works the same everywhere, laptop
     // additionally supports drag) share this branch. All three keep the tile row visible even while
@@ -293,12 +395,17 @@ export function ScheduleToolbar({
             backgroundColor: 'background.paper',
           }}
         >
-          {assignModeActive && <Box sx={{ borderBottom: '1px solid', borderColor: 'divider' }}>{assignBanner()}</Box>}
+          {selectionModeActive ? (
+            <Box sx={{ borderBottom: '1px solid', borderColor: 'divider' }}>{selectionBanner()}</Box>
+          ) : (
+            assignModeActive && <Box sx={{ borderBottom: '1px solid', borderColor: 'divider' }}>{assignBanner()}</Box>
+          )}
           <Stack direction="row" spacing={1} alignItems="center" sx={{ p: 1, overflowX: 'auto', pb: 0.5 }}>
             {tools.map((tool) => renderTile(tool, false))}
             <Button size="small" startIcon={<AddIcon />} onClick={onCreate} sx={{ flexShrink: 0 }}>
               Vorlage
             </Button>
+            {selectionToggleButton}
             {templates.length === 0 && (
               <Typography variant="caption" color="text.secondary" sx={{ flexShrink: 0, pl: 1 }}>
                 Eigene Schichten anlegen, dann auf einen Tag ziehen.
@@ -327,7 +434,9 @@ export function ScheduleToolbar({
         // reaches the true edges; mb:0 since there is no trailing gap to the tab bar below it.
         sx={{ zIndex: 2, mb: 0, mx: -1.5, overflow: 'hidden' }}
       >
-        {assignModeActive ? (
+        {selectionModeActive ? (
+          selectionBanner(() => setSheetOpen(true))
+        ) : assignModeActive ? (
           assignBanner(() => setSheetOpen(true))
         ) : (
           <Box
@@ -408,6 +517,17 @@ export function ScheduleToolbar({
                 Druckansicht
               </Button>
             )}
+            <Button
+              variant="outlined"
+              startIcon={<ChecklistOutlinedIcon />}
+              aria-pressed={selectionModeActive}
+              onClick={() => {
+                setSheetOpen(false);
+                onToggleSelectionMode();
+              }}
+            >
+              Mehrfachauswahl
+            </Button>
           </Stack>
 
           <Divider />

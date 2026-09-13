@@ -192,6 +192,24 @@ describe('scheduleService other operations', () => {
     expect(scheduleRepo.findByBranchAndWeek).toHaveBeenCalledWith(branchId, previousWeek);
   });
 
+  it('setDayEntriesAndSave applies every write and saves exactly once', async () => {
+    const schedule = createWeeklySchedule(branchId, currentWeek, [e1, e2]);
+    const scheduleRepo = fakeScheduleRepo();
+    const employeeRepo = fakeEmployeeRepo([]);
+    const entry = { type: 'Shift' as const, shifts: [createShift(clockTime('08:00'), clockTime('16:00'))] };
+    const offEntry = { type: 'Off' as const };
+
+    const updated = await createScheduleService(scheduleRepo, employeeRepo).setDayEntriesAndSave(schedule, [
+      { employeeId: e1, day: 'Montag', entry },
+      { employeeId: e2, day: 'Dienstag', entry: offEntry },
+    ]);
+
+    expect(updated.employeeAssignments.find((a) => a.employeeId === e1)?.days.Montag).toEqual(entry);
+    expect(updated.employeeAssignments.find((a) => a.employeeId === e2)?.days.Dienstag).toEqual(offEntry);
+    expect(scheduleRepo.save).toHaveBeenCalledTimes(1);
+    expect(scheduleRepo.save).toHaveBeenCalledWith(updated);
+  });
+
   it('applyTargetAdjustments applies every adjustment and saves once', async () => {
     const schedule = createWeeklySchedule(branchId, currentWeek, [e1, e2]);
     const scheduleRepo = fakeScheduleRepo();

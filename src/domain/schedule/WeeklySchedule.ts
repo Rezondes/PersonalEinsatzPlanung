@@ -67,6 +67,32 @@ export function withDayEntry(
   return { ...schedule, employeeAssignments, updatedAt: new Date().toISOString() };
 }
 
+/** Pure, immutable batch update: applies every write and bumps updatedAt exactly ONCE, unlike
+ * calling withDayEntry in a loop (which would recompute a fresh timestamp - and rebuild the whole
+ * assignments array - once per write). Used by the Wochenplanung's multi-cell bulk edit
+ * (ScheduleView.applyBulkTool) so one Strg+Z undoes the entire batch as a single step. An empty
+ * writes list returns the schedule as-is, not even a shallow copy. */
+export function withDayEntries(
+  schedule: WeeklySchedule,
+  writes: { employeeId: EmployeeId; day: Weekday; entry: DayEntry }[],
+): WeeklySchedule {
+  if (writes.length === 0) {
+    return schedule;
+  }
+
+  const assignmentsByEmployee = new Map(schedule.employeeAssignments.map((a) => [a.employeeId, a]));
+  for (const { employeeId, day, entry } of writes) {
+    const existing = assignmentsByEmployee.get(employeeId) ?? emptyWeekAssignment(employeeId);
+    assignmentsByEmployee.set(employeeId, { ...existing, days: { ...existing.days, [day]: entry } });
+  }
+
+  return {
+    ...schedule,
+    employeeAssignments: [...assignmentsByEmployee.values()],
+    updatedAt: new Date().toISOString(),
+  };
+}
+
 /** Pure, immutable update: sets the target-hours adjustment (carried over from a previous week's
  * actual/target difference) for one employee. Same "find or create the assignment" shape as
  * withDayEntry. */

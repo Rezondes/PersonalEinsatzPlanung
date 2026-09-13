@@ -22,7 +22,7 @@ import {
 import { toISODate } from '@domain/shared/DateFormat';
 import { clockTime } from '@domain/shared/ClockTime';
 import { createShift } from '@domain/schedule/Shift';
-import { createWeeklySchedule, withDayEntry, withTargetAdjustment } from '@domain/schedule/WeeklySchedule';
+import { createWeeklySchedule, withDayEntry, withDayEntries, withTargetAdjustment } from '@domain/schedule/WeeklySchedule';
 import type { WeeklySchedule } from '@domain/schedule/WeeklySchedule';
 import { createAbsence } from '@domain/absence/Absence';
 import type { Absence } from '@domain/absence/Absence';
@@ -46,6 +46,7 @@ vi.mock('@infrastructure/services', () => ({
       getOrCreate: vi.fn(),
       save: vi.fn(),
       setDayEntryAndSave: vi.fn(),
+      setDayEntriesAndSave: vi.fn(),
       findForWeek: vi.fn(),
       applyTargetAdjustments: vi.fn(),
       forBranch: vi.fn(),
@@ -61,6 +62,7 @@ const employeeForBranch = vi.mocked(services.employee.forBranch);
 const scheduleGetOrCreate = vi.mocked(services.schedule.getOrCreate);
 const scheduleSave = vi.mocked(services.schedule.save);
 const scheduleSetDayEntryAndSave = vi.mocked(services.schedule.setDayEntryAndSave);
+const scheduleSetDayEntriesAndSave = vi.mocked(services.schedule.setDayEntriesAndSave);
 const scheduleFindForWeek = vi.mocked(services.schedule.findForWeek);
 const scheduleApplyTargetAdjustments = vi.mocked(services.schedule.applyTargetAdjustments);
 const scheduleForBranch = vi.mocked(services.schedule.forBranch);
@@ -266,6 +268,7 @@ beforeEach(() => {
   scheduleGetOrCreate.mockImplementation(async (bId, cw) => createWeeklySchedule(bId, cw, [employeeA.id, employeeB.id]));
   scheduleSave.mockImplementation(async (s) => s);
   scheduleSetDayEntryAndSave.mockImplementation(async (s, employeeId, day, entry) => withDayEntry(s, employeeId, day, entry));
+  scheduleSetDayEntriesAndSave.mockImplementation(async (s, writes) => withDayEntries(s, writes));
   scheduleFindForWeek.mockResolvedValue(null);
   scheduleApplyTargetAdjustments.mockImplementation(async (s, adjustments) =>
     adjustments.reduce((acc, { employeeId, minutes }) => withTargetAdjustment(acc, employeeId, minutes), s),
@@ -1408,6 +1411,135 @@ describe('ScheduleView', () => {
       rerender(scheduleTree());
 
       expect(screen.getByText('Frühschicht zuweisen')).toBeInTheDocument();
+    });
+  });
+
+  describe('bulk selection (Mehrfachauswahl)', () => {
+    it('selecting cells across employees/days and applying a template updates all of them via one setDayEntriesAndSave call, undone in one Strg+Z step', async () => {
+      shiftTemplateForBranch.mockResolvedValueOnce([templateA]);
+      scheduleGetOrCreate.mockResolvedValueOnce(createWeeklySchedule(branchId, SELECTED_WEEK, [employeeA.id, employeeB.id]));
+
+      const { container } = renderScheduleView(LAPTOP);
+      await screen.findByText(fullName(employeeA));
+      const user = userEvent.setup();
+
+      await user.click(screen.getByRole('button', { name: 'Mehrfachauswahl' }));
+      await user.click(cellEl(container, employeeA.id, 'Montag'));
+      await user.click(cellEl(container, employeeA.id, 'Dienstag'));
+      await user.click(cellEl(container, employeeB.id, 'Montag'));
+      expect(screen.getByText('3 Zellen ausgewählt')).toBeInTheDocument();
+
+      await user.click(screen.getByText('Frühschicht').closest('button') as HTMLButtonElement);
+
+      const shiftEntry = expect.objectContaining({
+        type: 'Shift',
+        shifts: [expect.objectContaining({ start: '06:00', end: '14:00' })],
+      });
+      await waitFor(() =>
+        expect(scheduleSetDayEntriesAndSave).toHaveBeenCalledWith(expect.anything(), [
+          { employeeId: employeeA.id, day: 'Montag', entry: shiftEntry },
+          { employeeId: employeeA.id, day: 'Dienstag', entry: shiftEntry },
+          { employeeId: employeeB.id, day: 'Montag', entry: shiftEntry },
+        ]),
+      );
+      expect(screen.getByText('3 von 3 aktualisiert.')).toBeInTheDocument();
+      // Applying ends selection mode - the banner/toggle-pressed state is gone again.
+      expect(screen.queryByText(/Zellen ausgewählt/)).not.toBeInTheDocument();
+
+      await screen.findByRole('button', { name: 'Rückgängig' });
+      act(() => {
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'z', ctrlKey: true, bubbles: true }));
+      });
+      await waitFor(() => expect(scheduleSave).toHaveBeenCalledTimes(1));
+    });
+
+    it('skips a selected cell whose Other-template write would conflict with an existing absence, applies the rest, and names the count', async () => {
+      scheduleGetOrCreate.mockResolvedValueOnce(createWeeklySchedule(branchId, SELECTED_WEEK, [employeeA.id, employeeB.id]));
+      shiftTemplateForBranch.mockResolvedValueOnce([templateOther]);
+      const existingVacation = createAbsence({ employeeId: employeeA.id, type: 'Vacation', from: MONTAG, to: MONTAG });
+      absenceForBranch.mockResolvedValue([existingVacation]);
+
+      const { container } = renderScheduleView(LAPTOP);
+      await screen.findByText(fullName(employeeA));
+      const user = userEvent.setup();
+
+      await user.click(screen.getByRole('button', { name: 'Mehrfachauswahl' }));
+      await user.click(cellEl(container, employeeA.id, 'Montag'));
+      await user.click(cellEl(container, employeeB.id, 'Montag'));
+
+      await user.click(screen.getByText('Inventur').closest('button') as HTMLButtonElement);
+
+      await waitFor(() =>
+        expect(absenceCreate).toHaveBeenCalledWith(
+          expect.objectContaining({ employeeId: employeeB.id, type: 'Other', label: 'Inventur' }),
+        ),
+      );
+      expect(absenceCreate).not.toHaveBeenCalledWith(expect.objectContaining({ employeeId: employeeA.id }));
+      expect(screen.getByText('1 von 2 aktualisiert, 1 übersprungen (gesperrt/nicht anwendbar).')).toBeInTheDocument();
+    });
+
+    it('"Frei" on a mixed selection (a Shift cell and a single-day-absence cell) clears both in one step', async () => {
+      let schedule = createWeeklySchedule(branchId, SELECTED_WEEK, [employeeA.id, employeeB.id]);
+      schedule = withDayEntry(schedule, employeeA.id, 'Montag', {
+        type: 'Shift',
+        shifts: [createShift(clockTime('06:00'), clockTime('14:00'))],
+      });
+      scheduleGetOrCreate.mockResolvedValueOnce(schedule);
+      const otherAbsence = createAbsence({ employeeId: employeeB.id, type: 'Other', from: MONTAG, to: MONTAG, label: 'Fortbildung' });
+      absenceForBranch.mockResolvedValue([otherAbsence]);
+
+      const { container } = renderScheduleView(LAPTOP);
+      await screen.findByText(fullName(employeeA));
+      const user = userEvent.setup();
+
+      await user.click(screen.getByRole('button', { name: 'Mehrfachauswahl' }));
+      await user.click(cellEl(container, employeeA.id, 'Montag'));
+      await user.click(cellEl(container, employeeB.id, 'Montag'));
+
+      await user.click(screen.getByText('Frei').closest('button') as HTMLButtonElement);
+
+      await waitFor(() =>
+        expect(scheduleSetDayEntriesAndSave).toHaveBeenCalledWith(expect.anything(), [
+          { employeeId: employeeA.id, day: 'Montag', entry: { type: 'Off' } },
+          { employeeId: employeeB.id, day: 'Montag', entry: { type: 'Off' } },
+        ]),
+      );
+      expect(absenceDelete).toHaveBeenCalledWith(otherAbsence.id);
+      expect(screen.getByText('2 von 2 aktualisiert.')).toBeInTheDocument();
+    });
+
+    it('clicking the toggle again while active exits selection mode and clears the picks - re-entering starts empty', async () => {
+      scheduleGetOrCreate.mockResolvedValueOnce(createWeeklySchedule(branchId, SELECTED_WEEK, [employeeA.id, employeeB.id]));
+
+      const { container } = renderScheduleView(LAPTOP);
+      await screen.findByText(fullName(employeeA));
+      const user = userEvent.setup();
+
+      await user.click(screen.getByRole('button', { name: 'Mehrfachauswahl' }));
+      await user.click(cellEl(container, employeeA.id, 'Montag'));
+      expect(screen.getByText('1 Zellen ausgewählt')).toBeInTheDocument();
+
+      await user.click(screen.getByRole('button', { name: 'Mehrfachauswahl' }));
+      expect(screen.queryByText(/Zellen ausgewählt/)).not.toBeInTheDocument();
+
+      await user.click(screen.getByRole('button', { name: 'Mehrfachauswahl' }));
+      expect(screen.getByText('0 Zellen ausgewählt')).toBeInTheDocument();
+    });
+
+    it('entering selection mode cancels an in-progress tap-to-assign', async () => {
+      shiftTemplateForBranch.mockResolvedValueOnce([templateA]);
+
+      renderScheduleView(LAPTOP);
+      await screen.findByText(fullName(employeeA));
+      const user = userEvent.setup();
+
+      await user.click(screen.getByText('Frühschicht').closest('button') as HTMLButtonElement);
+      expect(screen.getByText('Frühschicht zuweisen')).toBeInTheDocument();
+
+      await user.click(screen.getByRole('button', { name: 'Mehrfachauswahl' }));
+
+      expect(screen.queryByText('Frühschicht zuweisen')).not.toBeInTheDocument();
+      expect(screen.getByText('0 Zellen ausgewählt')).toBeInTheDocument();
     });
   });
 

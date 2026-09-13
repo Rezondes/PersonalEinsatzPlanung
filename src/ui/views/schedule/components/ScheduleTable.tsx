@@ -12,6 +12,7 @@ import Chip from '@mui/material/Chip';
 import Typography from '@mui/material/Typography';
 import Tooltip from '@mui/material/Tooltip';
 import Stack from '@mui/material/Stack';
+import Checkbox from '@mui/material/Checkbox';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import type { Weekday } from '@domain/shared/CalendarWeek';
 import { WEEKDAYS_SHORT } from '@domain/shared/CalendarWeek';
@@ -53,6 +54,15 @@ interface ScheduleTableProps {
   /** Whether this cell's entry already matches the armed tool - drives the "already set" highlight
    * (the mockup's Zuweisen-Modus target color). Only consulted while assignMode is true. */
   isAssignTarget: (employeeId: EmployeeId, dayView: DayView) => boolean;
+  /** True once the parent has armed multi-cell bulk selection (ScheduleView/ScheduleToolbar) -
+   * mutually exclusive with assignMode. While active, every cell that canReceiveEntry (the same
+   * rule drag-and-drop/tap-to-assign already use) becomes a checkbox instead of its normal
+   * click-to-open/assign behavior. */
+  selectionMode: boolean;
+  /** Keys already selected, in `cellKey` format - the table stays free of any knowledge about what
+   * happens with a selection once made, same as activeTool for assignMode. */
+  selectedCells: Set<string>;
+  onToggleCellSelection: (employeeId: EmployeeId, dayView: DayView) => void;
 }
 
 function absenceText(type: AbsenceType): string {
@@ -75,7 +85,9 @@ const LOCK_LABEL: Record<RowLockReason, string> = {
 
 const NO_RESULTS: ValidationResult[] = [];
 
-function cellKey(employeeId: EmployeeId, date: string): string {
+/** Exported so ScheduleView can build/read the same key format for its selectedCells Set (P11)
+ * without duplicating this one-liner. */
+export function cellKey(employeeId: EmployeeId, date: string): string {
   return `${employeeId}|${date}`;
 }
 
@@ -104,6 +116,9 @@ export const ScheduleTable = memo(function ScheduleTable({
   assignMode,
   onToolTap,
   isAssignTarget,
+  selectionMode,
+  selectedCells,
+  onToggleCellSelection,
 }: ScheduleTableProps) {
   const layout = useBreakpoint();
   // Kept HERE and not in ScheduleView on purpose: dragover fires continuously, and a highlight in
@@ -291,23 +306,36 @@ export const ScheduleTable = memo(function ScheduleTable({
                       ? dayView.entry.shifts.reduce((sum, s) => sum + shiftBreakMinutes(s), 0)
                       : 0;
 
+                  // Only a cell canReceiveEntry accepts becomes a checkbox in selection mode - the
+                  // same three cases (inactive row, outside employment, multi-day absence) that
+                  // already block drag-and-drop/tap-to-assign have nothing sensible to bulk-write
+                  // into either.
+                  const selectable = selectionMode && droppable;
+                  const isSelected = selectable && selectedCells.has(cellId);
+
                   // A locked cell is deliberately not a button: no click, no keyboard focus, and
                   // ScheduleView checks the same predicate before opening the context menu. Its
                   // content stays fully readable so nothing looks lost. A cell the row/day lock
                   // spares but that still cannot RECEIVE an entry (a multi-day absence) keeps
-                  // opening the (read-only) editor even in assign mode - tap-to-assign only takes
+                  // opening the (read-only) editor even in assign/selection mode - both only take
                   // over where a drop would already have been accepted.
-                  const activateCell = () =>
-                    assignMode && droppable
+                  const activateCell = () => {
+                    if (selectable) return onToggleCellSelection(view.employeeId, dayView);
+                    return assignMode && droppable
                       ? onToolTap(view.employeeId, dayView)
                       : onCellClick(view.employeeId, dayView);
+                  };
                   const interaction = locked
                     ? { 'aria-disabled': true }
                     : {
-                        role: 'button',
+                        role: selectable ? 'checkbox' : 'button',
+                        ...(selectable ? { 'aria-checked': isSelected } : {}),
                         tabIndex: 0,
-                        'aria-label':
-                          assignMode && droppable ? `${dayView.day} zuweisen` : `${dayView.day} bearbeiten`,
+                        'aria-label': selectable
+                          ? `${dayView.day} auswählen`
+                          : assignMode && droppable
+                            ? `${dayView.day} zuweisen`
+                            : `${dayView.day} bearbeiten`,
                         onClick: activateCell,
                         onKeyDown: (e: KeyboardEvent) => {
                           // Ignores a keydown that bubbled up from a nested interactive element
@@ -380,6 +408,18 @@ export const ScheduleTable = memo(function ScheduleTable({
                         '&:focus-visible': { outline: '2px solid #2f5d50', outlineOffset: 2 },
                       }}
                     >
+                      {selectable && (
+                        <Checkbox
+                          checked={isSelected}
+                          size="small"
+                          // Purely the visual indicator - the outer Box carries the real
+                          // role="checkbox"/aria-checked/onClick, so this must never intercept its
+                          // own click or it would toggle twice (once here, once via the parent).
+                          tabIndex={-1}
+                          disableRipple
+                          sx={{ position: 'absolute', top: 0, left: 0, p: 0.25, pointerEvents: 'none' }}
+                        />
+                      )}
                       {matches.length > 0 && (
                         <Tooltip
                           title={

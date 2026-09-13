@@ -34,7 +34,9 @@ import {
   formatCalendarWeekRange,
   WEEKDAYS,
 } from '@domain/shared/CalendarWeek';
+import { findOverlappingAbsences } from '@domain/absence/absenceOverlap';
 import { toISODate } from '@domain/shared/DateFormat';
+import type { Weekday } from '@domain/shared/CalendarWeek';
 import type { EmployeeId } from '@domain/shared/ids';
 import { targetWeeklyHoursRange } from '@domain/employee/EmploymentType';
 import { fullName } from '@domain/employee/Employee';
@@ -51,7 +53,7 @@ import { useSchedule } from '@ui/hooks/useSchedule';
 import { useAbsences } from '@ui/hooks/useAbsences';
 import { useCalendarWeekStore } from '@ui/app/store/calendarWeekStore';
 import { ConfirmDialog } from '@ui/components/ConfirmDialog';
-import { ScheduleTable } from './components/ScheduleTable';
+import { ScheduleTable, cellKey } from './components/ScheduleTable';
 import { ScheduleHeaderFields } from './components/ScheduleHeaderFields';
 import { DayEditor } from './components/DayEditor';
 import type { AbsenceDetails } from './components/DayEditor';
@@ -120,6 +122,12 @@ export function ScheduleView() {
   // touchMode below) - this is the sole gate between "click opens DayEditor" and "click writes
   // activeTool", for both the mouse and touch/keyboard paths alike.
   const [assignModeActive, setAssignModeActive] = useState(false);
+  // Mutually exclusive with tap-to-assign above (see toggleSelectionMode) - while active, a toolbar
+  // tile click applies to every cell in selectedCells instead of arming assignModeActive. Keyed to
+  // dayView.date via cellKey (ScheduleTable's own format), scoped to the currently displayed week -
+  // see the reset effect below, next to the one that resets assignModeActive on a branch switch.
+  const [selectionModeActive, setSelectionModeActive] = useState(false);
+  const [selectedCells, setSelectedCells] = useState<Set<string>>(new Set());
   const layout = useBreakpoint();
   const touchMode = layout !== 'laptop';
   // AppShell's Container becomes a bounded, non-scrolling flex column - see PageActionsContext's
@@ -445,6 +453,140 @@ export function ScheduleView() {
     finishAssigning();
   }, [branch?.id, finishAssigning]);
 
+  const finishSelecting = useCallback(() => {
+    setSelectionModeActive(false);
+    setSelectedCells(new Set());
+  }, []);
+
+  // The toolbar's own toggle button - a plain flip when turning selection mode off (mirrors
+  // finishSelecting so the banner's X/"Fertig" and the toggle button leave the feature in the same
+  // state either way). Turning it ON also cancels any in-progress tap-to-assign: the two write modes
+  // are mutually exclusive, and ScheduleToolbar only ever routes a tile click to ONE of onSelect/
+  // onApplyToSelection based on selectionModeActive, so leaving assignModeActive on would silently
+  // strand the "... zuweisen" banner underneath the selection banner.
+  const toggleSelectionMode = useCallback(() => {
+    if (selectionModeActive) {
+      finishSelecting();
+      return;
+    }
+    finishAssigning();
+    setSelectionModeActive(true);
+  }, [selectionModeActive, finishSelecting, finishAssigning]);
+
+  const toggleCellSelection = useCallback((employeeId: EmployeeId, dayView: DayView) => {
+    const key = cellKey(employeeId, dayView.date);
+    setSelectedCells((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      return next;
+    });
+  }, []);
+
+  // Selections are tied to specific calendar dates (see cellKey), not recurring weekday slots - a
+  // "Montag" pick from last week means nothing for this week's Montag. Scoped by the same identity
+  // as history/assign-mode resets above, so switching branch OR week always starts the feature fresh
+  // instead of silently carrying stale, now-meaningless date keys forward.
+  useEffect(() => {
+    finishSelecting();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- selectedWeek is an object; year/week are its stable identity, same pattern as historyKey above.
+  }, [branch?.id, selectedWeek.year, selectedWeek.week, finishSelecting]);
+
+  /** Applies `tool` to every selected cell in one step, the selection-mode counterpart to applyTool
+   * above. Never trusts the moment-of-selection eligibility: canReceiveEntry is re-checked per cell
+   * against the CURRENT rows, exactly like ScheduleTable itself re-derives `droppable` on every
+   * render rather than trusting an earlier snapshot. An Other-template write is additionally skipped
+   * wherever ANY absence already covers that exact date (deliberately not excluding the cell's own
+   * single-day absence the way writeAbsenceToCell's single-cell replace does - a bulk action with no
+   * per-cell confirmation must never silently delete a recorded Vacation/Illness/PublicHoliday just
+   * because it was swept into a multi-cell selection). Every DayEntry write goes through ONE
+   * setDayEntriesAndSave call and every Absence write becomes one AbsenceOp[] - both folded into a
+   * single history step via `run`, so one Strg+Z undoes the whole selection at once. */
+  const applyBulkTool = useCallback(
+    (tool: ScheduleTool) =>
+      run(async () => {
+        const before = scheduleRef.current;
+        if (!before || selectedCells.size === 0) return null;
+
+        const targets = rows
+          .flatMap((row) => row.view.days.map((dayView) => ({ row, dayView })))
+          .filter(({ row, dayView }) => selectedCells.has(cellKey(row.view.employeeId, dayView.date)));
+
+        const absenceDraft = toolToAbsenceDraft(tool);
+        const dayEntryWrites: { employeeId: EmployeeId; day: Weekday; entry: DayEntry }[] = [];
+        const absenceOps: AbsenceOp[] = [];
+        let skipped = 0;
+
+        for (const { row, dayView } of targets) {
+          if (!canReceiveEntry(row, dayView)) {
+            skipped++;
+            continue;
+          }
+
+          if (absenceDraft) {
+            const conflicts = findOverlappingAbsences(
+              { employeeId: row.view.employeeId, from: dayView.date, to: dayView.date },
+              absences,
+            );
+            if (conflicts.length > 0) {
+              skipped++;
+              continue;
+            }
+            const created = await services.absence.create({
+              employeeId: row.view.employeeId,
+              type: 'Other',
+              from: dayView.date,
+              to: dayView.date,
+              label: absenceDraft.label,
+              hoursPerDay: absenceDraft.hoursPerDay,
+            });
+            absenceOps.push({ kind: 'created', absence: created });
+          } else {
+            const existing = dayView.absence;
+            if (existing && existing.from === dayView.date && existing.to === dayView.date) {
+              await services.absence.delete(existing.id);
+              absenceOps.push({ kind: 'deleted', absence: existing });
+            }
+            dayEntryWrites.push({ employeeId: row.view.employeeId, day: dayView.day, entry: toolToDayEntry(tool) });
+          }
+        }
+
+        if (dayEntryWrites.length === 0 && absenceOps.length === 0) {
+          if (skipped > 0) {
+            notify.error(`Keine der ${skipped} ausgewählten Zellen konnte aktualisiert werden (gesperrt/nicht anwendbar).`);
+          }
+          return null;
+        }
+
+        const requestKey = requestKeyRef.current;
+        if (absenceOps.length > 0) {
+          await reloadAbsences();
+        }
+        const updated =
+          dayEntryWrites.length > 0 ? await services.schedule.setDayEntriesAndSave(before, dayEntryWrites) : before;
+        // Same stale-request guard as setEntryInCell above: a week/branch switch while this batch was
+        // still in flight must not overwrite whatever week is displayed by the time it resolves.
+        if (requestKey === requestKeyRef.current) {
+          scheduleRef.current = updated;
+          setSchedule(updated);
+        }
+
+        const appliedCount = targets.length - skipped;
+        notify.success(
+          skipped > 0
+            ? `${appliedCount} von ${targets.length} aktualisiert, ${skipped} übersprungen (gesperrt/nicht anwendbar).`
+            : `${appliedCount} von ${targets.length} aktualisiert.`,
+        );
+        finishSelecting();
+
+        return { scheduleBefore: before, scheduleAfter: updated, absenceOps };
+      }, 'Massen-Bearbeitung konnte nicht gespeichert werden'),
+    [run, rows, selectedCells, absences, reloadAbsences, setSchedule, finishSelecting],
+  );
+
   // ScheduleTable only calls this for a cell canReceiveEntry already accepted (same trust boundary
   // as toolDrop above, which never re-checks droppable either). Tapping a cell that already shows
   // exactly what activeTool would write clears it instead of reapplying the same entry - the
@@ -768,6 +910,11 @@ export function ScheduleView() {
             touchMode={touchMode}
             assignModeActive={assignModeActive}
             onFinishAssigning={finishAssigning}
+            selectionModeActive={selectionModeActive}
+            onToggleSelectionMode={toggleSelectionMode}
+            selectedCount={selectedCells.size}
+            onApplyToSelection={applyBulkTool}
+            onFinishSelecting={finishSelecting}
             onCarryOver={() => setCarryOverOpen(true)}
             onPrint={() => schedule && navigate(`/print/${schedule.id}`)}
             printAvailable={!!schedule}
@@ -787,6 +934,9 @@ export function ScheduleView() {
                 assignMode={assignModeActive}
                 onToolTap={toolTap}
                 isAssignTarget={isAssignTarget}
+                selectionMode={selectionModeActive}
+                selectedCells={selectedCells}
+                onToggleCellSelection={toggleCellSelection}
               />
             )}
 

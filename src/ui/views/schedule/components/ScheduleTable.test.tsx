@@ -1,7 +1,8 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import type { BranchId, EmployeeId } from '@domain/shared/ids';
+import type { BranchId, EmployeeId, AbsenceId } from '@domain/shared/ids';
+import type { Absence } from '@domain/absence/Absence';
 import { WEEKDAYS, dateForWeekday } from '@domain/shared/CalendarWeek';
 import { toISODate } from '@domain/shared/DateFormat';
 import { clockTime } from '@domain/shared/ClockTime';
@@ -58,9 +59,16 @@ const notAssigning = {
   isAssignTarget: () => false,
 };
 
+/** Every existing (pre-P11) test exercises the non-selecting path, matching unchanged behavior. */
+const noSelection = {
+  selectionMode: false,
+  selectedCells: new Set<string>(),
+  onToggleCellSelection: () => {},
+};
+
 describe('ScheduleTable', () => {
   it('renders one row per employee with their shift times', () => {
-    render(<ScheduleTable rows={rowsFor(employees)} weekDays={weekDays} validationResults={[]} onCellClick={() => {}} onToolDrop={() => {}} {...notAssigning} />);
+    render(<ScheduleTable rows={rowsFor(employees)} weekDays={weekDays} validationResults={[]} onCellClick={() => {}} onToolDrop={() => {}} {...notAssigning} {...noSelection} />);
 
     expect(screen.getByText('Müller, Anna')).toBeInTheDocument();
     expect(screen.getByText('Schulz, Anna')).toBeInTheDocument();
@@ -83,6 +91,7 @@ describe('ScheduleTable', () => {
         onCellClick={onCellClick}
         onToolDrop={() => {}}
         {...notAssigning}
+        {...noSelection}
       />,
     );
 
@@ -113,6 +122,7 @@ describe('ScheduleTable', () => {
         onCellClick={onCellClick}
         onToolDrop={() => {}}
         {...notAssigning}
+        {...noSelection}
       />,
     );
 
@@ -130,7 +140,7 @@ describe('ScheduleTable', () => {
   it('reports the clicked cell with its employee and day', async () => {
     const user = userEvent.setup();
     const onCellClick = vi.fn();
-    render(<ScheduleTable rows={rowsFor(employees)} weekDays={weekDays} validationResults={[]} onCellClick={onCellClick} onToolDrop={() => {}} {...notAssigning} />);
+    render(<ScheduleTable rows={rowsFor(employees)} weekDays={weekDays} validationResults={[]} onCellClick={onCellClick} onToolDrop={() => {}} {...notAssigning} {...noSelection} />);
 
     const [, tuesdayOfSecondRow] = screen.getAllByRole('button', { name: 'Dienstag bearbeiten' });
     await user.click(tuesdayOfSecondRow);
@@ -139,14 +149,14 @@ describe('ScheduleTable', () => {
   });
 
   it('skips assignments whose employee is unknown', () => {
-    render(<ScheduleTable rows={rowsFor([employee(m1, 'Müller')])} weekDays={weekDays} validationResults={[]} onCellClick={() => {}} onToolDrop={() => {}} {...notAssigning} />);
+    render(<ScheduleTable rows={rowsFor([employee(m1, 'Müller')])} weekDays={weekDays} validationResults={[]} onCellClick={() => {}} onToolDrop={() => {}} {...notAssigning} {...noSelection} />);
 
     expect(screen.queryByText('Schulz, Anna')).not.toBeInTheDocument();
     expect(screen.getAllByRole('row')).toHaveLength(2);
   });
 
   it('shows the hover highlight for a normal (editable) row', () => {
-    render(<ScheduleTable rows={rowsFor(employees)} weekDays={weekDays} validationResults={[]} onCellClick={() => {}} onToolDrop={() => {}} {...notAssigning} />);
+    render(<ScheduleTable rows={rowsFor(employees)} weekDays={weekDays} validationResults={[]} onCellClick={() => {}} onToolDrop={() => {}} {...notAssigning} {...noSelection} />);
 
     const row = screen.getByText('Müller, Anna').closest('tr');
     expect(row).toHaveClass('MuiTableRow-hover');
@@ -163,7 +173,7 @@ describe('ScheduleTable', () => {
     const inactiveWeekView = createWeekView(scheduleWithInactive, [], { employees: [inactiveEmployee] });
     const rows = buildScheduleRows(inactiveWeekView, [inactiveEmployee], '2026-09-07', '2026-09-13');
 
-    render(<ScheduleTable rows={rows} weekDays={weekDays} validationResults={[]} onCellClick={() => {}} onToolDrop={() => {}} {...notAssigning} />);
+    render(<ScheduleTable rows={rows} weekDays={weekDays} validationResults={[]} onCellClick={() => {}} onToolDrop={() => {}} {...notAssigning} {...noSelection} />);
 
     const row = screen.getByText('Alt, Anna').closest('tr');
     expect(row).not.toHaveClass('MuiTableRow-hover');
@@ -184,6 +194,7 @@ describe('ScheduleTable', () => {
           assignMode
           onToolTap={onToolTap}
           isAssignTarget={() => false}
+          {...noSelection}
         />,
       );
 
@@ -212,6 +223,7 @@ describe('ScheduleTable', () => {
           assignMode
           onToolTap={onToolTap}
           isAssignTarget={() => false}
+          {...noSelection}
         />,
       );
 
@@ -233,11 +245,109 @@ describe('ScheduleTable', () => {
           assignMode
           onToolTap={() => {}}
           isAssignTarget={(employeeId, dayView) => employeeId === m1 && dayView.day === 'Montag'}
+          {...noSelection}
         />,
       );
 
       const [mondayOfFirstRow] = screen.getAllByRole('button', { name: 'Montag zuweisen' });
       expect(mondayOfFirstRow).toHaveStyle({ backgroundColor: '#dce9e3', border: '1px solid #2f5d50' });
+    });
+  });
+
+  describe('selectionMode (Mehrfachauswahl)', () => {
+    it('shows a checkbox for a free, editable cell and reports a toggle on click', async () => {
+      const user = userEvent.setup();
+      const onToggleCellSelection = vi.fn();
+      render(
+        <ScheduleTable
+          rows={rowsFor(employees)}
+          weekDays={weekDays}
+          validationResults={[]}
+          onCellClick={() => {}}
+          onToolDrop={() => {}}
+          {...notAssigning}
+          selectionMode
+          selectedCells={new Set()}
+          onToggleCellSelection={onToggleCellSelection}
+        />,
+      );
+
+      const [, tuesdayOfSecondRow] = screen.getAllByRole('checkbox', { name: 'Dienstag auswählen' });
+      await user.click(tuesdayOfSecondRow);
+
+      expect(onToggleCellSelection).toHaveBeenCalledWith(m2, expect.objectContaining({ day: 'Dienstag', date: '2026-09-08' }));
+    });
+
+    it('reflects an already-selected cell as checked', () => {
+      render(
+        <ScheduleTable
+          rows={rowsFor(employees)}
+          weekDays={weekDays}
+          validationResults={[]}
+          onCellClick={() => {}}
+          onToolDrop={() => {}}
+          {...notAssigning}
+          selectionMode
+          selectedCells={new Set([`${m2}|2026-09-08`])}
+          onToggleCellSelection={() => {}}
+        />,
+      );
+
+      const [, tuesdayOfSecondRow] = screen.getAllByRole('checkbox', { name: 'Dienstag auswählen' });
+      expect(tuesdayOfSecondRow).toHaveAttribute('aria-checked', 'true');
+    });
+
+    it('shows no checkbox for a locked cell (inactive row)', () => {
+      const inactiveEmployee: Employee = { ...employee(m1, 'Alt'), active: false };
+      const scheduleWithInactive = createWeeklySchedule(branchId, { year: 2026, week: 37 }, [inactiveEmployee.id]);
+      const inactiveWeekView = createWeekView(scheduleWithInactive, [], { employees: [inactiveEmployee] });
+      const rows = buildScheduleRows(inactiveWeekView, [inactiveEmployee], '2026-09-07', '2026-09-13');
+
+      render(
+        <ScheduleTable
+          rows={rows}
+          weekDays={weekDays}
+          validationResults={[]}
+          onCellClick={() => {}}
+          onToolDrop={() => {}}
+          {...notAssigning}
+          selectionMode
+          selectedCells={new Set()}
+          onToggleCellSelection={() => {}}
+        />,
+      );
+
+      expect(screen.queryByRole('checkbox', { name: /auswählen/ })).not.toBeInTheDocument();
+    });
+
+    it('shows no checkbox for a cell covered by a multi-day absence, but still shows one for an unrelated employee\'s same day', () => {
+      const vacation: Absence = {
+        id: 'a1' as AbsenceId,
+        employeeId: m1,
+        type: 'Vacation',
+        from: '2026-09-07',
+        to: '2026-09-11',
+        createdAt: '2026-01-01T00:00:00.000Z',
+      };
+      const weekViewWithVacation = createWeekView(schedule, [vacation], { employees });
+      const rows = buildScheduleRows(weekViewWithVacation, employees, '2026-09-07', '2026-09-13');
+
+      render(
+        <ScheduleTable
+          rows={rows}
+          weekDays={weekDays}
+          validationResults={[]}
+          onCellClick={() => {}}
+          onToolDrop={() => {}}
+          {...notAssigning}
+          selectionMode
+          selectedCells={new Set()}
+          onToggleCellSelection={() => {}}
+        />,
+      );
+
+      // Only m2's Montag gets a checkbox - m1's is covered by the multi-day vacation.
+      expect(screen.getAllByRole('checkbox', { name: 'Montag auswählen' })).toHaveLength(1);
     });
   });
 });
