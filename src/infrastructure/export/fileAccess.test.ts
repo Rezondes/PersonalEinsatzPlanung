@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { backupFilename, downloadTextFile } from './fileAccess';
+import { backupFilename, downloadFile, downloadTextFile } from './fileAccess';
 
 describe('backupFilename', () => {
   it('names the file after the local date and time, down to the second', () => {
@@ -61,5 +61,60 @@ describe('downloadTextFile', () => {
     downloadTextFile('export.csv', 'a;b', 'text/csv');
 
     expect(clickSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('attaches the anchor to the document before clicking it and detaches it afterwards - some browsers silently ignore click() on a never-attached element', () => {
+    vi.stubGlobal('URL', { ...URL, createObjectURL: vi.fn(() => 'blob:mock-url'), revokeObjectURL: vi.fn() });
+    const appendSpy = vi.spyOn(document.body, 'appendChild');
+    const removeSpy = vi.spyOn(document.body, 'removeChild');
+    const clickSpy = vi
+      .spyOn(HTMLAnchorElement.prototype, 'click')
+      .mockImplementation(function (this: HTMLAnchorElement) {
+        // A click() mocked as a pure no-op (as the two tests above do) can never catch a missing
+        // appendChild - only checking attachment status AT THE MOMENT OF THE CLICK does.
+        expect(document.body.contains(this)).toBe(true);
+      });
+
+    downloadTextFile('export.csv', 'a;b', 'text/csv');
+
+    expect(appendSpy).toHaveBeenCalledTimes(1);
+    expect(clickSpy).toHaveBeenCalledTimes(1);
+    expect(removeSpy).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('downloadFile', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it('wraps the given value as pretty-printed JSON and triggers a download via an anchor click, revoking the object URL afterwards', () => {
+    const createObjectURL = vi.fn<(blob: Blob) => string>(() => 'blob:mock-url');
+    const revokeObjectURL = vi.fn();
+    vi.stubGlobal('URL', { ...URL, createObjectURL, revokeObjectURL });
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+
+    downloadFile('backup.json', { formatVersion: 5 });
+
+    expect(createObjectURL).toHaveBeenCalledTimes(1);
+    const blob = createObjectURL.mock.calls[0][0];
+    expect(blob).toBeInstanceOf(Blob);
+    expect(blob.type).toBe('application/json');
+    expect(revokeObjectURL).toHaveBeenCalledWith('blob:mock-url');
+  });
+
+  it('attaches the anchor to the document before clicking it and detaches it afterwards', () => {
+    vi.stubGlobal('URL', { ...URL, createObjectURL: vi.fn(() => 'blob:mock-url'), revokeObjectURL: vi.fn() });
+    const appendSpy = vi.spyOn(document.body, 'appendChild');
+    const removeSpy = vi.spyOn(document.body, 'removeChild');
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) {
+      expect(document.body.contains(this)).toBe(true);
+    });
+
+    downloadFile('backup.json', { formatVersion: 5 });
+
+    expect(appendSpy).toHaveBeenCalledTimes(1);
+    expect(removeSpy).toHaveBeenCalledTimes(1);
   });
 });

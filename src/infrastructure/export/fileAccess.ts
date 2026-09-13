@@ -8,7 +8,10 @@ export function downloadFile(filename: string, content: unknown): void {
   const link = document.createElement('a');
   link.href = url;
   link.download = filename;
+  // Some browsers silently ignore click() on an anchor that was never attached to the document.
+  document.body.appendChild(link);
   link.click();
+  document.body.removeChild(link);
   URL.revokeObjectURL(url);
 }
 
@@ -22,7 +25,10 @@ export function downloadTextFile(filename: string, content: string, mimeType: st
   const link = document.createElement('a');
   link.href = url;
   link.download = filename;
+  // Some browsers silently ignore click() on an anchor that was never attached to the document.
+  document.body.appendChild(link);
   link.click();
+  document.body.removeChild(link);
   URL.revokeObjectURL(url);
 }
 

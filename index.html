@@ -43,10 +43,16 @@
       navigator.serviceWorker.register() fällt über worker-src auf script-src zurück, wo 'self'
       bereits steht, und <link rel="manifest"> über manifest-src auf default-src 'self'. Ein
       http-equiv-CSP gilt ohnehin nur für dieses Dokument, nicht für den Service Worker selbst.
+
+      base-uri und form-action fallen NICHT automatisch auf default-src zurück (beide Direktiven
+      sind laut Spezifikation eigenständig) und stehen deshalb hier explizit: form-action 'self'
+      ist echte Verteidigungstiefe gegen eingeschleustes Markup, das per <form> Daten aus der App
+      exfiltrieren würde - relevant angesichts des eigenen Versprechens, dass Daten den Browser nie
+      verlassen (siehe PrivacyView.tsx).
     -->
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; connect-src 'self' https://www.googleapis.com https://accounts.google.com https://api.github.com ws://localhost:* wss://localhost:*; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' https://accounts.google.com; frame-src https://accounts.google.com; font-src 'self' data:"
+      content="default-src 'self'; base-uri 'self'; form-action 'self'; connect-src 'self' https://www.googleapis.com https://accounts.google.com https://api.github.com ws://localhost:* wss://localhost:*; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' https://accounts.google.com; frame-src https://accounts.google.com; font-src 'self' data:"
     />
     <title>Personaleinsatzplanung</title>
   </head>
