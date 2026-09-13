@@ -9,6 +9,7 @@ import {
   getCachedPassword,
   setCachedPassword,
   setBackupPasswordConfigured,
+  isBackupPasswordConfigured,
 } from '@infrastructure/backup/backupPasswordSession';
 import { encryptBackup } from '@infrastructure/export/backupEncryption';
 import { DriveSessionExpiredError } from '@infrastructure/backup/GoogleDriveBackupStorage';
@@ -265,5 +266,59 @@ describe('SettingsView, Backup-Passwort', () => {
 
     expect(await screen.findByText('Passwörter stimmen nicht überein.')).toBeInTheDocument();
     expect(services.dataExport.export).not.toHaveBeenCalled();
+  });
+
+  it('offers a way to remove an already-configured password, clearing both the flag and the cached value', async () => {
+    const user = userEvent.setup();
+    setBackupPasswordConfigured(true);
+    setCachedPassword('eigenesPasswort');
+    renderView();
+
+    await user.click(screen.getByRole('button', { name: 'Passwort entfernen' }));
+
+    expect(isBackupPasswordConfigured()).toBe(false);
+    expect(getCachedPassword()).toBeNull();
+    expect(screen.getByText('Status: Nicht festgelegt')).toBeInTheDocument();
+  });
+
+  it('does not offer to remove a password that was never configured', () => {
+    renderView();
+
+    expect(screen.queryByRole('button', { name: 'Passwort entfernen' })).not.toBeInTheDocument();
+  });
+});
+
+describe('SettingsView, Alle Daten löschen', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    useNotificationStore.getState().clear();
+    drive.isConfigured.mockReturnValue(false);
+    setCachedPassword(null);
+    setBackupPasswordConfigured(false);
+  });
+
+  it('labels the confirmation field with a real accessible name, not just a placeholder', async () => {
+    const user = userEvent.setup();
+    renderView();
+
+    await user.click(screen.getByRole('button', { name: 'Alle Daten löschen' }));
+
+    expect(screen.getByLabelText(/Bestätigung/)).toBeInTheDocument();
+  });
+
+  it('clears the backup-password-configured flag and signs out of Drive once the data is actually deleted', async () => {
+    const user = userEvent.setup();
+    setBackupPasswordConfigured(true);
+    setCachedPassword('mein-passwort');
+    renderView();
+
+    await user.click(screen.getByRole('button', { name: 'Alle Daten löschen' }));
+    await user.type(screen.getByLabelText(/Bestätigung/), 'LÖSCHEN');
+    await user.click(screen.getByRole('button', { name: 'Endgültig löschen' }));
+
+    await waitFor(() => expect(services.dataExport.deleteAllData).toHaveBeenCalled());
+    expect(isBackupPasswordConfigured()).toBe(false);
+    expect(getCachedPassword()).toBeNull();
+    expect(services.backupStorage.signOut).toHaveBeenCalled();
   });
 });

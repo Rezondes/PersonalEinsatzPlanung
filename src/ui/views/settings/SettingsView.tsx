@@ -6,10 +6,6 @@ import Stack from '@mui/material/Stack';
 import Paper from '@mui/material/Paper';
 import Button from '@mui/material/Button';
 import Alert from '@mui/material/Alert';
-import Dialog from '@mui/material/Dialog';
-import DialogTitle from '@mui/material/DialogTitle';
-import DialogContent from '@mui/material/DialogContent';
-import DialogActions from '@mui/material/DialogActions';
 import TextField from '@mui/material/TextField';
 import Divider from '@mui/material/Divider';
 import Link from '@mui/material/Link';
@@ -39,6 +35,7 @@ import type { RemoteBackup } from '@application/ports/BackupStorage';
 import { useBreakpoint } from '@ui/hooks/useBreakpoint';
 import { usePageActions } from '@ui/app/PageActionsContext';
 import { ConfirmDialog } from '@ui/components/ConfirmDialog';
+import { ResponsiveDialog } from '@ui/components/ResponsiveDialog';
 import { DriveBackupDialog } from './DriveBackupDialog';
 import { BackupPasswordDialog } from './BackupPasswordDialog';
 import { APP_BUILD_TIME, APP_COMMIT, APP_VERSION } from '@ui/app/buildInfo';
@@ -194,6 +191,16 @@ export function SettingsView() {
     setDriveSignedIn(false);
     setDriveRemembered(false);
     notify.success('Verbindung zu Google getrennt.');
+  };
+
+  /** Mirrors disconnectDrive()'s shape: setBackupPasswordConfigured(false) existed already but was
+   * only ever called from a test, never from production code - a forgotten password left the app
+   * permanently asking for it before every export/import with no way out (H9). */
+  const removeBackupPassword = () => {
+    setCachedPassword(null);
+    setBackupPasswordConfigured(false);
+    setPasswordConfigured(false);
+    notify.success('Backup-Passwort wurde entfernt.');
   };
 
   /**
@@ -390,6 +397,12 @@ export function SettingsView() {
     setDeleting(true);
     try {
       await services.dataExport.deleteAllData();
+      // The backup password and Drive connection are configuration for THIS browser, not domain
+      // data deleteAllData() touches - "alle Daten löschen" should not leave a "Festgelegt"
+      // password status or a remembered Drive connection behind for data that no longer exists.
+      setCachedPassword(null);
+      setBackupPasswordConfigured(false);
+      services.backupStorage.signOut();
       closeDeleteDialog();
       setReloadingText('Alle Daten wurden gelöscht. Die App wird neu geladen…');
       setTimeout(() => window.location.reload(), 1200);
@@ -536,6 +549,7 @@ export function SettingsView() {
             >
               {passwordConfigured ? 'Passwort ändern' : 'Backup-Passwort festlegen'}
             </Button>
+            {passwordConfigured && <Button onClick={removeBackupPassword}>Passwort entfernen</Button>}
           </Stack>
         </Paper>
 
@@ -668,34 +682,39 @@ export function SettingsView() {
 
       {/* onClose short-circuited while deleting: Escape or a click on the backdrop would otherwise
           tear the dialog down in the middle of wiping the database. */}
-      <Dialog open={deleteDialogOpen} onClose={deleting ? undefined : closeDeleteDialog}>
-        <DialogTitle>Alle Daten wirklich löschen?</DialogTitle>
-        <DialogContent>
-          <Typography variant="body2" sx={{ mb: 2 }}>
-            Dieser Vorgang kann nicht rückgängig gemacht werden. Tippe zur Bestätigung <strong>LÖSCHEN</strong> ein.
-          </Typography>
-          <TextField
-            fullWidth
-            value={confirmationText}
-            onChange={(e) => setConfirmationText(e.target.value)}
-            placeholder="LÖSCHEN"
-          />
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={closeDeleteDialog} disabled={deleting}>
-            Abbrechen
-          </Button>
-          <Button
-            variant="contained"
-            color="error"
-            disabled={confirmationText !== 'LÖSCHEN' || deleting}
-            onClick={deleteAllData}
-            startIcon={deleting ? <CircularProgress size={16} color="inherit" /> : undefined}
-          >
-            Endgültig löschen
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <ResponsiveDialog
+        open={deleteDialogOpen}
+        onClose={deleting ? undefined : closeDeleteDialog}
+        title="Alle Daten wirklich löschen?"
+        maxWidth="sm"
+        actions={
+          <>
+            <Button onClick={closeDeleteDialog} disabled={deleting}>
+              Abbrechen
+            </Button>
+            <Button
+              variant="contained"
+              color="error"
+              disabled={confirmationText !== 'LÖSCHEN' || deleting}
+              onClick={deleteAllData}
+              startIcon={deleting ? <CircularProgress size={16} color="inherit" /> : undefined}
+            >
+              Endgültig löschen
+            </Button>
+          </>
+        }
+      >
+        <Typography variant="body2" sx={{ mb: 2 }}>
+          Dieser Vorgang kann nicht rückgängig gemacht werden. Tippe zur Bestätigung <strong>LÖSCHEN</strong> ein.
+        </Typography>
+        <TextField
+          fullWidth
+          label="Bestätigung"
+          value={confirmationText}
+          onChange={(e) => setConfirmationText(e.target.value)}
+          placeholder="LÖSCHEN"
+        />
+      </ResponsiveDialog>
 
       {drivePickerOpen && (
         <DriveBackupDialog
