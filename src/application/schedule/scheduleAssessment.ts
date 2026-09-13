@@ -75,12 +75,26 @@ export function effectiveTargetMinutesRange(
   };
 }
 
-/** The single-number variant (upper bound), for the one caller that needs exactly one figure: the
- * previous week's carry-over calculation. The Soll/Ist comparison uses the range above. */
+/** The single-number variant, for the one caller that needs exactly one figure: the previous
+ * week's carry-over calculation. The Soll/Ist comparison uses the range above.
+ *
+ * Falls back to the upper bound outside the Min-Max band, same as before - but once actual hours
+ * already fall inside the (adjusted) band, this returns them as-is instead, so the carry-over
+ * dialog's own suggestion (previousTargetMinutes - previousActualMinutes) comes out to zero
+ * exactly where effectiveTargetMinutesRange already shows no Soll/Ist deviation. Without this, a
+ * Minijob comfortably inside their band (e.g. 35h in a 30-40h band) still got a nonzero carry-over
+ * suggestion the table itself never flagged as a deviation (M9). For FullTime/PartTime the range is
+ * a single point, so this in-band check only ever matches an exact coincidence and the function
+ * behaves exactly as before in practice. */
 export function effectiveTargetMinutes(
   employee: Pick<Employee, 'employmentType'>,
-  weekViewEntry: Pick<EmployeeWeekView, 'targetAdjustmentMinutes'>,
+  weekViewEntry: Pick<EmployeeWeekView, 'targetAdjustmentMinutes' | 'totalNetMinutes'>,
 ): number {
+  const { totalNetMinutes } = weekViewEntry;
+  const range = effectiveTargetMinutesRange(employee, weekViewEntry);
+  if (totalNetMinutes >= range.min && totalNetMinutes <= range.max) {
+    return totalNetMinutes;
+  }
   return targetWeeklyHours(employee.employmentType) * 60 + weekViewEntry.targetAdjustmentMinutes;
 }
 

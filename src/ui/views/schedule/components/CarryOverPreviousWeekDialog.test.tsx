@@ -200,6 +200,42 @@ describe('CarryOverPreviousWeekDialog', () => {
     expect(inputFor('Muster, Anna')).toHaveValue('9');
   });
 
+  it('suggests 0 (not the band\'s upper bound) for a Minijob already inside their Min-Max band (M9)', async () => {
+    const e8 = 'e8' as EmployeeId;
+    const emp = employee(e8, {
+      lastName: 'Acht',
+      firstName: 'Mia',
+      employmentType: { type: 'Minijob', minHours: 30, maxHours: 40 },
+    });
+    // Vorwoche: 5 x 7h (Mo-Fr) = 35h gearbeitet - innerhalb des 30-40h-Bands, genau wie
+    // ScheduleTable's eigener Soll/Ist-Vergleich es schon als "im Soll" behandelt (keine
+    // Abweichung, kein Warn-Icon). Der Übertrag-Dialog darf hier also keine Anpassung mehr
+    // vorschlagen (vorher: +5 Std., die Obergrenze von 40h minus 35h Ist, obwohl die Tabelle
+    // selbst keine Abweichung zeigt).
+    const workdays = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag'] as const;
+    const previousSchedule = workdays.reduce(
+      (schedule, day) =>
+        withDayEntry(schedule, e8, day, { type: 'Shift', shifts: [createShift(clockTime('06:00'), clockTime('13:00'))] }),
+      createWeeklySchedule(branchId, previousWeek, [e8]),
+    );
+    findForWeekMock.mockResolvedValue(previousSchedule);
+
+    renderDialog({
+      schedule: createWeeklySchedule(branchId, currentWeek, [e8]),
+      employeeList: [emp],
+    });
+
+    const row = (await screen.findAllByRole('row'))[1];
+    const cells = within(row).getAllByRole('cell');
+    expect(cells[1].textContent).toBe('35');
+    // Soll now shows the actual hours too (35, not the band's 40h upper bound) - a direct
+    // consequence of effectiveTargetMinutes no longer forcing the upper bound while inside the
+    // band, and arguably clearer than before: 35 Soll / 35 Ist reads as "on target", not "under".
+    expect(cells[2].textContent).toBe('35');
+    expect(cells[3].textContent).toBe('0');
+    expect(inputFor('Acht, Mia')).toHaveValue('0');
+  });
+
   it('suggests a NEGATIVE adjustment (no leading +) when previous-week Ist exceeded Soll', async () => {
     const e7 = 'e7' as EmployeeId;
     const emp = employee(e7, { lastName: 'Sieben', firstName: 'Sonja', employmentType: { type: 'FullTime', weeklyHours: 5 } });

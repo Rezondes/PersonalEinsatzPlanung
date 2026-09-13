@@ -29,19 +29,53 @@ const minijob: EmploymentType = { type: 'Minijob', minHours: 6, maxHours: 10 };
 
 describe('effectiveTargetMinutes', () => {
   it('equals the contract hours with no adjustment', () => {
-    expect(effectiveTargetMinutes({ employmentType: fullTime }, { targetAdjustmentMinutes: 0 })).toBe(30 * 60);
+    expect(
+      effectiveTargetMinutes({ employmentType: fullTime }, { targetAdjustmentMinutes: 0, totalNetMinutes: 0 }),
+    ).toBe(30 * 60);
   });
 
   it('adds a positive adjustment (behind from the previous week)', () => {
-    expect(effectiveTargetMinutes({ employmentType: fullTime }, { targetAdjustmentMinutes: 180 })).toBe(30 * 60 + 180);
+    expect(
+      effectiveTargetMinutes({ employmentType: fullTime }, { targetAdjustmentMinutes: 180, totalNetMinutes: 0 }),
+    ).toBe(30 * 60 + 180);
   });
 
   it('subtracts on a negative adjustment (worked ahead the previous week)', () => {
-    expect(effectiveTargetMinutes({ employmentType: fullTime }, { targetAdjustmentMinutes: -120 })).toBe(30 * 60 - 120);
+    expect(
+      effectiveTargetMinutes({ employmentType: fullTime }, { targetAdjustmentMinutes: -120, totalNetMinutes: 0 }),
+    ).toBe(30 * 60 - 120);
   });
 
-  it('uses the max hours as the base for a Minijob', () => {
-    expect(effectiveTargetMinutes({ employmentType: minijob }, { targetAdjustmentMinutes: 0 })).toBe(10 * 60);
+  it('uses the max hours as the base for a Minijob outside its Min-Max band', () => {
+    // 0h actual is below the 6-10h band, so this still falls back to the historical upper-bound
+    // figure - only inside the band does M9's new behavior below apply.
+    expect(
+      effectiveTargetMinutes({ employmentType: minijob }, { targetAdjustmentMinutes: 0, totalNetMinutes: 0 }),
+    ).toBe(10 * 60);
+  });
+
+  it('returns the actual minutes (no adjustment suggested) once a Minijob is already inside its Min-Max band (M9)', () => {
+    // 8h is inside the 6-10h band - matches effectiveTargetMinutesRange's own "inside the band
+    // counts as on target" rule (no Soll/Ist deviation icon), so the carry-over dialog must not
+    // suggest a change here either, even though 8h < the 10h upper bound this used to return.
+    expect(
+      effectiveTargetMinutes({ employmentType: minijob }, { targetAdjustmentMinutes: 0, totalNetMinutes: 8 * 60 }),
+    ).toBe(8 * 60);
+  });
+
+  it('still returns the upper bound once a Minijob is ABOVE its Min-Max band', () => {
+    expect(
+      effectiveTargetMinutes({ employmentType: minijob }, { targetAdjustmentMinutes: 0, totalNetMinutes: 15 * 60 }),
+    ).toBe(10 * 60);
+  });
+
+  it('folds targetAdjustmentMinutes into the in-band check too, not just the raw contract band', () => {
+    // Contract band 6-10h; a -120min (-2h) adjustment shifts the effective band to 4-8h, so 7h
+    // actual now counts as inside it - this specifically exercises effectiveTargetMinutesRange
+    // (adjusted) as the basis for the check, not targetWeeklyHoursRange (unadjusted).
+    expect(
+      effectiveTargetMinutes({ employmentType: minijob }, { targetAdjustmentMinutes: -120, totalNetMinutes: 7 * 60 }),
+    ).toBe(7 * 60);
   });
 });
 
