@@ -5,6 +5,7 @@ import { toISODate } from '@domain/shared/DateFormat';
 import type { WeeklySchedule } from '@domain/schedule/WeeklySchedule';
 import { createWeeklySchedule } from '@domain/schedule/WeeklySchedule';
 import type { DayEntry } from '@domain/schedule/EmployeeWeekAssignment';
+import { emptyWeekAssignment } from '@domain/schedule/EmployeeWeekAssignment';
 import { dayEntryWorkedMinutes } from '@domain/schedule/scheduleCalculation';
 import type { Absence } from '@domain/absence/Absence';
 import type { Employee } from '@domain/employee/Employee';
@@ -258,6 +259,25 @@ export interface MonthRow {
   totalNetMinutes: number;
 }
 
+/** Same self-heal as scheduleService.ts's getOrCreate (an employee added to the branch after this
+ * week's WeeklySchedule already existed is otherwise silently missing from it, so their own
+ * absence for that week would credit 0 instead of e.g. their holidayVacationHours - M8), but
+ * in-memory only: createMonthOverview has no repository to persist the result to, and unlike
+ * getOrCreate it doesn't need to - the backfilled entry only has to survive long enough for
+ * createWeekView below to see it. */
+function backfillMissingAssignments(schedule: WeeklySchedule, employeeIds: Set<EmployeeId>): WeeklySchedule {
+  const missingIds = [...employeeIds].filter(
+    (id) => !schedule.employeeAssignments.some((a) => a.employeeId === id),
+  );
+  if (missingIds.length === 0) {
+    return schedule;
+  }
+  return {
+    ...schedule,
+    employeeAssignments: [...schedule.employeeAssignments, ...missingIds.map(emptyWeekAssignment)],
+  };
+}
+
 /** Aggregates multiple weekly schedules into a monthly overview per employee. A calendar week belongs
  * to the month its Monday falls in (see calendarWeeksInMonth). */
 export function createMonthOverview(
@@ -292,13 +312,14 @@ export function createMonthOverview(
   );
 
   for (const cw of relevantWeeks) {
-    const schedule =
-      schedulesThisMonth.find((s) => calendarWeeksEqual(s.calendarWeek, cw)) ??
-      // No WeeklySchedule was ever created for this week - a synthetic empty one, run through the
-      // SAME createWeekView as a real week, so an absence spanning into it (e.g. a vacation booked
-      // for a week nobody has opened in the Wochenplanung yet) still credits hours instead of
-      // silently reading as 0.
-      createWeeklySchedule(branchId, cw, [...employeeIds]);
+    const foundSchedule = schedulesThisMonth.find((s) => calendarWeeksEqual(s.calendarWeek, cw));
+    // No WeeklySchedule was ever created for this week - a synthetic empty one, run through the
+    // SAME createWeekView as a real week, so an absence spanning into it (e.g. a vacation booked
+    // for a week nobody has opened in the Wochenplanung yet) still credits hours instead of
+    // silently reading as 0.
+    const schedule = foundSchedule
+      ? backfillMissingAssignments(foundSchedule, employeeIds)
+      : createWeeklySchedule(branchId, cw, [...employeeIds]);
 
     // Reuses createWeekView instead of re-walking days/Absences here - the per-day overlay logic
     // (findAbsenceForDay + workedMinutesFor/creditedMinutesFor, including the half-day handling)

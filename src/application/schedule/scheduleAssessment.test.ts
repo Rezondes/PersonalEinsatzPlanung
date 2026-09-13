@@ -258,6 +258,32 @@ describe('createMonthOverview', () => {
     expect(unscheduledWeekRow.totalNetMinutes).toBe(5 * 60);
   });
 
+  it('backfills an employee missing from an already-saved WeeklySchedule, so their absence still credits (M8)', () => {
+    // m2 joined the branch after firstWeek's WeeklySchedule already existed, so they were never
+    // appended to it - unlike scheduleService.getOrCreate's own self-heal, which only runs when
+    // that specific week is actually opened in the Wochenplanung. secondWeek's schedule DOES have
+    // them (created afterwards), which is what earns them a row here at all - see the comment on
+    // employeeIds above: nobody gets a fabricated row without a real assignment SOMEWHERE this
+    // month. The bug is specifically firstWeek silently reading their vacation as 0 hours instead
+    // of their holidayVacationHours.
+    const weeks = calendarWeeksInMonth(2026, 9);
+    expect(weeks.length).toBeGreaterThan(1);
+    const [firstWeek, secondWeek] = weeks;
+    const firstSchedule = withDayEntry(createWeeklySchedule(branchId, firstWeek, [m1]), m1, 'Montag', shift8h);
+    const m2 = 'm2' as EmployeeId;
+    const secondSchedule = createWeeklySchedule(branchId, secondWeek, [m1, m2]);
+    const vacationMonday = toISODate(dateForWeekday(firstWeek, 'Montag'));
+    const vacation = absence({ employeeId: m2, type: 'Vacation', from: vacationMonday, to: vacationMonday });
+
+    const rows = createMonthOverview([firstSchedule, secondSchedule], 2026, 9, [vacation], {
+      employees: [...employees, { id: m2, holidayVacationHours: 4 }],
+    });
+
+    const m2Row = rows.find((r) => r.employeeId === m2)!;
+    const firstWeekRow = m2Row.weeks.find((w) => w.calendarWeek.week === firstWeek.week)!;
+    expect(firstWeekRow.totalNetMinutes).toBe(4 * 60);
+  });
+
   it('returns no rows for a month where not a single schedule exists', () => {
     expect(createMonthOverview([], 2026, 9, [], { employees })).toEqual([]);
   });

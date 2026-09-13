@@ -38,10 +38,9 @@ import { findOverlappingAbsences } from '@domain/absence/absenceOverlap';
 import { toISODate } from '@domain/shared/DateFormat';
 import type { Weekday } from '@domain/shared/CalendarWeek';
 import type { EmployeeId } from '@domain/shared/ids';
-import { targetWeeklyHoursRange } from '@domain/employee/EmploymentType';
 import { fullName } from '@domain/employee/Employee';
 import { formatHoursRangeGerman, minutesToDecimalHours } from '@domain/schedule/scheduleCalculation';
-import { createWeekView } from '@application/schedule/scheduleAssessment';
+import { createWeekView, effectiveTargetMinutesRange } from '@application/schedule/scheduleAssessment';
 import type { DayView } from '@application/schedule/scheduleAssessment';
 import type { DayEntry } from '@domain/schedule/EmployeeWeekAssignment';
 import type { WeeklySchedule } from '@domain/schedule/WeeklySchedule';
@@ -185,8 +184,12 @@ export function ScheduleView() {
     .filter((row) => row.editable)
     .reduce(
       (acc, row) => {
-        const range = targetWeeklyHoursRange(row.employee.employmentType);
-        return { min: acc.min + range.min * 60, max: acc.max + range.max * 60 };
+        // effectiveTargetMinutesRange, not the raw contract range: it folds in this week's
+        // targetAdjustmentMinutes carry-over, same as the Soll column ScheduleTable.tsx renders
+        // directly below this header tile (H2) - a mismatch here read as "this header disagrees
+        // with the row underneath it" whenever a transfer had been applied.
+        const range = effectiveTargetMinutesRange(row.employee, row.view);
+        return { min: acc.min + range.min, max: acc.max + range.max };
       },
       { min: 0, max: 0 },
     );

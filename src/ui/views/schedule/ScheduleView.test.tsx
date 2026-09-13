@@ -385,6 +385,19 @@ describe('ScheduleView', () => {
       expect(container.textContent).toContain(expectedHeader);
     });
 
+    it('includes a carried-over targetAdjustmentMinutes in the header Soll figure, matching the table column below it (H2)', async () => {
+      // employeeA was behind by 3h last week - carried into this week's target the same way
+      // ScheduleTable.tsx's own "Soll" column already does via effectiveTargetMinutesRange.
+      const schedule = withTargetAdjustment(buildKpiSchedule(), employeeA.id, 180);
+      scheduleGetOrCreate.mockResolvedValueOnce(schedule);
+
+      const { container } = renderScheduleView();
+      await screen.findByText(fullName(employeeA));
+
+      const expectedSollWithAdjustment = formatHoursRangeGerman(60 * 60 + 180, 60 * 60 + 180);
+      expect(container.textContent).toContain(`Ist ${expectedIst} / ${expectedSollWithAdjustment} Soll`);
+    });
+
     it('keeps KPI totals summing every row, unaffected by a search term that filters one row out', async () => {
       scheduleGetOrCreate.mockResolvedValueOnce(buildKpiSchedule());
 
