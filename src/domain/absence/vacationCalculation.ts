@@ -1,5 +1,6 @@
 import { eachDayOfInterval, getDay, parseISO } from 'date-fns';
 import type { Employee } from '@domain/employee/Employee';
+import { isEmployedDuring } from '@domain/employee/Employee';
 import type { EmployeeId } from '@domain/shared/ids';
 import { toISODate } from '@domain/shared/DateFormat';
 import type { Absence } from './Absence';
@@ -119,6 +120,34 @@ export function calculateRemainingVacation(
   year: number,
 ): number {
   return proRatedVacationEntitlement(employee, year) - daysTaken;
+}
+
+/** Unused vacation from `priorYear` that may still be carried into the following year, up to and
+ * including March 31 of that year (a common BUrlG-adjacent deadline for statutory carry-over).
+ * Deliberately does NOT model consumption order between carried-over and freshly-accrued days -
+ * the result is meant to be ADDED to the current year's calculateRemainingVacation for a single
+ * combined number shown to the user, not tracked as a separate depletable pool. `referenceDate` is
+ * injected (like `isHoliday`) rather than read via `new Date()` internally, so the deadline edge is
+ * testable; the ISO-string comparison avoids the timezone pitfalls plain Date comparison has (see
+ * youthProtection.ts's isMinor). Returns 0 for an employee not employed at all during `priorYear`
+ * (e.g. hired this year) - without this check, "0 days taken" would be misread as their full
+ * entitlement having gone unused, when in truth there was no prior-year entitlement to begin with. */
+export function carriedOverVacationDays(
+  employee: Pick<Employee, 'vacationEntitlementPerYear'> & EmploymentPeriod,
+  priorYearAbsences: Absence[],
+  priorYear: number,
+  referenceDate: Date,
+  isHoliday?: (isoDate: string) => boolean,
+): number {
+  const deadline = `${priorYear + 1}-03-31`;
+  if (toISODate(referenceDate) > deadline) {
+    return 0;
+  }
+  if (!isEmployedDuring(employee, `${priorYear}-01-01`, `${priorYear}-12-31`)) {
+    return 0;
+  }
+  const daysTaken = countVacationDaysInYear(priorYearAbsences, priorYear, isHoliday);
+  return Math.max(0, calculateRemainingVacation(employee, daysTaken, priorYear));
 }
 
 /** Remaining vacation for many employees at once, from an already-loaded list of absences that may

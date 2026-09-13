@@ -167,6 +167,7 @@ describe('EmployeeMasterDataView', () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     // @ts-expect-error -- undo the per-test stub, jsdom has no matchMedia of its own to restore
     delete window.matchMedia;
   });
@@ -245,6 +246,48 @@ describe('EmployeeMasterDataView', () => {
     // same as his Urlaub/Jahr column, so "30" appears twice in his row.
     const benRow = screen.getByText('Cengiz, Ben').closest('tr') as HTMLElement;
     expect(within(benRow).getAllByText('30')).toHaveLength(2);
+  });
+
+  it('adds unused prior-year vacation to the Resturlaub total with a breakdown hint, while the March 31 deadline has not passed', async () => {
+    mockViewportWidth(1700);
+    vi.setSystemTime(new Date('2027-02-01T10:00:00'));
+    forEmployeesMock.mockResolvedValue([
+      // Same deterministic 14-day-February trick as the test above, one year earlier: 12 work days
+      // taken in 2026, none in 2027 -> Anna carries over 28 - 12 = 16 days into 2027.
+      { id: 'abs1' as AbsenceId, employeeId: anna.id, type: 'Vacation', from: '2026-02-02', to: '2026-02-15', createdAt: '2026-01-01T00:00:00.000Z' },
+      // Ben used up his full 2026 entitlement (5 Mon-Sat weeks = 30 work days), so his carry-over
+      // is genuinely 0 - the intended "no breakdown, unchanged column" control row (an employee
+      // with NO 2026 absence at all would legitimately carry over their full unused entitlement
+      // too, which would defeat the point of this control).
+      { id: 'abs2' as AbsenceId, employeeId: ben.id, type: 'Vacation', from: '2026-01-05', to: '2026-02-07', createdAt: '2026-01-01T00:00:00.000Z' },
+    ]);
+    renderView();
+    await screen.findByText('Bauer, Anna');
+
+    const annaRow = screen.getByText('Bauer, Anna').closest('tr') as HTMLElement;
+    // 28 (full 2027 entitlement, untouched) + 16 (carried over from 2026) = 44.
+    expect(await within(annaRow).findByText('44')).toBeInTheDocument();
+    expect(within(annaRow).getByText('44 Tage, davon 16 aus 2026, gültig bis 31.03.2027')).toBeInTheDocument();
+
+    const benRow = screen.getByText('Cengiz, Ben').closest('tr') as HTMLElement;
+    await waitFor(() => expect(within(benRow).getAllByText('30')).toHaveLength(2));
+    expect(within(benRow).queryByText(/gültig bis/)).not.toBeInTheDocument();
+  });
+
+  it('drops the carry-over once the March 31 deadline of the following year has passed (regression: unchanged column)', async () => {
+    mockViewportWidth(1700);
+    vi.setSystemTime(new Date('2027-04-01T10:00:00'));
+    forEmployeesMock.mockResolvedValue([
+      { id: 'abs1' as AbsenceId, employeeId: anna.id, type: 'Vacation', from: '2026-02-02', to: '2026-02-15', createdAt: '2026-01-01T00:00:00.000Z' },
+    ]);
+    renderView();
+    await screen.findByText('Bauer, Anna');
+
+    const annaRow = screen.getByText('Bauer, Anna').closest('tr') as HTMLElement;
+    // The deadline has passed, so Anna's Resturlaub is her plain, unchanged full 2027 entitlement
+    // (28) with no breakdown line - same as Urlaub/Jahr, so "28" legitimately appears twice.
+    await waitFor(() => expect(within(annaRow).getAllByText('28')).toHaveLength(2));
+    expect(within(annaRow).queryByText(/gültig bis/)).not.toBeInTheDocument();
   });
 
   it('shows the Resturlaub figure as a compact line on the mobile card too', async () => {

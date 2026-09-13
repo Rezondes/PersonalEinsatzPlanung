@@ -30,9 +30,11 @@ import type { Employee } from '@domain/employee/Employee';
 import { compareByLastName, fullName } from '@domain/employee/Employee';
 import { employmentTypeLabel, targetWeeklyHoursRange } from '@domain/employee/EmploymentType';
 import type { EmploymentTypeKind } from '@domain/employee/EmploymentType';
+import type { EmployeeId } from '@domain/shared/ids';
 import { formatISODateGerman } from '@domain/shared/DateFormat';
 import { isMinor } from '@domain/validation/arbzg/youthProtection';
-import { remainingVacationByEmployee } from '@domain/absence/vacationCalculation';
+import type { Absence } from '@domain/absence/Absence';
+import { remainingVacationByEmployee, carriedOverVacationDays } from '@domain/absence/vacationCalculation';
 import { createHolidayCheck } from '@infrastructure/holidays/germanHolidays';
 import { services } from '@infrastructure/services';
 import { useSelectedBranch } from '@ui/hooks/useBranch';
@@ -63,6 +65,48 @@ const COLUMN_COUNT_TABLET = 7;
 /** German collation, like compareByLastName - a plain "a < b" would sort umlauts wrongly. */
 function compareText(a: string, b: string): number {
   return a.localeCompare(b, 'de');
+}
+
+/** Combines each employee's current-year remaining entitlement with any still-valid carry-over
+ * from the prior year into one displayed number, plus a ready-to-render breakdown hint - `null`
+ * for the common case of nobody carrying anything over, so the Resturlaub column's look for that
+ * majority stays byte-for-byte what it was before this existed. */
+function vacationDisplayByEmployee(
+  employeeList: Employee[],
+  remainingVacation: Map<EmployeeId, number>,
+  absences: Absence[],
+  currentYear: number,
+  isHoliday: (isoDate: string) => boolean,
+  referenceDate: Date,
+): Map<EmployeeId, { totalDays: number; hint: string | null }> {
+  const absencesByEmployee = new Map<EmployeeId, Absence[]>();
+  for (const absence of absences) {
+    const list = absencesByEmployee.get(absence.employeeId);
+    if (list) {
+      list.push(absence);
+    } else {
+      absencesByEmployee.set(absence.employeeId, [absence]);
+    }
+  }
+
+  const priorYear = currentYear - 1;
+  return new Map(
+    employeeList.map((employee) => {
+      const carriedOverDays = carriedOverVacationDays(
+        employee,
+        absencesByEmployee.get(employee.id) ?? [],
+        priorYear,
+        referenceDate,
+        isHoliday,
+      );
+      const totalDays = (remainingVacation.get(employee.id) ?? 0) + carriedOverDays;
+      const hint =
+        carriedOverDays > 0
+          ? `${totalDays.toLocaleString('de-DE')} Tage, davon ${carriedOverDays.toLocaleString('de-DE')} aus ${priorYear}, gültig bis 31.03.${currentYear}`
+          : null;
+      return [employee.id, { totalDays, hint }];
+    }),
+  );
 }
 
 /** Every comparator falls back to the name order, so equal values keep a stable, familiar order
@@ -130,11 +174,13 @@ function getRowActions(
 function EmployeeCard({
   employee,
   remainingVacationDays,
+  vacationHint,
   onTap,
   onLongPress,
 }: {
   employee: Employee;
   remainingVacationDays: number;
+  vacationHint: string | null;
   onTap: () => void;
   onLongPress: () => void;
 }) {
@@ -203,6 +249,11 @@ function EmployeeCard({
           <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
             {remainingVacationDays.toLocaleString('de-DE')} Resturlaub
           </Typography>
+          {vacationHint && (
+            <Typography variant="caption" color="text.secondary" display="block">
+              {vacationHint}
+            </Typography>
+          )}
         </Box>
         <ChevronRightIcon sx={{ color: 'rgba(0,0,0,0.38)', flexShrink: 0, mt: 0.5 }} />
       </ButtonBase>
@@ -265,6 +316,10 @@ export function EmployeeMasterDataView() {
   const remainingVacation = useMemo(
     () => remainingVacationByEmployee(employeeList, absences, currentYear, isHoliday),
     [employeeList, absences, currentYear, isHoliday],
+  );
+  const vacationDisplay = useMemo(
+    () => vacationDisplayByEmployee(employeeList, remainingVacation, absences, currentYear, isHoliday, new Date()),
+    [employeeList, remainingVacation, absences, currentYear, isHoliday],
   );
 
   if (!branch) {
@@ -355,7 +410,8 @@ export function EmployeeMasterDataView() {
           renderCard={(emp) => (
             <EmployeeCard
               employee={emp}
-              remainingVacationDays={remainingVacation.get(emp.id) ?? 0}
+              remainingVacationDays={vacationDisplay.get(emp.id)?.totalDays ?? remainingVacation.get(emp.id) ?? 0}
+              vacationHint={vacationDisplay.get(emp.id)?.hint ?? null}
               onTap={() => setDialog({ employee: emp })}
               onLongPress={() => setSheetEmployee(emp)}
             />
@@ -416,6 +472,7 @@ export function EmployeeMasterDataView() {
                 {visibleEmployees.map((emp) => {
                   const minor = isMinor(emp.birthDate, new Date());
                   const period = employmentPeriodText(emp);
+                  const vacation = vacationDisplay.get(emp.id);
                   // Tablet: the row itself opens the edit dialog (matching the mockup's "row
                   // clickable, one overflow button" pattern); laptop keeps its inline icon buttons
                   // and no row click, exactly as today.
@@ -456,7 +513,14 @@ export function EmployeeMasterDataView() {
                       </TableCell>
                       <TableCell>{weeklyHoursText(emp)}</TableCell>
                       <TableCell>{emp.vacationEntitlementPerYear.toLocaleString('de-DE')}</TableCell>
-                      <TableCell>{(remainingVacation.get(emp.id) ?? 0).toLocaleString('de-DE')}</TableCell>
+                      <TableCell>
+                        {(vacation?.totalDays ?? remainingVacation.get(emp.id) ?? 0).toLocaleString('de-DE')}
+                        {vacation?.hint && (
+                          <Typography variant="caption" color="text.secondary" display="block">
+                            {vacation.hint}
+                          </Typography>
+                        )}
+                      </TableCell>
                       {layout === 'laptop' && <TableCell>{(emp.holidayVacationHours ?? 0).toLocaleString('de-DE')}</TableCell>}
                       <TableCell>
                         <Chip size="small" label={emp.active ? 'Aktiv' : 'Inaktiv'} color={emp.active ? 'success' : 'default'} />

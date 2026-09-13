@@ -9,6 +9,7 @@ import {
   calculateRemainingVacation,
   remainingVacationByEmployee,
   proRatedVacationEntitlement,
+  carriedOverVacationDays,
 } from './vacationCalculation';
 
 const m1 = 'm1' as EmployeeId;
@@ -179,5 +180,46 @@ describe('remainingVacationByEmployee', () => {
       2026,
     );
     expect(result.get(m1)).toBe(12);
+  });
+});
+
+describe('carriedOverVacationDays', () => {
+  const employee = { vacationEntitlementPerYear: 24 };
+  // Mon 2025-01-06 .. Tue 2025-01-28: three full Mon-Sat weeks (18) + Mon+Tue (2) = 20 work days.
+  const twentyDaysTaken = [createAbsence({ employeeId: m1, type: 'Vacation', from: '2025-01-06', to: '2025-01-28' })];
+
+  it('carries over the unused remainder of the prior year while still before the deadline', () => {
+    expect(carriedOverVacationDays(employee, twentyDaysTaken, 2025, new Date('2026-02-01'))).toBe(4);
+  });
+
+  it('returns 0 once the deadline (March 31 of the following year) has passed', () => {
+    expect(carriedOverVacationDays(employee, twentyDaysTaken, 2025, new Date('2026-04-01'))).toBe(0);
+  });
+
+  it('still counts on the deadline date itself', () => {
+    expect(carriedOverVacationDays(employee, twentyDaysTaken, 2025, new Date('2026-03-31'))).toBe(4);
+  });
+
+  it('never returns a negative carry-over when more days were taken than the entitlement', () => {
+    // Mon 2025-01-06 .. Tue 2025-02-04: the 20-day range above plus one more full week and Mon+Tue = 26 days.
+    const overTaken = [createAbsence({ employeeId: m1, type: 'Vacation', from: '2025-01-06', to: '2025-02-04' })];
+    expect(carriedOverVacationDays(employee, overTaken, 2025, new Date('2026-02-01'))).toBe(0);
+  });
+
+  it('adds on top of the current year\'s remaining entitlement for the combined total shown to the user', () => {
+    const carried = carriedOverVacationDays(employee, twentyDaysTaken, 2025, new Date('2026-02-01'));
+    const currentYearRemaining = calculateRemainingVacation(employee, 5, 2026);
+    expect(carried + currentYearRemaining).toBe(4 + (24 - 5));
+  });
+
+  it('returns 0 when the employee was not employed at all yet during the prior year, instead of misreading "0 days taken" as the full entitlement carrying over', () => {
+    const newHire = { vacationEntitlementPerYear: 24, entryDate: '2026-06-01' };
+    expect(carriedOverVacationDays(newHire, [], 2025, new Date('2026-02-01'))).toBe(0);
+  });
+
+  it('still carries over for an employee who was employed for only part of the prior year (pro-rated entitlement applies)', () => {
+    // Entered 2025-07-01: pro-rated 2025 entitlement is 12 (half of 24), no days taken -> 12 carry over.
+    const midYearHire = { vacationEntitlementPerYear: 24, entryDate: '2025-07-01' };
+    expect(carriedOverVacationDays(midYearHire, [], 2025, new Date('2026-02-01'))).toBe(12);
   });
 });
