@@ -20,11 +20,20 @@ import type { DayEntry } from '@domain/schedule/EmployeeWeekAssignment';
 import { shiftNetMinutes, minutesToDecimalHours } from '@domain/schedule/scheduleCalculation';
 import type { Absence, AbsenceType } from '@domain/absence/Absence';
 import { formatISODateGerman } from '@domain/shared/DateFormat';
+import type { Weekday } from '@domain/shared/CalendarWeek';
 import { CREDITED_OVERRIDE_FIELD, validateAbsence } from '@domain/absence/absenceValidation';
 import type { EmployeeId } from '@domain/shared/ids';
 import { validateBreaks } from '@domain/validation/arbzg/breakValidation';
 import { validateShiftDuration } from '@domain/validation/arbzg/shiftDurationValidation';
 import { validateDailyWorkingTime } from '@domain/validation/arbzg/maxWorkingTimeValidation';
+import {
+  validateYouthDailyWorkingTime,
+  validateYouthBreaks,
+  validateYouthShiftSpan,
+  validateYouthNightWork,
+  validateYouthSundayWork,
+  validateChildEmploymentBan,
+} from '@domain/validation/arbzg/youthProtection';
 import { useFormValidation } from '@ui/hooks/useFormValidation';
 import { ConfirmDialog } from '@ui/components/ConfirmDialog';
 import { DecimalTextField } from '@ui/components/DecimalTextField';
@@ -55,10 +64,13 @@ interface DayEditorProps {
   onAbsenceSave: (type: AbsenceType, details?: AbsenceDetails) => void;
   employeeId: EmployeeId;
   employeeName: string;
-  day: string;
+  day: Weekday;
   date: string;
   entry: DayEntry;
   absence?: Absence;
+  /** Only relevant for the youth-protection live check below; omitted entirely for an employee
+   * with no birth date on file, same as everywhere else in the app (see Employee.birthDate). */
+  birthDate?: string;
 }
 
 function absenceTypeLabel(type: Absence['type']): string {
@@ -85,6 +97,7 @@ export function DayEditor({
   date,
   entry,
   absence,
+  birthDate,
 }: DayEditorProps) {
   const [mode, setMode] = useState<Mode>('Off');
   // Raw input values (see shiftDraft.ts): a cleared time field stays empty and gets marked,
@@ -157,6 +170,10 @@ export function DayEditor({
       setHoursPerDay(undefined);
       setCreditedHoursOverride(undefined);
     }
+    // Deliberately excludes `resetValidation`: useFormValidation returns a fresh `reset` closure
+    // every render (not memoized, see its own comment), so listing it here would either re-run
+    // this effect every render or require memoizing the hook for no real benefit - this effect
+    // only needs to run again when the dialog reopens for a (possibly different) day.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, entry, absence, date, isSingleDayAbsence]);
 
@@ -170,6 +187,14 @@ export function DayEditor({
   // Live-validates the draft shifts against ArbZG rules before saving, so a clear legal violation
   // (severity "error") requires explicit confirmation - checked against the in-progress edit,
   // not the stale results from before the dialog opened.
+  //
+  // Includes the day-scoped JArbSchG youth checks alongside the adult ones, for the same reason:
+  // without them, a pure youth-protection violation (e.g. a minor scheduled past 20:00) saved
+  // silently and only turned up red afterwards via the post-save week validation. Deliberately
+  // mirrors the adult set's own scope, not all of youthProtection.ts: validateYouthWeeklyWorkingTime
+  // and validateYouthRestPeriodSequence need the whole week's minutes / cross-week shift sequence,
+  // neither of which this single-day editor has (same reason validateWeeklyWorkingTime and the
+  // async rest-period check aren't in the adult list above either).
   const liveErrors = useMemo(() => {
     if (!parsedShifts) return [];
     const context = { employeeId, date };
@@ -178,8 +203,14 @@ export function DayEditor({
       ...parsedShifts.flatMap((s) => validateShiftDuration(s, context)),
       ...validateBreaks(parsedShifts, context),
       ...validateDailyWorkingTime(netMinutes, context),
+      ...parsedShifts.flatMap((s) => validateYouthNightWork(s, birthDate, context)),
+      ...validateYouthBreaks(parsedShifts, birthDate, context),
+      ...validateYouthShiftSpan(parsedShifts, birthDate, context),
+      ...validateYouthDailyWorkingTime(netMinutes, birthDate, context),
+      ...validateYouthSundayWork(date, day, birthDate, { employeeId }),
+      ...validateChildEmploymentBan(date, birthDate, { employeeId }),
     ].filter((e) => e.severity === 'error');
-  }, [parsedShifts, employeeId, date]);
+  }, [parsedShifts, employeeId, date, day, birthDate]);
 
   const actuallySave = () => {
     if (mode === 'Off') {
@@ -266,7 +297,8 @@ export function DayEditor({
           value={mode}
           onChange={(_, value) => value && setMode(value)}
           size="small"
-          sx={{ mb: 2, display: 'flex', '& .MuiToggleButton-root': { flex: 1 } }}
+          aria-label="Eintragsart"
+          sx={{ mb: 2, display: 'flex', '& .MuiToggleButton-root': { flex: 1, minWidth: 0 } }}
         >
           <ToggleButton value="Off">Frei</ToggleButton>
           <ToggleButton value="Shift">Arbeitszeit</ToggleButton>

@@ -1025,6 +1025,7 @@ export function ScheduleView() {
           date={editorState.dayView.date}
           entry={editorState.dayView.entry}
           absence={editorState.dayView.absence}
+          birthDate={editorRow.employee.birthDate}
         />
       )}
 

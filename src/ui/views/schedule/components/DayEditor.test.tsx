@@ -9,7 +9,7 @@ import { DayEditor } from './DayEditor';
 const m1 = 'm1' as EmployeeId;
 const date = '2026-09-07';
 
-function renderEditor(entry: DayEntry = { type: 'Off' }, absence?: Absence) {
+function renderEditor(entry: DayEntry = { type: 'Off' }, absence?: Absence, birthDate?: string) {
   const onClose = vi.fn();
   const onSave = vi.fn();
   const onAbsenceSave = vi.fn();
@@ -25,6 +25,7 @@ function renderEditor(entry: DayEntry = { type: 'Off' }, absence?: Absence) {
       date={date}
       entry={entry}
       absence={absence}
+      birthDate={birthDate}
     />,
   );
   return { onClose, onSave, onAbsenceSave };
@@ -147,5 +148,56 @@ describe('DayEditor', () => {
       type: 'Shift',
       shifts: [expect.objectContaining({ start: '06:00', end: '22:00' })],
     });
+  });
+
+  it('asks for confirmation on a pure youth-protection violation (minor working past 20:00) even though no adult rule fires', async () => {
+    const user = userEvent.setup();
+    // 19:00-21:00: 2h net, no break required, nowhere near any adult daily-hours threshold - the
+    // ONLY thing wrong with this shift is JArbSchG's 20:00 curfew for a minor.
+    const { onSave } = renderEditor(undefined, undefined, '2010-05-01');
+
+    setTime('Beginn', '19:00');
+    setTime('Ende', '21:00');
+    await user.click(save());
+
+    expect(screen.getByText('Gesetzesverstoß trotzdem speichern?')).toBeInTheDocument();
+    expect(onSave).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole('button', { name: 'Trotzdem speichern' }));
+    expect(onSave).toHaveBeenCalledWith({
+      type: 'Shift',
+      shifts: [expect.objectContaining({ start: '19:00', end: '21:00' })],
+    });
+  });
+
+  it('does not ask for confirmation on the identical shift for an adult', async () => {
+    const user = userEvent.setup();
+    const { onSave } = renderEditor(undefined, undefined, '1990-05-01');
+
+    setTime('Beginn', '19:00');
+    setTime('Ende', '21:00');
+    await user.click(save());
+
+    expect(screen.queryByText('Gesetzesverstoß trotzdem speichern?')).not.toBeInTheDocument();
+    expect(onSave).toHaveBeenCalled();
+  });
+
+  it('asks for confirmation for a child (under 15) even on an otherwise unremarkable shift, per the unconditional §5 JArbSchG ban', async () => {
+    const user = userEvent.setup();
+    const { onSave } = renderEditor(undefined, undefined, '2020-01-01');
+
+    // 2h net, no break required, well inside 06:00-20:00 - violates no hour/break/night-work rule
+    // for anyone; the ONLY reason to ask for confirmation here is the child ban itself.
+    setTime('Beginn', '08:00');
+    setTime('Ende', '10:00');
+    await user.click(save());
+
+    expect(screen.getByText('Gesetzesverstoß trotzdem speichern?')).toBeInTheDocument();
+    expect(onSave).not.toHaveBeenCalled();
+  });
+
+  it('labels the entry-type toggle group for screen readers', () => {
+    renderEditor();
+    expect(screen.getByRole('group', { name: 'Eintragsart' })).toBeInTheDocument();
   });
 });

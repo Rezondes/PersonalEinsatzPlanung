@@ -54,5 +54,10 @@ export function useFormValidation<F extends string>(validate: () => FieldError<F
 
   const reset = () => setSubmitted(false);
 
+  // None of these functions are wrapped in useCallback: every returned value here is a fresh
+  // closure each render, deliberately. A caller must not put `reset`/`submit`/`fieldProps` into a
+  // dependency array expecting stability - gate an effect on the form's own inputs instead (see
+  // DayEditor.tsx's open/entry/absence/date effect, which calls `resetValidation` unconditionally
+  // rather than depending on it).
   return { submitted, errors, fieldProps, submit, reset, containerRef };
 }
