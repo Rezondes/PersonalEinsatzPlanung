@@ -128,6 +128,36 @@ describe('EmployeeDialog', () => {
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 
+  it('offers an optional monthly-hours cap for Minijob, omitted when blank and included once entered', async () => {
+    const user = userEvent.setup();
+    renderDialog();
+
+    await chooseEmploymentType(user, 'Geringfügig beschäftigt (Minijob)');
+    expect(textbox('Max. Std./Monat (optional)')).not.toBeRequired();
+
+    await user.type(textbox('Vorname'), 'Anna');
+    await user.type(textbox('Nachname'), 'Müller');
+    await user.type(screen.getByRole('combobox', { name: 'Tätigkeit' }), 'Verkauf');
+    await user.type(textbox('Min. Std./Woche'), '5');
+    await user.type(textbox('Max. Std./Woche'), '10');
+    await user.type(textbox('Std. je Feier-/Urlaubstag'), '2');
+    await user.click(save());
+
+    await waitFor(() => expect(createMock).toHaveBeenCalledTimes(1));
+    expect(createMock).toHaveBeenCalledWith(
+      expect.objectContaining({ employmentType: { type: 'Minijob', minHours: 5, maxHours: 10, maxMonthlyHours: undefined } }),
+    );
+
+    createMock.mockClear();
+    await user.type(textbox('Max. Std./Monat (optional)'), '43');
+    await user.click(save());
+
+    await waitFor(() => expect(createMock).toHaveBeenCalledTimes(1));
+    expect(createMock).toHaveBeenCalledWith(
+      expect.objectContaining({ employmentType: { type: 'Minijob', minHours: 5, maxHours: 10, maxMonthlyHours: 43 } }),
+    );
+  });
+
   it('opens a legacy employee without errors and only complains on save', async () => {
     const user = userEvent.setup();
     const legacy: Employee = {

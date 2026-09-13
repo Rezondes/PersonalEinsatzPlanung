@@ -8,8 +8,11 @@ import type { Employee } from '@domain/employee/Employee';
 import { fullName } from '@domain/employee/Employee';
 import { targetWeeklyHoursRange } from '@domain/employee/EmploymentType';
 import { formatHoursRangeGerman } from '@domain/schedule/scheduleCalculation';
+import type { CalendarWeek, Weekday } from '@domain/shared/CalendarWeek';
 import { calendarWeeksInMonth } from '@domain/shared/CalendarWeek';
-import { createWeeklySchedule } from '@domain/schedule/WeeklySchedule';
+import { createWeeklySchedule, withDayEntry } from '@domain/schedule/WeeklySchedule';
+import { createShift } from '@domain/schedule/Shift';
+import { clockTime } from '@domain/shared/ClockTime';
 import { services } from '@infrastructure/services';
 import { useBranchesStore } from '@ui/app/store/branchesStore';
 import { useBranchSelectionStore } from '@ui/app/store/branchSelectionStore';
@@ -69,6 +72,26 @@ function makeEmployee(overrides: Partial<Employee> = {}): Employee {
 function sollWocheText(employee: Employee): string {
   const range = targetWeeklyHoursRange(employee.employmentType);
   return formatHoursRangeGerman(range.min * 60, range.max * 60);
+}
+
+/** One shift per given weekday, each `hoursPerDay` long starting at 06:00, no break - matching
+ * scheduleAssessment.test.ts's assumption that an unbroken shift's net minutes equal its full
+ * scheduled duration. */
+function scheduleWithWeekdayShifts(
+  employeeId: EmployeeId,
+  week: CalendarWeek,
+  weekdays: Weekday[],
+  hoursPerDay: number,
+) {
+  const endHour = String(6 + hoursPerDay).padStart(2, '0');
+  return weekdays.reduce(
+    (schedule, day) =>
+      withDayEntry(schedule, employeeId, day, {
+        type: 'Shift',
+        shifts: [createShift(clockTime('06:00'), clockTime(`${endHour}:00`))],
+      }),
+    createWeeklySchedule(branch.id, week, [employeeId]),
+  );
 }
 
 function selectBranch() {
@@ -350,5 +373,94 @@ describe('MonthOverviewView', () => {
 
     await waitFor(() => expect(screen.getByText('schedule-route-landed')).toBeInTheDocument());
     expect(useCalendarWeekStore.getState().selectedWeek).toEqual(week1);
+  });
+
+  it('shows a warning icon and tooltip next to Gesamt Monat when a Minijob employee exceeds their monthly-hours cap', async () => {
+    selectBranch();
+    const user = userEvent.setup();
+    const minijobber = makeEmployee({
+      id: 'e1' as EmployeeId,
+      employmentType: { type: 'Minijob', minHours: 5, maxHours: 10, maxMonthlyHours: 40 },
+    });
+    employeeForBranch.mockResolvedValue([minijobber]);
+    const weeks = calendarWeeksInMonth(currentYear, currentMonth);
+    // 5 x 9h = 45h, over the 40h cap.
+    const schedule = scheduleWithWeekdayShifts(
+      minijobber.id,
+      weeks[0],
+      ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag'],
+      9,
+    );
+    scheduleForBranch.mockResolvedValue([schedule]);
+
+    renderView();
+    await screen.findByText(fullName(minijobber));
+
+    const row = screen.getByText(fullName(minijobber)).closest('tr')!;
+    const warningButton = within(row).getByRole('button', { name: 'Monatsgrenze überschritten anzeigen' });
+    await user.click(warningButton);
+
+    expect(screen.getByText('45 Std. diesen Monat, Grenze 40 Std./Monat')).toBeInTheDocument();
+  });
+
+  it('shows no warning icon when the Minijob employee stays within their monthly-hours cap', async () => {
+    selectBranch();
+    const minijobber = makeEmployee({
+      id: 'e1' as EmployeeId,
+      employmentType: { type: 'Minijob', minHours: 5, maxHours: 10, maxMonthlyHours: 40 },
+    });
+    employeeForBranch.mockResolvedValue([minijobber]);
+    const weeks = calendarWeeksInMonth(currentYear, currentMonth);
+    const schedule = scheduleWithWeekdayShifts(minijobber.id, weeks[0], ['Montag'], 8);
+    scheduleForBranch.mockResolvedValue([schedule]);
+
+    renderView();
+    await screen.findByText(fullName(minijobber));
+
+    const row = screen.getByText(fullName(minijobber)).closest('tr')!;
+    expect(within(row).queryByRole('button', { name: 'Monatsgrenze überschritten anzeigen' })).not.toBeInTheDocument();
+  });
+
+  it('never shows the monthly-hours warning for FullTime/PartTime employees, even with a very high total', async () => {
+    selectBranch();
+    const fullTimer = makeEmployee({ id: 'e1' as EmployeeId, employmentType: { type: 'FullTime', weeklyHours: 40 } });
+    employeeForBranch.mockResolvedValue([fullTimer]);
+    const weeks = calendarWeeksInMonth(currentYear, currentMonth);
+    const schedule = scheduleWithWeekdayShifts(
+      fullTimer.id,
+      weeks[0],
+      ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag'],
+      9,
+    );
+    scheduleForBranch.mockResolvedValue([schedule]);
+
+    renderView();
+    await screen.findByText(fullName(fullTimer));
+
+    const row = screen.getByText(fullName(fullTimer)).closest('tr')!;
+    expect(within(row).queryByRole('button', { name: 'Monatsgrenze überschritten anzeigen' })).not.toBeInTheDocument();
+  });
+
+  it('shows no warning for a Minijob employee without maxMonthlyHours set, even over a high total (not set = no check)', async () => {
+    selectBranch();
+    const minijobber = makeEmployee({
+      id: 'e1' as EmployeeId,
+      employmentType: { type: 'Minijob', minHours: 5, maxHours: 10 },
+    });
+    employeeForBranch.mockResolvedValue([minijobber]);
+    const weeks = calendarWeeksInMonth(currentYear, currentMonth);
+    const schedule = scheduleWithWeekdayShifts(
+      minijobber.id,
+      weeks[0],
+      ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag'],
+      9,
+    );
+    scheduleForBranch.mockResolvedValue([schedule]);
+
+    renderView();
+    await screen.findByText(fullName(minijobber));
+
+    const row = screen.getByText(fullName(minijobber)).closest('tr')!;
+    expect(within(row).queryByRole('button', { name: 'Monatsgrenze überschritten anzeigen' })).not.toBeInTheDocument();
   });
 });

@@ -9,6 +9,7 @@ export type EmployeeField =
   | 'weeklyHours'
   | 'minHours'
   | 'maxHours'
+  | 'maxMonthlyHours'
   | 'vacationEntitlementPerYear'
   | 'holidayVacationHours'
   | 'exitDate';
@@ -65,7 +66,7 @@ export function validateEmployee(draft: EmployeeDraft): FieldError<EmployeeField
 
   const employment = draft.employmentType;
   if (employment.type === 'Minijob') {
-    const { minHours, maxHours } = employment;
+    const { minHours, maxHours, maxMonthlyHours } = employment;
     if (isMissing(minHours)) {
       errors.push({ field: 'minHours', message: 'Bitte Min. Std. eingeben.' });
     } else if (minHours <= 0) {
@@ -79,6 +80,10 @@ export function validateEmployee(draft: EmployeeDraft): FieldError<EmployeeField
     // Only meaningful once both bounds are present and positive; otherwise the messages above apply.
     if (!isMissing(minHours) && !isMissing(maxHours) && minHours > 0 && maxHours > 0 && minHours > maxHours) {
       errors.push({ field: 'minHours', message: 'Min. Std. darf nicht über Max. Std. liegen.' });
+    }
+    // Optional (unlike minHours/maxHours above) - only checked once actually entered.
+    if (!isMissing(maxMonthlyHours) && maxMonthlyHours <= 0) {
+      errors.push({ field: 'maxMonthlyHours', message: MUST_BE_POSITIVE_MESSAGE });
     }
   } else if (isMissing(employment.weeklyHours)) {
     errors.push({ field: 'weeklyHours', message: 'Bitte Wochenstunden eingeben.' });

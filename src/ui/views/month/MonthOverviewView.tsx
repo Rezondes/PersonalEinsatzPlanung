@@ -14,8 +14,10 @@ import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 import Chip from '@mui/material/Chip';
 import Alert from '@mui/material/Alert';
+import Tooltip from '@mui/material/Tooltip';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
+import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import type { WeeklySchedule } from '@domain/schedule/WeeklySchedule';
 import type { CalendarWeek } from '@domain/shared/CalendarWeek';
 import { fullName } from '@domain/employee/Employee';
@@ -61,6 +63,9 @@ export function MonthOverviewView() {
   const [schedules, setSchedules] = useState<WeeklySchedule[]>([]);
   const navigate = useNavigate();
   const setSelectedWeek = useCalendarWeekStore((s) => s.setSelectedWeek);
+  // Controlled (not hover) so a tap works on mobile too, matching ScheduleTable's identical
+  // deviation-warning tooltip pattern; only one employee's warning open at a time.
+  const [warningOpenFor, setWarningOpenFor] = useState<string | null>(null);
 
   useEffect(() => {
     if (!branch) return;
@@ -169,6 +174,12 @@ export function MonthOverviewView() {
           <TableBody>
             {employeeList.map((employee) => {
               const row = rows.find((r) => r.employeeId === employee.id);
+              const totalNetMinutes = row?.totalNetMinutes ?? 0;
+              // totalNetMinutes is worked + credited (see application/CLAUDE.md) - deliberately not
+              // worked-only, since paid absences (Urlaub/Krankheit) count towards a Minijob's real
+              // earnings limit too, just like actually worked hours do.
+              const monthlyLimit = employee.employmentType.type === 'Minijob' ? employee.employmentType.maxMonthlyHours : undefined;
+              const overMonthlyLimit = monthlyLimit != null && totalNetMinutes > monthlyLimit * 60;
               return (
                 <TableRow key={employee.id} hover sx={{ opacity: employee.active ? 1 : 0.55 }}>
                   <TableCell sx={stickyFirstColumnSx}>
@@ -214,9 +225,30 @@ export function MonthOverviewView() {
                     );
                   })}
                   <TableCell align="right">
-                    <Typography fontWeight={500}>
-                      {row ? minutesToDecimalHours(row.totalNetMinutes).toLocaleString('de-DE') : '0'}
-                    </Typography>
+                    <Stack direction="row" spacing={0.5} alignItems="center" justifyContent="flex-end">
+                      <Typography fontWeight={500}>{minutesToDecimalHours(totalNetMinutes).toLocaleString('de-DE')}</Typography>
+                      {overMonthlyLimit && (
+                        <Tooltip
+                          title={`${minutesToDecimalHours(totalNetMinutes).toLocaleString('de-DE')} Std. diesen Monat, Grenze ${monthlyLimit!.toLocaleString('de-DE')} Std./Monat`}
+                          arrow
+                          open={warningOpenFor === employee.id}
+                          onClose={() => setWarningOpenFor(null)}
+                          disableFocusListener
+                          disableHoverListener
+                          disableTouchListener
+                        >
+                          <Box
+                            component="button"
+                            type="button"
+                            aria-label="Monatsgrenze überschritten anzeigen"
+                            onClick={() => setWarningOpenFor((prev) => (prev === employee.id ? null : employee.id))}
+                            sx={{ display: 'flex', alignItems: 'center', p: 0, border: 'none', background: 'transparent', cursor: 'pointer' }}
+                          >
+                            <WarningAmberIcon fontSize="small" sx={{ color: '#c8973a' }} />
+                          </Box>
+                        </Tooltip>
+                      )}
+                    </Stack>
                   </TableCell>
                 </TableRow>
               );

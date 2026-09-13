@@ -27,6 +27,7 @@ interface FormState {
   weeklyHours: number | undefined;
   minHours: number | undefined;
   maxHours: number | undefined;
+  maxMonthlyHours: number | undefined;
   vacationEntitlementPerYear: number | undefined;
   holidayVacationHours: number | undefined;
   birthDate: string;
@@ -43,6 +44,7 @@ function emptyForm(): FormState {
     weeklyHours: undefined,
     minHours: undefined,
     maxHours: undefined,
+    maxMonthlyHours: undefined,
     vacationEntitlementPerYear: 28,
     holidayVacationHours: undefined,
     birthDate: '',
@@ -61,6 +63,7 @@ function formFromEmployee(emp: Employee): FormState {
     weeklyHours: et.type !== 'Minijob' ? et.weeklyHours : undefined,
     minHours: et.type === 'Minijob' ? et.minHours : undefined,
     maxHours: et.type === 'Minijob' ? et.maxHours : undefined,
+    maxMonthlyHours: et.type === 'Minijob' ? et.maxMonthlyHours : undefined,
     vacationEntitlementPerYear: emp.vacationEntitlementPerYear,
     holidayVacationHours: emp.holidayVacationHours,
     birthDate: emp.birthDate ?? '',
@@ -71,14 +74,15 @@ function formFromEmployee(emp: Employee): FormState {
 
 function employmentTypeDraft(form: FormState): EmploymentTypeDraft {
   return form.type === 'Minijob'
-    ? { type: 'Minijob', minHours: form.minHours, maxHours: form.maxHours }
+    ? { type: 'Minijob', minHours: form.minHours, maxHours: form.maxHours, maxMonthlyHours: form.maxMonthlyHours }
     : { type: form.type, weeklyHours: form.weeklyHours };
 }
 
-/** Only called after validateEmployee passed, which guarantees every number is present. */
+/** Only called after validateEmployee passed, which guarantees every number is present -
+ * maxMonthlyHours is the one exception, since it stays optional even then. */
 function toEmploymentType(form: FormState): EmploymentType {
   return form.type === 'Minijob'
-    ? { type: 'Minijob', minHours: form.minHours!, maxHours: form.maxHours! }
+    ? { type: 'Minijob', minHours: form.minHours!, maxHours: form.maxHours!, maxMonthlyHours: form.maxMonthlyHours }
     : { type: form.type, weeklyHours: form.weeklyHours! };
 }
 
@@ -212,24 +216,36 @@ export function EmployeeDialog({ branchId, employee, onClose, onSaved, onError, 
           </TextField>
 
           {form.type === 'Minijob' ? (
-            <Stack direction="row" spacing={2}>
+            <>
+              <Stack direction="row" spacing={2}>
+                <DecimalTextField
+                  label="Min. Std./Woche"
+                  required
+                  value={form.minHours}
+                  onChange={(value) => setForm((f) => ({ ...f, minHours: value }))}
+                  fullWidth
+                  {...validation.fieldProps('minHours')}
+                />
+                <DecimalTextField
+                  label="Max. Std./Woche"
+                  required
+                  value={form.maxHours}
+                  onChange={(value) => setForm((f) => ({ ...f, maxHours: value }))}
+                  fullWidth
+                  {...validation.fieldProps('maxHours')}
+                />
+              </Stack>
               <DecimalTextField
-                label="Min. Std./Woche"
-                required
-                value={form.minHours}
-                onChange={(value) => setForm((f) => ({ ...f, minHours: value }))}
+                label="Max. Std./Monat (optional)"
+                value={form.maxMonthlyHours}
+                onChange={(value) => setForm((f) => ({ ...f, maxMonthlyHours: value }))}
                 fullWidth
-                {...validation.fieldProps('minHours')}
+                {...validation.fieldProps(
+                  'maxMonthlyHours',
+                  'Warnt in der Monatsübersicht, wenn die geleisteten Stunden diese Grenze überschreiten.',
+                )}
               />
-              <DecimalTextField
-                label="Max. Std./Woche"
-                required
-                value={form.maxHours}
-                onChange={(value) => setForm((f) => ({ ...f, maxHours: value }))}
-                fullWidth
-                {...validation.fieldProps('maxHours')}
-              />
-            </Stack>
+            </>
           ) : (
             <DecimalTextField
               label="Wochenstunden"

@@ -1,6 +1,8 @@
 export type EmploymentType =
   | { type: 'FullTime' | 'PartTime'; weeklyHours: number }
-  | { type: 'Minijob'; minHours: number; maxHours: number };
+  // maxMonthlyHours is optional and deliberately just a plain hours ceiling - no wage/salary field
+  // exists anywhere in the app (see MonthOverviewView.tsx for the warning that reads it).
+  | { type: 'Minijob'; minHours: number; maxHours: number; maxMonthlyHours?: number };
 
 /** The single canonical source of the 3 discriminant values - every place that needs "just the
  * type" (form state, filters) imports this instead of retyping the literal union. */

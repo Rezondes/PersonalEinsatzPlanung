@@ -64,6 +64,17 @@ describe('validateEmployee', () => {
     expect(validateEmployee(draft({ employmentType: { type: 'Minijob', minHours: 10, maxHours: 10 } }))).toEqual([]);
   });
 
+  it('rejects a zero or negative maxMonthlyHours when provided, but leaves it optional otherwise', () => {
+    expect(
+      messagesByField(
+        validateEmployee(draft({ employmentType: { type: 'Minijob', minHours: 10, maxHours: 10, maxMonthlyHours: 0 } })),
+      ),
+    ).toEqual({ maxMonthlyHours: 'Muss größer als 0 sein.' });
+    expect(
+      validateEmployee(draft({ employmentType: { type: 'Minijob', minHours: 10, maxHours: 10, maxMonthlyHours: 43 } })),
+    ).toEqual([]);
+  });
+
   it('does not report the min/max order while one of them is still missing', () => {
     const errors = validateEmployee(draft({ employmentType: { type: 'Minijob', minHours: 12 } }));
     expect(errors).toEqual([{ field: 'maxHours', message: 'Bitte Max. Std. eingeben.' }]);
