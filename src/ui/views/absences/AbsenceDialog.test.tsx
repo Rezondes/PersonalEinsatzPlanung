@@ -3,6 +3,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { BranchId, EmployeeId, AbsenceId } from '@domain/shared/ids';
 import type { Employee } from '@domain/employee/Employee';
+import type { Absence } from '@domain/absence/Absence';
 import { toISODate } from '@domain/shared/DateFormat';
 import { TO_BEFORE_FROM_MESSAGE } from '@domain/absence/absenceValidation';
 import { services } from '@infrastructure/services';
@@ -34,12 +35,24 @@ function employee(id: EmployeeId, lastName: string): Employee {
 const employees = [employee(m1, 'Müller'), employee('m2' as EmployeeId, 'Schulz')];
 const today = toISODate(new Date());
 
-function renderDialog() {
+function renderDialog(absences: Absence[] = []) {
   const onClose = vi.fn();
   const onSaved = vi.fn();
   const onError = vi.fn();
-  render(<AbsenceDialog employees={employees} onClose={onClose} onSaved={onSaved} onError={onError} />);
+  render(<AbsenceDialog employees={employees} absences={absences} onClose={onClose} onSaved={onSaved} onError={onError} />);
   return { onClose, onSaved, onError };
+}
+
+function existingVacation(overrides: Partial<Absence> = {}): Absence {
+  return {
+    id: 'existing-vacation' as AbsenceId,
+    employeeId: m1,
+    type: 'Vacation',
+    from: '2026-03-01',
+    to: '2026-03-15',
+    createdAt: '2026-01-01T00:00:00.000Z',
+    ...overrides,
+  } as Absence;
 }
 
 const save = () => screen.getByRole('button', { name: 'Speichern' });
@@ -131,5 +144,37 @@ describe('AbsenceDialog', () => {
 
     expect(screen.getByText('Bitte Startdatum wählen.')).toBeInTheDocument();
     expect(dateField('Von')).toHaveFocus();
+  });
+
+  it('asks for confirmation before saving an absence that overlaps an existing one, and only saves once confirmed', async () => {
+    const user = userEvent.setup();
+    renderDialog([existingVacation()]);
+
+    await chooseType(user, 'Krankheit');
+    setDate('Von', '2026-03-10');
+    setDate('Bis', '2026-03-20');
+    await user.click(save());
+
+    expect(await screen.findByText('Überschneidung mit bestehender Abwesenheit?')).toBeInTheDocument();
+    expect(
+      screen.getByText('Diese Abwesenheit überschneidet sich mit: Urlaub (01.03.2026 – 15.03.2026).'),
+    ).toBeInTheDocument();
+    expect(createMock).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole('button', { name: 'Trotzdem speichern' }));
+    await waitFor(() => expect(createMock).toHaveBeenCalledTimes(1));
+  });
+
+  it('does not warn for a single public-holiday day nested inside an existing longer absence (regression)', async () => {
+    const user = userEvent.setup();
+    renderDialog([existingVacation()]);
+
+    await chooseType(user, 'Feiertag');
+    setDate('Von', '2026-03-10');
+    setDate('Bis', '2026-03-10');
+    await user.click(save());
+
+    await waitFor(() => expect(createMock).toHaveBeenCalledTimes(1));
+    expect(screen.queryByText('Überschneidung mit bestehender Abwesenheit?')).not.toBeInTheDocument();
   });
 });

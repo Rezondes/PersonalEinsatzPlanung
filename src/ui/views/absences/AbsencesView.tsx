@@ -386,7 +386,13 @@ export function AbsencesView() {
       </Box>
 
       {dialogOpen && (
-        <AbsenceDialog employees={activeEmployees} onClose={() => setDialogOpen(false)} onSaved={reload} onError={notify.report} />
+        <AbsenceDialog
+          employees={activeEmployees}
+          absences={absences}
+          onClose={() => setDialogOpen(false)}
+          onSaved={reload}
+          onError={notify.report}
+        />
       )}
 
       <ConfirmDialog

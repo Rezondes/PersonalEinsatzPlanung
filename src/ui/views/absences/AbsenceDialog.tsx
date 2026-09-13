@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Button from '@mui/material/Button';
 import TextField from '@mui/material/TextField';
 import MenuItem from '@mui/material/MenuItem';
@@ -7,12 +7,13 @@ import FormControlLabel from '@mui/material/FormControlLabel';
 import Checkbox from '@mui/material/Checkbox';
 import Alert from '@mui/material/Alert';
 import type { EmployeeId } from '@domain/shared/ids';
-import { toISODate } from '@domain/shared/DateFormat';
+import { toISODate, formatISODateGerman } from '@domain/shared/DateFormat';
 import type { Employee } from '@domain/employee/Employee';
 import { fullName } from '@domain/employee/Employee';
-import type { AbsenceType } from '@domain/absence/Absence';
+import type { Absence, AbsenceType } from '@domain/absence/Absence';
 import { CREDITED_OVERRIDE_FIELD, validateAbsence } from '@domain/absence/absenceValidation';
 import type { AbsenceField } from '@domain/absence/absenceValidation';
+import { findConflictingAbsences } from '@domain/absence/absenceOverlap';
 import { services } from '@infrastructure/services';
 import { useFormValidation } from '@ui/hooks/useFormValidation';
 import { DecimalTextField } from '@ui/components/DecimalTextField';
@@ -20,6 +21,29 @@ import { RequiredLegend } from '@ui/components/RequiredLegend';
 import { FormErrorNotice } from '@ui/components/FormErrorNotice';
 import CircularProgress from '@mui/material/CircularProgress';
 import { ResponsiveDialog } from '@ui/components/ResponsiveDialog';
+import { ConfirmDialog } from '@ui/components/ConfirmDialog';
+
+/** Duplicated on purpose from the (unexported) label switch in AbsencesView.tsx - four lines of
+ * German labels do not justify a shared module, same call made for shiftTemplateValidation.ts's
+ * label/hoursPerDay rules during the ShiftTemplate work. */
+function absenceTypeLabel(a: Absence): string {
+  switch (a.type) {
+    case 'Vacation':
+      return 'Urlaub';
+    case 'Illness':
+      return 'Krankheit';
+    case 'PublicHoliday':
+      return 'Feiertag';
+    case 'Other':
+      return a.label;
+  }
+}
+
+function formatConflict(a: Absence): string {
+  const range =
+    a.from === a.to ? formatISODateGerman(a.from) : `${formatISODateGerman(a.from)} – ${formatISODateGerman(a.to)}`;
+  return `${absenceTypeLabel(a)} (${range})`;
+}
 
 interface FormState {
   employeeId: string;
@@ -57,6 +81,9 @@ function emptyForm(firstEmployeeId: string): FormState {
 interface AbsenceDialogProps {
   /** Active employees of the selected branch, first one preselected. */
   employees: Employee[];
+  /** Every absence of the branch (all employees, all years) - used only to warn about a plausible
+   * double-booking, never to restrict what can be entered. */
+  absences: Absence[];
   onClose: () => void;
   onSaved: () => void | Promise<void>;
   onError: (e: unknown, context?: string) => void;
@@ -64,7 +91,7 @@ interface AbsenceDialogProps {
 
 /** "Abwesenheit erfassen" dialog. Mounted only while open, so the form and the validation's
  * "already tried to save" flag start fresh each time. Field rules come from validateAbsence. */
-export function AbsenceDialog({ employees, onClose, onSaved, onError }: AbsenceDialogProps) {
+export function AbsenceDialog({ employees, absences, onClose, onSaved, onError }: AbsenceDialogProps) {
   const [form, setForm] = useState<FormState>(() => emptyForm(employees[0]?.id ?? ''));
   const selectedEmployee = employees.find((emp) => emp.id === form.employeeId);
   const validation = useFormValidation<AbsenceField>(() =>
@@ -96,9 +123,17 @@ export function AbsenceDialog({ employees, onClose, onSaved, onError }: AbsenceD
   }, [singleDay]);
 
   const [saving, setSaving] = useState(false);
+  const [showConfirmation, setShowConfirmation] = useState(false);
 
-  const save = async () => {
-    if (!validation.submit()) return;
+  // Deliberately NOT the raw findOverlappingAbsences: a single-day absence intentionally nested
+  // inside a longer one (e.g. a Feiertag inside a booked Urlaubswoche) is an established, valid
+  // pattern and must not require a confirmation click every time (see absenceOverlap.ts).
+  const conflicts = useMemo(
+    () => findConflictingAbsences({ employeeId: form.employeeId as EmployeeId, from: form.from, to: form.to }, absences),
+    [form.employeeId, form.from, form.to, absences],
+  );
+
+  const actuallySave = async () => {
     const employeeId = form.employeeId as EmployeeId;
 
     setSaving(true);
@@ -141,7 +176,17 @@ export function AbsenceDialog({ employees, onClose, onSaved, onError }: AbsenceD
     }
   };
 
+  const save = () => {
+    if (!validation.submit()) return;
+    if (conflicts.length > 0) {
+      setShowConfirmation(true);
+      return;
+    }
+    void actuallySave();
+  };
+
   return (
+    <>
     <ResponsiveDialog
       open
       onClose={saving ? undefined : onClose}
@@ -285,5 +330,18 @@ export function AbsenceDialog({ employees, onClose, onSaved, onError }: AbsenceD
           )}
         </Stack>
     </ResponsiveDialog>
+
+    <ConfirmDialog
+      open={showConfirmation}
+      title="Überschneidung mit bestehender Abwesenheit?"
+      text={`Diese Abwesenheit überschneidet sich mit: ${conflicts.map(formatConflict).join(', ')}.`}
+      confirmText="Trotzdem speichern"
+      onConfirm={() => {
+        setShowConfirmation(false);
+        void actuallySave();
+      }}
+      onCancel={() => setShowConfirmation(false)}
+    />
+    </>
   );
 }
