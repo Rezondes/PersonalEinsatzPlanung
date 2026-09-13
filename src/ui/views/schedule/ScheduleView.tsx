@@ -594,14 +594,13 @@ export function ScheduleView() {
   //
   // This and isAssignTarget below both depend on activeTool, so arming a NEW tool (a toolbar tile
   // click, or right-click "Kopieren" - both ordinary, discrete, low-frequency actions) gives them a
-  // new identity and defeats ScheduleTable's memo for one render, even at the laptop breakpoint
-  // where the result is always visually identical (assignMode is forced false there by the effect
-  // above, so isTarget/onToolTap are provably never reached). A ref-based stable identity would
-  // avoid that, but would also stop ScheduleTable from re-rendering when arming a DIFFERENT tool in
-  // actual touch mode - breaking the live target-highlight update, which is the whole point of
-  // isAssignTarget. Accepted as-is: this is one extra render on a discrete click, not a per-frame
-  // event like dragover (the actual case the sibling drop-highlight-lives-in-ScheduleTable comment
-  // above is protecting against).
+  // new identity and defeats ScheduleTable's memo for one render - at every breakpoint alike, since
+  // assignModeActive is armed the same way for mouse and touch/keyboard (see its declaration above),
+  // not just in actual touch mode. A ref-based stable identity would avoid that, but would also stop
+  // ScheduleTable from re-rendering when arming a DIFFERENT tool while assign mode is on - breaking
+  // the live target-highlight update, which is the whole point of isAssignTarget. Accepted as-is:
+  // this is one extra render on a discrete click, not a per-frame event like dragover (the actual
+  // case the sibling drop-highlight-lives-in-ScheduleTable comment above is protecting against).
   const toolTap = useCallback(
     (employeeId: EmployeeId, dayView: DayView) => {
       if (!activeTool) return;
@@ -1043,7 +1042,7 @@ export function ScheduleView() {
       <ConfirmDialog
         open={!!templateDeleteTarget}
         title="Vorlage löschen?"
-        text={`Die Vorlage „${templateDeleteTarget?.name ?? ''}" wird entfernt. Bereits eingetragene Arbeitszeiten bleiben unverändert, sie sind Kopien der Vorlage.`}
+        text={`Die Vorlage „${templateDeleteTarget?.name ?? ''}“ wird entfernt. Bereits eingetragene Arbeitszeiten bleiben unverändert, sie sind Kopien der Vorlage.`}
         confirmText="Löschen"
         dangerous
         busy={templateDeleting}

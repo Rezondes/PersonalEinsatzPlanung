@@ -17,8 +17,13 @@ different design system.
 - Zustand (`app/store/*`) is only for small global UI state (selected Branch, selected
   CalendarWeek, the notification queue) - never for domain data.
 - Domain data lives in IndexedDB and is fetched into local component state via the `hooks/use*.ts`
-  hooks, which call `@infrastructure/services` directly. Never import `@application/*` or
-  repositories directly from `ui/` - always go through the composed `services` object.
+  hooks, which call `@infrastructure/services` directly. Never import a repository directly from
+  `ui/` - always go through the composed `services` object. `@application/*` itself is narrower:
+  its pure calculation/formatting modules with no port/repository of their own - `scheduleAssessment`,
+  `scheduleValidation`, `printDataPreparation` and the `export/*` format helpers - are imported
+  directly wherever a view needs their result shape (see `application/CLAUDE.md`), since routing a
+  stateless calculation through `services` would add nothing. What must stay in `services` is
+  anything backed by a repository.
 
 ## Routing
 
@@ -88,9 +93,12 @@ Speichern. Every data-entry dialog follows the same pattern (see `EmployeeDialog
   imported print CSS, so a plain `display:none` gets silently overridden. Don't remove the
   `!important` in `views/print/printView.css`.
 - MUI `Collapse`-based expandable panels push layout below them when opened.
-  `ValidationNotices.tsx` deliberately renders its expanded panel as a `position: absolute`
-  overlay (not `Collapse`) specifically so opening it never shifts the Wochenplan table underneath
-  - a UX requirement from the user. Don't revert to `Collapse` there.
+  `ValidationNotices.tsx` deliberately renders its expanded panel as an MUI `Popover` anchored on
+  the trigger (not `Collapse`) specifically so opening it never shifts the Wochenplan table
+  underneath - a UX requirement from the user, and `Popover`'s own Popper-based positioning also
+  keeps the panel inside the viewport regardless of where the trigger sits (needed since the
+  trigger's position varies: a left-aligned button on laptop, one of several chips in a
+  horizontally-scrolling strip on mobile/tablet). Don't revert to `Collapse` there.
 - `AppShell.tsx`'s header icon renders `public/favicon.svg` directly (`<img src={...}>`), the same
   file as the browser-tab favicon - not a separate MUI icon kept visually in sync by hand, so the
   two can never drift apart.
