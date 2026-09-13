@@ -20,6 +20,7 @@ import MenuItem from '@mui/material/MenuItem';
 import Checkbox from '@mui/material/Checkbox';
 import ListItemText from '@mui/material/ListItemText';
 import AddIcon from '@mui/icons-material/Add';
+import EventAvailableOutlinedIcon from '@mui/icons-material/EventAvailableOutlined';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
@@ -40,6 +41,7 @@ import { RowActionSheet } from '@ui/components/ResponsiveList/RowActionSheet';
 import type { RowAction } from '@ui/components/ResponsiveList/RowAction';
 import { useLongPress } from '@ui/components/ResponsiveList/useLongPress';
 import { AbsenceDialog } from './AbsenceDialog';
+import { CreateHolidaysDialog } from './components/CreateHolidaysDialog';
 import { notify } from '@ui/app/store/notificationStore';
 import { usePageActions } from '@ui/app/PageActionsContext';
 
@@ -167,6 +169,7 @@ export function AbsencesView() {
   // Mounted only while open, so the form starts fresh each time. null = closed; { absence: null } =
   // "Erfassen"; { absence } = edit.
   const [dialog, setDialog] = useState<{ absence: Absence | null } | null>(null);
+  const [holidaysDialogOpen, setHolidaysDialogOpen] = useState(false);
   const [sheetAbsence, setSheetAbsence] = useState<Absence | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Absence | null>(null);
   const [employeeFilter, setEmployeeFilter] = useState<string>(ALL);
@@ -273,15 +276,24 @@ export function AbsencesView() {
       <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
         {/* Hidden on mobile: MobileFab (registered above via usePageActions, label "Erfassen"
             matching the mockup) is the primary action there. */}
-        <Button
-          variant="outlined"
-          startIcon={<AddIcon />}
-          onClick={() => setDialog({ absence: null })}
-          disabled={activeEmployees.length === 0}
-          sx={{ display: { xs: 'none', sm: 'inline-flex' } }}
-        >
-          Abwesenheit erfassen
-        </Button>
+        <Stack direction="row" spacing={1} sx={{ display: { xs: 'none', sm: 'flex' } }}>
+          <Button
+            variant="outlined"
+            startIcon={<AddIcon />}
+            onClick={() => setDialog({ absence: null })}
+            disabled={activeEmployees.length === 0}
+          >
+            Abwesenheit erfassen
+          </Button>
+          <Button
+            variant="outlined"
+            startIcon={<EventAvailableOutlinedIcon />}
+            onClick={() => setHolidaysDialogOpen(true)}
+            disabled={activeEmployees.length === 0}
+          >
+            Feiertage anlegen
+          </Button>
+        </Stack>
       </Stack>
 
       <Paper sx={{ p: 2, mb: 2 }}>
@@ -459,6 +471,20 @@ export function AbsencesView() {
           absence={dialog.absence}
           onClose={() => setDialog(null)}
           onSaved={reload}
+          onError={notify.report}
+        />
+      )}
+
+      {holidaysDialogOpen && (
+        <CreateHolidaysDialog
+          branch={branch}
+          employees={activeEmployees}
+          absences={absences}
+          onClose={() => setHolidaysDialogOpen(false)}
+          onApplied={({ created, skipped }) => {
+            notify.success(`${created} Feiertage angelegt, ${skipped} übersprungen (bereits erfasst/überschneidend).`);
+            reload();
+          }}
           onError={notify.report}
         />
       )}

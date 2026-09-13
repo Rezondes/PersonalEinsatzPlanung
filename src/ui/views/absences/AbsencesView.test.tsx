@@ -19,6 +19,7 @@ vi.mock('@infrastructure/services', () => ({
     branch: { all: vi.fn() },
     employee: { forBranch: vi.fn() },
     absence: { forEmployees: vi.fn(), create: vi.fn(), update: vi.fn(), delete: vi.fn() },
+    holidayBulkCreation: { createHolidaysForYear: vi.fn() },
   },
 }));
 
@@ -27,6 +28,7 @@ const absenceForBranchMock = vi.mocked(services.absence.forEmployees);
 const createMock = vi.mocked(services.absence.create);
 const updateMock = vi.mocked(services.absence.update);
 const deleteMock = vi.mocked(services.absence.delete);
+const createHolidaysForYearMock = vi.mocked(services.holidayBulkCreation.createHolidaysForYear);
 
 /** Copied from src/ui/hooks/useBreakpoint.test.tsx: jsdom has no real layout engine, so
  * window.matchMedia is mocked to answer as if the viewport were `width` wide. Forced to laptop
@@ -113,6 +115,7 @@ const renderView = () =>
 const table = () => screen.getByRole('table');
 const dataRows = () => within(table()).getAllByRole('row').slice(1);
 const erfassenButton = () => screen.getByRole('button', { name: 'Abwesenheit erfassen' });
+const feiertageButton = () => screen.getByRole('button', { name: 'Feiertage anlegen' });
 
 describe('AbsencesView', () => {
   beforeEach(() => {
@@ -356,6 +359,52 @@ describe('AbsencesView', () => {
 
       await screen.findByText('Noch keine Abwesenheiten erfasst.');
       expect(erfassenButton()).toBeEnabled();
+    });
+
+    it('disables "Feiertage anlegen" when there are zero active employees, even with inactive ones present', async () => {
+      employeeForBranchMock.mockResolvedValue([e3]);
+      absenceForBranchMock.mockResolvedValue([]);
+      renderView();
+
+      await screen.findByText('Noch keine Abwesenheiten erfasst.');
+      expect(feiertageButton()).toBeDisabled();
+    });
+
+    it('opens CreateHolidaysDialog with the branch and only active employees, and wires reload + a success message with both counts', async () => {
+      const user = userEvent.setup();
+      employeeForBranchMock.mockResolvedValue([e1, e2, e3]);
+      absenceForBranchMock.mockResolvedValueOnce([]).mockResolvedValueOnce([a1]);
+      createHolidaysForYearMock.mockResolvedValueOnce({ created: 9, skipped: 3 });
+      renderView();
+
+      await screen.findByText('Noch keine Abwesenheiten erfasst.');
+      await user.click(feiertageButton());
+
+      const dialog = screen.getByRole('dialog');
+      expect(within(dialog).getByText(new RegExp(branch.federalState))).toBeInTheDocument();
+      await user.click(within(dialog).getByRole('button', { name: 'Anlegen' }));
+
+      expect(createHolidaysForYearMock).toHaveBeenCalledWith(expect.any(Set), [e1, e2], []);
+      await screen.findByText('9 Feiertage angelegt, 3 übersprungen (bereits erfasst/überschneidend).');
+      await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+      // reload() ran - a1, only returned by the second mocked fetch, is now shown.
+      await screen.findByText('01.06.2026');
+    });
+
+    it('closing CreateHolidaysDialog via Abbrechen does not call the service or reload', async () => {
+      const user = userEvent.setup();
+      employeeForBranchMock.mockResolvedValue([e1]);
+      absenceForBranchMock.mockResolvedValue([]);
+      renderView();
+
+      await screen.findByText('Noch keine Abwesenheiten erfasst.');
+      await user.click(feiertageButton());
+      await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Abbrechen' }));
+
+      expect(createHolidaysForYearMock).not.toHaveBeenCalled();
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      // Only the initial load, no reload from a cancelled dialog.
+      expect(absenceForBranchMock).toHaveBeenCalledTimes(1);
     });
 
     it('opens AbsenceDialog with only active employees as its employee picker', async () => {

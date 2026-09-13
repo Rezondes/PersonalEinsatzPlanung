@@ -3,6 +3,7 @@ import { createEmployeeService } from '@application/employee/employeeService';
 import { createScheduleService } from '@application/schedule/scheduleService';
 import { createRestPeriodCheckService } from '@application/schedule/restPeriodCheckService';
 import { createAbsenceService } from '@application/absence/absenceService';
+import { createHolidayBulkCreationService } from '@application/absence/holidayBulkCreation';
 import { createShiftTemplateService } from '@application/schedule/shiftTemplateService';
 import { createDataExportService } from '@application/export/dataExportService';
 import { GoogleDriveBackupStorage } from './backup/GoogleDriveBackupStorage';
@@ -19,6 +20,7 @@ export const services = {
   schedule: createScheduleService(repositories.weeklySchedule, repositories.employee),
   restPeriodCheck: createRestPeriodCheckService(repositories.weeklySchedule),
   absence: createAbsenceService(repositories.absence),
+  holidayBulkCreation: createHolidayBulkCreationService(repositories.absence),
   shiftTemplate: createShiftTemplateService(repositories.shiftTemplate),
   dataExport: createDataExportService({ ...repositories, transaction }),
   // Optional remote destination for the backup, next to the local file download.
