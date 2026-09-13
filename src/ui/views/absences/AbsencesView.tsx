@@ -16,6 +16,8 @@ import Chip from '@mui/material/Chip';
 import Alert from '@mui/material/Alert';
 import TextField from '@mui/material/TextField';
 import MenuItem from '@mui/material/MenuItem';
+import Checkbox from '@mui/material/Checkbox';
+import ListItemText from '@mui/material/ListItemText';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import { formatISODateGerman } from '@domain/shared/DateFormat';
@@ -142,7 +144,8 @@ export function AbsencesView() {
   const [deleteTarget, setDeleteTarget] = useState<Absence | null>(null);
   const [employeeFilter, setEmployeeFilter] = useState<string>(ALL);
   const [typeFilter, setTypeFilter] = useState<TypeFilter>(ALL);
-  const [yearFilter, setYearFilter] = useState<string>(ALL);
+  // Empty = "Alle" (every year), same meaning ALL had for the single-select this replaces.
+  const [yearFilters, setYearFilters] = useState<string[]>([]);
   // Newest first, the order this view had before it became sortable.
   const sort = useTableSort<SortKey>('from', 'desc');
 
@@ -187,14 +190,19 @@ export function AbsencesView() {
       if (employeeFilter !== ALL && a.employeeId !== employeeFilter) return false;
       if (typeFilter !== ALL && a.type !== typeFilter) return false;
       // An absence belongs to a year when its range overlaps it, so a range crossing New Year is
-      // found under both years - the same rule countVacationDaysInYear applies.
-      if (yearFilter !== ALL && !(a.from.slice(0, 4) <= yearFilter && yearFilter <= a.to.slice(0, 4))) {
+      // found under both years - the same rule countVacationDaysInYear applies. Matching ANY of the
+      // selected years (not all) is what makes this a year filter rather than a range filter - e.g.
+      // 2025+2026 selected shows an absence touching either, not only one spanning both.
+      if (
+        yearFilters.length > 0 &&
+        !yearFilters.some((y) => a.from.slice(0, 4) <= y && y <= a.to.slice(0, 4))
+      ) {
         return false;
       }
       return true;
     });
     return sortRows(filtered, comparators);
-  }, [absences, employeeById, employeeFilter, typeFilter, yearFilter, sortRows]);
+  }, [absences, employeeById, employeeFilter, typeFilter, yearFilters, sortRows]);
 
   const deleteAbsence = async () => {
     if (!deleteTarget) return;
@@ -277,14 +285,26 @@ export function AbsencesView() {
             select
             size="small"
             label="Jahr"
-            value={yearFilter}
-            onChange={(e) => setYearFilter(e.target.value)}
-            sx={{ width: 140 }}
+            value={yearFilters}
+            onChange={(e) => {
+              const value = e.target.value as unknown as string | string[];
+              setYearFilters(typeof value === 'string' ? (value ? value.split(',') : []) : value);
+            }}
+            SelectProps={{
+              multiple: true,
+              // Without displayEmpty, MUI shows a blank field (not renderValue's output) whenever
+              // value is an empty array - it assumes "empty" means "show the floating label only",
+              // which is wrong here since an empty selection is a meaningful state ("Alle").
+              displayEmpty: true,
+              renderValue: (selected) => ((selected as string[]).length === 0 ? 'Alle' : (selected as string[]).join(', ')),
+            }}
+            InputLabelProps={{ shrink: true }}
+            sx={{ minWidth: 160 }}
           >
-            <MenuItem value={ALL}>Alle</MenuItem>
             {availableYears.map((y) => (
               <MenuItem key={y} value={y}>
-                {y}
+                <Checkbox checked={yearFilters.includes(y)} size="small" />
+                <ListItemText primary={y} />
               </MenuItem>
             ))}
           </TextField>

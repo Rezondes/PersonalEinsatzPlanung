@@ -278,7 +278,7 @@ describe('AbsencesView', () => {
       expect(within(table()).queryByText('Fortbildung')).not.toBeInTheDocument();
     });
 
-    it('offers both years for a range crossing New Year, and filtering by either includes it', async () => {
+    it('offers both years for a range crossing New Year, and a single-year selection includes it (regression: behaves like the old single-select for one year)', async () => {
       const user = userEvent.setup();
       const yearOnly = vacation('y1', e1.id, '2026-03-01', '2026-03-02');
       const crossYear = vacation('y2', e1.id, '2026-12-30', '2027-01-02');
@@ -291,19 +291,52 @@ describe('AbsencesView', () => {
       await user.click(screen.getByRole('combobox', { name: 'Jahr' }));
       expect(screen.getByRole('option', { name: '2026' })).toBeInTheDocument();
       expect(screen.getByRole('option', { name: '2027' })).toBeInTheDocument();
-      await user.click(screen.getByRole('option', { name: '2026' }));
-
-      expect(dataRows()).toHaveLength(2);
-      expect(screen.getByText('01.03.2026')).toBeInTheDocument();
-      expect(screen.getByText('30.12.2026')).toBeInTheDocument();
-
-      await user.click(screen.getByRole('combobox', { name: 'Jahr' }));
       await user.click(screen.getByRole('option', { name: '2027' }));
+      await user.keyboard('{Escape}');
 
       expect(dataRows()).toHaveLength(1);
       expect(screen.queryByText('01.03.2026')).not.toBeInTheDocument();
       expect(screen.getByText('30.12.2026')).toBeInTheDocument();
       expect(screen.getByText('02.01.2027')).toBeInTheDocument();
+    });
+
+    it('shows absences from either year once a second year is added to the Jahr selection', async () => {
+      const user = userEvent.setup();
+      const y2025 = vacation('y2025', e1.id, '2025-06-01', '2025-06-02');
+      const y2026 = vacation('y2026', e1.id, '2026-06-01', '2026-06-02');
+      const y2027 = vacation('y2027', e1.id, '2027-06-01', '2027-06-02');
+      employeeForBranchMock.mockResolvedValue([e1]);
+      absenceForBranchMock.mockResolvedValue([y2025, y2026, y2027]);
+      renderView();
+
+      await screen.findByText('01.06.2025');
+
+      await user.click(screen.getByRole('combobox', { name: 'Jahr' }));
+      await user.click(screen.getByRole('option', { name: '2025' }));
+      await user.keyboard('{Escape}');
+
+      expect(dataRows()).toHaveLength(1);
+      expect(screen.getByText('01.06.2025')).toBeInTheDocument();
+
+      await user.click(screen.getByRole('combobox', { name: 'Jahr' }));
+      await user.click(screen.getByRole('option', { name: '2026' }));
+      await user.keyboard('{Escape}');
+
+      expect(dataRows()).toHaveLength(2);
+      expect(screen.getByText('01.06.2025')).toBeInTheDocument();
+      expect(screen.getByText('01.06.2026')).toBeInTheDocument();
+      expect(screen.queryByText('01.06.2027')).not.toBeInTheDocument();
+    });
+
+    it('shows every year when the Jahr filter has no selection, same as before it supported multiple years', async () => {
+      employeeForBranchMock.mockResolvedValue([e1, e2]);
+      absenceForBranchMock.mockResolvedValue([a1, a2, a3, a4, a5]);
+      renderView();
+
+      await screen.findByText('Fortbildung');
+
+      expect(dataRows()).toHaveLength(5);
+      expect(screen.getByRole('combobox', { name: 'Jahr' })).toHaveTextContent('Alle');
     });
 
     it('disables "Abwesenheit erfassen" when there are zero active employees, even with inactive ones present', async () => {
