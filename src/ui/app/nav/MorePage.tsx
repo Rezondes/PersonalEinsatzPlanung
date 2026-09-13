@@ -36,7 +36,7 @@ export function MorePage() {
         py: layout === 'mobile' ? 1.5 : 3,
       }}
     >
-      <Typography variant="h5" fontWeight={500} sx={{ mb: 2 }}>
+      <Typography variant="h5" component="h1" fontWeight={500} sx={{ mb: 2 }}>
         Mehr
       </Typography>
       <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>

@@ -52,6 +52,7 @@ import { useSchedule } from '@ui/hooks/useSchedule';
 import { useAbsences } from '@ui/hooks/useAbsences';
 import { useCalendarWeekStore } from '@ui/app/store/calendarWeekStore';
 import { ConfirmDialog } from '@ui/components/ConfirmDialog';
+import { NoBranchSelectedAlert } from '@ui/components/NoBranchSelectedAlert';
 import { ScheduleTable, cellKey } from './components/ScheduleTable';
 import { ScheduleHeaderFields } from './components/ScheduleHeaderFields';
 import { DayEditor } from './components/DayEditor';
@@ -648,7 +649,7 @@ export function ScheduleView() {
     contextMenu.dayView.absenceCoversWholeDay;
 
   if (!branch) {
-    return <Alert severity="info">Bitte zuerst oben eine Filiale auswählen oder anlegen.</Alert>;
+    return <NoBranchSelectedAlert />;
   }
 
   const editorRow = editorState

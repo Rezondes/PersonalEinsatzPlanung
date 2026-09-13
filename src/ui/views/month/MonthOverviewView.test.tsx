@@ -158,6 +158,7 @@ describe('MonthOverviewView', () => {
     renderView();
 
     expect(await screen.findByText('Bitte zuerst oben eine Filiale auswählen oder anlegen.')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Zu den Filialen' })).toHaveAttribute('href', '/branches');
     expect(screen.queryByRole('table')).not.toBeInTheDocument();
     expect(scheduleForBranch).not.toHaveBeenCalled();
   });
@@ -440,11 +441,12 @@ describe('MonthOverviewView', () => {
     expect(week2Cell).toHaveTextContent('0');
   });
 
-  it('dims an inactive employee\'s row and marks it with an "Inaktiv" chip, matching the Stammdaten convention', async () => {
+  it('dims an inactive employee\'s row and marks it with an "Inaktiv" chip, matching the Stammdaten convention, as long as they still carry hours this month (N26)', async () => {
     selectBranch();
     const inactive = makeEmployee({ id: 'e2' as EmployeeId, lastName: 'Alt', active: false });
     employeeForBranch.mockResolvedValue([inactive]);
-    scheduleForBranch.mockResolvedValue([]);
+    const weeks = calendarWeeksInMonth(currentYear, currentMonth);
+    scheduleForBranch.mockResolvedValue([scheduleWithWeekdayShifts(inactive.id, weeks[0], ['Montag'], 8)]);
 
     renderView();
 
@@ -452,6 +454,18 @@ describe('MonthOverviewView', () => {
     const row = nameCell.closest('tr')!;
     expect(within(row).getByText('Inaktiv')).toBeInTheDocument();
     expect(row).toHaveStyle({ opacity: '0.55' });
+  });
+
+  it('drops an inactive employee from the month overview entirely once they carry no hours this month at all (N26)', async () => {
+    selectBranch();
+    const inactive = makeEmployee({ id: 'e2' as EmployeeId, lastName: 'Alt', active: false });
+    employeeForBranch.mockResolvedValue([inactive]);
+    scheduleForBranch.mockResolvedValue([]);
+
+    renderView();
+
+    await screen.findByRole('table');
+    expect(screen.queryByText(fullName(inactive))).not.toBeInTheDocument();
   });
 
   it('gives only the first week cell of each row a tab stop, not every individual cell', async () => {

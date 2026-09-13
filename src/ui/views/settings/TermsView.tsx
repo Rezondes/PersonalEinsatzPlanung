@@ -61,14 +61,14 @@ export function TermsView() {
         py: layout === 'mobile' ? 1.5 : 3,
       }}
     >
-      <Typography variant="h5" fontWeight={500} sx={{ mb: 1 }}>
+      <Typography variant="h5" component="h1" fontWeight={500} sx={{ mb: 1 }}>
         Nutzungsbedingungen
       </Typography>
       <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
         <Stack spacing={2} data-selectable>
           {SECTIONS.map((section) => (
             <Paper key={section.title} sx={{ p: 3 }}>
-              <Typography variant="subtitle1" fontWeight={500} sx={{ mb: 1 }}>
+              <Typography variant="subtitle1" component="h2" fontWeight={500} sx={{ mb: 1 }}>
                 {section.title}
               </Typography>
               <Typography variant="body2" color="text.secondary">

@@ -181,6 +181,7 @@ describe('EmployeeMasterDataView', () => {
     // findBy (not getBy) so the pending useEmployeeList load - it still runs even with no branch,
     // resolving to [] - settles inside act() before the test ends.
     expect(await screen.findByText('Bitte zuerst oben eine Filiale auswählen oder anlegen.')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Zu den Filialen' })).toHaveAttribute('href', '/branches');
     expect(screen.queryByRole('table')).not.toBeInTheDocument();
   });
 
@@ -428,6 +429,34 @@ describe('EmployeeMasterDataView', () => {
 
     await user.click(screen.getByText('Urlaub/Jahr'));
     expect(order(container, ascendingByVacation)).toEqual([...ascendingByVacation].reverse());
+  });
+
+  it('sorts by Resturlaub, distinctly from Urlaub/Jahr once taken vacation lowers one employee below it (N26)', async () => {
+    const user = userEvent.setup();
+    const year = new Date().getFullYear();
+    // Same deterministic 12-work-day range as the Resturlaub-column test above: Anna's remaining
+    // drops from 28 to 16, below Cara's untouched 20 - a genuinely different order than sorting by
+    // the raw vacationEntitlementPerYear column would give.
+    forEmployeesMock.mockResolvedValue([
+      {
+        id: 'abs1' as AbsenceId,
+        employeeId: anna.id,
+        type: 'Vacation',
+        from: `${year}-02-02`,
+        to: `${year}-02-15`,
+        createdAt: '2026-01-01T00:00:00.000Z',
+      },
+    ]);
+    const { container } = renderView();
+    await screen.findByText('Bauer, Anna');
+
+    const ascendingByRemaining = ['Bauer, Anna', 'Deniz, Cara', 'Engel, David', 'Fischer, Mika', 'Cengiz, Ben'];
+
+    await user.click(screen.getByText('Resturlaub'));
+    expect(order(container, ascendingByRemaining)).toEqual(ascendingByRemaining);
+
+    await user.click(screen.getByText('Resturlaub'));
+    expect(order(container, ascendingByRemaining)).toEqual([...ascendingByRemaining].reverse());
   });
 
   it('creates a new employee through the dialog, passing the branch id and reloading the list on save', async () => {

@@ -58,6 +58,13 @@ function seedBranches(branches: Branch[]) {
   useBranchesStore.setState({ branches, loading: false, loaded: true });
 }
 
+/** Same helper as EmployeeMasterDataView.test.tsx - orders a set of known strings by where they
+ * first appear in the rendered table, so a sort assertion can compare against a plain array. */
+function order(container: HTMLElement, names: string[]): string[] {
+  const text = container.textContent ?? '';
+  return [...names].sort((a, b) => text.indexOf(a) - text.indexOf(b));
+}
+
 const renderView = () =>
   render(
     <MemoryRouter>
@@ -108,6 +115,48 @@ describe('BranchMasterDataView', () => {
     expect(within(table).getByText('Bayern')).toBeInTheDocument();
     expect(within(table).getByText('Aktiv')).toBeInTheDocument();
     expect(within(table).getByText('Inaktiv')).toBeInTheDocument();
+  });
+
+  it('search narrows the visible branches by name, number or city, and clearing restores them (N26)', async () => {
+    mockViewportWidth(1700);
+    const user = userEvent.setup();
+    const nord = makeBranch({ id: 'branch-1' as BranchId, name: 'Filiale Nord', branchNumber: '001' });
+    const sued = makeBranch({
+      id: 'branch-2' as BranchId,
+      name: 'Filiale Süd',
+      branchNumber: '002',
+      address: { street: 'Marktplatz', houseNumber: '3', postalCode: '80331', city: 'München' },
+      federalState: 'Bayern',
+    });
+    seedBranches([nord, sued]);
+    renderView();
+
+    expect(screen.getByText('Filiale Nord')).toBeInTheDocument();
+    expect(screen.getByText('Filiale Süd')).toBeInTheDocument();
+
+    await user.type(screen.getByPlaceholderText('Name, Nummer oder Ort'), 'München');
+    expect(screen.queryByText('Filiale Nord')).not.toBeInTheDocument();
+    expect(screen.getByText('Filiale Süd')).toBeInTheDocument();
+
+    await user.clear(screen.getByPlaceholderText('Name, Nummer oder Ort'));
+    expect(screen.getByText('Filiale Nord')).toBeInTheDocument();
+    expect(screen.getByText('Filiale Süd')).toBeInTheDocument();
+  });
+
+  it('sorts by Filiale (name) ascending and descending when the column header is clicked (N26)', async () => {
+    mockViewportWidth(1700);
+    const user = userEvent.setup();
+    const nord = makeBranch({ id: 'branch-1' as BranchId, name: 'Filiale Nord', branchNumber: '001' });
+    const sued = makeBranch({ id: 'branch-2' as BranchId, name: 'Filiale Süd', branchNumber: '002' });
+    seedBranches([sued, nord]);
+    const { container } = renderView();
+    await screen.findByText('Filiale Nord');
+
+    const names = ['Filiale Nord', 'Filiale Süd'];
+    expect(order(container, names)).toEqual(names);
+
+    await user.click(screen.getByText('Filiale'));
+    expect(order(container, names)).toEqual([...names].reverse());
   });
 
   it('shows the empty-state message in the default mobile-resolved card layout', () => {

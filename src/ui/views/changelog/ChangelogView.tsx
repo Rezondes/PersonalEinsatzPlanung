@@ -33,7 +33,7 @@ export function ChangelogView() {
         py: layout === 'mobile' ? 1.5 : 3,
       }}
     >
-      <Typography variant="h5" fontWeight={500} sx={{ mb: 3 }}>
+      <Typography variant="h5" component="h1" fontWeight={500} sx={{ mb: 3 }}>
         Änderungen
       </Typography>
       <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
@@ -53,7 +53,7 @@ export function ChangelogView() {
             {releases.map((release) => (
               <Paper key={release.tagName} sx={{ p: 3 }}>
                 <Stack direction="row" justifyContent="space-between" alignItems="baseline" flexWrap="wrap" gap={1}>
-                  <Typography variant="subtitle1" fontWeight={500}>
+                  <Typography variant="subtitle1" component="h2" fontWeight={500}>
                     {release.title}
                   </Typography>
                   <Typography variant="caption" color="text.secondary">

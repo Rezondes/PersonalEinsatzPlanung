@@ -14,7 +14,6 @@ import TableSortLabel from '@mui/material/TableSortLabel';
 import IconButton from '@mui/material/IconButton';
 import ButtonBase from '@mui/material/ButtonBase';
 import Chip from '@mui/material/Chip';
-import Alert from '@mui/material/Alert';
 import TextField from '@mui/material/TextField';
 import MenuItem from '@mui/material/MenuItem';
 import Checkbox from '@mui/material/Checkbox';
@@ -37,7 +36,8 @@ import { useAbsences } from '@ui/hooks/useAbsences';
 import { useTableSort } from '@ui/hooks/useTableSort';
 import { useBreakpoint } from '@ui/hooks/useBreakpoint';
 import { ConfirmDialog } from '@ui/components/ConfirmDialog';
-import { stickyFirstColumnSx } from '@ui/components/stickyFirstColumn';
+import { NoBranchSelectedAlert } from '@ui/components/NoBranchSelectedAlert';
+import { stickyCornerSx, stickyFirstColumnSx, stickyHeaderRowSx } from '@ui/components/stickyFirstColumn';
 import { ResponsiveDataList } from '@ui/components/ResponsiveList/ResponsiveDataList';
 import { RowActionSheet } from '@ui/components/ResponsiveList/RowActionSheet';
 import type { RowAction } from '@ui/components/ResponsiveList/RowAction';
@@ -243,7 +243,7 @@ export function AbsencesView() {
   };
 
   if (!branch) {
-    return <Alert severity="info">Bitte zuerst oben eine Filiale auswählen oder anlegen.</Alert>;
+    return <NoBranchSelectedAlert />;
   }
 
   const employeeName = (employee: Employee | undefined) => (employee ? fullName(employee) : '–');
@@ -384,20 +384,22 @@ export function AbsencesView() {
             <Table>
               <TableHead>
                 <TableRow>
-                  <TableCell sx={stickyFirstColumnSx}>
+                  <TableCell sx={stickyCornerSx()}>
                     <TableSortLabel {...headProps('employee')}>Mitarbeiter</TableSortLabel>
                   </TableCell>
-                  <TableCell>
+                  <TableCell sx={stickyHeaderRowSx()}>
                     <TableSortLabel {...headProps('type')}>Art</TableSortLabel>
                   </TableCell>
-                  {layout === 'laptop' && <TableCell>Std./Tag</TableCell>}
-                  <TableCell>
+                  {layout === 'laptop' && <TableCell sx={stickyHeaderRowSx()}>Std./Tag</TableCell>}
+                  <TableCell sx={stickyHeaderRowSx()}>
                     <TableSortLabel {...headProps('from')}>Von</TableSortLabel>
                   </TableCell>
-                  <TableCell>
+                  <TableCell sx={stickyHeaderRowSx()}>
                     <TableSortLabel {...headProps('to')}>Bis</TableSortLabel>
                   </TableCell>
-                  <TableCell align="right">Aktionen</TableCell>
+                  <TableCell align="right" sx={stickyHeaderRowSx()}>
+                    Aktionen
+                  </TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>

@@ -16,7 +16,6 @@ import TableContainer from '@mui/material/TableContainer';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 import Chip from '@mui/material/Chip';
-import Alert from '@mui/material/Alert';
 import Tooltip from '@mui/material/Tooltip';
 import CircularProgress from '@mui/material/CircularProgress';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
@@ -44,6 +43,7 @@ import { useAsyncData } from '@ui/hooks/useAsyncData';
 import { useBreakpoint } from '@ui/hooks/useBreakpoint';
 import { useCalendarWeekStore } from '@ui/app/store/calendarWeekStore';
 import { usePageActions } from '@ui/app/PageActionsContext';
+import { NoBranchSelectedAlert } from '@ui/components/NoBranchSelectedAlert';
 import { stickyCornerSx, stickyFirstColumnSx, stickyHeaderRowSx } from '@ui/components/stickyFirstColumn';
 
 /** Moves focus to the previous/next week cell within the SAME row (header or data), so arrow keys
@@ -90,6 +90,21 @@ export function MonthOverviewView() {
     () => createMonthOverview(schedules, year, month, absences, { employees: employeeList, isHoliday }),
     [schedules, year, month, absences, employeeList, isHoliday],
   );
+  // A departed employee stays visible only while this month still has hours attributed to them -
+  // otherwise removing them from the branch would make an already-shown month silently lose rows,
+  // and once those hours are gone (a new month with nothing left to show) they'd linger forever as
+  // a permanent, pointless all-dashes row. Matches ScheduleView's own documented visibility rule
+  // (scheduleRows.ts) for the same "still shown while it still carries something" reasoning - an
+  // ACTIVE employee is never filtered here, regardless of hours, same as scheduleRows' `editable`.
+  const visibleEmployees = useMemo(
+    () =>
+      employeeList.filter((employee) => {
+        if (employee.active) return true;
+        const row = rows.find((r) => r.employeeId === employee.id);
+        return (row?.totalNetMinutes ?? 0) > 0;
+      }),
+    [employeeList, rows],
+  );
   // Per (employee, week) ArbZG/JArbSchG hints - day/week rules only, no cross-week rest-period
   // check (too expensive to run for every week of a month at once, see the info footnote below).
   const weekValidation = useMemo(
@@ -101,7 +116,7 @@ export function MonthOverviewView() {
   );
 
   if (!branch) {
-    return <Alert severity="info">Bitte zuerst oben eine Filiale auswählen oder anlegen.</Alert>;
+    return <NoBranchSelectedAlert />;
   }
 
   const changeMonth = (direction: -1 | 1) => {
@@ -116,13 +131,14 @@ export function MonthOverviewView() {
 
   const allWeeks = rows[0]?.weeks.map((w) => w.calendarWeek) ?? [];
 
-  /** Same columns as the screen (buildMonthCsv iterates employeeList, not rows, for the same
-   * "no active employee silently disappears" reason the table itself does) - see
+  /** Same columns as the screen (buildMonthCsv iterates visibleEmployees, not rows, for the same
+   * "no active employee silently disappears" reason the table itself does - and, since N26, the
+   * same "an empty departed employee doesn't linger forever" rule too) - see
    * application/export/monthCsvExport.ts. */
   const exportCsv = () => {
     try {
       const filename = `monatsuebersicht-${year}-${String(month).padStart(2, '0')}.csv`;
-      const csv = buildMonthCsv(rows, employeeList, allWeeks);
+      const csv = buildMonthCsv(rows, visibleEmployees, allWeeks);
       downloadTextFile(filename, csv, 'text/csv;charset=utf-8');
     } catch (e) {
       notify.report(e, 'Die Monatsübersicht konnte nicht exportiert werden');
@@ -255,7 +271,7 @@ export function MonthOverviewView() {
             </TableRow>
           </TableHead>
           <TableBody>
-            {employeeList.map((employee) => {
+            {visibleEmployees.map((employee) => {
               const row = rows.find((r) => r.employeeId === employee.id);
               const totalNetMinutes = row?.totalNetMinutes ?? 0;
               // totalNetMinutes is worked + credited (see application/CLAUDE.md) - deliberately not

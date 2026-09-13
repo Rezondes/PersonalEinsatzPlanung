@@ -304,6 +304,7 @@ describe('ScheduleView', () => {
       await act(async () => {});
 
       expect(screen.getByText('Bitte zuerst oben eine Filiale auswählen oder anlegen.')).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: 'Zu den Filialen' })).toHaveAttribute('href', '/branches');
       expect(screen.queryByRole('table')).not.toBeInTheDocument();
       expect(scheduleGetOrCreate).not.toHaveBeenCalled();
     });

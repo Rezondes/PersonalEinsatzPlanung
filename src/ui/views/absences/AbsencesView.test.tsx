@@ -150,6 +150,7 @@ describe('AbsencesView', () => {
     renderView();
 
     expect(await screen.findByText('Bitte zuerst oben eine Filiale auswählen oder anlegen.')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Zu den Filialen' })).toHaveAttribute('href', '/branches');
     expect(screen.queryByRole('button', { name: 'Abwesenheit erfassen' })).not.toBeInTheDocument();
     expect(screen.queryByRole('table')).not.toBeInTheDocument();
   });

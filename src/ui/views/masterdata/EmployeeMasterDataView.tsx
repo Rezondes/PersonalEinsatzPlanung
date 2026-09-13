@@ -14,7 +14,6 @@ import Paper from '@mui/material/Paper';
 import IconButton from '@mui/material/IconButton';
 import Chip from '@mui/material/Chip';
 import Stack from '@mui/material/Stack';
-import Alert from '@mui/material/Alert';
 import TextField from '@mui/material/TextField';
 import MenuItem from '@mui/material/MenuItem';
 import InputAdornment from '@mui/material/InputAdornment';
@@ -44,7 +43,8 @@ import { useTableSort } from '@ui/hooks/useTableSort';
 import { useBreakpoint } from '@ui/hooks/useBreakpoint';
 import { useActivationToggle } from '@ui/hooks/useActivationToggle';
 import { ConfirmDialog } from '@ui/components/ConfirmDialog';
-import { stickyFirstColumnSx } from '@ui/components/stickyFirstColumn';
+import { NoBranchSelectedAlert } from '@ui/components/NoBranchSelectedAlert';
+import { stickyCornerSx, stickyFirstColumnSx, stickyHeaderRowSx } from '@ui/components/stickyFirstColumn';
 import { ResponsiveDataList } from '@ui/components/ResponsiveList/ResponsiveDataList';
 import { RowActionSheet } from '@ui/components/ResponsiveList/RowActionSheet';
 import type { RowAction } from '@ui/components/ResponsiveList/RowAction';
@@ -53,7 +53,7 @@ import { EmployeeDialog } from './EmployeeDialog';
 import { notify } from '@ui/app/store/notificationStore';
 import { usePageActions } from '@ui/app/PageActionsContext';
 
-type SortKey = 'name' | 'jobTitle' | 'employment' | 'hours' | 'vacation' | 'holidayHours' | 'status';
+type SortKey = 'name' | 'jobTitle' | 'employment' | 'hours' | 'vacation' | 'remainingVacation' | 'holidayHours' | 'status';
 type StatusFilter = 'all' | 'active' | 'inactive';
 type EmploymentFilter = 'all' | EmploymentTypeKind;
 
@@ -110,8 +110,11 @@ function vacationDisplayByEmployee(
 }
 
 /** Every comparator falls back to the name order, so equal values keep a stable, familiar order
- * instead of whatever the previous sort left behind. */
-const COMPARATORS: Record<SortKey, (a: Employee, b: Employee) => number> = {
+ * instead of whatever the previous sort left behind. Everything except `remainingVacation` only
+ * needs the Employee record itself, so it can stay a static, module-level object; that one needs
+ * the same per-branch remainingVacation/vacationDisplay Maps the column itself renders from, so it
+ * is built per-render instead - see STATIC_COMPARATORS's only caller. */
+const STATIC_COMPARATORS: Record<Exclude<SortKey, 'remainingVacation'>, (a: Employee, b: Employee) => number> = {
   name: compareByLastName,
   jobTitle: (a, b) => compareText(a.jobTitle, b.jobTitle) || compareByLastName(a, b),
   employment: (a, b) =>
@@ -295,19 +298,6 @@ export function EmployeeMasterDataView() {
   });
 
   const { headProps, sortRows } = sort;
-  const visibleEmployees = useMemo(() => {
-    const term = search.trim().toLowerCase();
-    const filtered = employeeList.filter((emp) => {
-      if (term && !`${fullName(emp)} ${emp.jobTitle}`.toLowerCase().includes(term)) {
-        return false;
-      }
-      if (statusFilter === 'active' && !emp.active) return false;
-      if (statusFilter === 'inactive' && emp.active) return false;
-      if (employmentFilter !== 'all' && emp.employmentType.type !== employmentFilter) return false;
-      return true;
-    });
-    return sortRows(filtered, COMPARATORS);
-  }, [employeeList, search, statusFilter, employmentFilter, sortRows]);
 
   const { absences } = useAbsences(employeeList.map((emp) => emp.id));
   // Guarded (not `branch!`) since this runs even on the render where branch is still null - the
@@ -323,8 +313,34 @@ export function EmployeeMasterDataView() {
     [employeeList, remainingVacation, absences, currentYear, isHoliday],
   );
 
+  // remainingVacation needs the Maps just computed above, unlike every other column - see
+  // STATIC_COMPARATORS's own comment.
+  const comparators = useMemo<Record<SortKey, (a: Employee, b: Employee) => number>>(
+    () => ({
+      ...STATIC_COMPARATORS,
+      remainingVacation: (a, b) =>
+        (vacationDisplay.get(a.id)?.totalDays ?? remainingVacation.get(a.id) ?? 0) -
+          (vacationDisplay.get(b.id)?.totalDays ?? remainingVacation.get(b.id) ?? 0) || compareByLastName(a, b),
+    }),
+    [vacationDisplay, remainingVacation],
+  );
+
+  const visibleEmployees = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    const filtered = employeeList.filter((emp) => {
+      if (term && !`${fullName(emp)} ${emp.jobTitle}`.toLowerCase().includes(term)) {
+        return false;
+      }
+      if (statusFilter === 'active' && !emp.active) return false;
+      if (statusFilter === 'inactive' && emp.active) return false;
+      if (employmentFilter !== 'all' && emp.employmentType.type !== employmentFilter) return false;
+      return true;
+    });
+    return sortRows(filtered, comparators);
+  }, [employeeList, search, statusFilter, employmentFilter, sortRows, comparators]);
+
   if (!branch) {
-    return <Alert severity="info">Bitte zuerst oben eine Filiale auswählen oder anlegen.</Alert>;
+    return <NoBranchSelectedAlert />;
   }
 
   const columnCount = layout === 'laptop' ? COLUMN_COUNT : COLUMN_COUNT_TABLET;
@@ -422,33 +438,37 @@ export function EmployeeMasterDataView() {
             <Table>
               <TableHead>
                 <TableRow>
-                  <TableCell sx={stickyFirstColumnSx}>
+                  <TableCell sx={stickyCornerSx()}>
                     <TableSortLabel {...headProps('name')}>Name</TableSortLabel>
                   </TableCell>
                   {layout === 'laptop' && (
-                    <TableCell>
+                    <TableCell sx={stickyHeaderRowSx()}>
                       <TableSortLabel {...headProps('jobTitle')}>Tätigkeit</TableSortLabel>
                     </TableCell>
                   )}
-                  <TableCell>
+                  <TableCell sx={stickyHeaderRowSx()}>
                     <TableSortLabel {...headProps('employment')}>Beschäftigung</TableSortLabel>
                   </TableCell>
-                  <TableCell>
+                  <TableCell sx={stickyHeaderRowSx()}>
                     <TableSortLabel {...headProps('hours')}>Wochenstunden</TableSortLabel>
                   </TableCell>
-                  <TableCell>
+                  <TableCell sx={stickyHeaderRowSx()}>
                     <TableSortLabel {...headProps('vacation')}>Urlaub/Jahr</TableSortLabel>
                   </TableCell>
-                  <TableCell>Resturlaub</TableCell>
+                  <TableCell sx={stickyHeaderRowSx()}>
+                    <TableSortLabel {...headProps('remainingVacation')}>Resturlaub</TableSortLabel>
+                  </TableCell>
                   {layout === 'laptop' && (
-                    <TableCell>
+                    <TableCell sx={stickyHeaderRowSx()}>
                       <TableSortLabel {...headProps('holidayHours')}>Std./Urlaubstag</TableSortLabel>
                     </TableCell>
                   )}
-                  <TableCell>
+                  <TableCell sx={stickyHeaderRowSx()}>
                     <TableSortLabel {...headProps('status')}>Status</TableSortLabel>
                   </TableCell>
-                  <TableCell align="right">Aktionen</TableCell>
+                  <TableCell align="right" sx={stickyHeaderRowSx()}>
+                    Aktionen
+                  </TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>

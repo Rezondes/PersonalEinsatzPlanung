@@ -45,9 +45,9 @@ describe('TermsView', () => {
   it('renders the heading and every terms section with its exact title and body text, in order', () => {
     render(<TermsView />);
 
-    expect(screen.getByRole('heading', { level: 5, name: 'Nutzungsbedingungen' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: 'Nutzungsbedingungen' })).toBeInTheDocument();
 
-    const sectionHeadings = screen.getAllByRole('heading', { level: 6 });
+    const sectionHeadings = screen.getAllByRole('heading', { level: 2 });
     expect(sectionHeadings).toHaveLength(SECTIONS.length);
 
     sectionHeadings.forEach((heading, index) => {
@@ -63,6 +63,6 @@ describe('TermsView', () => {
 
     const selectable = container.querySelector('[data-selectable]');
     expect(selectable).not.toBeNull();
-    expect(within(selectable as HTMLElement).getAllByRole('heading', { level: 6 })).toHaveLength(SECTIONS.length);
+    expect(within(selectable as HTMLElement).getAllByRole('heading', { level: 2 })).toHaveLength(SECTIONS.length);
   });
 });

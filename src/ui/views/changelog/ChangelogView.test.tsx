@@ -49,6 +49,23 @@ describe('ChangelogView', () => {
     expect(links[0]).toHaveAttribute('href', 'https://github.com/Rezondes/PersonalEinsatzPlanung/releases/tag/deploy-abc1234');
   });
 
+  it('renders "Änderungen" as the page\'s top-level heading, with each release title one level below it (N26)', async () => {
+    fetchChangelogMock.mockResolvedValue([
+      {
+        tagName: 'deploy-abc1234',
+        title: 'Deploy 2026-09-13 10:00 UTC',
+        publishedAt: '2026-09-13T10:00:00Z',
+        url: 'https://github.com/Rezondes/PersonalEinsatzPlanung/releases/tag/deploy-abc1234',
+        entries: ['chore: initial release'],
+      },
+    ]);
+
+    render(<ChangelogView />);
+
+    expect(screen.getByRole('heading', { level: 1, name: 'Änderungen' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 2, name: 'Deploy 2026-09-13 10:00 UTC' })).toBeInTheDocument();
+  });
+
   it('shows an empty message when there are no releases yet, without crashing', async () => {
     fetchChangelogMock.mockResolvedValue([]);
     render(<ChangelogView />);
