@@ -35,6 +35,20 @@ describe('holidaysForYearAndFederalState', () => {
     expect(holidaysForYearAndFederalState(2026, 'Niedersachsen').has('2026-10-31')).toBe(true); // Reformation Day
     expect(holidaysForYearAndFederalState(2026, 'Bayern').has('2026-10-31')).toBe(false);
   });
+
+  it('applies Buß- und Bettag (Wednesday before Nov 23) only in Sachsen', () => {
+    // 2026-11-23 is a Monday, so the Wednesday strictly before it is 2026-11-18.
+    expect(holidaysForYearAndFederalState(2026, 'Sachsen').has('2026-11-18')).toBe(true);
+    expect(holidaysForYearAndFederalState(2026, 'Bayern').has('2026-11-18')).toBe(false);
+  });
+
+  it('falls on the PRECEDING Wednesday, not Nov 23 itself, when Nov 23 is already a Wednesday', () => {
+    // 2022-11-23 is itself a Wednesday - the real-world Buß- und Bettag that year was 2022-11-16,
+    // one week earlier, not Nov 23 (the rule is "before", not "on or before").
+    const h2022 = holidaysForYearAndFederalState(2022, 'Sachsen');
+    expect(h2022.has('2022-11-16')).toBe(true);
+    expect(h2022.has('2022-11-23')).toBe(false);
+  });
 });
 
 describe('createHolidayCheck', () => {

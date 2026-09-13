@@ -37,6 +37,17 @@ function nationwideHolidays(year: number): Date[] {
   ];
 }
 
+/** Buß- und Bettag: the Wednesday strictly BEFORE November 23 (not Easter-relative, unlike most of
+ * the other movable holidays here) - when Nov 23 itself is a Wednesday, the holiday is the
+ * PRECEDING Wednesday (Nov 16), not Nov 23 itself, since the rule is "before", not "on or before".
+ * `((dayOfWeek - 3 + 7) % 7) || 7` gives the number of days to go back to reach that Wednesday,
+ * folding the "already a Wednesday" case (which would otherwise compute 0) to a full week (7). */
+function bussUndBettag(year: number): Date {
+  const nov23 = new Date(year, 10, 23);
+  const daysBack = ((nov23.getDay() - 3 + 7) % 7) || 7;
+  return addDays(nov23, -daysBack);
+}
+
 /** Additional state-specific holidays. Not exhaustive/legally verified; serves as
  * reference data for Sunday/holiday validation, not legal advice. */
 function stateSpecificHolidays(year: number, federalState: FederalState): Date[] {
@@ -53,6 +64,7 @@ function stateSpecificHolidays(year: number, federalState: FederalState): Date[]
   const allSaintsDay: FederalState[] = ['Baden-Württemberg', 'Bayern', 'Nordrhein-Westfalen', 'Rheinland-Pfalz', 'Saarland'];
   const worldChildrensDay: FederalState[] = ['Thüringen'];
   const womensDay: FederalState[] = ['Berlin', 'Mecklenburg-Vorpommern'];
+  const bussUndBettagStates: FederalState[] = ['Sachsen'];
 
   if (epiphany.includes(federalState)) holidays.push(new Date(year, 0, 6));
   if (womensDay.includes(federalState)) holidays.push(new Date(year, 2, 8));
@@ -61,6 +73,7 @@ function stateSpecificHolidays(year: number, federalState: FederalState): Date[]
   if (worldChildrensDay.includes(federalState)) holidays.push(new Date(year, 8, 20));
   if (reformationDay.includes(federalState)) holidays.push(new Date(year, 9, 31));
   if (allSaintsDay.includes(federalState)) holidays.push(new Date(year, 10, 1));
+  if (bussUndBettagStates.includes(federalState)) holidays.push(bussUndBettag(year));
 
   return holidays;
 }
