@@ -51,7 +51,7 @@ describe('restPeriodCheckService.checkWeek', () => {
     const repo = fakeRepo({});
     const schedule = createWeeklySchedule(branchId, currentWeek, [m1, m2, m3]);
 
-    await createRestPeriodCheckService(repo).checkWeek(schedule);
+    await createRestPeriodCheckService(repo).checkWeek(schedule, [], []);
 
     expect(repo.findByBranchAndWeek).toHaveBeenCalledTimes(2);
     expect(repo.findByBranchAndWeek).toHaveBeenCalledWith(branchId, previousWeek);
@@ -63,7 +63,7 @@ describe('restPeriodCheckService.checkWeek', () => {
     const { previous, current } = tightWeekBoundary();
     const repo = fakeRepo({ [previousWeek.week]: previous });
 
-    const results = await createRestPeriodCheckService(repo).checkWeek(current);
+    const results = await createRestPeriodCheckService(repo).checkWeek(current, [], []);
 
     expect(results).toHaveLength(1);
     expect(results[0]).toMatchObject({ rule: 'ArbZG_5_Ruhezeit', severity: 'error', employeeId: m1, date: '2026-09-07' });
@@ -74,7 +74,7 @@ describe('restPeriodCheckService.checkWeek', () => {
     const staleCurrent = createWeeklySchedule(branchId, currentWeek, [m1, m2]);
     const repo = fakeRepo({ [previousWeek.week]: previous, [currentWeek.week]: staleCurrent });
 
-    const results = await createRestPeriodCheckService(repo).checkWeek(current);
+    const results = await createRestPeriodCheckService(repo).checkWeek(current, [], []);
 
     expect(results).toHaveLength(1);
     expect(results[0].employeeId).toBe(m1);
@@ -92,7 +92,7 @@ describe('restPeriodCheckService.checkWeek', () => {
       createdAt: '2026-09-01T00:00:00.000Z',
     };
 
-    const results = await createRestPeriodCheckService(repo).checkWeek(current, [sickOnSunday]);
+    const results = await createRestPeriodCheckService(repo).checkWeek(current, [sickOnSunday], []);
 
     expect(results).toHaveLength(0);
   });
@@ -101,7 +101,7 @@ describe('restPeriodCheckService.checkWeek', () => {
     const repo = fakeRepo({});
     const schedule = withDayEntry(createWeeklySchedule(branchId, currentWeek, [m1]), m1, 'Montag', shift('06:00', '14:00'));
 
-    const results = await createRestPeriodCheckService(repo).checkWeek(schedule);
+    const results = await createRestPeriodCheckService(repo).checkWeek(schedule, [], []);
 
     expect(results).toEqual([]);
   });
@@ -116,7 +116,7 @@ describe('restPeriodCheckService.checkWeek', () => {
     expect(results.some((r) => r.rule === 'JArbSchG_12_Ruhezeit')).toBe(true);
   });
 
-  it('does not apply the youth rest-period rule for an adult, or when no employees are supplied', async () => {
+  it('does not apply the youth rest-period rule for an adult, or when employees is explicitly empty', async () => {
     const previous = withDayEntry(createWeeklySchedule(branchId, previousWeek, [m1]), m1, 'Sonntag', shift('06:00', '14:00'));
     const current = withDayEntry(createWeeklySchedule(branchId, currentWeek, [m1]), m1, 'Montag', shift('01:30', '09:00'));
     const repo = fakeRepo({ [previousWeek.week]: previous });
@@ -124,7 +124,9 @@ describe('restPeriodCheckService.checkWeek', () => {
     const asAdult = await createRestPeriodCheckService(repo).checkWeek(current, [], [{ id: m1, birthDate: '1990-05-01' }]);
     expect(asAdult.some((r) => r.rule === 'JArbSchG_12_Ruhezeit')).toBe(false);
 
-    const withoutEmployees = await createRestPeriodCheckService(repo).checkWeek(current);
-    expect(withoutEmployees.some((r) => r.rule === 'JArbSchG_12_Ruhezeit')).toBe(false);
+    // Unlike the removed default, an empty array here is the caller's own explicit choice, not a
+    // forgotten argument silently disabling the check.
+    const withEmptyEmployees = await createRestPeriodCheckService(repo).checkWeek(current, [], []);
+    expect(withEmptyEmployees.some((r) => r.rule === 'JArbSchG_12_Ruhezeit')).toBe(false);
   });
 });

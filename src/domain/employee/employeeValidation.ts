@@ -1,6 +1,8 @@
+import { differenceInYears, parseISO } from 'date-fns';
 import type { FieldError } from '@domain/validation/FieldError';
 import { MUST_BE_POSITIVE_MESSAGE, validateHourRange } from '@domain/validation/FieldError';
 import type { EmploymentType } from '@domain/employee/EmploymentType';
+import { toISODate } from '@domain/shared/DateFormat';
 
 export type EmployeeField =
   | 'firstName'
@@ -12,7 +14,23 @@ export type EmployeeField =
   | 'maxMonthlyHours'
   | 'vacationEntitlementPerYear'
   | 'holidayVacationHours'
+  | 'birthDate'
   | 'exitDate';
+
+/** Sanity ceilings for the two number families below - deliberately generous (well past any real
+ * contract or vacation entitlement), so these only ever catch an actual data-entry slip (e.g. a
+ * stray extra digit), never a real value. `holidayVacationHours` two fields down already has its
+ * own ceiling via `validateHourRange` (that one caps at 24 REAL hours in a day, a different kind of
+ * field entirely, so it is not reused here). */
+const MAX_WEEKLY_HOURS = 60;
+const MAX_WEEKLY_HOURS_MESSAGE = `Höchstens ${MAX_WEEKLY_HOURS} Std. pro Woche.`;
+const MAX_VACATION_DAYS_PER_YEAR = 60;
+const MAX_VACATION_DAYS_MESSAGE = `Höchstens ${MAX_VACATION_DAYS_PER_YEAR} Tage.`;
+/** Plausibility-only, not a legal age limit - §5 JArbSchG's actual employment ban for children is
+ * enforced at schedule-validation time (`youthProtection.validateChildEmploymentBan`), since a
+ * birth date alone does not yet mean the person is scheduled. This just catches an obviously wrong
+ * date (typo'd year, wrong century). */
+const MAX_PLAUSIBLE_AGE_YEARS = 100;
 
 /** EmploymentType with its numbers optional, so an unfinished form draft can be validated before
  * the numbers exist. A complete EmploymentType is assignable to this.
@@ -40,6 +58,7 @@ export interface EmployeeDraft {
   employmentType: EmploymentTypeDraft;
   vacationEntitlementPerYear?: number;
   holidayVacationHours?: number;
+  birthDate?: string;
   entryDate?: string;
   exitDate?: string;
 }
@@ -71,11 +90,15 @@ export function validateEmployee(draft: EmployeeDraft): FieldError<EmployeeField
       errors.push({ field: 'minHours', message: 'Bitte Min. Std. eingeben.' });
     } else if (minHours <= 0) {
       errors.push({ field: 'minHours', message: MUST_BE_POSITIVE_MESSAGE });
+    } else if (minHours > MAX_WEEKLY_HOURS) {
+      errors.push({ field: 'minHours', message: MAX_WEEKLY_HOURS_MESSAGE });
     }
     if (isMissing(maxHours)) {
       errors.push({ field: 'maxHours', message: 'Bitte Max. Std. eingeben.' });
     } else if (maxHours <= 0) {
       errors.push({ field: 'maxHours', message: MUST_BE_POSITIVE_MESSAGE });
+    } else if (maxHours > MAX_WEEKLY_HOURS) {
+      errors.push({ field: 'maxHours', message: MAX_WEEKLY_HOURS_MESSAGE });
     }
     // Only meaningful once both bounds are present and positive; otherwise the messages above apply.
     if (!isMissing(minHours) && !isMissing(maxHours) && minHours > 0 && maxHours > 0 && minHours > maxHours) {
@@ -89,12 +112,16 @@ export function validateEmployee(draft: EmployeeDraft): FieldError<EmployeeField
     errors.push({ field: 'weeklyHours', message: 'Bitte Wochenstunden eingeben.' });
   } else if (employment.weeklyHours <= 0) {
     errors.push({ field: 'weeklyHours', message: MUST_BE_POSITIVE_MESSAGE });
+  } else if (employment.weeklyHours > MAX_WEEKLY_HOURS) {
+    errors.push({ field: 'weeklyHours', message: MAX_WEEKLY_HOURS_MESSAGE });
   }
 
   if (isMissing(draft.vacationEntitlementPerYear)) {
     errors.push({ field: 'vacationEntitlementPerYear', message: 'Bitte Urlaubsanspruch eingeben.' });
   } else if (draft.vacationEntitlementPerYear < 0) {
     errors.push({ field: 'vacationEntitlementPerYear', message: 'Darf nicht negativ sein.' });
+  } else if (draft.vacationEntitlementPerYear > MAX_VACATION_DAYS_PER_YEAR) {
+    errors.push({ field: 'vacationEntitlementPerYear', message: MAX_VACATION_DAYS_MESSAGE });
   }
 
   // Required, because it decides how much a vacation day counts towards this employee's actual
@@ -108,6 +135,16 @@ export function validateEmployee(draft: EmployeeDraft): FieldError<EmployeeField
   // Both dates are optional; only their order can be wrong. ISO strings compare correctly as text.
   if (draft.entryDate && draft.exitDate && draft.exitDate < draft.entryDate) {
     errors.push({ field: 'exitDate', message: 'Austrittsdatum darf nicht vor dem Eintrittsdatum liegen.' });
+  }
+
+  // Optional; only checked once entered. Plain string comparison for "in the future" is correct for
+  // ISO dates (same reasoning as isEmployedOn), age itself needs a real calendar diff.
+  if (draft.birthDate) {
+    if (draft.birthDate > toISODate(new Date())) {
+      errors.push({ field: 'birthDate', message: 'Geburtsdatum darf nicht in der Zukunft liegen.' });
+    } else if (differenceInYears(new Date(), parseISO(draft.birthDate)) > MAX_PLAUSIBLE_AGE_YEARS) {
+      errors.push({ field: 'birthDate', message: 'Geburtsdatum ist unplausibel.' });
+    }
   }
 
   return errors;

@@ -226,14 +226,18 @@ export function hasAnyEntry(view: Pick<EmployeeWeekView, 'days'>): boolean {
 }
 
 /** Returns a copy of the weekly schedule where days with an Absence are set to "Off". Used as the
- * basis for validation (ArbZG rules shouldn't check against leftover shifts on vacation/sick days). */
+ * basis for validation (ArbZG rules shouldn't check against leftover shifts on vacation/sick days).
+ * A half-day absence only blanks the day for the half it actually covers, mirroring
+ * `createWeekView`'s own `absenceCoversWholeDay` - otherwise a half-day vacation would erase a real
+ * shift worked on the other half from every ArbZG check. */
 export function scheduleWithoutAbsentDays(schedule: WeeklySchedule, absences: Absence[]): WeeklySchedule {
   const employeeAssignments = schedule.employeeAssignments.map((assignment) => {
     const days = Object.fromEntries(
       WEEKDAYS.map((day) => {
         const date = toISODate(dateForWeekday(schedule.calendarWeek, day));
-        const hasAbsence = findAbsenceForDay(absences, assignment.employeeId, date) !== undefined;
-        return [day, hasAbsence ? ({ type: 'Off' } satisfies DayEntry) : assignment.days[day]];
+        const absence = findAbsenceForDay(absences, assignment.employeeId, date);
+        const coversWholeDay = absence !== undefined && !isHalfDayOnThisDate(absence, date);
+        return [day, coversWholeDay ? ({ type: 'Off' } satisfies DayEntry) : assignment.days[day]];
       }),
     ) as Record<Weekday, DayEntry>;
     return { ...assignment, days };

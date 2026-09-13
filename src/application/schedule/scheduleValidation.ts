@@ -18,6 +18,7 @@ import {
   validateYouthShiftSpan,
   validateYouthNightWork,
   validateYouthSundayWork,
+  validateChildEmploymentBan,
 } from '@domain/validation/arbzg/youthProtection';
 import type { ValidationResult } from '@domain/validation/ValidationResult';
 import { scheduleWithoutAbsentDays } from './scheduleAssessment';
@@ -69,6 +70,7 @@ export function validateWeekSync(
       );
       results.push(...validateSundayHolidayWork(date, day, branch, isHoliday, { employeeId: assignment.employeeId }));
       results.push(...validateYouthSundayWork(date, day, birthDate, { employeeId: assignment.employeeId }));
+      results.push(...validateChildEmploymentBan(date, birthDate, { employeeId: assignment.employeeId }));
 
       weekNetMinutes += dayNetMinutes;
     }

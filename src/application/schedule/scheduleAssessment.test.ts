@@ -9,7 +9,13 @@ import { clockTime } from '@domain/shared/ClockTime';
 import type { AbsenceId } from '@domain/shared/ids';
 import type { Absence } from '@domain/absence/Absence';
 import type { EmploymentType } from '@domain/employee/EmploymentType';
-import { createMonthOverview, createWeekView, effectiveTargetMinutes, effectiveTargetMinutesRange } from './scheduleAssessment';
+import {
+  createMonthOverview,
+  createWeekView,
+  effectiveTargetMinutes,
+  effectiveTargetMinutesRange,
+  scheduleWithoutAbsentDays,
+} from './scheduleAssessment';
 
 const branchId = 'f1' as BranchId;
 const cw: CalendarWeek = { year: 2026, week: 37 };
@@ -183,6 +189,24 @@ describe('createWeekView - worked vs credited minutes', () => {
       const [row] = createWeekView(weekWithMonday(), list, { employees });
       expect(row.days[0].creditedMinutes).toBe(7 * 60);
     }
+  });
+});
+
+describe('scheduleWithoutAbsentDays', () => {
+  it('blanks a day fully covered by a whole-day absence', () => {
+    const result = scheduleWithoutAbsentDays(weekWithMonday(), [absence({ type: 'Vacation' })]);
+    expect(result.employeeAssignments[0].days['Montag']).toEqual({ type: 'Off' });
+  });
+
+  it('keeps a real shift on a day only half-covered by a half-day absence', () => {
+    const halfDay = absence({ type: 'Vacation', halfDay: { atStart: true, atEnd: false } });
+    const result = scheduleWithoutAbsentDays(weekWithMonday(), [halfDay]);
+    expect(result.employeeAssignments[0].days['Montag']).toEqual(shift8h);
+  });
+
+  it('leaves a day with no absences untouched', () => {
+    const result = scheduleWithoutAbsentDays(weekWithMonday(), []);
+    expect(result.employeeAssignments[0].days['Montag']).toEqual(shift8h);
   });
 });
 

@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { toISODate } from '@domain/shared/DateFormat';
 import { validateEmployee } from './employeeValidation';
 import type { EmployeeDraft } from './employeeValidation';
 
@@ -42,6 +43,13 @@ describe('validateEmployee', () => {
     expect(validateEmployee(draft({ employmentType: { type: 'PartTime', weeklyHours: 0.5 } }))).toEqual([]);
   });
 
+  it('rejects implausibly high weekly hours, catching a data-entry slip rather than a real contract', () => {
+    expect(messagesByField(validateEmployee(draft({ employmentType: { type: 'FullTime', weeklyHours: 600 } })))).toEqual({
+      weeklyHours: 'Höchstens 60 Std. pro Woche.',
+    });
+    expect(validateEmployee(draft({ employmentType: { type: 'FullTime', weeklyHours: 60 } }))).toEqual([]);
+  });
+
   it('requires both Minijob bounds and rejects zero on each', () => {
     expect(messagesByField(validateEmployee(draft({ employmentType: { type: 'Minijob' } })))).toEqual({
       minHours: 'Bitte Min. Std. eingeben.',
@@ -52,6 +60,15 @@ describe('validateEmployee', () => {
     ).toEqual({
       minHours: 'Muss größer als 0 sein.',
       maxHours: 'Muss größer als 0 sein.',
+    });
+  });
+
+  it('rejects implausibly high Minijob bounds on each field independently', () => {
+    expect(
+      messagesByField(validateEmployee(draft({ employmentType: { type: 'Minijob', minHours: 61, maxHours: 61 } }))),
+    ).toEqual({
+      minHours: 'Höchstens 60 Std. pro Woche.',
+      maxHours: 'Höchstens 60 Std. pro Woche.',
     });
   });
 
@@ -93,6 +110,37 @@ describe('validateEmployee', () => {
   it('treats NaN like a missing number', () => {
     expect(messagesByField(validateEmployee(draft({ vacationEntitlementPerYear: Number.NaN })))).toEqual({
       vacationEntitlementPerYear: 'Bitte Urlaubsanspruch eingeben.',
+    });
+  });
+
+  it('rejects an implausibly high vacation entitlement', () => {
+    expect(messagesByField(validateEmployee(draft({ vacationEntitlementPerYear: 61 })))).toEqual({
+      vacationEntitlementPerYear: 'Höchstens 60 Tage.',
+    });
+    expect(validateEmployee(draft({ vacationEntitlementPerYear: 60 }))).toEqual([]);
+  });
+});
+
+describe('validateEmployee - Geburtsdatum', () => {
+  it('accepts no birth date at all, same as every record stored before the field existed', () => {
+    expect(validateEmployee(draft())).toEqual([]);
+  });
+
+  it('accepts a plausible birth date', () => {
+    expect(validateEmployee(draft({ birthDate: '2010-05-01' }))).toEqual([]);
+  });
+
+  it('rejects a birth date in the future', () => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    expect(messagesByField(validateEmployee(draft({ birthDate: toISODate(tomorrow) })))).toEqual({
+      birthDate: 'Geburtsdatum darf nicht in der Zukunft liegen.',
+    });
+  });
+
+  it('rejects an implausibly old birth date', () => {
+    expect(messagesByField(validateEmployee(draft({ birthDate: '1850-01-01' })))).toEqual({
+      birthDate: 'Geburtsdatum ist unplausibel.',
     });
   });
 });

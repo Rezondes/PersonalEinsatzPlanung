@@ -6,6 +6,7 @@ import type { EmployeeId } from '@domain/shared/ids';
 import { shiftToDated } from './restPeriodValidation';
 import {
   isMinor,
+  isChild,
   validateYouthDailyWorkingTime,
   validateYouthWeeklyWorkingTime,
   validateYouthBreaks,
@@ -13,11 +14,13 @@ import {
   validateYouthNightWork,
   validateYouthSundayWork,
   validateYouthRestPeriodSequence,
+  validateChildEmploymentBan,
 } from './youthProtection';
 
 const m1 = 'm1' as EmployeeId;
 const minor = '2010-05-01'; // turns 18 on 2028-05-01
 const adult = '1990-05-01';
+const child = '2013-05-01'; // turns 15 on 2028-05-01, still a Jugendlicher-band minor throughout
 
 describe('isMinor', () => {
   it('is true the day before the 18th birthday and false on/after it', () => {
@@ -38,6 +41,30 @@ describe('isMinor', () => {
 
   it('returns null when the birth date is unknown', () => {
     expect(isMinor(undefined, new Date())).toBeNull();
+  });
+
+  it('is also true for a Kind under 15 - the 15-17 rules apply to them too, on top of the stricter §5 ban', () => {
+    expect(isMinor(child, new Date(2026, 8, 7))).toBe(true);
+  });
+});
+
+describe('isChild', () => {
+  it('is true the day before the 15th birthday and false on/after it', () => {
+    expect(isChild(child, new Date(2028, 3, 30))).toBe(true);
+    expect(isChild(child, new Date(2028, 4, 1))).toBe(false);
+  });
+
+  it('is false for a 15-17 year old Jugendlicher, even though isMinor is true for them', () => {
+    expect(isChild(minor, new Date(2026, 8, 7))).toBe(false);
+    expect(isMinor(minor, new Date(2026, 8, 7))).toBe(true);
+  });
+
+  it('is false for an adult', () => {
+    expect(isChild(adult, new Date(2026, 8, 7))).toBe(false);
+  });
+
+  it('returns null when the birth date is unknown', () => {
+    expect(isChild(undefined, new Date())).toBeNull();
   });
 });
 
@@ -125,6 +152,18 @@ describe('validateYouthSundayWork', () => {
     expect(validateYouthSundayWork('2026-09-13', 'Sonntag', minor, { employeeId: m1 })).toHaveLength(1);
     expect(validateYouthSundayWork('2026-09-12', 'Samstag', minor, { employeeId: m1 })).toHaveLength(0);
     expect(validateYouthSundayWork('2026-09-13', 'Sonntag', adult, { employeeId: m1 })).toHaveLength(0);
+  });
+});
+
+describe('validateChildEmploymentBan', () => {
+  it('errors unconditionally for a child, never for a 15-17 year old Jugendlicher or an adult', () => {
+    expect(validateChildEmploymentBan('2026-09-07', child, { employeeId: m1 })).toHaveLength(1);
+    expect(validateChildEmploymentBan('2026-09-07', minor, { employeeId: m1 })).toHaveLength(0);
+    expect(validateChildEmploymentBan('2026-09-07', adult, { employeeId: m1 })).toHaveLength(0);
+  });
+
+  it('returns no result when the birth date is unknown', () => {
+    expect(validateChildEmploymentBan('2026-09-07', undefined, { employeeId: m1 })).toHaveLength(0);
   });
 });
 

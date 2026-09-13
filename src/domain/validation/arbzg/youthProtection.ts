@@ -25,6 +25,48 @@ export function isMinor(birthDate: string | undefined, referenceDate: Date): boo
   return differenceInYears(referenceDate, parseISO(birthDate)) < 18;
 }
 
+/** Returns whether the person is a "Kind" (§2 Abs. 1 JArbSchG: not yet 15) on the reference date, or
+ * null if the birth date is unknown. A Kind is always also a Jugendlicher under `isMinor` (every one
+ * of the 15-17 rules above still applies) - `isChild` exists only to detect the STRICTER §5 ban that
+ * additionally applies below 15, which none of the `validateYouth*` functions above check for on
+ * their own; without it, a hypothetical 13-year-old would only ever be measured against the more
+ * lenient 15-17 thresholds.
+ *
+ * Deliberately age-only, unlike §2 Abs. 3 JArbSchG (which also counts someone 15+ still subject to
+ * Vollzeitschulpflicht as a Kind) - this app tracks no schooling-status field, by the same data-
+ * minimization reasoning `Employee.birthDate` itself documents. */
+export function isChild(birthDate: string | undefined, referenceDate: Date): boolean | null {
+  if (!birthDate) {
+    return null;
+  }
+  return differenceInYears(referenceDate, parseISO(birthDate)) < 15;
+}
+
+/** §5 Abs. 1 JArbSchG: employing a child (under 15) is banned outright - unlike every `validateYouth*`
+ * threshold above, there is no hours/time-of-day/day-of-week condition to check, so this fires
+ * whenever the child has any entry at all on the given date. §5 Abs. 3 JArbSchG carves out narrow
+ * exceptions (light agricultural work, delivering newspapers, babysitting, ...) that do not apply to
+ * retail shift work, so this app models the ban as unconditional. */
+export function validateChildEmploymentBan(
+  date: string,
+  birthDate: string | undefined,
+  context: { employeeId: EmployeeId },
+): ValidationResult[] {
+  if (!isChild(birthDate, parseISO(date))) {
+    return [];
+  }
+
+  return [
+    {
+      rule: 'JArbSchG_5_Kinderarbeit',
+      severity: 'error',
+      message: 'Beschäftigung von Kindern (unter 15 Jahre) ist gesetzlich grundsätzlich verboten (§5 JArbSchG).',
+      date,
+      ...context,
+    },
+  ];
+}
+
 /** Jugendarbeitsschutzgesetz (JArbSchG) thresholds for minors (Jugendliche, 15 bis unter 18 Jahre).
  * Deliberately stricter across the board than the adult ArbZGConfiguration - see breakValidation.ts
  * and maxWorkingTimeValidation.ts for the adult numbers each of these overrides. */

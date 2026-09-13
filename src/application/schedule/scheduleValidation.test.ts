@@ -66,6 +66,20 @@ describe('validateWeekSync', () => {
     expect(results).not.toContainEqual(expect.objectContaining({ rule: 'JArbSchG_14_Nachtruhe', employeeId: m2 }));
   });
 
+  it('reports the §5 JArbSchG child-employment ban for a child, without affecting an adult in the same week', () => {
+    let schedule = withDayEntry(createWeeklySchedule(branchId, week, [m1, m2]), m1, 'Montag', shiftEntry('08:00', '12:00'));
+    schedule = withDayEntry(schedule, m2, 'Montag', shiftEntry('08:00', '12:00'));
+    const employees = [
+      { id: m1, birthDate: '2013-05-01' }, // turns 15 in 2028, a child in this 2026 week
+      { id: m2, birthDate: '1990-05-01' },
+    ];
+
+    const results = validateWeekSync(schedule, [], branch, employees, noHoliday);
+
+    expect(results).toContainEqual(expect.objectContaining({ rule: 'JArbSchG_5_Kinderarbeit', employeeId: m1 }));
+    expect(results).not.toContainEqual(expect.objectContaining({ rule: 'JArbSchG_5_Kinderarbeit', employeeId: m2 }));
+  });
+
   it('returns an empty array for a week with no violations', () => {
     const schedule = withDayEntry(createWeeklySchedule(branchId, week, [m1]), m1, 'Montag', shiftEntry('08:00', '12:00'));
 

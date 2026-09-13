@@ -40,13 +40,17 @@ function extractDatedShifts(schedule: WeeklySchedule, employeeId: EmployeeId): D
  *
  * `absences` clears out leftover Shift data on days now covered by an Absence (same reasoning as
  * scheduleWithoutAbsentDays's other callers) - without this, a stale shift next to a since-added
- * vacation/sick day would wrongly count toward the rest period. */
+ * vacation/sick day would wrongly count toward the rest period.
+ *
+ * `absences` and `employees` are required, not defaulted to `[]`: a defaulted value would let a
+ * forgotten argument at some future call site silently skip the JArbSchG youth check instead of
+ * failing to compile, the same reasoning `createWeekView`'s `WeekViewContext` already documents. */
 export function createRestPeriodCheckService(repo: WeeklyScheduleRepository) {
   return {
     checkWeek: async (
       schedule: WeeklySchedule,
-      absences: Absence[] = [],
-      employees: Pick<Employee, 'id' | 'birthDate'>[] = [],
+      absences: Absence[],
+      employees: Pick<Employee, 'id' | 'birthDate'>[],
     ): Promise<ValidationResult[]> => {
       const { branchId, calendarWeek } = schedule;
       const [previous, next] = await Promise.all([
