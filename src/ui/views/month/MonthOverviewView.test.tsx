@@ -463,4 +463,40 @@ describe('MonthOverviewView', () => {
     const row = screen.getByText(fullName(minijobber)).closest('tr')!;
     expect(within(row).queryByRole('button', { name: 'Monatsgrenze überschritten anzeigen' })).not.toBeInTheDocument();
   });
+
+  it('shows an ArbZG warning icon in exactly the violating week\'s cell, with a tooltip and an info footnote about the missing rest-period check', async () => {
+    selectBranch();
+    const user = userEvent.setup();
+    const employee = makeEmployee();
+    employeeForBranch.mockResolvedValue([employee]);
+    const weeks = calendarWeeksInMonth(currentYear, currentMonth);
+    expect(weeks.length).toBeGreaterThan(1);
+    const violatingSchedule = withDayEntry(
+      createWeeklySchedule(branch.id, weeks[0], [employee.id]),
+      employee.id,
+      'Montag',
+      { type: 'Shift', shifts: [createShift(clockTime('06:00'), clockTime('20:00'))] }, // 14h, over the 10h daily max
+    );
+    scheduleForBranch.mockResolvedValue([violatingSchedule]);
+
+    renderView();
+    await screen.findByText(currentMonthLabel);
+
+    expect(screen.getByText(/Ruhezeit/)).toBeInTheDocument();
+
+    const violatingCell = await screen.findByRole('button', {
+      name: `${fullName(employee)}, KW ${weeks[0].week} bearbeiten`,
+    });
+    const warningIcon = within(violatingCell).getByRole('button', { name: 'Hinweis anzeigen' });
+    await user.click(warningIcon);
+
+    expect(
+      screen.getByText('Tägliche Arbeitszeit von 14 Std. überschreitet die gesetzlich zulässige Höchstgrenze von 10 Std.'),
+    ).toBeInTheDocument();
+    // Clicking the icon must not also trigger the cell's own "jump to week" navigation.
+    expect(screen.queryByText('schedule-route-landed')).not.toBeInTheDocument();
+
+    const cleanCell = screen.getByRole('button', { name: `${fullName(employee)}, KW ${weeks[1].week} bearbeiten` });
+    expect(within(cleanCell).queryByRole('button', { name: 'Hinweis anzeigen' })).not.toBeInTheDocument();
+  });
 });

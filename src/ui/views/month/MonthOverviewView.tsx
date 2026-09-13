@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { KeyboardEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Box from '@mui/material/Box';
@@ -20,9 +20,11 @@ import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import type { WeeklySchedule } from '@domain/schedule/WeeklySchedule';
 import type { CalendarWeek } from '@domain/shared/CalendarWeek';
+import type { ValidationResult } from '@domain/validation/ValidationResult';
 import { fullName } from '@domain/employee/Employee';
 import { targetWeeklyHoursRange } from '@domain/employee/EmploymentType';
 import { createMonthOverview } from '@application/schedule/scheduleAssessment';
+import { createMonthValidation } from '@application/schedule/scheduleValidation';
 import { formatHoursRangeGerman, minutesToDecimalHours } from '@domain/schedule/scheduleCalculation';
 import { services } from '@infrastructure/services';
 import { createHolidayCheck } from '@infrastructure/holidays/germanHolidays';
@@ -72,6 +74,24 @@ export function MonthOverviewView() {
     services.schedule.forBranch(branch.id).then(setSchedules);
   }, [branch]);
 
+  // Guarded (not `branch!`) since these run even on the render where branch is still null - the
+  // early return below happens after every hook, matching EmployeeMasterDataView's identical
+  // isHoliday-before-the-branch-check pattern.
+  const isHoliday = useMemo(() => (branch ? createHolidayCheck(branch.federalState) : () => false), [branch]);
+  const rows = useMemo(
+    () => createMonthOverview(schedules, year, month, absences, { employees: employeeList, isHoliday }),
+    [schedules, year, month, absences, employeeList, isHoliday],
+  );
+  // Per (employee, week) ArbZG/JArbSchG hints - day/week rules only, no cross-week rest-period
+  // check (too expensive to run for every week of a month at once, see the info footnote below).
+  const weekValidation = useMemo(
+    () =>
+      branch
+        ? createMonthValidation(schedules, year, month, absences, branch, employeeList, isHoliday)
+        : new Map<string, ValidationResult[]>(),
+    [schedules, year, month, absences, branch, employeeList, isHoliday],
+  );
+
   if (!branch) {
     return <Alert severity="info">Bitte zuerst oben eine Filiale auswählen oder anlegen.</Alert>;
   }
@@ -90,10 +110,6 @@ export function MonthOverviewView() {
     setYear(newYear);
   };
 
-  const rows = createMonthOverview(schedules, year, month, absences, {
-    employees: employeeList,
-    isHoliday: createHolidayCheck(branch.federalState),
-  });
   const allWeeks = rows[0]?.weeks.map((w) => w.calendarWeek) ?? [];
 
   const jumpToWeek = (cw: CalendarWeek) => {
@@ -113,7 +129,7 @@ export function MonthOverviewView() {
         py: layout === 'mobile' ? 1.5 : 3,
       }}
     >
-      <Stack direction="row" flexWrap="wrap" justifyContent="space-between" alignItems="center" gap={1} sx={{ mb: 3 }}>
+      <Stack direction="row" flexWrap="wrap" justifyContent="space-between" alignItems="center" gap={1} sx={{ mb: 1 }}>
         <Stack direction="row" alignItems="center" gap={1}>
           <IconButton onClick={() => changeMonth(-1)} aria-label="Vorheriger Monat">
             <ChevronLeftIcon />
@@ -126,6 +142,11 @@ export function MonthOverviewView() {
           </IconButton>
         </Stack>
       </Stack>
+
+      <Typography variant="caption" color="text.secondary" sx={{ mb: 2, display: 'block' }}>
+        Zeigt je Kalenderwoche nur Tages-/Wochenprüfungen auf ArbZG-/JArbSchG-Verstöße; eine
+        Ruhezeit-Prüfung über Wochengrenzen hinweg findet hier nicht statt.
+      </Typography>
 
       {/* Bounded height, self-scrolling (both axes) - see stickyFirstColumn.ts for why a sticky
           header row and horizontal scroll on a real <table> can't coexist any other way. height:
@@ -198,11 +219,19 @@ export function MonthOverviewView() {
                     const weekValue = row?.weeks.find(
                       (w) => w.calendarWeek.year === cw.year && w.calendarWeek.week === cw.week,
                     );
+                    const cellKey = `${employee.id}|${cw.year}-${cw.week}`;
+                    const weekResults = weekValidation.get(cellKey) ?? [];
+                    const hasError = weekResults.some((r) => r.severity === 'error');
+                    const hasWarning = weekResults.some((r) => r.severity === 'warning');
                     return (
                       <TableCell
                         key={`${cw.year}-${cw.week}`}
                         align="center"
-                        sx={{ cursor: 'pointer', '&:focus-visible': { outline: '2px solid #2f5d50', outlineOffset: -2 } }}
+                        sx={{
+                          position: 'relative',
+                          cursor: 'pointer',
+                          '&:focus-visible': { outline: '2px solid #2f5d50', outlineOffset: -2 },
+                        }}
                         onClick={() => jumpToWeek(cw)}
                         onKeyDown={(e) => {
                           if (e.key === 'Enter' || e.key === ' ') {
@@ -220,6 +249,50 @@ export function MonthOverviewView() {
                         tabIndex={weekIndex === 0 ? 0 : -1}
                         aria-label={`${fullName(employee)}, KW ${cw.week} bearbeiten`}
                       >
+                        {(hasError || hasWarning) && (
+                          <Tooltip
+                            title={
+                              <Stack spacing={0.5}>
+                                {weekResults.map((r, i) => (
+                                  <span key={i}>{r.message}</span>
+                                ))}
+                              </Stack>
+                            }
+                            arrow
+                            open={warningOpenFor === cellKey}
+                            onClose={() => setWarningOpenFor(null)}
+                            disableFocusListener
+                            disableHoverListener
+                            disableTouchListener
+                          >
+                            <Box
+                              component="button"
+                              type="button"
+                              aria-label="Hinweis anzeigen"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setWarningOpenFor((prev) => (prev === cellKey ? null : cellKey));
+                              }}
+                              sx={{
+                                position: 'absolute',
+                                top: 2,
+                                right: 2,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                width: 20,
+                                height: 20,
+                                p: 0,
+                                border: 'none',
+                                background: 'transparent',
+                                cursor: 'pointer',
+                                color: hasError ? '#b3261e' : '#8a6d1f',
+                              }}
+                            >
+                              <WarningAmberIcon sx={{ fontSize: 16 }} />
+                            </Box>
+                          </Tooltip>
+                        )}
                         {weekValue ? minutesToDecimalHours(weekValue.totalNetMinutes).toLocaleString('de-DE') : '–'}
                       </TableCell>
                     );
