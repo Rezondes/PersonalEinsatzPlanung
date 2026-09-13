@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { backupFilename } from './fileAccess';
+import { describe, it, expect, vi, afterEach } from 'vitest';
+import { backupFilename, downloadTextFile } from './fileAccess';
 
 describe('backupFilename', () => {
   it('names the file after the local date and time, down to the second', () => {
@@ -25,5 +25,41 @@ describe('backupFilename', () => {
 
   it('avoids characters Windows refuses in a file name', () => {
     expect(backupFilename(new Date(2026, 8, 8, 14, 32, 5))).not.toMatch(/[:*?"<>|]/);
+  });
+});
+
+describe('downloadTextFile', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it('wraps the given text in a Blob of the given mime type and triggers a download via an anchor click, revoking the object URL afterwards', () => {
+    const createObjectURL = vi.fn<(blob: Blob) => string>(() => 'blob:mock-url');
+    const revokeObjectURL = vi.fn();
+    vi.stubGlobal('URL', { ...URL, createObjectURL, revokeObjectURL });
+    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+
+    downloadTextFile('export.csv', 'a;b', 'text/csv');
+
+    expect(createObjectURL).toHaveBeenCalledTimes(1);
+    const blob = createObjectURL.mock.calls[0][0];
+    expect(blob).toBeInstanceOf(Blob);
+    expect(blob.type).toBe('text/csv');
+    expect(clickSpy).toHaveBeenCalledTimes(1);
+    expect(revokeObjectURL).toHaveBeenCalledWith('blob:mock-url');
+  });
+
+  it('sets the anchor\'s download attribute to the given filename', () => {
+    vi.stubGlobal('URL', { ...URL, createObjectURL: vi.fn(() => 'blob:mock-url'), revokeObjectURL: vi.fn() });
+    const clickSpy = vi
+      .spyOn(HTMLAnchorElement.prototype, 'click')
+      .mockImplementation(function (this: HTMLAnchorElement) {
+        expect(this.download).toBe('export.csv');
+      });
+
+    downloadTextFile('export.csv', 'a;b', 'text/csv');
+
+    expect(clickSpy).toHaveBeenCalledTimes(1);
   });
 });

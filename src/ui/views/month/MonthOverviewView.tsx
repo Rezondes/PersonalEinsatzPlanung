@@ -5,6 +5,7 @@ import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Stack from '@mui/material/Stack';
 import IconButton from '@mui/material/IconButton';
+import Button from '@mui/material/Button';
 import TextField from '@mui/material/TextField';
 import MenuItem from '@mui/material/MenuItem';
 import Paper from '@mui/material/Paper';
@@ -20,6 +21,7 @@ import Tooltip from '@mui/material/Tooltip';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
+import FileDownloadOutlinedIcon from '@mui/icons-material/FileDownloadOutlined';
 import type { WeeklySchedule } from '@domain/schedule/WeeklySchedule';
 import type { CalendarWeek } from '@domain/shared/CalendarWeek';
 import { MONTH_NAMES, stepMonth } from '@domain/shared/CalendarWeek';
@@ -28,9 +30,12 @@ import { fullName } from '@domain/employee/Employee';
 import { targetWeeklyHoursRange } from '@domain/employee/EmploymentType';
 import { createMonthOverview } from '@application/schedule/scheduleAssessment';
 import { createMonthValidation } from '@application/schedule/scheduleValidation';
+import { buildMonthCsv } from '@application/export/monthCsvExport';
 import { formatHoursRangeGerman, minutesToDecimalHours } from '@domain/schedule/scheduleCalculation';
 import { services } from '@infrastructure/services';
 import { createHolidayCheck } from '@infrastructure/holidays/germanHolidays';
+import { downloadTextFile } from '@infrastructure/export/fileAccess';
+import { notify } from '@ui/app/store/notificationStore';
 import { useSelectedBranch } from '@ui/hooks/useBranch';
 import { useEmployeeList } from '@ui/hooks/useEmployeeList';
 import { useAbsences } from '@ui/hooks/useAbsences';
@@ -106,6 +111,19 @@ export function MonthOverviewView() {
 
   const allWeeks = rows[0]?.weeks.map((w) => w.calendarWeek) ?? [];
 
+  /** Same columns as the screen (buildMonthCsv iterates employeeList, not rows, for the same
+   * "no active employee silently disappears" reason the table itself does) - see
+   * application/export/monthCsvExport.ts. */
+  const exportCsv = () => {
+    try {
+      const filename = `monatsuebersicht-${year}-${String(month).padStart(2, '0')}.csv`;
+      const csv = buildMonthCsv(rows, employeeList, allWeeks);
+      downloadTextFile(filename, csv, 'text/csv;charset=utf-8');
+    } catch (e) {
+      notify.report(e, 'Die Monatsübersicht konnte nicht exportiert werden');
+    }
+  };
+
   const jumpToWeek = (cw: CalendarWeek) => {
     setSelectedWeek(cw);
     navigate('/schedule');
@@ -124,48 +142,54 @@ export function MonthOverviewView() {
       }}
     >
       <Stack direction="row" flexWrap="wrap" justifyContent="space-between" alignItems="center" gap={1} sx={{ mb: 1 }}>
-        <Stack direction="row" alignItems="center" gap={1}>
-          <IconButton onClick={() => changeMonth(-1)} aria-label="Vorheriger Monat">
-            <ChevronLeftIcon />
-          </IconButton>
-          <Typography variant="body1" sx={{ minWidth: 160, textAlign: 'center' }}>
-            {MONTH_NAMES[month - 1]} {year}
-          </Typography>
-          <IconButton onClick={() => changeMonth(1)} aria-label="Nächster Monat">
-            <ChevronRightIcon />
-          </IconButton>
+        <Stack direction="row" flexWrap="wrap" alignItems="center" gap={1}>
+          <Stack direction="row" alignItems="center" gap={1}>
+            <IconButton onClick={() => changeMonth(-1)} aria-label="Vorheriger Monat">
+              <ChevronLeftIcon />
+            </IconButton>
+            <Typography variant="body1" sx={{ minWidth: 160, textAlign: 'center' }}>
+              {MONTH_NAMES[month - 1]} {year}
+            </Typography>
+            <IconButton onClick={() => changeMonth(1)} aria-label="Nächster Monat">
+              <ChevronRightIcon />
+            </IconButton>
+          </Stack>
+
+          <Stack direction="row" gap={1}>
+            <TextField
+              select
+              size="small"
+              label="Monat"
+              value={month}
+              onChange={(e) => setMonth(Number(e.target.value))}
+              sx={{ minWidth: 140 }}
+            >
+              {MONTH_NAMES.map((name, i) => (
+                <MenuItem key={name} value={i + 1}>
+                  {name}
+                </MenuItem>
+              ))}
+            </TextField>
+            <TextField
+              select
+              size="small"
+              label="Jahr"
+              value={year}
+              onChange={(e) => setYear(Number(e.target.value))}
+              sx={{ minWidth: 100 }}
+            >
+              {yearOptions.map((y) => (
+                <MenuItem key={y} value={y}>
+                  {y}
+                </MenuItem>
+              ))}
+            </TextField>
+          </Stack>
         </Stack>
 
-        <Stack direction="row" gap={1}>
-          <TextField
-            select
-            size="small"
-            label="Monat"
-            value={month}
-            onChange={(e) => setMonth(Number(e.target.value))}
-            sx={{ minWidth: 140 }}
-          >
-            {MONTH_NAMES.map((name, i) => (
-              <MenuItem key={name} value={i + 1}>
-                {name}
-              </MenuItem>
-            ))}
-          </TextField>
-          <TextField
-            select
-            size="small"
-            label="Jahr"
-            value={year}
-            onChange={(e) => setYear(Number(e.target.value))}
-            sx={{ minWidth: 100 }}
-          >
-            {yearOptions.map((y) => (
-              <MenuItem key={y} value={y}>
-                {y}
-              </MenuItem>
-            ))}
-          </TextField>
-        </Stack>
+        <Button variant="outlined" startIcon={<FileDownloadOutlinedIcon />} onClick={exportCsv}>
+          Exportieren
+        </Button>
       </Stack>
 
       <Typography variant="caption" color="text.secondary" sx={{ mb: 2, display: 'block' }}>

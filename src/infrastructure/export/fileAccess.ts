@@ -12,6 +12,20 @@ export function downloadFile(filename: string, content: unknown): void {
   URL.revokeObjectURL(url);
 }
 
+/** Same Blob/anchor-click mechanics as downloadFile, for a caller that already has plain text
+ * (e.g. a CSV export) instead of a JSON-serializable value - downloadFile stays JSON-only rather
+ * than growing a second responsibility. Content-specific concerns like a CSV's UTF-8 BOM belong to
+ * the caller that builds that content, not here. */
+export function downloadTextFile(filename: string, content: string, mimeType: string): void {
+  const blob = new Blob([content], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
 /**
  * Local date AND time, so several backups on the same day stay apart and stay recognisable.
  * Example: pep-backup-2026-09-08_14-32-05.json

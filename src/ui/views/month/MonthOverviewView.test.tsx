@@ -14,6 +14,7 @@ import { createWeeklySchedule, withDayEntry } from '@domain/schedule/WeeklySched
 import { createShift } from '@domain/schedule/Shift';
 import { clockTime } from '@domain/shared/ClockTime';
 import { services } from '@infrastructure/services';
+import { downloadTextFile } from '@infrastructure/export/fileAccess';
 import { useBranchesStore } from '@ui/app/store/branchesStore';
 import { useBranchSelectionStore } from '@ui/app/store/branchSelectionStore';
 import { useCalendarWeekStore } from '@ui/app/store/calendarWeekStore';
@@ -30,9 +31,14 @@ vi.mock('@infrastructure/services', () => ({
   },
 }));
 
+vi.mock('@infrastructure/export/fileAccess', () => ({
+  downloadTextFile: vi.fn(),
+}));
+
 const employeeForBranch = vi.mocked(services.employee.forBranch);
 const absenceForBranch = vi.mocked(services.absence.forEmployees);
 const scheduleForBranch = vi.mocked(services.schedule.forBranch);
+const downloadTextFileMock = vi.mocked(downloadTextFile);
 
 const MONTH_NAMES = [
   'Januar', 'Februar', 'März', 'April', 'Mai', 'Juni',
@@ -127,6 +133,7 @@ describe('MonthOverviewView', () => {
     employeeForBranch.mockReset();
     absenceForBranch.mockReset();
     scheduleForBranch.mockReset();
+    downloadTextFileMock.mockReset();
     employeeForBranch.mockResolvedValue([]);
     absenceForBranch.mockResolvedValue([]);
     scheduleForBranch.mockResolvedValue([]);
@@ -561,5 +568,44 @@ describe('MonthOverviewView', () => {
 
     const cleanCell = screen.getByRole('button', { name: `${fullName(employee)}, KW ${weeks[1].week} bearbeiten` });
     expect(within(cleanCell).queryByRole('button', { name: 'Hinweis anzeigen' })).not.toBeInTheDocument();
+  });
+
+  describe('CSV-Export', () => {
+    it('calls downloadTextFile with a filename including year and month, and the built CSV as text/csv', async () => {
+      selectBranch();
+      const employee = makeEmployee();
+      employeeForBranch.mockResolvedValue([employee]);
+      const weeks = calendarWeeksInMonth(currentYear, currentMonth);
+      scheduleForBranch.mockResolvedValue([createWeeklySchedule(branch.id, weeks[0], [employee.id])]);
+      const user = userEvent.setup();
+      renderView();
+      await screen.findByText(currentMonthLabel);
+
+      await user.click(screen.getByRole('button', { name: 'Exportieren' }));
+
+      const monthPadded = String(currentMonth).padStart(2, '0');
+      expect(downloadTextFileMock).toHaveBeenCalledTimes(1);
+      const [filename, content, mimeType] = downloadTextFileMock.mock.calls[0];
+      expect(filename).toBe(`monatsuebersicht-${currentYear}-${monthPadded}.csv`);
+      expect(content).toContain('Mitarbeiter;Soll-Woche');
+      expect(content).toContain(fullName(employee));
+      expect(mimeType).toContain('text/csv');
+    });
+
+    it('shows an error notification instead of throwing when the download itself fails', async () => {
+      selectBranch();
+      employeeForBranch.mockResolvedValue([]);
+      scheduleForBranch.mockResolvedValue([]);
+      downloadTextFileMock.mockImplementationOnce(() => {
+        throw new Error('Download blockiert');
+      });
+      const user = userEvent.setup();
+      renderView();
+      await screen.findByText(currentMonthLabel);
+
+      await user.click(screen.getByRole('button', { name: 'Exportieren' }));
+
+      expect(await screen.findByText(/Die Monatsübersicht konnte nicht exportiert werden/)).toBeInTheDocument();
+    });
   });
 });
