@@ -2,7 +2,16 @@ import { describe, it, expect } from 'vitest';
 import type { BranchId, EmployeeId } from '@domain/shared/ids';
 import type { CalendarWeek } from '@domain/shared/CalendarWeek';
 import type { DayEntry } from './EmployeeWeekAssignment';
-import { createWeeklySchedule, withTargetAdjustment, withDayEntries, assignmentForEmployee } from './WeeklySchedule';
+import { clockTime } from '@domain/shared/ClockTime';
+import { createShift } from './Shift';
+import {
+  createWeeklySchedule,
+  withTargetAdjustment,
+  withDayEntries,
+  withDayEntry,
+  withPreviousWeekCopied,
+  assignmentForEmployee,
+} from './WeeklySchedule';
 
 const branchId = 'f1' as BranchId;
 const cw: CalendarWeek = { year: 2026, week: 37 };
@@ -93,5 +102,58 @@ describe('withDayEntries', () => {
     const schedule = createWeeklySchedule(branchId, cw, [m1]);
 
     expect(withDayEntries(schedule, [])).toEqual(schedule);
+  });
+});
+
+describe('withPreviousWeekCopied (H7)', () => {
+  const previousWeek: CalendarWeek = { year: 2026, week: 36 };
+
+  it('replaces an employee\'s days with the previous week\'s, minting fresh shift/break ids', () => {
+    const schedule = createWeeklySchedule(branchId, cw, [m1]);
+    const previousShift = createShift(clockTime('08:00'), clockTime('16:00'));
+    const previous = withDayEntry(createWeeklySchedule(branchId, previousWeek, [m1]), m1, 'Montag', {
+      type: 'Shift',
+      shifts: [previousShift],
+    });
+
+    const updated = withPreviousWeekCopied(schedule, previous);
+
+    const copiedEntry = assignmentForEmployee(updated, m1)?.days.Montag;
+    expect(copiedEntry).toEqual({ type: 'Shift', shifts: [{ ...previousShift, id: (copiedEntry as { shifts: { id: string }[] }).shifts[0].id }] });
+    expect((copiedEntry as { shifts: { id: string }[] }).shifts[0].id).not.toBe(previousShift.id);
+  });
+
+  it('drops targetAdjustmentMinutes - it was computed for the previous week, not this one', () => {
+    const schedule = createWeeklySchedule(branchId, cw, [m1]);
+    const previous = withTargetAdjustment(createWeeklySchedule(branchId, previousWeek, [m1]), m1, 90);
+
+    const updated = withPreviousWeekCopied(schedule, previous);
+
+    expect(assignmentForEmployee(updated, m1)?.targetAdjustmentMinutes).toBeUndefined();
+  });
+
+  it('resets an employee absent from the previous week to a fully empty (Off) week, not left as-is', () => {
+    const schedule = withDayEntry(createWeeklySchedule(branchId, cw, [m1]), m1, 'Montag', {
+      type: 'Shift',
+      shifts: [createShift(clockTime('06:00'), clockTime('14:00'))],
+    });
+    const previous = createWeeklySchedule(branchId, previousWeek, []);
+
+    const updated = withPreviousWeekCopied(schedule, previous);
+
+    expect(assignmentForEmployee(updated, m1)?.days.Montag).toEqual({ type: 'Off' });
+  });
+
+  it('leaves an employee not in the current schedule at all untouched (nothing to replace)', () => {
+    const schedule = createWeeklySchedule(branchId, cw, [m1]);
+    const previous = withDayEntry(createWeeklySchedule(branchId, previousWeek, [m1, m2]), m2, 'Montag', {
+      type: 'Shift',
+      shifts: [createShift(clockTime('06:00'), clockTime('14:00'))],
+    });
+
+    const updated = withPreviousWeekCopied(schedule, previous);
+
+    expect(updated.employeeAssignments).toHaveLength(1);
+    expect(assignmentForEmployee(updated, m2)).toBeUndefined();
   });
 });

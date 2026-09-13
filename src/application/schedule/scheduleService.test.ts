@@ -3,6 +3,7 @@ import type { BranchId, EmployeeId, WeeklyScheduleId } from '@domain/shared/ids'
 import type { CalendarWeek } from '@domain/shared/CalendarWeek';
 import { clockTime } from '@domain/shared/ClockTime';
 import { createShift } from '@domain/schedule/Shift';
+import type { Shift } from '@domain/schedule/Shift';
 import type { Employee } from '@domain/employee/Employee';
 import { createWeeklySchedule, withDayEntry, withTargetAdjustment } from '@domain/schedule/WeeklySchedule';
 import type { WeeklyScheduleRepository } from '@application/ports/WeeklyScheduleRepository';
@@ -113,7 +114,7 @@ describe('scheduleService.copyFromPreviousWeek', () => {
     expect(scheduleRepo.save).not.toHaveBeenCalled();
   });
 
-  it('carries over the previous week assignment for each active employee', async () => {
+  it('carries over the previous week assignment for each active employee, with a fresh shift id (H7)', async () => {
     const prevShift = withDayEntry(
       createWeeklySchedule(branchId, previousWeek, [e1]),
       e1,
@@ -131,7 +132,13 @@ describe('scheduleService.copyFromPreviousWeek', () => {
 
     const e1Assignment = result.employeeAssignments.find((a) => a.employeeId === e1);
     const e2Assignment = result.employeeAssignments.find((a) => a.employeeId === e2);
-    expect(e1Assignment?.days.Montag).toEqual(prevShift.employeeAssignments[0].days.Montag);
+    const previousEntry = prevShift.employeeAssignments[0].days.Montag as { type: 'Shift'; shifts: Shift[] };
+    const copiedEntry = e1Assignment?.days.Montag as { type: 'Shift'; shifts: Shift[] };
+
+    expect(copiedEntry.shifts).toEqual([{ ...previousEntry.shifts[0], id: copiedEntry.shifts[0].id }]);
+    // A copied shift must never share its id with the source - editing one must not silently
+    // reach back into the previous week's own data via a shared object reference (H7).
+    expect(copiedEntry.shifts[0].id).not.toBe(previousEntry.shifts[0].id);
     expect(e2Assignment?.days.Montag).toEqual({ type: 'Off' });
     expect(scheduleRepo.save).toHaveBeenCalledWith(result);
   });
@@ -149,6 +156,75 @@ describe('scheduleService.copyFromPreviousWeek', () => {
 
     const e1Assignment = result.employeeAssignments.find((a) => a.employeeId === e1);
     expect(e1Assignment?.targetAdjustmentMinutes).toBeUndefined();
+  });
+});
+
+describe('scheduleService.overwriteWithPreviousWeek (H7)', () => {
+  it('replaces the current schedule\'s days with the previous week\'s, with a fresh shift id, and saves it', async () => {
+    const current = createWeeklySchedule(branchId, currentWeek, [e1]);
+    const prevShift = withDayEntry(
+      createWeeklySchedule(branchId, previousWeek, [e1]),
+      e1,
+      'Montag',
+      { type: 'Shift', shifts: [createShift(clockTime('08:00'), clockTime('16:00'))] },
+    );
+    const scheduleRepo = fakeScheduleRepo({
+      findByBranchAndWeek: vi.fn(async (_branchId: BranchId, cw: CalendarWeek) =>
+        cw.week === previousWeek.week ? prevShift : null,
+      ),
+    });
+    const employeeRepo = fakeEmployeeRepo([employee(e1)]);
+
+    const result = await createScheduleService({ repo: scheduleRepo, employeeRepo }).overwriteWithPreviousWeek(current);
+
+    const previousEntry = prevShift.employeeAssignments[0].days.Montag as { type: 'Shift'; shifts: Shift[] };
+    const copiedEntry = result.employeeAssignments.find((a) => a.employeeId === e1)?.days.Montag as {
+      type: 'Shift';
+      shifts: Shift[];
+    };
+    expect(copiedEntry.shifts[0].start).toBe(previousEntry.shifts[0].start);
+    expect(copiedEntry.shifts[0].id).not.toBe(previousEntry.shifts[0].id);
+    expect(scheduleRepo.save).toHaveBeenCalledWith(result);
+  });
+
+  it('overwrites a day the current week already had - this is an unconditional replace, not a gap-fill', async () => {
+    const current = withDayEntry(
+      createWeeklySchedule(branchId, currentWeek, [e1]),
+      e1,
+      'Montag',
+      { type: 'Shift', shifts: [createShift(clockTime('06:00'), clockTime('10:00'))] },
+    );
+    const prevShift = withDayEntry(
+      createWeeklySchedule(branchId, previousWeek, [e1]),
+      e1,
+      'Montag',
+      { type: 'Shift', shifts: [createShift(clockTime('08:00'), clockTime('16:00'))] },
+    );
+    const scheduleRepo = fakeScheduleRepo({
+      findByBranchAndWeek: vi.fn(async (_branchId: BranchId, cw: CalendarWeek) =>
+        cw.week === previousWeek.week ? prevShift : null,
+      ),
+    });
+    const employeeRepo = fakeEmployeeRepo([employee(e1)]);
+
+    const result = await createScheduleService({ repo: scheduleRepo, employeeRepo }).overwriteWithPreviousWeek(current);
+
+    const copiedEntry = result.employeeAssignments.find((a) => a.employeeId === e1)?.days.Montag as {
+      type: 'Shift';
+      shifts: Shift[];
+    };
+    expect(copiedEntry.shifts[0].start).toBe('08:00');
+  });
+
+  it('returns the schedule unchanged, without saving, when there is no previous week to copy from at all', async () => {
+    const current = createWeeklySchedule(branchId, currentWeek, [e1]);
+    const scheduleRepo = fakeScheduleRepo({ findByBranchAndWeek: vi.fn(async () => null) });
+    const employeeRepo = fakeEmployeeRepo([employee(e1)]);
+
+    const result = await createScheduleService({ repo: scheduleRepo, employeeRepo }).overwriteWithPreviousWeek(current);
+
+    expect(result).toBe(current);
+    expect(scheduleRepo.save).not.toHaveBeenCalled();
   });
 });
 

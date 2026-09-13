@@ -82,6 +82,7 @@ function renderToolbar(overrides: Partial<ToolbarProps> = {}) {
     onApplyToSelection: vi.fn(),
     onFinishSelecting: vi.fn(),
     onCarryOver: vi.fn(),
+    onCopyPreviousWeek: vi.fn(),
     onPrint: vi.fn(),
     printAvailable: false,
     headerFields: <div>header-fields-probe</div>,
@@ -500,6 +501,18 @@ describe('ScheduleToolbar', () => {
 
       expect(onCarryOver).toHaveBeenCalledTimes(1);
       await waitFor(() => expect(screen.queryByRole('button', { name: 'Vorwoche übertragen' })).not.toBeInTheDocument());
+    });
+
+    it('calls onCopyPreviousWeek and closes the sheet when "Vorwoche kopieren" is clicked (H7)', async () => {
+      const user = userEvent.setup();
+      mockViewportWidth(MOBILE);
+      const { onCopyPreviousWeek } = renderToolbar();
+
+      await user.click(within(bar()).getByRole('button'));
+      await user.click(screen.getByRole('button', { name: 'Vorwoche kopieren' }));
+
+      expect(onCopyPreviousWeek).toHaveBeenCalledTimes(1);
+      await waitFor(() => expect(screen.queryByRole('button', { name: 'Vorwoche kopieren' })).not.toBeInTheDocument());
     });
 
     it('selecting a tile inside the sheet calls onSelect and closes the sheet', async () => {

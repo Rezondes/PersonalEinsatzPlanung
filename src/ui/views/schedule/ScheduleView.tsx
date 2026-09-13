@@ -16,6 +16,7 @@ import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import PrintOutlinedIcon from '@mui/icons-material/PrintOutlined';
 import TodayOutlinedIcon from '@mui/icons-material/TodayOutlined';
 import SwapHorizOutlinedIcon from '@mui/icons-material/SwapHorizOutlined';
+import ContentCopyOutlinedIcon from '@mui/icons-material/ContentCopyOutlined';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import ContentPasteIcon from '@mui/icons-material/ContentPaste';
 import EventBusyOutlinedIcon from '@mui/icons-material/EventBusyOutlined';
@@ -146,6 +147,8 @@ export function ScheduleView() {
   const [templateDeleting, setTemplateDeleting] = useState(false);
   const [weekSelectionOpen, setWeekSelectionOpen] = useState(false);
   const [carryOverOpen, setCarryOverOpen] = useState(false);
+  const [copyPreviousWeekOpen, setCopyPreviousWeekOpen] = useState(false);
+  const [copyingPreviousWeek, setCopyingPreviousWeek] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
 
   const federalState = branch?.federalState;
@@ -236,7 +239,13 @@ export function ScheduleView() {
   const history = useScheduleHistory({
     historyKey,
     shortcutsEnabled:
-      !editorState && !contextMenu && !weekSelectionOpen && !carryOverOpen && !templateDialog && !templateDeleteTarget,
+      !editorState &&
+      !contextMenu &&
+      !weekSelectionOpen &&
+      !carryOverOpen &&
+      !copyPreviousWeekOpen &&
+      !templateDialog &&
+      !templateDeleteTarget,
     applyStep,
     onError: notify.report,
   });
@@ -331,6 +340,28 @@ export function ScheduleView() {
       }, 'Abwesenheit konnte nicht gespeichert werden'),
     [run, reloadAbsences],
   );
+
+  /** H7: replaces this week's shifts with the previous week's, after the user has confirmed the
+   * ConfirmDialog below - a separate, distinct action from the carry-over dialog above, which only
+   * ever transfers the Soll/Ist hour difference, never actual shifts. */
+  const copyPreviousWeek = async () => {
+    if (!schedule) return;
+    setCopyingPreviousWeek(true);
+    try {
+      const updated = await services.schedule.overwriteWithPreviousWeek(schedule);
+      if (updated === schedule) {
+        notify.error('Für die Vorwoche wurde kein Dienstplan gefunden.');
+      } else {
+        scheduleReplaced(updated);
+        notify.success('Schichten der Vorwoche wurden übernommen.');
+      }
+      setCopyPreviousWeekOpen(false);
+    } catch (e) {
+      notify.report(e, 'Vorwoche konnte nicht übernommen werden');
+    } finally {
+      setCopyingPreviousWeek(false);
+    }
+  };
 
   const saveAbsence = (type: AbsenceType, details?: AbsenceDetails) => {
     if (!editorState) return;
@@ -787,6 +818,11 @@ export function ScheduleView() {
               Vorwoche übertragen
             </Button>
           )}
+          {layout !== 'mobile' && (
+            <Button variant="outlined" startIcon={<ContentCopyOutlinedIcon />} onClick={() => setCopyPreviousWeekOpen(true)}>
+              Vorwoche kopieren
+            </Button>
+          )}
           {layout !== 'mobile' && schedule && (
             <Button variant="outlined" startIcon={<PrintOutlinedIcon />} onClick={() => navigate(`/print/${schedule.id}`)}>
               Drucken
@@ -941,6 +977,7 @@ export function ScheduleView() {
             onApplyToSelection={applyBulkTool}
             onFinishSelecting={finishSelecting}
             onCarryOver={() => setCarryOverOpen(true)}
+            onCopyPreviousWeek={() => setCopyPreviousWeekOpen(true)}
             onPrint={() => schedule && navigate(`/print/${schedule.id}`)}
             printAvailable={!!schedule}
             headerFields={headerFields}
@@ -1093,6 +1130,17 @@ export function ScheduleView() {
           }
         }}
         onCancel={() => setTemplateDeleteTarget(null)}
+      />
+
+      <ConfirmDialog
+        open={copyPreviousWeekOpen}
+        title="Vorwoche komplett übernehmen?"
+        text="Alle Schichten dieser Woche werden durch die Schichten der Vorwoche ersetzt. Bereits eingetragene Schichten dieser Woche gehen dabei verloren."
+        confirmText="Übernehmen"
+        dangerous
+        busy={copyingPreviousWeek}
+        onConfirm={copyPreviousWeek}
+        onCancel={() => setCopyPreviousWeekOpen(false)}
       />
     </Box>
   );

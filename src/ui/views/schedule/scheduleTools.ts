@@ -1,5 +1,6 @@
 import type { DayEntry } from '@domain/schedule/EmployeeWeekAssignment';
 import type { Shift } from '@domain/schedule/Shift';
+import { withFreshShiftIds } from '@domain/schedule/Shift';
 import type { ShiftTemplate } from '@domain/schedule/ShiftTemplate';
 import type { Absence } from '@domain/absence/Absence';
 import { formatHoursGerman, shiftNetMinutes } from '@domain/schedule/scheduleCalculation';
@@ -33,16 +34,6 @@ export function toolKey(tool: ScheduleTool): string {
   }
 }
 
-/** Fresh ids for every shift and break, so two cells can never share a Shift.id. Applying a tool
- * always COPIES - a template is never referenced by a weekly schedule. */
-function withFreshIds(shifts: Shift[]): Shift[] {
-  return shifts.map((shift) => ({
-    ...shift,
-    id: crypto.randomUUID(),
-    breaks: shift.breaks.map((brk) => ({ ...brk, id: crypto.randomUUID() })),
-  }));
-}
-
 /**
  * The day entry this tool writes into a cell. A manual netMinutesOverride is deliberately never
  * carried along: it corrects one specific day (same rule the clipboard already followed), and a
@@ -59,11 +50,11 @@ export function toolToDayEntry(tool: ScheduleTool): DayEntry {
       return { type: 'Off' };
     case 'template':
       return tool.template.kind === 'Shift'
-        ? { type: 'Shift', shifts: withFreshIds(tool.template.shifts) }
+        ? { type: 'Shift', shifts: withFreshShiftIds(tool.template.shifts) }
         : { type: 'Off' };
     case 'clipboard':
       return tool.entry.type === 'Shift'
-        ? { type: 'Shift', shifts: withFreshIds(tool.entry.shifts) }
+        ? { type: 'Shift', shifts: withFreshShiftIds(tool.entry.shifts) }
         : { type: 'Off' };
   }
 }
@@ -89,7 +80,7 @@ function shiftsMatch(a: Shift, b: Shift): boolean {
  * Whether a cell's ALREADY-SAVED entry is what applying `tool` there would produce - tap-to-assign
  * uses this to toggle a tile off (write `{ type: 'Off' }`) instead of reapplying an identical entry
  * when the user taps a cell a second time. Compares resolved shift times, ignoring generated ids
- * (`toolToDayEntry` always mints fresh ones via `withFreshIds`) and any manual `netMinutesOverride`
+ * (`toolToDayEntry` always mints fresh ones via `withFreshShiftIds`) and any manual `netMinutesOverride`
  * (a tool can never carry one - see `toolToDayEntry`'s own comment).
  *
  * Order-independent (a multiset match, not a positional one): ShiftListEditor's removeShift/addShift

@@ -49,6 +49,7 @@ vi.mock('@infrastructure/services', () => ({
       setDayEntriesAndSave: vi.fn(),
       findForWeek: vi.fn(),
       applyTargetAdjustments: vi.fn(),
+      overwriteWithPreviousWeek: vi.fn(),
       forBranch: vi.fn(),
     },
     absence: { forEmployees: vi.fn(), create: vi.fn(), delete: vi.fn(), restore: vi.fn() },
@@ -65,6 +66,7 @@ const scheduleSetDayEntryAndSave = vi.mocked(services.schedule.setDayEntryAndSav
 const scheduleSetDayEntriesAndSave = vi.mocked(services.schedule.setDayEntriesAndSave);
 const scheduleFindForWeek = vi.mocked(services.schedule.findForWeek);
 const scheduleApplyTargetAdjustments = vi.mocked(services.schedule.applyTargetAdjustments);
+const scheduleOverwriteWithPreviousWeek = vi.mocked(services.schedule.overwriteWithPreviousWeek);
 const scheduleForBranch = vi.mocked(services.schedule.forBranch);
 const absenceForBranch = vi.mocked(services.absence.forEmployees);
 const absenceCreate = vi.mocked(services.absence.create);
@@ -273,6 +275,7 @@ beforeEach(() => {
   scheduleApplyTargetAdjustments.mockImplementation(async (s, adjustments) =>
     adjustments.reduce((acc, { employeeId, minutes }) => withTargetAdjustment(acc, employeeId, minutes), s),
   );
+  scheduleOverwriteWithPreviousWeek.mockImplementation(async (s) => s);
   scheduleForBranch.mockResolvedValue([]);
   absenceForBranch.mockResolvedValue([]);
   absenceCreate.mockImplementation(async (input) => createAbsence(input));
@@ -1681,6 +1684,45 @@ describe('ScheduleView', () => {
       expect(screen.queryByText('Mehr-/Minusstunden aus Vorwoche übertragen')).not.toBeInTheDocument();
     });
 
+    it('"Vorwoche kopieren" asks for confirmation, then applies the result and shows a success message (H7)', async () => {
+      renderScheduleView();
+      await screen.findByText(fullName(employeeA));
+      const user = userEvent.setup();
+
+      await user.click(screen.getByRole('button', { name: 'Vorwoche kopieren' }));
+      const dialog = await screen.findByRole('dialog', { name: 'Vorwoche komplett übernehmen?' });
+      expect(scheduleOverwriteWithPreviousWeek).not.toHaveBeenCalled();
+
+      const copiedShift = withDayEntry(
+        createWeeklySchedule(branchId, SELECTED_WEEK, [employeeA.id, employeeB.id]),
+        employeeA.id,
+        'Montag',
+        { type: 'Shift', shifts: [createShift(clockTime('08:00'), clockTime('16:00'))] },
+      );
+      scheduleOverwriteWithPreviousWeek.mockResolvedValue(copiedShift);
+
+      await user.click(within(dialog).getByRole('button', { name: 'Übernehmen' }));
+
+      await waitFor(() => expect(scheduleOverwriteWithPreviousWeek).toHaveBeenCalledTimes(1));
+      expect(await screen.findByText('Schichten der Vorwoche wurden übernommen.')).toBeInTheDocument();
+      expect(screen.getByText('08:00-16:00')).toBeInTheDocument();
+      await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Vorwoche komplett übernehmen?' })).not.toBeInTheDocument());
+    });
+
+    it('"Vorwoche kopieren" reports an info message instead of a success one when there is nothing to copy', async () => {
+      renderScheduleView();
+      await screen.findByText(fullName(employeeA));
+      const user = userEvent.setup();
+
+      await user.click(screen.getByRole('button', { name: 'Vorwoche kopieren' }));
+      const dialog = await screen.findByRole('dialog', { name: 'Vorwoche komplett übernehmen?' });
+      // Default mock: overwriteWithPreviousWeek resolves with the SAME schedule reference it was
+      // given, exactly like the real service does when it finds no previous week to copy from.
+      await user.click(within(dialog).getByRole('button', { name: 'Übernehmen' }));
+
+      expect(await screen.findByText('Für die Vorwoche wurde kein Dienstplan gefunden.')).toBeInTheDocument();
+    });
+
     it('"Drucken" navigates to /print/:scheduleId and only renders when a schedule exists', async () => {
       renderScheduleView();
       await screen.findByText(fullName(employeeA));
@@ -1831,6 +1873,18 @@ describe('ScheduleView', () => {
       await user.click(await screen.findByRole('button', { name: 'Vorwoche übertragen' }));
 
       expect(await screen.findByText('Mehr-/Minusstunden aus Vorwoche übertragen')).toBeInTheDocument();
+    });
+
+    it('the sheet\'s "Vorwoche kopieren" action opens the same H7 confirmation as the laptop button', async () => {
+      renderScheduleView(MOBILE);
+      await screen.findByText(fullName(employeeA));
+      const user = userEvent.setup();
+
+      const sheetBar = screen.getByRole('region', { name: 'Weitere Aktionen' });
+      await user.click(within(sheetBar).getByRole('button'));
+      await user.click(await screen.findByRole('button', { name: 'Vorwoche kopieren' }));
+
+      expect(await screen.findByRole('dialog', { name: 'Vorwoche komplett übernehmen?' })).toBeInTheDocument();
     });
   });
 

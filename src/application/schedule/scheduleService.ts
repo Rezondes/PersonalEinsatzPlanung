@@ -4,7 +4,13 @@ import { dateForWeekday, mondayOfWeek, previousCalendarWeek } from '@domain/shar
 import { toISODate } from '@domain/shared/DateFormat';
 import { isPlannable } from '@domain/employee/Employee';
 import type { WeeklySchedule } from '@domain/schedule/WeeklySchedule';
-import { createWeeklySchedule, withDayEntry, withDayEntries, withTargetAdjustment } from '@domain/schedule/WeeklySchedule';
+import {
+  createWeeklySchedule,
+  withDayEntry,
+  withDayEntries,
+  withPreviousWeekCopied,
+  withTargetAdjustment,
+} from '@domain/schedule/WeeklySchedule';
 import type { DayEntry } from '@domain/schedule/EmployeeWeekAssignment';
 import { emptyWeekAssignment } from '@domain/schedule/EmployeeWeekAssignment';
 import type { WeeklyScheduleRepository } from '@application/ports/WeeklyScheduleRepository';
@@ -76,21 +82,30 @@ export function createScheduleService({
         }
 
         const previousWeek = await repo.findByBranchAndWeek(branchId, previousCalendarWeek(cw));
-
-        const employeeAssignments = activeIds.map((employeeId) => {
-          const previousWeekAssignment = previousWeek?.employeeAssignments.find((a) => a.employeeId === employeeId);
-          if (!previousWeekAssignment) {
-            return emptyWeekAssignment(employeeId);
-          }
-          // targetAdjustmentMinutes was computed FOR the previous week from the week before that -
-          // it is meaningless carried into a new week and must not come along with the copied days.
-          return { ...previousWeekAssignment, targetAdjustmentMinutes: undefined };
-        });
-
-        const schedule: WeeklySchedule = { ...createWeeklySchedule(branchId, cw, []), employeeAssignments };
+        const blank = createWeeklySchedule(branchId, cw, activeIds);
+        const schedule = previousWeek ? withPreviousWeekCopied(blank, previousWeek) : blank;
         await repo.save(schedule);
         return schedule;
       });
+    },
+
+    /** Replaces every employee's days in `schedule` with the previous calendar week's (fresh ids,
+     * see withPreviousWeekCopied), unconditionally - unlike copyFromPreviousWeek, which only ever
+     * applies to a week with no schedule row yet. getOrCreate's self-heal means a schedule
+     * technically always "exists" (if only as an all-Off placeholder) by the time a caller could
+     * reach this from the real UI, so copyFromPreviousWeek's own guard would make it a permanent
+     * no-op there - this is the reactivated H7 entry point instead. Returns `schedule` unchanged
+     * (no save) if there is no previous week at all, rather than blanking every employee to Off;
+     * the caller is responsible for confirming with the user before calling this, the same way
+     * CarryOverPreviousWeekDialog already confirms its own hours-only carry-over before applying it. */
+    overwriteWithPreviousWeek: async (schedule: WeeklySchedule): Promise<WeeklySchedule> => {
+      const previousWeek = await repo.findByBranchAndWeek(schedule.branchId, previousCalendarWeek(schedule.calendarWeek));
+      if (!previousWeek) {
+        return schedule;
+      }
+      const updated = withPreviousWeekCopied(schedule, previousWeek);
+      await repo.save(updated);
+      return updated;
     },
 
     save: async (schedule: WeeklySchedule): Promise<WeeklySchedule> => {

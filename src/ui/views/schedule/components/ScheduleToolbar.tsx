@@ -16,6 +16,7 @@ import MoreVertIcon from '@mui/icons-material/MoreVert';
 import CloseIcon from '@mui/icons-material/Close';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import SwapHorizOutlinedIcon from '@mui/icons-material/SwapHorizOutlined';
+import ContentCopyOutlinedIcon from '@mui/icons-material/ContentCopyOutlined';
 import PrintOutlinedIcon from '@mui/icons-material/PrintOutlined';
 import ChecklistOutlinedIcon from '@mui/icons-material/ChecklistOutlined';
 import type { ShiftTemplate } from '@domain/schedule/ShiftTemplate';
@@ -68,6 +69,10 @@ interface ScheduleToolbarProps {
    * in ScheduleView's own header instead, which has room for them; only the collapsible (mobile)
    * branch below ever renders this section. */
   onCarryOver: () => void;
+  /** Opens the H7 "replace this week with the previous week's shifts" confirmation - a separate,
+   * clearly distinct action from onCarryOver above (which only transfers the Soll/Ist hour
+   * difference, never touches actual shifts). */
+  onCopyPreviousWeek: () => void;
   onPrint: () => void;
   printAvailable: boolean;
   /** Mobile-only "Wochenplanung" section of the sheet: ScheduleView's own <ScheduleHeaderFields>
@@ -108,6 +113,7 @@ export function ScheduleToolbar({
   onApplyToSelection,
   onFinishSelecting,
   onCarryOver,
+  onCopyPreviousWeek,
   onPrint,
   printAvailable,
   headerFields,
@@ -508,6 +514,16 @@ export function ScheduleToolbar({
               }}
             >
               Vorwoche übertragen
+            </Button>
+            <Button
+              variant="outlined"
+              startIcon={<ContentCopyOutlinedIcon />}
+              onClick={() => {
+                setSheetOpen(false);
+                onCopyPreviousWeek();
+              }}
+            >
+              Vorwoche kopieren
             </Button>
             {printAvailable && (
               <Button

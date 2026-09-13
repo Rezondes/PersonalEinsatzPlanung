@@ -2,7 +2,7 @@ import type { BranchId, WeeklyScheduleId, EmployeeId } from '@domain/shared/ids'
 import { createId } from '@domain/shared/ids';
 import type { CalendarWeek, Weekday } from '@domain/shared/CalendarWeek';
 import type { EmployeeWeekAssignment, DayEntry } from './EmployeeWeekAssignment';
-import { emptyWeekAssignment } from './EmployeeWeekAssignment';
+import { emptyWeekAssignment, withFreshDayEntryIds } from './EmployeeWeekAssignment';
 
 /**
  * One weekly schedule per (branchId, CalendarWeek). References employees only via employeeId;
@@ -91,6 +91,26 @@ export function withDayEntries(
     employeeAssignments: [...assignmentsByEmployee.values()],
     updatedAt: new Date().toISOString(),
   };
+}
+
+/** Pure, immutable replace: swaps every CURRENT employee's days for whatever they had in
+ * `previousWeek` (fresh shift/break ids, no leftover targetAdjustmentMinutes - see
+ * withFreshDayEntryIds), unconditionally overwriting rather than only filling gaps
+ * (scheduleService.overwriteWithPreviousWeek is the reactivated H7 entry point built on this - the
+ * caller is responsible for confirming with the user first). An employee with no assignment in
+ * `previousWeek` (e.g. hired since) is reset to a fully empty (Off) week rather than left with
+ * whatever they had before, so the result always looks exactly like the previous week
+ * structurally, never a mix of old and copied data. An employee not present in `schedule` at all
+ * is left out entirely - there is nothing of theirs here to replace. */
+export function withPreviousWeekCopied(schedule: WeeklySchedule, previousWeek: WeeklySchedule): WeeklySchedule {
+  const employeeAssignments = schedule.employeeAssignments.map((assignment) => {
+    const previousAssignment = previousWeek.employeeAssignments.find((a) => a.employeeId === assignment.employeeId);
+    if (!previousAssignment) {
+      return emptyWeekAssignment(assignment.employeeId);
+    }
+    return { ...withFreshDayEntryIds(previousAssignment), targetAdjustmentMinutes: undefined };
+  });
+  return { ...schedule, employeeAssignments, updatedAt: new Date().toISOString() };
 }
 
 /** Pure, immutable update: sets the target-hours adjustment (carried over from a previous week's
