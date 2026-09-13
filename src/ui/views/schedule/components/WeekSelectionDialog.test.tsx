@@ -9,6 +9,7 @@ import {
   dateForWeekday,
   mondayOfWeek,
   formatCalendarWeekRange,
+  MONTH_NAMES,
 } from '@domain/shared/CalendarWeek';
 import { toISODate } from '@domain/shared/DateFormat';
 import { clockTime } from '@domain/shared/ClockTime';
@@ -259,6 +260,40 @@ describe('WeekSelectionDialog', () => {
     const decemberPrevYearWeeks = calendarWeeksInMonth(FIXED_YEAR - 1, 12);
     expect(screen.getByText(`Dezember ${FIXED_YEAR - 1}`)).toBeInTheDocument();
     expect(screen.getByText(formatCalendarWeekRange(decemberPrevYearWeeks[0]))).toBeInTheDocument();
+  });
+
+  it('jumps to a different year (same month) via the Jahr-Select, and the arrow buttons still work afterwards', async () => {
+    forBranchMock.mockResolvedValue([]);
+    const user = userEvent.setup();
+    renderDialog();
+    await waitFor(() => expect(screen.queryByText('…')).not.toBeInTheDocument());
+
+    await user.click(screen.getByRole('combobox', { name: 'Jahr' }));
+    await user.click(screen.getByRole('option', { name: String(FIXED_YEAR + 1) }));
+
+    const weeksNextYear = calendarWeeksInMonth(FIXED_YEAR + 1, FIXED_MONTH);
+    expect(screen.getByText(`${MONTH_NAMES[FIXED_MONTH - 1]} ${FIXED_YEAR + 1}`)).toBeInTheDocument();
+    expect(screen.getByText(formatCalendarWeekRange(weeksNextYear[0]))).toBeInTheDocument();
+
+    // Regression: the existing arrow buttons still step correctly after a Select-driven jump.
+    await user.click(screen.getByRole('button', { name: 'Vorheriger Monat' }));
+    const previousMonthWeeks = calendarWeeksInMonth(FIXED_YEAR + 1, FIXED_MONTH - 1);
+    expect(screen.getByText(`${MONTH_NAMES[FIXED_MONTH - 2]} ${FIXED_YEAR + 1}`)).toBeInTheDocument();
+    expect(screen.getByText(formatCalendarWeekRange(previousMonthWeeks[0]))).toBeInTheDocument();
+  });
+
+  it('jumps to a different month via the Monat-Select, independently of the year', async () => {
+    forBranchMock.mockResolvedValue([]);
+    const user = userEvent.setup();
+    renderDialog();
+    await waitFor(() => expect(screen.queryByText('…')).not.toBeInTheDocument());
+
+    await user.click(screen.getByRole('combobox', { name: 'Monat' }));
+    await user.click(screen.getByRole('option', { name: 'Januar' }));
+
+    const januaryWeeks = calendarWeeksInMonth(FIXED_YEAR, 1);
+    expect(screen.getByText(`Januar ${FIXED_YEAR}`)).toBeInTheDocument();
+    expect(screen.getByText(formatCalendarWeekRange(januaryWeeks[0]))).toBeInTheDocument();
   });
 
   it('calls onWeekSelect with the clicked week and onClose together when a row is clicked', async () => {

@@ -5,6 +5,8 @@ import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Stack from '@mui/material/Stack';
 import IconButton from '@mui/material/IconButton';
+import TextField from '@mui/material/TextField';
+import MenuItem from '@mui/material/MenuItem';
 import Paper from '@mui/material/Paper';
 import Table from '@mui/material/Table';
 import TableBody from '@mui/material/TableBody';
@@ -20,6 +22,7 @@ import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import type { WeeklySchedule } from '@domain/schedule/WeeklySchedule';
 import type { CalendarWeek } from '@domain/shared/CalendarWeek';
+import { MONTH_NAMES, stepMonth } from '@domain/shared/CalendarWeek';
 import type { ValidationResult } from '@domain/validation/ValidationResult';
 import { fullName } from '@domain/employee/Employee';
 import { targetWeeklyHoursRange } from '@domain/employee/EmploymentType';
@@ -35,11 +38,6 @@ import { useBreakpoint } from '@ui/hooks/useBreakpoint';
 import { useCalendarWeekStore } from '@ui/app/store/calendarWeekStore';
 import { usePageActions } from '@ui/app/PageActionsContext';
 import { stickyCornerSx, stickyFirstColumnSx, stickyHeaderRowSx } from '@ui/components/stickyFirstColumn';
-
-const MONTH_NAMES = [
-  'Januar', 'Februar', 'März', 'April', 'Mai', 'Juni',
-  'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember',
-];
 
 /** Moves focus to the previous/next week cell within the SAME row (header or data), so arrow keys
  * still reach every column once only the first cell of each row is a Tab stop (see the tabIndex
@@ -97,18 +95,14 @@ export function MonthOverviewView() {
   }
 
   const changeMonth = (direction: -1 | 1) => {
-    let newMonth = month + direction;
-    let newYear = year;
-    if (newMonth < 1) {
-      newMonth = 12;
-      newYear -= 1;
-    } else if (newMonth > 12) {
-      newMonth = 1;
-      newYear += 1;
-    }
-    setMonth(newMonth);
-    setYear(newYear);
+    const next = stepMonth(year, month, direction);
+    setYear(next.year);
+    setMonth(next.month);
   };
+
+  // Jahr-Bereich: aktuelles Jahr ±5 - reicht für Vor-/Rückplanung ohne eine Freitext-Eingabe zu
+  // brauchen (kein @mui/x-date-pickers im Projekt, siehe Plan).
+  const yearOptions = Array.from({ length: 11 }, (_, i) => now.getFullYear() - 5 + i);
 
   const allWeeks = rows[0]?.weeks.map((w) => w.calendarWeek) ?? [];
 
@@ -140,6 +134,37 @@ export function MonthOverviewView() {
           <IconButton onClick={() => changeMonth(1)} aria-label="Nächster Monat">
             <ChevronRightIcon />
           </IconButton>
+        </Stack>
+
+        <Stack direction="row" gap={1}>
+          <TextField
+            select
+            size="small"
+            label="Monat"
+            value={month}
+            onChange={(e) => setMonth(Number(e.target.value))}
+            sx={{ minWidth: 140 }}
+          >
+            {MONTH_NAMES.map((name, i) => (
+              <MenuItem key={name} value={i + 1}>
+                {name}
+              </MenuItem>
+            ))}
+          </TextField>
+          <TextField
+            select
+            size="small"
+            label="Jahr"
+            value={year}
+            onChange={(e) => setYear(Number(e.target.value))}
+            sx={{ minWidth: 100 }}
+          >
+            {yearOptions.map((y) => (
+              <MenuItem key={y} value={y}>
+                {y}
+              </MenuItem>
+            ))}
+          </TextField>
         </Stack>
       </Stack>
 

@@ -62,6 +62,30 @@ export function calendarWeeksEqual(a: CalendarWeek, b: CalendarWeek): boolean {
   return a.year === b.year && a.week === b.week;
 }
 
+/** German month names, index 0 = Januar - shared by MonthOverviewView and WeekSelectionDialog's
+ * month headers (used to live as byte-identical local copies in both). */
+export const MONTH_NAMES = [
+  'Januar', 'Februar', 'März', 'April', 'Mai', 'Juni',
+  'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember',
+];
+
+/** Moves one calendar month back or forward (month: 1-12), rolling over into the adjacent year at
+ * the Januar/Dezember edge. Extracted from MonthOverviewView/WeekSelectionDialog's identical
+ * `changeMonth`, which each kept their own year/month state (a shared hook would have had nothing
+ * to hold, since both already manage that state differently themselves). */
+export function stepMonth(year: number, month: number, direction: -1 | 1): { year: number; month: number } {
+  let newMonth = month + direction;
+  let newYear = year;
+  if (newMonth < 1) {
+    newMonth = 12;
+    newYear -= 1;
+  } else if (newMonth > 12) {
+    newMonth = 1;
+    newYear += 1;
+  }
+  return { year: newYear, month: newMonth };
+}
+
 /** All calendar weeks whose Monday falls in the given calendar month (month: 1-12). */
 export function calendarWeeksInMonth(year: number, month: number): CalendarWeek[] {
   const lastDayOfMonth = new Date(year, month, 0);

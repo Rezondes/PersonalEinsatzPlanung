@@ -242,6 +242,69 @@ describe('MonthOverviewView', () => {
     expect(scheduleForBranch).toHaveBeenCalledTimes(1);
   });
 
+  it('jumping the Jahr-Select to a different year shows that year\'s weeks for the same month', async () => {
+    selectBranch();
+    const employee = makeEmployee();
+    employeeForBranch.mockResolvedValue([employee]);
+    const weeksNextYear = calendarWeeksInMonth(currentYear + 1, currentMonth);
+    scheduleForBranch.mockResolvedValue([createWeeklySchedule(branch.id, weeksNextYear[0], [employee.id])]);
+    const user = userEvent.setup();
+    renderView();
+    await screen.findByText(currentMonthLabel);
+
+    await user.click(screen.getByRole('combobox', { name: 'Jahr' }));
+    await user.click(screen.getByRole('option', { name: String(currentYear + 1) }));
+
+    expect(screen.getByRole('combobox', { name: 'Jahr' })).toHaveTextContent(String(currentYear + 1));
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: `Zu Kalenderwoche ${weeksNextYear[0].week} springen` })).toBeInTheDocument(),
+    );
+  });
+
+  it('jumping the Monat-Select to a different month works independently of the Jahr-Select', async () => {
+    selectBranch();
+    const employee = makeEmployee();
+    employeeForBranch.mockResolvedValue([employee]);
+    const marchWeeks = calendarWeeksInMonth(currentYear, 3);
+    scheduleForBranch.mockResolvedValue([createWeeklySchedule(branch.id, marchWeeks[0], [employee.id])]);
+    const user = userEvent.setup();
+    renderView();
+    await screen.findByText(currentMonthLabel);
+
+    await user.click(screen.getByRole('combobox', { name: 'Monat' }));
+    await user.click(screen.getByRole('option', { name: 'März' }));
+
+    expect(screen.getByRole('combobox', { name: 'Monat' })).toHaveTextContent('März');
+    // The year field is untouched by a month-only jump.
+    expect(screen.getByRole('combobox', { name: 'Jahr' })).toHaveTextContent(String(currentYear));
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: `Zu Kalenderwoche ${marchWeeks[0].week} springen` })).toBeInTheDocument(),
+    );
+  });
+
+  it('a week cell click after a Jahr-Sprung still selects that week and navigates to /schedule (jumpToWeek not bypassed)', async () => {
+    selectBranch();
+    const employee = makeEmployee();
+    employeeForBranch.mockResolvedValue([employee]);
+    const targetYear = currentYear + 1;
+    const weeks = calendarWeeksInMonth(targetYear, currentMonth);
+    const week1 = weeks[0];
+    const schedule = createWeeklySchedule(branch.id, week1, [employee.id]);
+    scheduleForBranch.mockResolvedValue([schedule]);
+    const user = userEvent.setup();
+    renderView();
+    await screen.findByText(currentMonthLabel);
+
+    await user.click(screen.getByRole('combobox', { name: 'Jahr' }));
+    await user.click(screen.getByRole('option', { name: String(targetYear) }));
+
+    const header = await screen.findByRole('button', { name: `Zu Kalenderwoche ${week1.week} springen` });
+    await user.click(header);
+
+    await waitFor(() => expect(screen.getByText('schedule-route-landed')).toBeInTheDocument());
+    expect(useCalendarWeekStore.getState().selectedWeek).toEqual(week1);
+  });
+
   it('jumps to the schedule and selects the clicked calendar week', async () => {
     selectBranch();
     const employee = makeEmployee();

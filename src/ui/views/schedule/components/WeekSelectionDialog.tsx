@@ -3,6 +3,8 @@ import Button from '@mui/material/Button';
 import IconButton from '@mui/material/IconButton';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
+import TextField from '@mui/material/TextField';
+import MenuItem from '@mui/material/MenuItem';
 import List from '@mui/material/List';
 import ListItemButton from '@mui/material/ListItemButton';
 import Chip from '@mui/material/Chip';
@@ -17,6 +19,8 @@ import {
   calendarWeekFromDate,
   mondayOfWeek,
   formatCalendarWeekRange,
+  MONTH_NAMES,
+  stepMonth,
 } from '@domain/shared/CalendarWeek';
 import type { WeeklySchedule } from '@domain/schedule/WeeklySchedule';
 import type { Absence } from '@domain/absence/Absence';
@@ -24,11 +28,6 @@ import type { EmployeeHoursInfo } from '@application/schedule/scheduleAssessment
 import { minutesToDecimalHours } from '@domain/schedule/scheduleCalculation';
 import { createWeekView } from '@application/schedule/scheduleAssessment';
 import { services } from '@infrastructure/services';
-
-const MONTH_NAMES = [
-  'Januar', 'Februar', 'März', 'April', 'Mai', 'Juni',
-  'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember',
-];
 
 interface WeekSelectionDialogProps {
   open: boolean;
@@ -79,18 +78,13 @@ export function WeekSelectionDialog({
   }, [open, branchId, selectedWeek]);
 
   const changeMonth = (direction: -1 | 1) => {
-    let newMonth = month + direction;
-    let newYear = year;
-    if (newMonth < 1) {
-      newMonth = 12;
-      newYear -= 1;
-    } else if (newMonth > 12) {
-      newMonth = 1;
-      newYear += 1;
-    }
-    setMonth(newMonth);
-    setYear(newYear);
+    const next = stepMonth(year, month, direction);
+    setYear(next.year);
+    setMonth(next.month);
   };
+
+  // Jahr-Bereich: aktuelles Jahr ±5, wie MonthOverviewView.
+  const yearOptions = Array.from({ length: 11 }, (_, i) => today.year - 5 + i);
 
   const weeks = calendarWeeksInMonth(year, month);
 
@@ -113,6 +107,37 @@ export function WeekSelectionDialog({
         <IconButton onClick={() => changeMonth(1)} aria-label="Nächster Monat" size="small">
           <ChevronRightIcon />
         </IconButton>
+      </Stack>
+
+      <Stack direction="row" gap={1} sx={{ mb: 1 }}>
+        <TextField
+          select
+          size="small"
+          label="Monat"
+          value={month}
+          onChange={(e) => setMonth(Number(e.target.value))}
+          sx={{ flex: 1 }}
+        >
+          {MONTH_NAMES.map((name, i) => (
+            <MenuItem key={name} value={i + 1}>
+              {name}
+            </MenuItem>
+          ))}
+        </TextField>
+        <TextField
+          select
+          size="small"
+          label="Jahr"
+          value={year}
+          onChange={(e) => setYear(Number(e.target.value))}
+          sx={{ flex: 1 }}
+        >
+          {yearOptions.map((y) => (
+            <MenuItem key={y} value={y}>
+              {y}
+            </MenuItem>
+          ))}
+        </TextField>
       </Stack>
       <List disablePadding>
         {weeks.map((cw) => {

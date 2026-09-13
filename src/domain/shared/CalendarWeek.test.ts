@@ -8,6 +8,8 @@ import {
   nextCalendarWeek,
   calendarWeeksEqual,
   calendarWeeksInMonth,
+  stepMonth,
+  MONTH_NAMES,
 } from './CalendarWeek';
 
 describe('calendarWeekFromDate / mondayOfWeek', () => {
@@ -83,5 +85,33 @@ describe('calendarWeeksInMonth', () => {
     }
     expect(weeks.length).toBeGreaterThanOrEqual(4);
     expect(weeks.length).toBeLessThanOrEqual(5);
+  });
+});
+
+describe('stepMonth', () => {
+  it('steps back across a year boundary: January - 1 becomes December of the previous year', () => {
+    expect(stepMonth(2026, 1, -1)).toEqual({ year: 2025, month: 12 });
+  });
+
+  it('steps forward across a year boundary: December + 1 becomes January of the next year', () => {
+    expect(stepMonth(2026, 12, 1)).toEqual({ year: 2027, month: 1 });
+  });
+
+  it('steps within the same year otherwise (regression, existing behavior)', () => {
+    expect(stepMonth(2026, 6, 1)).toEqual({ year: 2026, month: 7 });
+    expect(stepMonth(2026, 6, -1)).toEqual({ year: 2026, month: 5 });
+  });
+
+  it('jumping forward then back returns to the original month/year', () => {
+    const forward = stepMonth(2026, 12, 1);
+    expect(stepMonth(forward.year, forward.month, -1)).toEqual({ year: 2026, month: 12 });
+  });
+});
+
+describe('MONTH_NAMES', () => {
+  it('has exactly 12 German month names, in calendar order', () => {
+    expect(MONTH_NAMES).toHaveLength(12);
+    expect(MONTH_NAMES[0]).toBe('Januar');
+    expect(MONTH_NAMES[11]).toBe('Dezember');
   });
 });
