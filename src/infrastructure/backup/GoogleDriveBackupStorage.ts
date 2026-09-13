@@ -15,7 +15,17 @@ interface DriveFile {
 
 interface DriveFileList {
   files?: DriveFile[];
+  nextPageToken?: string;
 }
+
+interface DriveErrorBody {
+  error?: { errors?: { reason?: string }[] };
+}
+
+/** Multipart uploads are hard-capped by Google at 5 MB; a resumable upload would lift that, but
+ * this app's backups are small JSON files and staying on multipart is deliberately simpler - the
+ * fix here is only to fail with a clear message before sending, not to lift the limit. */
+const MULTIPART_UPLOAD_MAX_BYTES = 5 * 1024 * 1024;
 
 /** Thrown by `call()` when a 401 survives the silent token-refresh retry - i.e. the user's Google
  * session is actually gone (revoked consent, expired refresh token), not just one bad request. Its
@@ -47,6 +57,11 @@ function toRemoteBackup(file: DriveFile): RemoteBackup {
  */
 export class GoogleDriveBackupStorage implements BackupStorage {
   private folderId: string | null = null;
+  /** The in-flight folder lookup/creation, if one is already running - so two concurrent callers
+   * (e.g. React StrictMode's double-invoke, or two Drive operations kicked off close together)
+   * share one request instead of each creating their own "Personaleinsatzplanung" folder. Cleared
+   * once the lookup settles either way, so a failure can be retried on the next call. */
+  private folderPromise: Promise<string> | null = null;
 
   isConfigured(): boolean {
     return GOOGLE_CLIENT_ID.length > 0;
@@ -84,6 +99,19 @@ export class GoogleDriveBackupStorage implements BackupStorage {
   signOut(): void {
     forgetAccessToken();
     this.folderId = null;
+    this.folderPromise = null;
+  }
+
+  /** Best-effort extraction of Drive's own reason code from an error body (e.g. 'quotaExceeded',
+   * 'userRateLimitExceeded') - undefined for a non-JSON body or an unrecognized shape, in which
+   * case the caller falls back to a generic message for that status code. */
+  private async errorReason(response: Response): Promise<string | undefined> {
+    try {
+      const body = (await response.json()) as DriveErrorBody;
+      return body.error?.errors?.[0]?.reason;
+    } catch {
+      return undefined;
+    }
   }
 
   /**
@@ -96,37 +124,69 @@ export class GoogleDriveBackupStorage implements BackupStorage {
       throw new Error('Nicht mit Google verbunden.');
     }
 
+    // Normalized through the real Headers API (not a plain spread) so a caller-supplied Headers
+    // instance is preserved too - {...headers} silently drops a real Headers instance's entries,
+    // since its data lives behind getters rather than own enumerable properties.
+    const headers = new Headers(init.headers);
+    headers.set('Authorization', `Bearer ${token}`);
+
     let response: Response;
     try {
-      response = await fetch(url, {
-        ...init,
-        headers: { ...init.headers, Authorization: `Bearer ${token}` },
-      });
+      response = await fetch(url, { ...init, headers });
     } catch {
       throw new Error('Google Drive ist nicht erreichbar. Besteht eine Internetverbindung?');
     }
 
-    if (response.status === 401 && retry) {
-      try {
-        await requestAccessToken(true);
-      } catch {
-        clearAccessToken();
-        throw new DriveSessionExpiredError();
+    if (response.status === 401) {
+      if (retry) {
+        try {
+          await requestAccessToken(true);
+        } catch {
+          clearAccessToken();
+          throw new DriveSessionExpiredError();
+        }
+        return this.call(url, init, false);
       }
-      return this.call(url, init, false);
+      // A second 401 even after a successful token refresh means Google itself now rejects the
+      // (seemingly valid) new token - the session is genuinely gone, not just this one request.
+      clearAccessToken();
+      throw new DriveSessionExpiredError();
     }
     if (!response.ok) {
+      if (response.status === 429 || response.status === 403) {
+        const reason = await this.errorReason(response);
+        if (response.status === 429 || reason === 'rateLimitExceeded' || reason === 'userRateLimitExceeded') {
+          throw new Error('Zu viele Anfragen an Google Drive. Bitte versuche es in ein paar Minuten erneut.');
+        }
+        if (reason === 'quotaExceeded' || reason === 'storageQuotaExceeded') {
+          throw new Error('Das Google-Drive-Speicherkontingent ist ausgeschöpft.');
+        }
+        throw new Error('Google Drive hat die Anfrage abgelehnt (Zugriff verweigert).');
+      }
+      if (response.status >= 500) {
+        throw new Error('Google Drive ist momentan nicht erreichbar (Serverfehler). Bitte versuche es später erneut.');
+      }
       throw new Error(`Google Drive hat die Anfrage abgelehnt (Fehler ${response.status}).`);
     }
     return response;
   }
 
-  /** Finds the backup folder or creates it. Cached for the session, cleared on sign-out. */
+  /** Finds the backup folder or creates it. The resolved id is cached for the session, cleared on
+   * sign-out; the in-flight promise is cached too (see folderPromise) so concurrent callers share
+   * one lookup instead of each creating their own folder. */
   private async ensureFolder(): Promise<string> {
     if (this.folderId) {
       return this.folderId;
     }
+    if (!this.folderPromise) {
+      this.folderPromise = this.resolveFolder().finally(() => {
+        this.folderPromise = null;
+      });
+    }
+    return this.folderPromise;
+  }
 
+  private async resolveFolder(): Promise<string> {
     const query = encodeURIComponent(
       `name = '${BACKUP_FOLDER_NAME}' and mimeType = '${FOLDER_MIME}' and trashed = false`,
     );
@@ -151,11 +211,18 @@ export class GoogleDriveBackupStorage implements BackupStorage {
   async list(): Promise<RemoteBackup[]> {
     const folderId = await this.ensureFolder();
     const query = encodeURIComponent(`'${folderId}' in parents and trashed = false`);
-    const response = await this.call(
-      `${DRIVE_API}/files?q=${query}&orderBy=modifiedTime desc&fields=files(id,name,modifiedTime,size)`,
-    );
-    const result = (await response.json()) as DriveFileList;
-    return (result.files ?? []).map(toRemoteBackup);
+    const files: DriveFile[] = [];
+    let pageToken: string | undefined;
+    do {
+      const pageParam = pageToken ? `&pageToken=${encodeURIComponent(pageToken)}` : '';
+      const response = await this.call(
+        `${DRIVE_API}/files?q=${query}&orderBy=modifiedTime desc&fields=files(id,name,modifiedTime,size),nextPageToken${pageParam}`,
+      );
+      const result = (await response.json()) as DriveFileList;
+      files.push(...(result.files ?? []));
+      pageToken = result.nextPageToken;
+    } while (pageToken);
+    return files.map(toRemoteBackup);
   }
 
   async upload(filename: string, content: unknown): Promise<RemoteBackup> {
@@ -166,6 +233,10 @@ export class GoogleDriveBackupStorage implements BackupStorage {
       `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(metadata)}\r\n` +
       `--${boundary}\r\nContent-Type: application/json\r\n\r\n${JSON.stringify(content, null, 2)}\r\n` +
       `--${boundary}--`;
+
+    if (new TextEncoder().encode(body).length > MULTIPART_UPLOAD_MAX_BYTES) {
+      throw new Error('Die Sicherung ist zu groß für den Upload zu Google Drive (Limit: 5 MB).');
+    }
 
     const response = await this.call(
       `${DRIVE_UPLOAD_API}/files?uploadType=multipart&fields=id,name,modifiedTime,size`,
