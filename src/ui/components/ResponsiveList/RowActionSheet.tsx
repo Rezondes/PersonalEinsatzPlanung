@@ -1,3 +1,4 @@
+import { useRef } from 'react';
 import type { ReactNode } from 'react';
 import SwipeableDrawer from '@mui/material/SwipeableDrawer';
 import Box from '@mui/material/Box';
@@ -26,9 +27,34 @@ interface RowActionSheetProps {
  */
 export function RowActionSheet({ open, onClose, title, subtitle, actions }: RowActionSheetProps) {
   useDismissOnBack(open, onClose);
+  // Holds the chosen action until the sheet has actually finished closing (onExited) - firing it
+  // in the same handler as onClose (this typically opens a ConfirmDialog) would build that
+  // dialog's own focus trap while this sheet's is still tearing down, two focus traps racing over
+  // where focus lands (N24). See ResponsiveDialog.tsx for the same fix on its secondaryActions,
+  // and DriveBackupDialog.tsx's own delete-button comment for a sibling hazard in this same MUI
+  // dialog-lifecycle family (a focus trap dropping focus on <body> instead of the trigger).
+  const pendingActionRef = useRef<(() => void) | null>(null);
+
+  const selectAction = (action: RowAction) => {
+    pendingActionRef.current = action.onSelect;
+    onClose();
+  };
 
   return (
-    <SwipeableDrawer anchor="bottom" open={open} onClose={onClose} onOpen={() => {}} disableSwipeToOpen>
+    <SwipeableDrawer
+      anchor="bottom"
+      open={open}
+      onClose={onClose}
+      onOpen={() => {}}
+      disableSwipeToOpen
+      SlideProps={{
+        onExited: () => {
+          const pending = pendingActionRef.current;
+          pendingActionRef.current = null;
+          pending?.();
+        },
+      }}
+    >
       <Box sx={{ display: 'flex', justifyContent: 'center', pt: 1, pb: 0.5 }}>
         <Box sx={{ width: 36, height: 4, borderRadius: 2, bgcolor: '#cfcfc9' }} />
       </Box>
@@ -46,10 +72,7 @@ export function RowActionSheet({ open, onClose, title, subtitle, actions }: RowA
       {actions.map((action) => (
         <ButtonBase
           key={action.key}
-          onClick={() => {
-            onClose();
-            action.onSelect();
-          }}
+          onClick={() => selectAction(action)}
           disabled={action.disabled}
           sx={{
             display: 'flex',

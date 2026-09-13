@@ -479,6 +479,28 @@ describe('EmployeeMasterDataView', () => {
     await waitFor(() => expect(container.textContent).toContain('Gruber, Nina'));
   });
 
+  it('defers a secondary action inside the edit dialog until the dialog has actually closed, so its own confirm dialog does not race the closing focus trap (N24)', async () => {
+    mockViewportWidth(500);
+    const user = userEvent.setup();
+    renderView();
+    await screen.findByText('Bauer, Anna');
+
+    const card = screen.getByText('Bauer, Anna').closest('button') as HTMLButtonElement;
+    act(() => card.focus());
+    await user.keyboard('{Enter}');
+    expect(screen.getByText('Mitarbeiter bearbeiten')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Deaktivieren' }));
+
+    // The status-confirm dialog must not appear until the edit dialog has actually finished
+    // closing - opening it in the same tick would build its own focus trap while the edit
+    // dialog's is still tearing down (N24).
+    expect(screen.queryByText('Mitarbeiter deaktivieren?')).not.toBeInTheDocument();
+
+    expect(await screen.findByText('Mitarbeiter deaktivieren?')).toBeInTheDocument();
+    expect(screen.queryByText('Mitarbeiter bearbeiten')).not.toBeInTheDocument();
+  });
+
   it('opens the edit dialog pre-filled for an existing employee and closes without saving on Abbrechen', async () => {
     mockViewportWidth(1700);
     const user = userEvent.setup();

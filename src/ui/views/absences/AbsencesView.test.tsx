@@ -675,7 +675,11 @@ describe('AbsencesView', () => {
       await user.click(screen.getByRole('button', { name: 'Weitere Aktionen für Abwesenheit von Bauer, Anna' }));
       await user.click(screen.getByRole('button', { name: 'Löschen' }));
 
-      const confirmDialog = screen.getByRole('dialog');
+      // The confirm dialog must not build its own focus trap while the action sheet's is still
+      // tearing down (N24) - it only appears once the sheet has actually finished closing.
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+
+      const confirmDialog = await screen.findByRole('dialog');
       expect(within(confirmDialog).getByText('Abwesenheit löschen?')).toBeInTheDocument();
       await user.click(within(confirmDialog).getByRole('button', { name: 'Löschen' }));
 

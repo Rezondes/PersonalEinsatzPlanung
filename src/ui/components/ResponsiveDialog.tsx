@@ -13,6 +13,7 @@ import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
 import Stack from '@mui/material/Stack';
 import CloseIcon from '@mui/icons-material/Close';
+import { theme } from '@ui/app/theme';
 import { useBreakpoint } from '@ui/hooks/useBreakpoint';
 import { useDismissOnBack } from '@ui/hooks/useDismissOnBack';
 import type { RowAction } from './ResponsiveList/RowAction';
@@ -148,7 +149,18 @@ export function ResponsiveDialog({
                   disabled={action.disabled}
                   onClick={() => {
                     onClose?.();
-                    action.onSelect();
+                    // Deferred, not fired synchronously: every caller of this dialog mounts it
+                    // only while open (see src/ui/CLAUDE.md), so onClose above unmounts it on the
+                    // very next render - there is no "wait for our own exit transition" moment to
+                    // hook from inside this component (unlike RowActionSheet.tsx, which stays
+                    // mounted and can use SlideProps.onExited). Firing action.onSelect() here
+                    // synchronously would build its typical ConfirmDialog's own focus trap while
+                    // this dialog's is still tearing down - two focus traps racing over where
+                    // focus lands (N24; see DriveBackupDialog.tsx's delete-button comment for a
+                    // sibling hazard in this same MUI dialog-lifecycle family). A plain timeout
+                    // matching the theme's own exit duration decouples the two firmly enough that
+                    // this races only with the visual transition, not with the trap itself.
+                    setTimeout(() => action.onSelect(), theme.transitions.duration.leavingScreen);
                   }}
                   sx={{ justifyContent: 'flex-start' }}
                 >

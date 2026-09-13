@@ -295,7 +295,11 @@ describe('BranchMasterDataView', () => {
 
     await user.click(screen.getByRole('button', { name: 'Deaktivieren' }));
 
+    // The confirm dialog must not build its own focus trap while the edit dialog's is still
+    // tearing down (N24) - it only appears once the edit dialog has actually closed.
+    expect(screen.queryByRole('heading', { name: 'Filiale deaktivieren?' })).not.toBeInTheDocument();
+
     expect(screen.queryByRole('heading', { name: 'Filiale bearbeiten' })).not.toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Filiale deaktivieren?' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Filiale deaktivieren?' })).toBeInTheDocument();
   });
 });
