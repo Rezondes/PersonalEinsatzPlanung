@@ -1,7 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { MorePage } from './MorePage';
+import StoreOutlinedIcon from '@mui/icons-material/StoreOutlined';
+import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
+import type { NavItem } from './navItems';
+import { MorePage, buildMoreEntries } from './MorePage';
 
 function renderPage() {
   return render(
@@ -24,5 +27,18 @@ describe('MorePage', () => {
     expect(screen.getByText('Datenschutz')).toBeInTheDocument();
     expect(screen.getByText('Nutzungsbedingungen')).toBeInTheDocument();
     expect(screen.getByText('Einstellungen')).toBeInTheDocument();
+  });
+});
+
+describe('buildMoreEntries', () => {
+  const filialen: NavItem = { path: '/branches', label: 'Filialen', icon: StoreOutlinedIcon };
+  const settings: NavItem = { path: '/settings', label: 'Einstellungen', icon: SettingsOutlinedIcon };
+
+  it('puts the Filialen entry first, then the footer items, when it exists in mainNavItems', () => {
+    expect(buildMoreEntries([filialen], [settings])).toEqual([filialen, settings]);
+  });
+
+  it('falls back to just the footer items, without crashing, if Filialen is missing from mainNavItems (N14)', () => {
+    expect(buildMoreEntries([], [settings])).toEqual([settings]);
   });
 });

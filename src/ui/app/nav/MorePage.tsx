@@ -8,9 +8,16 @@ import ListItemText from '@mui/material/ListItemText';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import { useBreakpoint } from '@ui/hooks/useBreakpoint';
 import { usePageActions } from '@ui/app/PageActionsContext';
+import type { NavItem } from './navItems';
 import { FOOTER_NAV_ITEMS, MAIN_NAV_ITEMS } from './navItems';
 
-const FILIALEN = MAIN_NAV_ITEMS.find((i) => i.path === '/branches')!;
+/** Filialen leads (it's the one MAIN_NAV_ITEMS entry not otherwise reachable from this hub) unless
+ * a future rename ever drops it from MAIN_NAV_ITEMS - falls back to the footer items alone rather
+ * than crashing the whole page on a `.find(...)!` that came back empty (N14). */
+export function buildMoreEntries(mainNavItems: NavItem[], footerNavItems: NavItem[]): NavItem[] {
+  const filialen = mainNavItems.find((i) => i.path === '/branches');
+  return filialen ? [filialen, ...footerNavItems] : footerNavItems;
+}
 
 /**
  * Mobile-only "Mehr" tab destination: a menu hub, not a merged view of Filialen+Einstellungen
@@ -22,7 +29,7 @@ export function MorePage() {
   const navigate = useNavigate();
   const layout = useBreakpoint();
   usePageActions({ fullBleedPage: true });
-  const entries = [FILIALEN, ...FOOTER_NAV_ITEMS];
+  const entries = buildMoreEntries(MAIN_NAV_ITEMS, FOOTER_NAV_ITEMS);
 
   return (
     <Box

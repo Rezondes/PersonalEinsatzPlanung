@@ -80,11 +80,21 @@ function employmentTypeDraft(form: FormState): EmploymentTypeDraft {
 }
 
 /** Only called after validateEmployee passed, which guarantees every number is present -
- * maxMonthlyHours is the one exception, since it stays optional even then. */
+ * maxMonthlyHours is the one exception, since it stays optional even then. Guards instead of a
+ * bare non-null assertion: a future change to validateEmployee's rules that loosened this
+ * guarantee would otherwise silently save a Minijob/weeklyHours with a missing number instead of
+ * failing loudly right where the broken assumption is made (N14). */
 function toEmploymentType(form: FormState): EmploymentType {
-  return form.type === 'Minijob'
-    ? { type: 'Minijob', minHours: form.minHours!, maxHours: form.maxHours!, maxMonthlyHours: form.maxMonthlyHours }
-    : { type: form.type, weeklyHours: form.weeklyHours! };
+  if (form.type === 'Minijob') {
+    if (form.minHours === undefined || form.maxHours === undefined) {
+      throw new Error('toEmploymentType: minHours/maxHours missing despite passed validation');
+    }
+    return { type: 'Minijob', minHours: form.minHours, maxHours: form.maxHours, maxMonthlyHours: form.maxMonthlyHours };
+  }
+  if (form.weeklyHours === undefined) {
+    throw new Error('toEmploymentType: weeklyHours missing despite passed validation');
+  }
+  return { type: form.type, weeklyHours: form.weeklyHours };
 }
 
 interface EmployeeDialogProps {
@@ -121,14 +131,18 @@ export function EmployeeDialog({ branchId, employee, onClose, onSaved, onError, 
 
   const save = async () => {
     if (!validation.submit()) return;
+    // Guaranteed present by validateEmployee above, same reasoning as toEmploymentType's guards.
+    if (form.vacationEntitlementPerYear === undefined || form.holidayVacationHours === undefined) {
+      throw new Error('save: vacationEntitlementPerYear/holidayVacationHours missing despite passed validation');
+    }
 
     const details = {
       lastName: form.lastName.trim(),
       firstName: form.firstName.trim(),
       jobTitle: form.jobTitle.trim(),
       employmentType: toEmploymentType(form),
-      vacationEntitlementPerYear: form.vacationEntitlementPerYear!,
-      holidayVacationHours: form.holidayVacationHours!,
+      vacationEntitlementPerYear: form.vacationEntitlementPerYear,
+      holidayVacationHours: form.holidayVacationHours,
       birthDate: form.birthDate || undefined,
       entryDate: form.entryDate || undefined,
       exitDate: form.exitDate || undefined,
