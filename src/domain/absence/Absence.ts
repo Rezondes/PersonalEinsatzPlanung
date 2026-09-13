@@ -9,6 +9,10 @@ interface AbsenceBase {
   from: string;
   to: string;
   createdAt: string;
+  /** Optional (unlike Employee/Branch/ShiftTemplate's required updatedAt) - deliberately: making it
+   * required would force a Dexie + JSON-export-format migration to backfill every Absence stored
+   * before editing existed, for a field nothing reads yet. Set from absenceService.update onward. */
+  updatedAt?: string;
 }
 
 /**

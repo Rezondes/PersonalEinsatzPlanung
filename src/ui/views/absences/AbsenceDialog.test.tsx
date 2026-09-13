@@ -10,10 +10,11 @@ import { services } from '@infrastructure/services';
 import { AbsenceDialog } from './AbsenceDialog';
 
 vi.mock('@infrastructure/services', () => ({
-  services: { absence: { create: vi.fn() } },
+  services: { absence: { create: vi.fn(), update: vi.fn() } },
 }));
 
 const createMock = vi.mocked(services.absence.create);
+const updateMock = vi.mocked(services.absence.update);
 const m1 = 'm1' as EmployeeId;
 
 function employee(id: EmployeeId, lastName: string): Employee {
@@ -35,11 +36,20 @@ function employee(id: EmployeeId, lastName: string): Employee {
 const employees = [employee(m1, 'Müller'), employee('m2' as EmployeeId, 'Schulz')];
 const today = toISODate(new Date());
 
-function renderDialog(absences: Absence[] = []) {
+function renderDialog(absences: Absence[] = [], absence: Absence | null = null) {
   const onClose = vi.fn();
   const onSaved = vi.fn();
   const onError = vi.fn();
-  render(<AbsenceDialog employees={employees} absences={absences} onClose={onClose} onSaved={onSaved} onError={onError} />);
+  render(
+    <AbsenceDialog
+      employees={employees}
+      absences={absences}
+      absence={absence}
+      onClose={onClose}
+      onSaved={onSaved}
+      onError={onError}
+    />,
+  );
   return { onClose, onSaved, onError };
 }
 
@@ -69,6 +79,8 @@ describe('AbsenceDialog', () => {
   beforeEach(() => {
     createMock.mockReset();
     createMock.mockImplementation(async (input) => ({ ...input, id: 'a1' as AbsenceId, createdAt: '' }));
+    updateMock.mockReset();
+    updateMock.mockImplementation(async (absence) => absence);
   });
 
   it('drops a checked half-day flag once the range is extended to multiple days', async () => {
@@ -175,6 +187,36 @@ describe('AbsenceDialog', () => {
     await user.click(save());
 
     await waitFor(() => expect(createMock).toHaveBeenCalledTimes(1));
+    expect(screen.queryByText('Überschneidung mit bestehender Abwesenheit?')).not.toBeInTheDocument();
+  });
+
+  it('pre-fills every field from the given absence, titles itself "bearbeiten", and calls update (not create) with its id', async () => {
+    const user = userEvent.setup();
+    const vacation = existingVacation({ note: 'Mallorca', halfDay: { atStart: true, atEnd: false } });
+    renderDialog([vacation], vacation);
+
+    expect(screen.getByText('Abwesenheit bearbeiten')).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: 'Mitarbeiter' })).toHaveTextContent('Müller, Anna');
+    expect(dateField('Von')).toHaveValue('2026-03-01');
+    expect(dateField('Bis')).toHaveValue('2026-03-15');
+    expect(screen.getByDisplayValue('Mallorca')).toBeInTheDocument();
+
+    setDate('Bis', '2026-03-16');
+    await user.click(save());
+
+    await waitFor(() => expect(updateMock).toHaveBeenCalledTimes(1));
+    expect(updateMock).toHaveBeenCalledWith(expect.objectContaining({ id: vacation.id, to: '2026-03-16' }));
+    expect(createMock).not.toHaveBeenCalled();
+  });
+
+  it('does not warn about overlapping itself when re-saving an absence unchanged (excludeId)', async () => {
+    const user = userEvent.setup();
+    const vacation = existingVacation();
+    renderDialog([vacation], vacation);
+
+    await user.click(save());
+
+    await waitFor(() => expect(updateMock).toHaveBeenCalledTimes(1));
     expect(screen.queryByText('Überschneidung mit bestehender Abwesenheit?')).not.toBeInTheDocument();
   });
 });

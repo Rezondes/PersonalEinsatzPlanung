@@ -15,6 +15,15 @@ export function createAbsenceService(repo: AbsenceRepository) {
       return absence;
     },
 
+    /** Same shape as employeeService.update - deliberately not re-validated (see the "update paths
+     * ... deliberately do NOT re-validate" rule in domain/CLAUDE.md), so a record stored before a
+     * field rule existed stays editable. */
+    update: async (absence: Absence) => {
+      const updated: Absence = { ...absence, updatedAt: new Date().toISOString() };
+      await repo.save(updated);
+      return updated;
+    },
+
     /** Writes an absence back exactly as it was, keeping its id and createdAt - deliberately past
      * createAbsence, the same way the JSON import bypasses the create* factories (see
      * dataExportService). Used only by the Wochenplanung's undo/redo: re-creating instead would

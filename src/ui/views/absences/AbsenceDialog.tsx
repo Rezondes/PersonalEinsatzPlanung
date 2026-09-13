@@ -10,7 +10,7 @@ import type { EmployeeId } from '@domain/shared/ids';
 import { toISODate, formatISODateGerman } from '@domain/shared/DateFormat';
 import type { Employee } from '@domain/employee/Employee';
 import { fullName } from '@domain/employee/Employee';
-import type { Absence, AbsenceType } from '@domain/absence/Absence';
+import type { Absence, AbsenceInput, AbsenceType } from '@domain/absence/Absence';
 import { CREDITED_OVERRIDE_FIELD, validateAbsence } from '@domain/absence/absenceValidation';
 import type { AbsenceField } from '@domain/absence/absenceValidation';
 import { findConflictingAbsences } from '@domain/absence/absenceOverlap';
@@ -78,21 +78,46 @@ function emptyForm(firstEmployeeId: string): FormState {
   };
 }
 
+function formFromAbsence(absence: Absence): FormState {
+  return {
+    employeeId: absence.employeeId,
+    type: absence.type,
+    from: absence.from,
+    to: absence.to,
+    label: absence.type === 'Other' ? absence.label : '',
+    hoursPerDay: absence.type === 'Other' ? absence.hoursPerDay : undefined,
+    creditedHoursOverride:
+      absence.type !== 'Other' && absence.creditedMinutesOverride !== undefined
+        ? absence.creditedMinutesOverride / 60
+        : undefined,
+    // Other carries a note too (domain-wise), even though today's dialog has no UI field to edit it
+    // while Sonstige is selected - prefilling it here means an unrelated edit (e.g. just the dates)
+    // roundtrips an existing Other's note unchanged instead of silently dropping it.
+    note: (absence.type === 'Vacation' || absence.type === 'Other') && absence.note ? absence.note : '',
+    halfDayAtStart: absence.type === 'Vacation' ? !!absence.halfDay?.atStart : false,
+    halfDayAtEnd: absence.type === 'Vacation' ? !!absence.halfDay?.atEnd : false,
+  };
+}
+
 interface AbsenceDialogProps {
   /** Active employees of the selected branch, first one preselected. */
   employees: Employee[];
   /** Every absence of the branch (all employees, all years) - used only to warn about a plausible
    * double-booking, never to restrict what can be entered. */
   absences: Absence[];
+  /** null creates a new absence, otherwise the given one is edited. */
+  absence: Absence | null;
   onClose: () => void;
   onSaved: () => void | Promise<void>;
   onError: (e: unknown, context?: string) => void;
 }
 
-/** "Abwesenheit erfassen" dialog. Mounted only while open, so the form and the validation's
- * "already tried to save" flag start fresh each time. Field rules come from validateAbsence. */
-export function AbsenceDialog({ employees, absences, onClose, onSaved, onError }: AbsenceDialogProps) {
-  const [form, setForm] = useState<FormState>(() => emptyForm(employees[0]?.id ?? ''));
+/** "Abwesenheit erfassen"/"Abwesenheit bearbeiten" dialog. Mounted only while open, so the form and
+ * the validation's "already tried to save" flag start fresh each time. Field rules come from
+ * validateAbsence - deliberately not re-applied stricter on edit than on create (see
+ * domain/CLAUDE.md's "update paths ... deliberately do NOT re-validate" rule). */
+export function AbsenceDialog({ employees, absences, absence, onClose, onSaved, onError }: AbsenceDialogProps) {
+  const [form, setForm] = useState<FormState>(() => (absence ? formFromAbsence(absence) : emptyForm(employees[0]?.id ?? '')));
   const selectedEmployee = employees.find((emp) => emp.id === form.employeeId);
   const validation = useFormValidation<AbsenceField>(() =>
     validateAbsence({
@@ -129,8 +154,13 @@ export function AbsenceDialog({ employees, absences, onClose, onSaved, onError }
   // inside a longer one (e.g. a Feiertag inside a booked Urlaubswoche) is an established, valid
   // pattern and must not require a confirmation click every time (see absenceOverlap.ts).
   const conflicts = useMemo(
-    () => findConflictingAbsences({ employeeId: form.employeeId as EmployeeId, from: form.from, to: form.to }, absences),
-    [form.employeeId, form.from, form.to, absences],
+    () =>
+      findConflictingAbsences(
+        { employeeId: form.employeeId as EmployeeId, from: form.from, to: form.to },
+        absences,
+        absence?.id,
+      ),
+    [form.employeeId, form.from, form.to, absences, absence?.id],
   );
 
   const actuallySave = async () => {
@@ -140,10 +170,11 @@ export function AbsenceDialog({ employees, absences, onClose, onSaved, onError }
     try {
       const creditedMinutesOverride =
         form.creditedHoursOverride !== undefined ? Math.round(form.creditedHoursOverride * 60) : undefined;
+      let fields: AbsenceInput;
       if (form.type === 'Vacation') {
         const halfDay =
           form.halfDayAtStart || form.halfDayAtEnd ? { atStart: form.halfDayAtStart, atEnd: form.halfDayAtEnd } : undefined;
-        await services.absence.create({
+        fields = {
           employeeId,
           type: 'Vacation',
           from: form.from,
@@ -151,13 +182,13 @@ export function AbsenceDialog({ employees, absences, onClose, onSaved, onError }
           halfDay,
           note: form.note || undefined,
           creditedMinutesOverride,
-        });
+        };
       } else if (form.type === 'Illness') {
-        await services.absence.create({ employeeId, type: 'Illness', from: form.from, to: form.to, creditedMinutesOverride });
+        fields = { employeeId, type: 'Illness', from: form.from, to: form.to, creditedMinutesOverride };
       } else if (form.type === 'PublicHoliday') {
-        await services.absence.create({ employeeId, type: 'PublicHoliday', from: form.from, to: form.to, creditedMinutesOverride });
+        fields = { employeeId, type: 'PublicHoliday', from: form.from, to: form.to, creditedMinutesOverride };
       } else {
-        await services.absence.create({
+        fields = {
           employeeId,
           type: 'Other',
           from: form.from,
@@ -165,7 +196,13 @@ export function AbsenceDialog({ employees, absences, onClose, onSaved, onError }
           label: form.label.trim(),
           hoursPerDay: form.hoursPerDay,
           note: form.note || undefined,
-        });
+        };
+      }
+
+      if (absence) {
+        await services.absence.update({ ...fields, id: absence.id, createdAt: absence.createdAt } as Absence);
+      } else {
+        await services.absence.create(fields);
       }
       onClose();
       await onSaved();
@@ -190,7 +227,7 @@ export function AbsenceDialog({ employees, absences, onClose, onSaved, onError }
     <ResponsiveDialog
       open
       onClose={saving ? undefined : onClose}
-      title="Abwesenheit erfassen"
+      title={absence ? 'Abwesenheit bearbeiten' : 'Abwesenheit erfassen'}
       contentRef={validation.containerRef}
       actions={
         <>

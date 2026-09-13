@@ -18,13 +18,14 @@ vi.mock('@infrastructure/services', () => ({
   services: {
     branch: { all: vi.fn() },
     employee: { forBranch: vi.fn() },
-    absence: { forEmployees: vi.fn(), create: vi.fn(), delete: vi.fn() },
+    absence: { forEmployees: vi.fn(), create: vi.fn(), update: vi.fn(), delete: vi.fn() },
   },
 }));
 
 const employeeForBranchMock = vi.mocked(services.employee.forBranch);
 const absenceForBranchMock = vi.mocked(services.absence.forEmployees);
 const createMock = vi.mocked(services.absence.create);
+const updateMock = vi.mocked(services.absence.update);
 const deleteMock = vi.mocked(services.absence.delete);
 
 /** Copied from src/ui/hooks/useBreakpoint.test.tsx: jsdom has no real layout engine, so
@@ -473,14 +474,98 @@ describe('AbsencesView', () => {
       expect(screen.getByRole('option', { name: 'Schulz, Otto (inaktiv)' })).toBeInTheDocument();
     });
 
-    it('gives the mobile card\'s delete button a name-specific aria-label instead of the generic "Löschen"', async () => {
-      mockViewportWidth(500);
+    it('opens the edit dialog pre-filled when clicking the desktop Bearbeiten icon, titled "bearbeiten" and not "erfassen"', async () => {
+      const user = userEvent.setup();
       employeeForBranchMock.mockResolvedValue([e1]);
       absenceForBranchMock.mockResolvedValue([a1]);
       renderView();
 
-      expect(await screen.findByRole('button', { name: 'Abwesenheit von Bauer, Anna löschen' })).toBeInTheDocument();
-      expect(screen.queryByRole('button', { name: 'Löschen' })).not.toBeInTheDocument();
+      await screen.findByText('Urlaub');
+      await user.click(screen.getByRole('button', { name: 'Abwesenheit von Bauer, Anna bearbeiten' }));
+
+      const dialog = screen.getByRole('dialog');
+      expect(within(dialog).getByText('Abwesenheit bearbeiten')).toBeInTheDocument();
+      expect(within(dialog).getByLabelText((t) => t.startsWith('Von'))).toHaveValue(a1.from);
+      expect(within(dialog).getByLabelText((t) => t.startsWith('Bis'))).toHaveValue(a1.to);
+    });
+
+    it('saves an edit via services.absence.update, not create, and reloads the list', async () => {
+      const user = userEvent.setup();
+      employeeForBranchMock.mockResolvedValue([e1]);
+      absenceForBranchMock.mockResolvedValueOnce([a1]).mockResolvedValue([a1]);
+      updateMock.mockResolvedValue({ ...a1, to: '2026-06-06' });
+      renderView();
+
+      await screen.findByText('Urlaub');
+      await user.click(screen.getByRole('button', { name: 'Abwesenheit von Bauer, Anna bearbeiten' }));
+      const dialog = screen.getByRole('dialog');
+      await user.click(within(dialog).getByRole('button', { name: 'Speichern' }));
+
+      await waitFor(() => expect(updateMock).toHaveBeenCalledWith(expect.objectContaining({ id: a1.id })));
+      expect(createMock).not.toHaveBeenCalled();
+      await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    });
+
+    it('still lists an absence\'s owner in the Mitarbeiter dropdown when editing, even if they have since become inactive', async () => {
+      const user = userEvent.setup();
+      const theirAbsence = vacation('a9', e3.id, '2026-06-01', '2026-06-05');
+      employeeForBranchMock.mockResolvedValue([e1, e3]);
+      absenceForBranchMock.mockResolvedValue([theirAbsence]);
+      renderView();
+
+      await screen.findByText('Urlaub');
+      await user.click(screen.getByRole('button', { name: 'Abwesenheit von Schulz, Otto bearbeiten' }));
+
+      const dialog = screen.getByRole('dialog');
+      expect(within(dialog).getByRole('combobox', { name: 'Mitarbeiter' })).toHaveTextContent('Schulz, Otto');
+    });
+
+    it('opens the edit dialog when tapping the mobile card itself, pre-filled for that absence', async () => {
+      mockViewportWidth(500);
+      const user = userEvent.setup();
+      employeeForBranchMock.mockResolvedValue([e1]);
+      absenceForBranchMock.mockResolvedValue([a1]);
+      renderView();
+
+      await screen.findByText('Bauer, Anna');
+      await user.click(screen.getByText('Bauer, Anna').closest('button') as HTMLButtonElement);
+
+      expect(screen.getByRole('dialog')).toBeInTheDocument();
+      expect(screen.getByText('Abwesenheit bearbeiten')).toBeInTheDocument();
+    });
+
+    it('opens an action sheet with Bearbeiten and Löschen from the mobile card\'s kebab, replacing the old single delete button', async () => {
+      mockViewportWidth(500);
+      const user = userEvent.setup();
+      employeeForBranchMock.mockResolvedValue([e1]);
+      absenceForBranchMock.mockResolvedValue([a1]);
+      renderView();
+
+      await screen.findByText('Bauer, Anna');
+      await user.click(screen.getByRole('button', { name: 'Weitere Aktionen für Abwesenheit von Bauer, Anna' }));
+
+      expect(screen.getByRole('button', { name: 'Bearbeiten' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Löschen' })).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Abwesenheit von Bauer, Anna löschen' })).not.toBeInTheDocument();
+    });
+
+    it('deletes via the mobile action sheet\'s Löschen entry, through the same confirm dialog as the desktop button', async () => {
+      const user = userEvent.setup();
+      mockViewportWidth(500);
+      employeeForBranchMock.mockResolvedValue([e1]);
+      absenceForBranchMock.mockResolvedValueOnce([a1]).mockResolvedValue([]);
+      deleteMock.mockResolvedValue(undefined);
+      renderView();
+
+      await screen.findByText('Bauer, Anna');
+      await user.click(screen.getByRole('button', { name: 'Weitere Aktionen für Abwesenheit von Bauer, Anna' }));
+      await user.click(screen.getByRole('button', { name: 'Löschen' }));
+
+      const confirmDialog = screen.getByRole('dialog');
+      expect(within(confirmDialog).getByText('Abwesenheit löschen?')).toBeInTheDocument();
+      await user.click(within(confirmDialog).getByRole('button', { name: 'Löschen' }));
+
+      await waitFor(() => expect(deleteMock).toHaveBeenCalledWith(a1.id));
     });
   });
 });

@@ -12,6 +12,7 @@ import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 import TableSortLabel from '@mui/material/TableSortLabel';
 import IconButton from '@mui/material/IconButton';
+import ButtonBase from '@mui/material/ButtonBase';
 import Chip from '@mui/material/Chip';
 import Alert from '@mui/material/Alert';
 import TextField from '@mui/material/TextField';
@@ -19,7 +20,9 @@ import MenuItem from '@mui/material/MenuItem';
 import Checkbox from '@mui/material/Checkbox';
 import ListItemText from '@mui/material/ListItemText';
 import AddIcon from '@mui/icons-material/Add';
+import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import MoreVertIcon from '@mui/icons-material/MoreVert';
 import { formatISODateGerman } from '@domain/shared/DateFormat';
 import type { Absence, AbsenceType } from '@domain/absence/Absence';
 import type { Employee } from '@domain/employee/Employee';
@@ -33,6 +36,9 @@ import { useBreakpoint } from '@ui/hooks/useBreakpoint';
 import { ConfirmDialog } from '@ui/components/ConfirmDialog';
 import { stickyFirstColumnSx } from '@ui/components/stickyFirstColumn';
 import { ResponsiveDataList } from '@ui/components/ResponsiveList/ResponsiveDataList';
+import { RowActionSheet } from '@ui/components/ResponsiveList/RowActionSheet';
+import type { RowAction } from '@ui/components/ResponsiveList/RowAction';
+import { useLongPress } from '@ui/components/ResponsiveList/useLongPress';
 import { AbsenceDialog } from './AbsenceDialog';
 import { notify } from '@ui/app/store/notificationStore';
 import { usePageActions } from '@ui/app/PageActionsContext';
@@ -71,19 +77,33 @@ function absenceKindLabel(a: Absence): string {
   }
 }
 
-/** Mobile card. Unlike Mitarbeiter/Filialen there is no per-row edit here (create-only, matching
- * both the mockup and today's behaviour) and exactly one row action (Löschen) - a long-press
- * action sheet would just be indirection around one already-visible 44px button, so this card
- * shows it directly instead of going through RowActionSheet. */
+function getAbsenceRowActions(
+  absence: Absence,
+  onEdit: (a: Absence) => void,
+  onDelete: (a: Absence) => void,
+): RowAction[] {
+  return [
+    { key: 'edit', label: 'Bearbeiten', icon: EditOutlinedIcon, onSelect: () => onEdit(absence) },
+    { key: 'delete', label: 'Löschen', icon: DeleteOutlineIcon, dangerous: true, onSelect: () => onDelete(absence) },
+  ];
+}
+
+/** Mobile card. Tap = edit (matching the Mitarbeiter/Filialen "row = one target" convention),
+ * long-press OR the visible kebab icon opens the action sheet with both Bearbeiten and Löschen -
+ * same as EmployeeCard/BranchCard. Used to be a single always-visible delete IconButton with no
+ * edit at all, back when absences were create-only. */
 function AbsenceCard({
   absence,
   employeeName,
-  onDelete,
+  onTap,
+  onLongPress,
 }: {
   absence: Absence;
   employeeName: string;
-  onDelete: () => void;
+  onTap: () => void;
+  onLongPress: () => void;
 }) {
+  const handlers = useLongPress({ onTap, onLongPress });
   const halfDayText =
     absence.type === 'Vacation' && absence.halfDay && absence.from === absence.to
       ? absence.halfDay.atStart
@@ -102,31 +122,36 @@ function AbsenceCard({
       sx={{
         display: 'flex',
         alignItems: 'center',
-        gap: 1,
+        gap: 0.5,
         width: '100%',
         bgcolor: 'background.paper',
         border: '1px solid',
         borderColor: 'divider',
         borderRadius: 2,
-        p: '12px 8px 12px 14px',
+        p: '4px 4px 4px 14px',
       }}
     >
-      <Box sx={{ flex: 1, minWidth: 0 }}>
-        <Stack direction="row" spacing={1} alignItems="center">
-          <Typography variant="body2" fontWeight={500} noWrap>
-            {employeeName}
-          </Typography>
-          <Chip size="small" label={absenceTypeLabel(absence) + halfDayText} />
-        </Stack>
-        <Typography variant="body2">{rangeText}</Typography>
-        {absence.type === 'Other' && absence.hoursPerDay !== undefined && (
-          <Typography variant="caption" color="text.secondary">
-            {absence.hoursPerDay.toLocaleString('de-DE')} Std./Tag
-          </Typography>
-        )}
-      </Box>
-      <IconButton onClick={onDelete} aria-label={`Abwesenheit von ${employeeName} löschen`}>
-        <DeleteOutlineIcon />
+      <ButtonBase
+        {...handlers}
+        sx={{ display: 'flex', flex: 1, minWidth: 0, alignItems: 'flex-start', py: '8px', textAlign: 'left', borderRadius: 2 }}
+      >
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <Stack direction="row" spacing={1} alignItems="center">
+            <Typography variant="body2" fontWeight={500} noWrap>
+              {employeeName}
+            </Typography>
+            <Chip size="small" label={absenceTypeLabel(absence) + halfDayText} />
+          </Stack>
+          <Typography variant="body2">{rangeText}</Typography>
+          {absence.type === 'Other' && absence.hoursPerDay !== undefined && (
+            <Typography variant="caption" color="text.secondary">
+              {absence.hoursPerDay.toLocaleString('de-DE')} Std./Tag
+            </Typography>
+          )}
+        </Box>
+      </ButtonBase>
+      <IconButton onClick={onLongPress} aria-label={`Weitere Aktionen für Abwesenheit von ${employeeName}`}>
+        <MoreVertIcon />
       </IconButton>
     </Box>
   );
@@ -139,8 +164,10 @@ export function AbsencesView() {
   const activeEmployees = employeeList.filter((emp) => emp.active);
   const employeeIds = employeeList.map((emp) => emp.id);
   const { absences, reload } = useAbsences(employeeIds);
-  // Mounted only while open, so the form starts fresh each time.
-  const [dialogOpen, setDialogOpen] = useState(false);
+  // Mounted only while open, so the form starts fresh each time. null = closed; { absence: null } =
+  // "Erfassen"; { absence } = edit.
+  const [dialog, setDialog] = useState<{ absence: Absence | null } | null>(null);
+  const [sheetAbsence, setSheetAbsence] = useState<Absence | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Absence | null>(null);
   const [employeeFilter, setEmployeeFilter] = useState<string>(ALL);
   const [typeFilter, setTypeFilter] = useState<TypeFilter>(ALL);
@@ -150,7 +177,7 @@ export function AbsencesView() {
   const sort = useTableSort<SortKey>('from', 'desc');
 
   usePageActions({
-    fab: activeEmployees.length > 0 ? { label: 'Erfassen', icon: AddIcon, onClick: () => setDialogOpen(true) } : undefined,
+    fab: activeEmployees.length > 0 ? { label: 'Erfassen', icon: AddIcon, onClick: () => setDialog({ absence: null }) } : undefined,
     fullBleedPage: true,
   });
 
@@ -158,6 +185,14 @@ export function AbsencesView() {
     () => new Map(employeeList.map((emp) => [emp.id, emp])),
     [employeeList],
   );
+
+  // Active employees, plus - only while editing - the absence's own owner even if they have since
+  // become inactive: otherwise the Mitarbeiter field would have no matching option to show at all
+  // for an absence booked before someone left, and saving could silently reassign it.
+  const dialogEmployees = useMemo(() => {
+    const editedOwner = dialog?.absence ? employeeById.get(dialog.absence.employeeId) : undefined;
+    return editedOwner && !editedOwner.active ? [...activeEmployees, editedOwner] : activeEmployees;
+  }, [dialog, activeEmployees, employeeById]);
 
   /** Every year any absence touches, so a range crossing New Year shows up under both. */
   const availableYears = useMemo(() => {
@@ -241,7 +276,7 @@ export function AbsencesView() {
         <Button
           variant="outlined"
           startIcon={<AddIcon />}
-          onClick={() => setDialogOpen(true)}
+          onClick={() => setDialog({ absence: null })}
           disabled={activeEmployees.length === 0}
           sx={{ display: { xs: 'none', sm: 'inline-flex' } }}
         >
@@ -320,7 +355,12 @@ export function AbsencesView() {
           getKey={(a) => a.id}
           emptyMessage={absences.length === 0 ? 'Noch keine Abwesenheiten erfasst.' : 'Kein Eintrag passt zu den Filtern.'}
           renderCard={(a) => (
-            <AbsenceCard absence={a} employeeName={employeeName(employeeById.get(a.employeeId))} onDelete={() => setDeleteTarget(a)} />
+            <AbsenceCard
+              absence={a}
+              employeeName={employeeName(employeeById.get(a.employeeId))}
+              onTap={() => setDialog({ absence: a })}
+              onLongPress={() => setSheetAbsence(a)}
+            />
           )}
         >
           <TableContainer component={Paper} sx={{ height: '100%' }}>
@@ -390,6 +430,13 @@ export function AbsencesView() {
                       <TableCell align="right">
                         <IconButton
                           size={layout === 'laptop' ? 'small' : 'medium'}
+                          onClick={() => setDialog({ absence: a })}
+                          aria-label={`Abwesenheit von ${employeeName(employee)} bearbeiten`}
+                        >
+                          <EditOutlinedIcon fontSize={layout === 'laptop' ? 'small' : 'medium'} />
+                        </IconButton>
+                        <IconButton
+                          size={layout === 'laptop' ? 'small' : 'medium'}
                           onClick={() => setDeleteTarget(a)}
                           aria-label={`Abwesenheit von ${employeeName(employee)} löschen`}
                         >
@@ -405,11 +452,12 @@ export function AbsencesView() {
         </ResponsiveDataList>
       </Box>
 
-      {dialogOpen && (
+      {dialog && (
         <AbsenceDialog
-          employees={activeEmployees}
+          employees={dialogEmployees}
           absences={absences}
-          onClose={() => setDialogOpen(false)}
+          absence={dialog.absence}
+          onClose={() => setDialog(null)}
           onSaved={reload}
           onError={notify.report}
         />
@@ -423,6 +471,18 @@ export function AbsencesView() {
         dangerous
         onConfirm={deleteAbsence}
         onCancel={() => setDeleteTarget(null)}
+      />
+
+      <RowActionSheet
+        open={!!sheetAbsence}
+        onClose={() => setSheetAbsence(null)}
+        title={sheetAbsence ? employeeName(employeeById.get(sheetAbsence.employeeId)) : ''}
+        subtitle={sheetAbsence ? absenceTypeLabel(sheetAbsence) : undefined}
+        actions={
+          sheetAbsence
+            ? getAbsenceRowActions(sheetAbsence, (a) => setDialog({ absence: a }), (a) => setDeleteTarget(a))
+            : []
+        }
       />
     </Box>
   );
