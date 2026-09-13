@@ -22,6 +22,7 @@ import type { ShiftTemplate } from '@domain/schedule/ShiftTemplate';
 import type { ScheduleTool } from '../scheduleTools';
 import { OFF_TOOL, TOOL_MIME, toolKey, toolLabel, toolSummary } from '../scheduleTools';
 import { useBreakpoint } from '@ui/hooks/useBreakpoint';
+import { useDismissOnBack } from '@ui/hooks/useDismissOnBack';
 
 interface ScheduleToolbarProps {
   templates: ShiftTemplate[];
@@ -115,6 +116,7 @@ export function ScheduleToolbar({
   const collapsible = layout === 'mobile';
   const [sheetOpen, setSheetOpen] = useState(false);
   const [menuFor, setMenuFor] = useState<{ template: ShiftTemplate; anchor: HTMLElement } | null>(null);
+  useDismissOnBack(sheetOpen, () => setSheetOpen(false));
 
   const clipboardTool = activeTool?.kind === 'clipboard' ? activeTool : null;
   const tools: ScheduleTool[] = [
@@ -408,7 +410,9 @@ export function ScheduleToolbar({
             {selectionToggleButton}
             {templates.length === 0 && (
               <Typography variant="caption" color="text.secondary" sx={{ flexShrink: 0, pl: 1 }}>
-                Eigene Schichten anlegen, dann auf einen Tag ziehen.
+                {touchMode
+                  ? 'Eigene Schichten anlegen, dann auf einen Tag tippen.'
+                  : 'Eigene Schichten anlegen, dann auf einen Tag ziehen.'}
               </Typography>
             )}
           </Stack>

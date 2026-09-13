@@ -4,6 +4,7 @@ import Box from '@mui/material/Box';
 import ButtonBase from '@mui/material/ButtonBase';
 import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
+import { useDismissOnBack } from '@ui/hooks/useDismissOnBack';
 import type { RowAction } from './RowAction';
 
 interface RowActionSheetProps {
@@ -24,6 +25,8 @@ interface RowActionSheetProps {
  * fighting the schedule grid's own touch gestures later.
  */
 export function RowActionSheet({ open, onClose, title, subtitle, actions }: RowActionSheetProps) {
+  useDismissOnBack(open, onClose);
+
   return (
     <SwipeableDrawer anchor="bottom" open={open} onClose={onClose} onOpen={() => {}} disableSwipeToOpen>
       <Box sx={{ display: 'flex', justifyContent: 'center', pt: 1, pb: 0.5 }}>

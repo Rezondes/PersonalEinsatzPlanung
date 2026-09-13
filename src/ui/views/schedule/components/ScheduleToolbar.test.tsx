@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { BranchId, ShiftTemplateId } from '@domain/shared/ids';
 import { clockTime } from '@domain/shared/ClockTime';
@@ -134,6 +134,14 @@ describe('ScheduleToolbar', () => {
 
       expect(tileButton('Frei')).toBeInTheDocument();
       expect(screen.getByText('Eigene Schichten anlegen, dann auf einen Tag ziehen.')).toBeInTheDocument();
+    });
+
+    it('shows the tap wording (not "ziehen") at tablet width, where drag is disabled (touchMode)', () => {
+      mockViewportWidth(TABLET_LANDSCAPE);
+      renderToolbar({ templates: [] });
+
+      expect(screen.getByText('Eigene Schichten anlegen, dann auf einen Tag tippen.')).toBeInTheDocument();
+      expect(screen.queryByText('Eigene Schichten anlegen, dann auf einen Tag ziehen.')).not.toBeInTheDocument();
     });
 
     it('calls onCreate when the "Vorlage" button is clicked', async () => {
@@ -432,6 +440,19 @@ describe('ScheduleToolbar', () => {
       await user.click(screen.getByRole('button', { name: 'Neu' }));
 
       expect(onCreate).toHaveBeenCalledTimes(1);
+      await waitFor(() => expect(screen.queryByRole('button', { name: 'Neu' })).not.toBeInTheDocument());
+    });
+
+    it('closes the sheet on the mobile back gesture instead of falling through to page navigation', async () => {
+      const user = userEvent.setup();
+      mockViewportWidth(MOBILE);
+      renderToolbar();
+
+      await user.click(within(bar()).getByRole('button'));
+      expect(screen.getByRole('button', { name: 'Neu' })).toBeInTheDocument();
+
+      act(() => window.dispatchEvent(new PopStateEvent('popstate')));
+
       await waitFor(() => expect(screen.queryByRole('button', { name: 'Neu' })).not.toBeInTheDocument());
     });
 
