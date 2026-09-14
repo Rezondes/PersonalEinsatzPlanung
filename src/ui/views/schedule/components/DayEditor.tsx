@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import Button from '@mui/material/Button';
 import TextField from '@mui/material/TextField';
 import Stack from '@mui/material/Stack';
@@ -87,6 +88,8 @@ export function DayEditor({
   absence,
   birthDate,
 }: DayEditorProps) {
+  const { t } = useTranslation('schedule');
+  const { t: tCommon } = useTranslation();
   const [mode, setMode] = useState<Mode>('Off');
   // Raw input values (see shiftDraft.ts): a cleared time field stays empty and gets marked,
   // instead of being parsed away on every keystroke.
@@ -243,15 +246,18 @@ export function DayEditor({
       <ResponsiveDialog
         open={open}
         onClose={onClose}
-        title={`${employeeName} · ${day}`}
+        title={t('dialogTitle', { name: employeeName, day })}
         subtitle={formatISODateGerman(date)}
         maxWidth="sm"
         actions={null}
       >
         <Alert severity="info">
-          {employeeName} ist an diesem Tag im Rahmen eines mehrtägigen Eintrags ({absenceKindLabel(absence.type)},{' '}
-          {formatISODateGerman(absence.from)} bis {formatISODateGerman(absence.to)}) abwesend. Bitte bearbeite oder lösche diesen Eintrag über den
-          Tab „Abwesenheiten“.
+          {t('multiDayAbsenceAlert', {
+            name: employeeName,
+            kind: absenceKindLabel(absence.type),
+            from: formatISODateGerman(absence.from),
+            to: formatISODateGerman(absence.to),
+          })}
         </Alert>
       </ResponsiveDialog>
     );
@@ -266,16 +272,16 @@ export function DayEditor({
       <ResponsiveDialog
         open={open}
         onClose={onClose}
-        title={`${employeeName} · ${day}`}
+        title={t('dialogTitle', { name: employeeName, day })}
         subtitle={formatISODateGerman(date)}
         maxWidth="sm"
         contentRef={validation.containerRef}
         actions={
           <>
             <FormErrorNotice errors={validation.errors} />
-            <Button onClick={onClose}>Abbrechen</Button>
+            <Button onClick={onClose}>{tCommon('cancel')}</Button>
             <Button variant="contained" onClick={save}>
-              Speichern
+              {tCommon('save')}
             </Button>
           </>
         }
@@ -285,76 +291,70 @@ export function DayEditor({
           value={mode}
           onChange={(_, value) => value && setMode(value)}
           size="small"
-          aria-label="Eintragsart"
+          aria-label={t('entryTypeAriaLabel')}
           sx={{ mb: 2, display: 'flex', '& .MuiToggleButton-root': { flex: 1, minWidth: 0 } }}
         >
-          <ToggleButton value="Off">Frei</ToggleButton>
-          <ToggleButton value="Shift">Arbeitszeit</ToggleButton>
-          <ToggleButton value="Vacation">Urlaub</ToggleButton>
-          <ToggleButton value="Illness">Krankheit</ToggleButton>
-          <ToggleButton value="PublicHoliday">Feiertag</ToggleButton>
-          <ToggleButton value="Other">Sonstige</ToggleButton>
+          <ToggleButton value="Off">{t('offMenuItem')}</ToggleButton>
+          <ToggleButton value="Shift">{t('arbeitszeitOption')}</ToggleButton>
+          <ToggleButton value="Vacation">{t('vacationOption')}</ToggleButton>
+          <ToggleButton value="Illness">{t('illnessOption')}</ToggleButton>
+          <ToggleButton value="PublicHoliday">{t('publicHolidayOption')}</ToggleButton>
+          <ToggleButton value="Other">{t('otherOption')}</ToggleButton>
         </ToggleButtonGroup>
 
         {(mode === 'Shift' || mode === 'Other') && <RequiredLegend />}
 
         {mode === 'Off' && (
           <Typography variant="body2" color="text.secondary">
-            {employeeName} ist an diesem Tag nicht eingeplant und hat keinen Eintrag (weder Arbeitszeit noch
-            Abwesenheit).
+            {t('offDayText', { name: employeeName })}
           </Typography>
         )}
 
         {mode === 'Vacation' && (
           <Alert severity="info" sx={{ mb: 2 }}>
-            Trägt für {employeeName} am {formatISODateGerman(date)} einen ganztägigen Urlaubstag ein. Halbtags-Urlaub oder
-            mehrtägige Zeiträume lassen sich im Tab „Abwesenheiten“ erfassen.
+            {t('vacationAlert', { name: employeeName, date: formatISODateGerman(date) })}
           </Alert>
         )}
 
         {mode === 'Illness' && (
           <Alert severity="info" sx={{ mb: 2 }}>
-            Trägt für {employeeName} am {formatISODateGerman(date)} einen Krankheitstag ein. Es werden bewusst keine Diagnose- oder
-            Gesundheitsdetails erfasst.
+            {t('illnessAlert', { name: employeeName, date: formatISODateGerman(date) })}
           </Alert>
         )}
 
         {mode === 'PublicHoliday' && (
           <Alert severity="info" sx={{ mb: 2 }}>
-            Trägt für {employeeName} am {formatISODateGerman(date)} einen Feiertag ein.
+            {t('publicHolidayAlert', { name: employeeName, date: formatISODateGerman(date) })}
           </Alert>
         )}
 
         {(mode === 'Vacation' || mode === 'Illness' || mode === 'PublicHoliday') && (
           <DecimalTextField
-            label="Angerechnete Stunden manuell (optional)"
+            label={t('dayEditorCreditedHoursLabel')}
             value={creditedHoursOverride}
             onChange={setCreditedHoursOverride}
             sx={{ maxWidth: 280, mb: 2 }}
-            {...validation.fieldProps(
-              CREDITED_OVERRIDE_FIELD,
-              'Ersetzt die automatisch berechneten Stunden (Std. je Feier-/Urlaubstag) für diesen Tag.',
-            )}
+            {...validation.fieldProps(CREDITED_OVERRIDE_FIELD, t('dayEditorCreditedHoursHint'))}
           />
         )}
 
         {mode === 'Other' && (
           <Stack direction="row" spacing={2} alignItems="flex-start" sx={{ mb: 2 }}>
             <TextField
-              label="Bezeichnung"
+              label={t('labelFieldLabel')}
               required
-              placeholder="z. B. Fortbildung, Feiertag"
+              placeholder={t('dayEditorLabelPlaceholder')}
               value={label}
               onChange={(e) => setLabel(e.target.value)}
               fullWidth
-              {...validation.fieldProps('label', `Trägt eine ganztägige Abwesenheit für ${employeeName} am ${formatISODateGerman(date)} ein.`)}
+              {...validation.fieldProps('label', t('dayEditorLabelHint', { name: employeeName, date: formatISODateGerman(date) }))}
             />
             <DecimalTextField
-              label="Stunden (optional)"
+              label={t('hoursOptionalLabel')}
               value={hoursPerDay}
               onChange={setHoursPerDay}
               sx={{ width: 200 }}
-              {...validation.fieldProps('hoursPerDay', 'Zählen nur für diesen Mitarbeiter.')}
+              {...validation.fieldProps('hoursPerDay', t('dayEditorHoursHint'))}
             />
           </Stack>
         )}
@@ -365,14 +365,11 @@ export function DayEditor({
 
             <Divider />
             <DecimalTextField
-              label="Netto-Stunden manuell (optional)"
+              label={t('netHoursLabel')}
               value={netOverrideHours}
               onChange={setNetOverrideHours}
               sx={{ maxWidth: 280 }}
-              {...validation.fieldProps(
-                NET_OVERRIDE_FIELD,
-                `Ersetzt die berechneten ${calculatedNetText} Std. für diesen Tag. Die Prüfung nach ArbZG bleibt bei den eingetragenen Zeiten.`,
-              )}
+              {...validation.fieldProps(NET_OVERRIDE_FIELD, t('netHoursHint', { hours: calculatedNetText }))}
             />
           </Stack>
         )}
@@ -380,9 +377,9 @@ export function DayEditor({
 
       <ConfirmDialog
         open={showConfirmation}
-        title="Gesetzesverstoß trotzdem speichern?"
-        text={`Diese Schicht verstößt gegen das Arbeitszeitgesetz: ${liveErrors.map((e) => e.message).join(' ')}`}
-        confirmText="Trotzdem speichern"
+        title={t('arbzgViolationTitle')}
+        text={t('arbzgViolationText', { messages: liveErrors.map((e) => e.message).join(' ') })}
+        confirmText={t('saveAnywayButton')}
         dangerous
         onConfirm={() => {
           setShowConfirmation(false);

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import Button from '@mui/material/Button';
 import TextField from '@mui/material/TextField';
 import Stack from '@mui/material/Stack';
@@ -50,6 +51,8 @@ export function ShiftTemplateDialog({
   onSaved,
   onError,
 }: ShiftTemplateDialogProps) {
+  const { t } = useTranslation('schedule');
+  const { t: tCommon } = useTranslation();
   const [kind, setKind] = useState<TemplateKind>(template?.kind ?? 'Shift');
   const [name, setName] = useState(template?.name ?? '');
   const [drafts, setDrafts] = useState<ShiftDraft[]>(() => {
@@ -125,7 +128,7 @@ export function ShiftTemplateDialog({
       onClose();
       await onSaved();
     } catch (e) {
-      onError(e, 'Vorlage konnte nicht gespeichert werden');
+      onError(e, t('templateSaveError'));
     } finally {
       setSaving(false);
     }
@@ -135,13 +138,13 @@ export function ShiftTemplateDialog({
     <ResponsiveDialog
       open
       onClose={saving ? undefined : onClose}
-      title={template ? 'Vorlage bearbeiten' : 'Neue Vorlage'}
+      title={template ? t('templateDialogTitleEdit') : t('templateDialogTitleNew')}
       contentRef={validation.containerRef}
       actions={
         <>
           <FormErrorNotice errors={validation.errors} />
           <Button onClick={onClose} disabled={saving}>
-            Abbrechen
+            {tCommon('cancel')}
           </Button>
           <Button
             variant="contained"
@@ -149,7 +152,7 @@ export function ShiftTemplateDialog({
             disabled={saving}
             startIcon={saving ? <CircularProgress size={16} color="inherit" /> : undefined}
           >
-            Speichern
+            {tCommon('save')}
           </Button>
         </>
       }
@@ -160,16 +163,16 @@ export function ShiftTemplateDialog({
             value={kind}
             exclusive
             onChange={(_e, value: TemplateKind | null) => value && setKind(value)}
-            aria-label="Art der Vorlage"
+            aria-label={t('templateKindAriaLabel')}
             size="small"
           >
-            <ToggleButton value="Shift">Arbeitszeit</ToggleButton>
-            <ToggleButton value="Other">Sonstiges</ToggleButton>
+            <ToggleButton value="Shift">{t('arbeitszeitOption')}</ToggleButton>
+            <ToggleButton value="Other">{t('otherKindOption')}</ToggleButton>
           </ToggleButtonGroup>
           <TextField
-            label="Bezeichnung"
+            label={t('labelFieldLabel')}
             required
-            placeholder="z. B. Frühschicht"
+            placeholder={t('templateNamePlaceholder')}
             value={name}
             onChange={(e) => setName(e.target.value)}
             fullWidth
@@ -179,11 +182,11 @@ export function ShiftTemplateDialog({
             <ShiftListEditor drafts={drafts} onChange={setDrafts} fieldProps={validation.fieldProps} />
           ) : (
             <DecimalTextField
-              label="Stunden (optional)"
+              label={t('hoursOptionalLabel')}
               value={hoursPerDay}
               onChange={setHoursPerDay}
               sx={{ width: 200 }}
-              helperText="Zählen für den Mitarbeiter, an dem die Vorlage angewendet wird."
+              helperText={t('templateHoursHint')}
               {...validation.fieldProps('hoursPerDay')}
             />
           )}

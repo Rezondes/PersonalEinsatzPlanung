@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import IconButton from '@mui/material/IconButton';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
@@ -55,6 +56,7 @@ export function WeekSelectionDialog({
   selectedWeek,
   onWeekSelect,
 }: WeekSelectionDialogProps) {
+  const { t } = useTranslation('schedule');
   const today = calendarWeekFromDate(new Date());
   const [year, setYear] = useState(mondayOfWeek(selectedWeek).getFullYear());
   const [month, setMonth] = useState(mondayOfWeek(selectedWeek).getMonth() + 1);
@@ -91,19 +93,19 @@ export function WeekSelectionDialog({
     <ResponsiveDialog
       open={open}
       onClose={onClose}
-      title="Woche wählen"
+      title={t('weekPickerTitle')}
       maxWidth="xs"
       dividers
       actions={null}
     >
       <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
-        <IconButton onClick={() => changeMonth(-1)} aria-label="Vorheriger Monat" size="small">
+        <IconButton onClick={() => changeMonth(-1)} aria-label={t('previousMonthAriaLabel')} size="small">
           <ChevronLeftIcon />
         </IconButton>
         <Typography variant="subtitle1">
           {MONTH_NAMES[month - 1]} {year}
         </Typography>
-        <IconButton onClick={() => changeMonth(1)} aria-label="Nächster Monat" size="small">
+        <IconButton onClick={() => changeMonth(1)} aria-label={t('nextMonthAriaLabel')} size="small">
           <ChevronRightIcon />
         </IconButton>
       </Stack>
@@ -112,7 +114,7 @@ export function WeekSelectionDialog({
         <TextField
           select
           size="small"
-          label="Monat"
+          label={t('monthSelectLabel')}
           value={month}
           onChange={(e) => setMonth(Number(e.target.value))}
           sx={{ flex: 1 }}
@@ -126,7 +128,7 @@ export function WeekSelectionDialog({
         <TextField
           select
           size="small"
-          label="Jahr"
+          label={t('yearSelectLabel')}
           value={year}
           onChange={(e) => setYear(Number(e.target.value))}
           sx={{ flex: 1 }}
@@ -169,14 +171,14 @@ export function WeekSelectionDialog({
                   <Typography variant="body2" fontWeight={isSelected ? 600 : 400}>
                     {formatCalendarWeekRange(cw)}
                   </Typography>
-                  {isToday && <Chip label="Heute" size="small" color="success" variant="outlined" />}
+                  {isToday && <Chip label={t('todayButton')} size="small" color="success" variant="outlined" />}
                 </Stack>
                 <Typography variant="body2" color="text.secondary">
                   {!loaded
-                    ? '…'
+                    ? t('loadingWeek')
                     : totalMinutes != null
-                      ? `${formatHoursGerman(totalMinutes)} Std.`
-                      : 'kein Plan'}
+                      ? t('workedHoursSuffix', { hours: formatHoursGerman(totalMinutes) })
+                      : t('noScheduleText')}
                 </Typography>
               </Stack>
             </ListItemButton>

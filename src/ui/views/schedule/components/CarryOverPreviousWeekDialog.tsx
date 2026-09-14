@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import Button from '@mui/material/Button';
 import Table from '@mui/material/Table';
 import TableBody from '@mui/material/TableBody';
@@ -63,6 +64,8 @@ export function CarryOverPreviousWeekDialog({
   onApplied,
   onError,
 }: CarryOverPreviousWeekDialogProps) {
+  const { t } = useTranslation('schedule');
+  const { t: tCommon } = useTranslation();
   const [rows, setRows] = useState<RowData[]>([]);
   const [inputs, setInputs] = useState<Record<string, number | undefined>>({});
   const [loading, setLoading] = useState(true);
@@ -120,10 +123,10 @@ export function CarryOverPreviousWeekDialog({
     })()
       // Without this the spinner below would turn forever, which is worse than the empty dialog
       // it replaces: the user would wait instead of seeing that something went wrong.
-      .catch((e: unknown) => onError(e, 'Die Vorwoche konnte nicht geladen werden'))
+      .catch((e: unknown) => onError(e, t('loadPreviousWeekError')))
       .finally(() => setLoading(false));
     // onError is notify.report, a stable module-level reference, so listing it cannot loop.
-  }, [open, branchId, selectedWeek, schedule, employeeList, absences, isHoliday, onError]);
+  }, [open, branchId, selectedWeek, schedule, employeeList, absences, isHoliday, onError, t]);
 
   const apply = async () => {
     setApplying(true);
@@ -136,7 +139,7 @@ export function CarryOverPreviousWeekDialog({
       onApplied(updated);
       onClose();
     } catch (e) {
-      onError(e, 'Stundenübertrag konnte nicht übernommen werden');
+      onError(e, t('applyCarryOverError'));
     } finally {
       setApplying(false);
     }
@@ -148,13 +151,13 @@ export function CarryOverPreviousWeekDialog({
     <ResponsiveDialog
       open={open}
       onClose={applying ? undefined : onClose}
-      title="Mehr-/Minusstunden aus Vorwoche übertragen"
+      title={t('carryOverTitle')}
       subtitle={formatCalendarWeekRange(previousWeek)}
       maxWidth="sm"
       actions={
         <>
           <Button onClick={onClose} disabled={applying}>
-            Abbrechen
+            {tCommon('cancel')}
           </Button>
           <Button
             variant="contained"
@@ -162,7 +165,7 @@ export function CarryOverPreviousWeekDialog({
             disabled={loading || applying || rows.length === 0}
             startIcon={applying ? <CircularProgress size={16} color="inherit" /> : undefined}
           >
-            Übernehmen
+            {t('copyPreviousWeekConfirm')}
           </Button>
         </>
       }
@@ -171,23 +174,23 @@ export function CarryOverPreviousWeekDialog({
         <Stack alignItems="center" spacing={2} sx={{ py: 4 }}>
           <CircularProgress />
           <Typography role="status" variant="body2" color="text.secondary">
-            Vorwoche wird geladen…
+            {t('loadingPreviousWeek')}
           </Typography>
         </Stack>
       )}
       {!loading && rows.length === 0 && (
-        <Alert severity="info">Keine aktiven Mitarbeiter für diese Filiale.</Alert>
+        <Alert severity="info">{t('noActiveEmployeesForBranch')}</Alert>
       )}
       {!loading && rows.length > 0 && (
         <TableContainer>
           <Table size="small">
             <TableHead>
               <TableRow>
-                <TableCell>Mitarbeiter</TableCell>
-                <TableCell align="center">Vorwoche Ist</TableCell>
-                <TableCell align="center">Vorwoche Soll</TableCell>
-                <TableCell align="center">Vorschlag</TableCell>
-                <TableCell align="center">Übernehmen (Std.)</TableCell>
+                <TableCell>{t('columnEmployee')}</TableCell>
+                <TableCell align="center">{t('columnPreviousActual')}</TableCell>
+                <TableCell align="center">{t('columnPreviousTarget')}</TableCell>
+                <TableCell align="center">{t('columnSuggestion')}</TableCell>
+                <TableCell align="center">{t('columnCarryOver')}</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -195,10 +198,10 @@ export function CarryOverPreviousWeekDialog({
                 <TableRow key={row.employee.id}>
                   <TableCell>{fullName(row.employee)}</TableCell>
                   <TableCell align="center">
-                    {row.previousActualMinutes != null ? formatHoursGerman(row.previousActualMinutes) : 'keine Daten'}
+                    {row.previousActualMinutes != null ? formatHoursGerman(row.previousActualMinutes) : t('noDataText')}
                     {row.previousCreditedMinutes > 0 && (
                       <Typography variant="caption" display="block" color="text.secondary">
-                        davon {formatHoursGerman(row.previousCreditedMinutes)} angerechnet
+                        {t('creditedCaption', { hours: formatHoursGerman(row.previousCreditedMinutes) })}
                       </Typography>
                     )}
                   </TableCell>
@@ -218,7 +221,7 @@ export function CarryOverPreviousWeekDialog({
                       sx={{ width: 100 }}
                       // No visible label (the column header is it), so name the field for
                       // screen readers per row. Empty means 0 here, which is a valid choice.
-                      slotProps={{ htmlInput: { 'aria-label': `Übernehmen (Std.) ${fullName(row.employee)}` } }}
+                      slotProps={{ htmlInput: { 'aria-label': t('carryOverInputAriaLabel', { name: fullName(row.employee) }) } }}
                     />
                   </TableCell>
                 </TableRow>

@@ -103,6 +103,83 @@ const schedule = {
   defaultTriggerLabel: '{{errorCount}} Fehler, {{warningCount}} Warnung(en) {{action}}',
   showAction: 'anzeigen',
   hideAction: 'ausblenden',
+
+  // DayEditor.tsx
+  dialogTitle: '{{name}} · {{day}}',
+  multiDayAbsenceAlert:
+    '{{name}} ist an diesem Tag im Rahmen eines mehrtägigen Eintrags ({{kind}}, {{from}} bis {{to}}) abwesend. Bitte bearbeite oder lösche diesen Eintrag über den Tab „Abwesenheiten“.',
+  entryTypeAriaLabel: 'Eintragsart',
+  arbeitszeitOption: 'Arbeitszeit',
+  vacationOption: 'Urlaub',
+  illnessOption: 'Krankheit',
+  publicHolidayOption: 'Feiertag',
+  otherOption: 'Sonstige',
+  offDayText: '{{name}} ist an diesem Tag nicht eingeplant und hat keinen Eintrag (weder Arbeitszeit noch Abwesenheit).',
+  vacationAlert:
+    'Trägt für {{name}} am {{date}} einen ganztägigen Urlaubstag ein. Halbtags-Urlaub oder mehrtägige Zeiträume lassen sich im Tab „Abwesenheiten“ erfassen.',
+  illnessAlert:
+    'Trägt für {{name}} am {{date}} einen Krankheitstag ein. Es werden bewusst keine Diagnose- oder Gesundheitsdetails erfasst.',
+  publicHolidayAlert: 'Trägt für {{name}} am {{date}} einen Feiertag ein.',
+  dayEditorCreditedHoursLabel: 'Angerechnete Stunden manuell (optional)',
+  dayEditorCreditedHoursHint: 'Ersetzt die automatisch berechneten Stunden (Std. je Feier-/Urlaubstag) für diesen Tag.',
+  labelFieldLabel: 'Bezeichnung',
+  dayEditorLabelPlaceholder: 'z. B. Fortbildung, Feiertag',
+  dayEditorLabelHint: 'Trägt eine ganztägige Abwesenheit für {{name}} am {{date}} ein.',
+  hoursOptionalLabel: 'Stunden (optional)',
+  dayEditorHoursHint: 'Zählen nur für diesen Mitarbeiter.',
+  netHoursLabel: 'Netto-Stunden manuell (optional)',
+  netHoursHint:
+    'Ersetzt die berechneten {{hours}} Std. für diesen Tag. Die Prüfung nach ArbZG bleibt bei den eingetragenen Zeiten.',
+  arbzgViolationTitle: 'Gesetzesverstoß trotzdem speichern?',
+  arbzgViolationText: 'Diese Schicht verstößt gegen das Arbeitszeitgesetz: {{messages}}',
+  saveAnywayButton: 'Trotzdem speichern',
+
+  // ShiftListEditor.tsx
+  shiftHeading: 'Schicht {{number}} · {{hours}} Std. netto',
+  removeShiftAriaLabel: 'Schicht {{number}} entfernen',
+  startLabel: 'Beginn',
+  endLabel: 'Ende',
+  endsNextDayLabel: 'Ende liegt am Folgetag (Nachtschicht)',
+  breaksHeading: 'Pausen',
+  noBreaksText: 'Keine Pause eingetragen.',
+  breakStartLabel: 'Beginn (optional)',
+  breakDurationLabel: 'Dauer (Min.)',
+  removeBreakAriaLabel: 'Pause entfernen (Schicht {{number}})',
+  addBreakButton: 'Pause hinzufügen',
+  addShiftButton: 'Schicht hinzufügen',
+  addAnotherShiftButton: 'Weitere Schicht hinzufügen (Split-Shift)',
+
+  // ShiftTemplateDialog.tsx
+  templateSaveError: 'Vorlage konnte nicht gespeichert werden',
+  templateDialogTitleEdit: 'Vorlage bearbeiten',
+  templateDialogTitleNew: 'Neue Vorlage',
+  templateKindAriaLabel: 'Art der Vorlage',
+  otherKindOption: 'Sonstiges',
+  templateNamePlaceholder: 'z. B. Frühschicht',
+  templateHoursHint: 'Zählen für den Mitarbeiter, an dem die Vorlage angewendet wird.',
+
+  // WeekSelectionDialog.tsx
+  weekPickerTitle: 'Woche wählen',
+  previousMonthAriaLabel: 'Vorheriger Monat',
+  nextMonthAriaLabel: 'Nächster Monat',
+  monthSelectLabel: 'Monat',
+  yearSelectLabel: 'Jahr',
+  loadingWeek: '…',
+  noScheduleText: 'kein Plan',
+
+  // CarryOverPreviousWeekDialog.tsx
+  loadPreviousWeekError: 'Die Vorwoche konnte nicht geladen werden',
+  applyCarryOverError: 'Stundenübertrag konnte nicht übernommen werden',
+  carryOverTitle: 'Mehr-/Minusstunden aus Vorwoche übertragen',
+  loadingPreviousWeek: 'Vorwoche wird geladen…',
+  noActiveEmployeesForBranch: 'Keine aktiven Mitarbeiter für diese Filiale.',
+  columnPreviousActual: 'Vorwoche Ist',
+  columnPreviousTarget: 'Vorwoche Soll',
+  columnSuggestion: 'Vorschlag',
+  columnCarryOver: 'Übernehmen (Std.)',
+  noDataText: 'keine Daten',
+  creditedCaption: 'davon {{hours}} angerechnet',
+  carryOverInputAriaLabel: 'Übernehmen (Std.) {{name}}',
 } as const;
 
 export default schedule;

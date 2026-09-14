@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import TextField from '@mui/material/TextField';
@@ -50,6 +51,7 @@ function parseShiftDraft(draft: ShiftDraft): Shift | null {
  * day and has no meaning for a template.
  */
 export function ShiftListEditor({ drafts, onChange, fieldProps }: ShiftListEditorProps) {
+  const { t } = useTranslation('schedule');
   const addShift = () => onChange([...drafts, newShiftDraft()]);
   const removeShift = (id: string) => onChange(drafts.filter((s) => s.id !== id));
   const updateShift = (id: string, change: Partial<ShiftDraft>) =>
@@ -79,10 +81,10 @@ export function ShiftListEditor({ drafts, onChange, fieldProps }: ShiftListEdito
           <Stack key={shift.id} spacing={1.5} sx={{ p: 2, border: '1px solid #e0e0dc', borderRadius: 2 }}>
             <Stack direction="row" justifyContent="space-between" alignItems="center">
               <Typography variant="subtitle2">
-                Schicht {index + 1} · {netText} Std. netto
+                {t('shiftHeading', { number: index + 1, hours: netText })}
               </Typography>
               {drafts.length > 1 && (
-                <IconButton size="small" onClick={() => removeShift(shift.id)} aria-label={`Schicht ${index + 1} entfernen`}>
+                <IconButton size="small" onClick={() => removeShift(shift.id)} aria-label={t('removeShiftAriaLabel', { number: index + 1 })}>
                   <DeleteOutlineIcon fontSize="small" />
                 </IconButton>
               )}
@@ -90,7 +92,7 @@ export function ShiftListEditor({ drafts, onChange, fieldProps }: ShiftListEdito
 
             <Stack direction="row" spacing={2} alignItems="flex-start">
               <TextField
-                label="Beginn"
+                label={t('startLabel')}
                 type="time"
                 required
                 value={shift.start}
@@ -100,7 +102,7 @@ export function ShiftListEditor({ drafts, onChange, fieldProps }: ShiftListEdito
                 {...fieldProps(shiftFieldKey(shift.id, 'start'))}
               />
               <TextField
-                label="Ende"
+                label={t('endLabel')}
                 type="time"
                 required
                 value={shift.end}
@@ -117,22 +119,22 @@ export function ShiftListEditor({ drafts, onChange, fieldProps }: ShiftListEdito
                   onChange={(e) => updateShift(shift.id, { endsNextDay: e.target.checked })}
                 />
               }
-              label="Ende liegt am Folgetag (Nachtschicht)"
+              label={t('endsNextDayLabel')}
             />
 
             <Divider />
             <Typography variant="body2" fontWeight={500}>
-              Pausen
+              {t('breaksHeading')}
             </Typography>
             {shift.breaks.length === 0 && (
               <Typography variant="body2" color="text.secondary">
-                Keine Pause eingetragen.
+                {t('noBreaksText')}
               </Typography>
             )}
             {shift.breaks.map((brk) => (
               <Stack key={brk.id} direction="row" spacing={1.5} alignItems="flex-start">
                 <TextField
-                  label="Beginn (optional)"
+                  label={t('breakStartLabel')}
                   type="time"
                   size="small"
                   value={brk.start}
@@ -142,7 +144,7 @@ export function ShiftListEditor({ drafts, onChange, fieldProps }: ShiftListEdito
                   {...fieldProps(breakFieldKey(brk.id, 'start'))}
                 />
                 <DecimalTextField
-                  label="Dauer (Min.)"
+                  label={t('breakDurationLabel')}
                   size="small"
                   required
                   value={brk.durationMinutes}
@@ -153,7 +155,7 @@ export function ShiftListEditor({ drafts, onChange, fieldProps }: ShiftListEdito
                 <IconButton
                   size="small"
                   onClick={() => removeBreak(shift.id, brk.id)}
-                  aria-label={`Pause entfernen (Schicht ${index + 1})`}
+                  aria-label={t('removeBreakAriaLabel', { number: index + 1 })}
                   sx={{ mt: 0.5 }}
                 >
                   <DeleteOutlineIcon fontSize="small" />
@@ -161,7 +163,7 @@ export function ShiftListEditor({ drafts, onChange, fieldProps }: ShiftListEdito
               </Stack>
             ))}
             <Button size="small" startIcon={<AddIcon />} onClick={() => addBreak(shift.id)} sx={{ alignSelf: 'flex-start' }}>
-              Pause hinzufügen
+              {t('addBreakButton')}
             </Button>
           </Stack>
         );
@@ -169,7 +171,7 @@ export function ShiftListEditor({ drafts, onChange, fieldProps }: ShiftListEdito
 
       {shiftListError.error && <FormHelperText error>{shiftListError.helperText}</FormHelperText>}
       <Button size="small" startIcon={<AddIcon />} onClick={addShift} sx={{ alignSelf: 'flex-start' }}>
-        {drafts.length === 0 ? 'Schicht hinzufügen' : 'Weitere Schicht hinzufügen (Split-Shift)'}
+        {drafts.length === 0 ? t('addShiftButton') : t('addAnotherShiftButton')}
       </Button>
     </>
   );
