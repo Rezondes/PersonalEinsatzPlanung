@@ -17,15 +17,12 @@ export const theme = createTheme(
       warning: { main: '#8a5a00' },
       success: { main: '#2f6b3f' },
     },
-    // Matches the four device classes of the responsive design (Handy / Tablet Hochformat /
-    // Tablet Querformat / kleiner Laptop) so `breakpoints.up('sm')` reads as "tablet portrait and
-    // up" everywhere, instead of scattering raw pixel values through the app. See
-    // `hooks/useBreakpoint.ts`, the single place that turns these into a layout name.
+    // `breakpoints.up('sm')` is the one threshold `hooks/useBreakpoint.ts` reads (mobile below it,
+    // tablet at and above) - kept here instead of a raw pixel value scattered through the app.
+    // md/lg/xl are otherwise unused by the two-tier layout model; xl is kept equal to lg only so
+    // AppShell's Container maxWidth="xl" keeps its existing effective cap, and MUI logs a dev-mode
+    // warning if breakpoint values aren't ascending.
     breakpoints: {
-      // xl raised to match lg: MUI logs a dev-mode warning if breakpoint values aren't ascending,
-      // and xl isn't used for anything of its own here besides AppShell's Container maxWidth="xl"
-      // - which tablet viewports never actually reach (they're always < lg), so this has no
-      // visible effect beyond keeping the two in a valid, non-warning relationship.
       values: { xs: 0, sm: 768, md: 1024, lg: 1620, xl: 1620 },
     },
     shape: { borderRadius: 8 },
@@ -92,15 +89,11 @@ export const theme = createTheme(
       MuiTableCell: {
         styleOverrides: { root: { borderColor: '#ececeb' } },
       },
-      // Below `lg` (1620px, the "Desktop" breakpoint and up) the app is touch-first: every
-      // icon-only button needs a real 44x44 hit target, not just its visible icon size. Scoped to
-      // `down('lg')` rather than applied everywhere, so the existing dense desktop toolbars (e.g.
-      // ScheduleView's undo/redo row) keep their current, deliberately compact sizing.
+      // The app is touch-first everywhere now: every icon-only button needs a real 44x44 hit
+      // target, not just its visible icon size.
       MuiIconButton: {
         styleOverrides: {
-          root: ({ theme }) => ({
-            [theme.breakpoints.down('lg')]: { minWidth: 44, minHeight: 44 },
-          }),
+          root: { minWidth: 44, minHeight: 44 },
         },
       },
     },

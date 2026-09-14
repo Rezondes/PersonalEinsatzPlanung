@@ -35,7 +35,6 @@ import { useBranchSelectionStore } from '@ui/app/store/branchSelectionStore';
 import { useCalendarWeekStore } from '@ui/app/store/calendarWeekStore';
 import { AppNotifications } from '@ui/app/AppNotifications';
 import { useNotificationStore } from '@ui/app/store/notificationStore';
-import { TOOL_MIME } from './scheduleTools';
 import { ScheduleView } from './ScheduleView';
 
 vi.mock('@infrastructure/services', () => ({
@@ -96,8 +95,7 @@ function mockViewportWidth(width: number) {
   }) as typeof window.matchMedia;
 }
 
-const LAPTOP = 1700;
-const TABLET_LANDSCAPE = 1100;
+const TABLET = 1100;
 const MOBILE = 500;
 
 const branchId = 'b1' as BranchId;
@@ -217,7 +215,7 @@ function scheduleTree() {
   );
 }
 
-function renderScheduleView(width: number = LAPTOP) {
+function renderScheduleView(width: number = TABLET) {
   mockViewportWidth(width);
   return render(scheduleTree());
 }
@@ -378,18 +376,20 @@ describe('ScheduleView', () => {
 
     const expectedIst = minutesToDecimalHours(480 + 240).toLocaleString('de-DE');
     const expectedSoll = formatHoursRangeGerman(60 * 60, 60 * 60);
-    const expectedHeader = `Ist ${expectedIst} / ${expectedSoll} Soll · ${(0).toLocaleString('de-DE')} noch nicht eingeplant`;
+    const expectedIstSoll = `Ist ${expectedIst} von ${expectedSoll} Soll`;
+    const expectedNotYetScheduled = `${(0).toLocaleString('de-DE')} noch nicht eingeplant`;
 
-    it('shows the correct Ist/Soll/noch-nicht-eingeplant totals in the laptop header', async () => {
+    it('shows the correct Ist/Soll and noch-nicht-eingeplant totals', async () => {
       scheduleGetOrCreate.mockResolvedValueOnce(buildKpiSchedule());
 
       const { container } = renderScheduleView();
       await screen.findByText(fullName(employeeA));
 
-      expect(container.textContent).toContain(expectedHeader);
+      expect(container.textContent).toContain(expectedIstSoll);
+      expect(container.textContent).toContain(expectedNotYetScheduled);
     });
 
-    it('includes a carried-over targetAdjustmentMinutes in the header Soll figure, matching the table column below it (H2)', async () => {
+    it('includes a carried-over targetAdjustmentMinutes in the Soll figure, matching the table column below it (H2)', async () => {
       // employeeA was behind by 3h last week - carried into this week's target the same way
       // ScheduleTable.tsx's own "Soll" column already does via effectiveTargetMinutesRange.
       const schedule = withTargetAdjustment(buildKpiSchedule(), employeeA.id, 180);
@@ -399,7 +399,7 @@ describe('ScheduleView', () => {
       await screen.findByText(fullName(employeeA));
 
       const expectedSollWithAdjustment = formatHoursRangeGerman(60 * 60 + 180, 60 * 60 + 180);
-      expect(container.textContent).toContain(`Ist ${expectedIst} / ${expectedSollWithAdjustment} Soll`);
+      expect(container.textContent).toContain(`Ist ${expectedIst} von ${expectedSollWithAdjustment} Soll`);
     });
 
     it('keeps KPI totals summing every row, unaffected by a search term that filters one row out', async () => {
@@ -407,7 +407,8 @@ describe('ScheduleView', () => {
 
       const { container } = renderScheduleView();
       await screen.findByText(fullName(employeeA));
-      expect(container.textContent).toContain(expectedHeader);
+      expect(container.textContent).toContain(expectedIstSoll);
+      expect(container.textContent).toContain(expectedNotYetScheduled);
 
       // Filters employeeB (Schulz) out of the visible rows...
       await userEvent.setup().type(screen.getByLabelText('Mitarbeiter suchen'), 'Müller');
@@ -415,7 +416,8 @@ describe('ScheduleView', () => {
       expect(screen.getByText(fullName(employeeA))).toBeInTheDocument();
 
       // ...but the KPI header must still sum both rows, not just the visible one.
-      expect(container.textContent).toContain(expectedHeader);
+      expect(container.textContent).toContain(expectedIstSoll);
+      expect(container.textContent).toContain(expectedNotYetScheduled);
     });
 
     it('keeps "noch nicht eingeplant" counting every row (computed from `rows`), not just the search-filtered visible ones', async () => {
@@ -472,7 +474,7 @@ describe('ScheduleView', () => {
       // Ist includes the inactive employee's 4h; Soll only counts employeeA's 40h contract target.
       const expectedIst = minutesToDecimalHours(480 + 240).toLocaleString('de-DE');
       const expectedSoll = formatHoursRangeGerman(40 * 60, 40 * 60);
-      expect(container.textContent).toContain(`Ist ${expectedIst} / ${expectedSoll} Soll`);
+      expect(container.textContent).toContain(`Ist ${expectedIst} von ${expectedSoll} Soll`);
     });
   });
 
@@ -1186,55 +1188,12 @@ describe('ScheduleView', () => {
     });
   });
 
-  describe('drag-and-drop and tap-to-assign', () => {
-    it('full round trip: dragging the "Frei" toolbar tile onto a cell calls setDayEntryAndSave with the tool\'s entry', async () => {
-      let schedule = createWeeklySchedule(branchId, SELECTED_WEEK, [employeeA.id, employeeB.id]);
-      schedule = withDayEntry(schedule, employeeA.id, 'Montag', {
-        type: 'Shift',
-        shifts: [createShift(clockTime('06:00'), clockTime('14:00'))],
-      });
-      scheduleGetOrCreate.mockResolvedValueOnce(schedule);
-
-      const { container } = renderScheduleView(LAPTOP);
-      await screen.findByText(fullName(employeeA));
-
-      const freiTile = screen.getByText('Frei').closest('button') as HTMLButtonElement;
-      const fakeDataTransfer = { types: [TOOL_MIME], setData: vi.fn(), effectAllowed: '', dropEffect: '' };
-
-      fireEvent.dragStart(freiTile, { dataTransfer: fakeDataTransfer });
-      const targetCell = cellEl(container, employeeA.id, 'Montag');
-      fireEvent.drop(targetCell, { dataTransfer: fakeDataTransfer });
-
-      await waitFor(() =>
-        expect(scheduleSetDayEntryAndSave).toHaveBeenCalledWith(expect.anything(), employeeA.id, 'Montag', { type: 'Off' }),
-      );
-
-      // The ref is cleared once read: a second drop with the same dataTransfer but no new dragStart
-      // must not write again.
-      const callsAfterFirstDrop = scheduleSetDayEntryAndSave.mock.calls.length;
-      fireEvent.drop(cellEl(container, employeeB.id, 'Dienstag'), { dataTransfer: fakeDataTransfer });
-      await new Promise((resolve) => setTimeout(resolve, 0));
-      expect(scheduleSetDayEntryAndSave.mock.calls.length).toBe(callsAfterFirstDrop);
-    });
-
-    it('a drop with no prior dragStart is a no-op: the ref-based guard blocks it even though the marker type is present', async () => {
-      scheduleGetOrCreate.mockResolvedValueOnce(createWeeklySchedule(branchId, SELECTED_WEEK, [employeeA.id, employeeB.id]));
-
-      const { container } = renderScheduleView(LAPTOP);
-      await screen.findByText(fullName(employeeA));
-
-      const fakeDataTransfer = { types: [TOOL_MIME], setData: vi.fn(), effectAllowed: '', dropEffect: '' };
-      fireEvent.drop(cellEl(container, employeeA.id, 'Montag'), { dataTransfer: fakeDataTransfer });
-
-      await new Promise((resolve) => setTimeout(resolve, 0));
-      expect(scheduleSetDayEntryAndSave).not.toHaveBeenCalled();
-    });
-
-    it('clicking a toolbar tile at laptop width arms tap-to-assign: a subsequent cell click applies the tool instead of opening DayEditor', async () => {
+  describe('tap-to-assign', () => {
+    it('clicking a toolbar tile arms tap-to-assign: a subsequent cell click applies the tool instead of opening DayEditor', async () => {
       shiftTemplateForBranch.mockResolvedValueOnce([templateA]);
       scheduleGetOrCreate.mockResolvedValueOnce(createWeeklySchedule(branchId, SELECTED_WEEK, [employeeA.id, employeeB.id]));
 
-      const { container } = renderScheduleView(LAPTOP);
+      const { container } = renderScheduleView(TABLET);
       await screen.findByText(fullName(employeeA));
       const user = userEvent.setup();
 
@@ -1257,45 +1216,11 @@ describe('ScheduleView', () => {
       expect(screen.queryByText(`${employeeB.firstName} ${employeeB.lastName} · Montag`)).not.toBeInTheDocument();
     });
 
-    it('dragging an Other-kind template onto a cell creates the absence instead of writing a DayEntry, and one Strg+Z undoes it', async () => {
+    it('tapping a cell with an armed Other-kind template applies it', async () => {
       shiftTemplateForBranch.mockResolvedValueOnce([templateOther]);
       scheduleGetOrCreate.mockResolvedValueOnce(createWeeklySchedule(branchId, SELECTED_WEEK, [employeeA.id, employeeB.id]));
 
-      const { container } = renderScheduleView(LAPTOP);
-      await screen.findByText(fullName(employeeA));
-
-      const tile = screen.getByText('Inventur').closest('button') as HTMLButtonElement;
-      const fakeDataTransfer = { types: [TOOL_MIME], setData: vi.fn(), effectAllowed: '', dropEffect: '' };
-      fireEvent.dragStart(tile, { dataTransfer: fakeDataTransfer });
-      fireEvent.drop(cellEl(container, employeeA.id, 'Montag'), { dataTransfer: fakeDataTransfer });
-
-      await waitFor(() =>
-        expect(absenceCreate).toHaveBeenCalledWith({
-          employeeId: employeeA.id,
-          type: 'Other',
-          from: MONTAG,
-          to: MONTAG,
-          label: 'Inventur',
-          hoursPerDay: 4,
-        }),
-      );
-      expect(scheduleSetDayEntryAndSave).not.toHaveBeenCalled();
-      await screen.findByRole('button', { name: 'Rückgängig' });
-      const created = await absenceCreate.mock.results[0].value;
-
-      act(() => {
-        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'z', ctrlKey: true, bubbles: true }));
-      });
-
-      await waitFor(() => expect(scheduleSave).toHaveBeenCalledTimes(1));
-      await waitFor(() => expect(absenceDelete).toHaveBeenCalledWith(created.id));
-    });
-
-    it('tapping a cell with an armed Other-kind template applies it via tap-to-assign too, not just drag-and-drop', async () => {
-      shiftTemplateForBranch.mockResolvedValueOnce([templateOther]);
-      scheduleGetOrCreate.mockResolvedValueOnce(createWeeklySchedule(branchId, SELECTED_WEEK, [employeeA.id, employeeB.id]));
-
-      const { container } = renderScheduleView(LAPTOP);
+      const { container } = renderScheduleView(TABLET);
       await screen.findByText(fullName(employeeA));
       const user = userEvent.setup();
 
@@ -1319,7 +1244,7 @@ describe('ScheduleView', () => {
       scheduleGetOrCreate.mockResolvedValueOnce(schedule);
       shiftTemplateForBranch.mockResolvedValueOnce([templateA]);
 
-      const { container } = renderScheduleView(TABLET_LANDSCAPE);
+      const { container } = renderScheduleView(TABLET);
       await screen.findByText(fullName(employeeA));
       const user = userEvent.setup();
 
@@ -1337,7 +1262,7 @@ describe('ScheduleView', () => {
       useBranchesStore.setState({ branches: [branch, branch2], loading: false, loaded: true });
       shiftTemplateForBranch.mockResolvedValueOnce([templateA]);
 
-      renderScheduleView(TABLET_LANDSCAPE);
+      renderScheduleView(TABLET);
       await screen.findByText(fullName(employeeA));
       const user = userEvent.setup();
 
@@ -1354,7 +1279,7 @@ describe('ScheduleView', () => {
     it('keeps the active tool and assign-mode banner across a week navigation - deliberately not reset by selectedWeek', async () => {
       shiftTemplateForBranch.mockResolvedValueOnce([templateA]);
 
-      renderScheduleView(TABLET_LANDSCAPE);
+      renderScheduleView(TABLET);
       await screen.findByText(fullName(employeeA));
       const user = userEvent.setup();
 
@@ -1369,32 +1294,6 @@ describe('ScheduleView', () => {
       expect(screen.getByText('Frühschicht zuweisen')).toBeInTheDocument();
     });
 
-    it('at a touch layout, tapping a toolbar tile arms assign mode and tapping a non-matching cell writes the tool\'s entry', async () => {
-      shiftTemplateForBranch.mockResolvedValueOnce([templateA]);
-      scheduleGetOrCreate.mockResolvedValueOnce(createWeeklySchedule(branchId, SELECTED_WEEK, [employeeA.id, employeeB.id]));
-
-      const { container } = renderScheduleView(TABLET_LANDSCAPE);
-      await screen.findByText(fullName(employeeA));
-      const user = userEvent.setup();
-
-      await user.click(screen.getByText('Frühschicht').closest('button') as HTMLButtonElement);
-      expect(screen.getByText('Frühschicht zuweisen')).toBeInTheDocument();
-
-      await user.click(cellEl(container, employeeB.id, 'Montag'));
-
-      await waitFor(() =>
-        expect(scheduleSetDayEntryAndSave).toHaveBeenCalledWith(
-          expect.anything(),
-          employeeB.id,
-          'Montag',
-          expect.objectContaining({
-            type: 'Shift',
-            shifts: [expect.objectContaining({ start: '06:00', end: '14:00' })],
-          }),
-        ),
-      );
-    });
-
     it('tapping a cell that already matches the active tool\'s entry writes {type: "Off"} instead of reapplying it', async () => {
       const matchingShift = createShift(clockTime('06:00'), clockTime('14:00'));
       let schedule = createWeeklySchedule(branchId, SELECTED_WEEK, [employeeA.id, employeeB.id]);
@@ -1402,7 +1301,7 @@ describe('ScheduleView', () => {
       scheduleGetOrCreate.mockResolvedValueOnce(schedule);
       shiftTemplateForBranch.mockResolvedValueOnce([templateA]);
 
-      const { container } = renderScheduleView(TABLET_LANDSCAPE);
+      const { container } = renderScheduleView(TABLET);
       await screen.findByText(fullName(employeeA));
       const user = userEvent.setup();
 
@@ -1413,22 +1312,6 @@ describe('ScheduleView', () => {
         expect(scheduleSetDayEntryAndSave).toHaveBeenCalledWith(expect.anything(), employeeA.id, 'Montag', { type: 'Off' }),
       );
     });
-
-    it('keeps assign mode active (banner stays visible) when the layout switches from a touch width to laptop width', async () => {
-      shiftTemplateForBranch.mockResolvedValueOnce([templateA]);
-
-      const { rerender } = renderScheduleView(TABLET_LANDSCAPE);
-      await screen.findByText(fullName(employeeA));
-      const user = userEvent.setup();
-
-      await user.click(screen.getByText('Frühschicht').closest('button') as HTMLButtonElement);
-      expect(screen.getByText('Frühschicht zuweisen')).toBeInTheDocument();
-
-      mockViewportWidth(LAPTOP);
-      rerender(scheduleTree());
-
-      expect(screen.getByText('Frühschicht zuweisen')).toBeInTheDocument();
-    });
   });
 
   describe('bulk selection (Mehrfachauswahl)', () => {
@@ -1436,7 +1319,7 @@ describe('ScheduleView', () => {
       shiftTemplateForBranch.mockResolvedValueOnce([templateA]);
       scheduleGetOrCreate.mockResolvedValueOnce(createWeeklySchedule(branchId, SELECTED_WEEK, [employeeA.id, employeeB.id]));
 
-      const { container } = renderScheduleView(LAPTOP);
+      const { container } = renderScheduleView(TABLET);
       await screen.findByText(fullName(employeeA));
       const user = userEvent.setup();
 
@@ -1476,7 +1359,7 @@ describe('ScheduleView', () => {
       const existingVacation = createAbsence({ employeeId: employeeA.id, type: 'Vacation', from: MONTAG, to: MONTAG });
       absenceForBranch.mockResolvedValue([existingVacation]);
 
-      const { container } = renderScheduleView(LAPTOP);
+      const { container } = renderScheduleView(TABLET);
       await screen.findByText(fullName(employeeA));
       const user = userEvent.setup();
 
@@ -1505,7 +1388,7 @@ describe('ScheduleView', () => {
       const otherAbsence = createAbsence({ employeeId: employeeB.id, type: 'Other', from: MONTAG, to: MONTAG, label: 'Fortbildung' });
       absenceForBranch.mockResolvedValue([otherAbsence]);
 
-      const { container } = renderScheduleView(LAPTOP);
+      const { container } = renderScheduleView(TABLET);
       await screen.findByText(fullName(employeeA));
       const user = userEvent.setup();
 
@@ -1528,7 +1411,7 @@ describe('ScheduleView', () => {
     it('clicking the toggle again while active exits selection mode and clears the picks - re-entering starts empty', async () => {
       scheduleGetOrCreate.mockResolvedValueOnce(createWeeklySchedule(branchId, SELECTED_WEEK, [employeeA.id, employeeB.id]));
 
-      const { container } = renderScheduleView(LAPTOP);
+      const { container } = renderScheduleView(TABLET);
       await screen.findByText(fullName(employeeA));
       const user = userEvent.setup();
 
@@ -1546,7 +1429,7 @@ describe('ScheduleView', () => {
     it('entering selection mode cancels an in-progress tap-to-assign', async () => {
       shiftTemplateForBranch.mockResolvedValueOnce([templateA]);
 
-      renderScheduleView(LAPTOP);
+      renderScheduleView(TABLET);
       await screen.findByText(fullName(employeeA));
       const user = userEvent.setup();
 
@@ -1785,7 +1668,7 @@ describe('ScheduleView', () => {
     it('deleting a template that is the active assign tool calls shiftTemplate.delete and exits assign mode (finishAssigning)', async () => {
       shiftTemplateForBranch.mockResolvedValueOnce([templateA]);
 
-      renderScheduleView(TABLET_LANDSCAPE);
+      renderScheduleView(TABLET);
       await screen.findByText(fullName(employeeA));
       const user = userEvent.setup();
 
@@ -1806,7 +1689,7 @@ describe('ScheduleView', () => {
       const templateB = makeTemplate('t2', 'Spätschicht', createShift(clockTime('14:00'), clockTime('22:00')));
       shiftTemplateForBranch.mockResolvedValueOnce([templateA, templateB]);
 
-      renderScheduleView(TABLET_LANDSCAPE);
+      renderScheduleView(TABLET);
       await screen.findByText(fullName(employeeA));
       const user = userEvent.setup();
 
@@ -1832,7 +1715,7 @@ describe('ScheduleView', () => {
         }),
       );
 
-      renderScheduleView(TABLET_LANDSCAPE);
+      renderScheduleView(TABLET);
       await screen.findByText(fullName(employeeA));
       const user = userEvent.setup();
 
@@ -1851,7 +1734,7 @@ describe('ScheduleView', () => {
   });
 
   describe('mobile "Weitere Aktionen" sheet wiring', () => {
-    it('the sheet\'s "Druckansicht" action navigates to the print route, same as the laptop "Drucken" button', async () => {
+    it('the sheet\'s "Druckansicht" action navigates to the print route, same as the "Drucken" button', async () => {
       renderScheduleView(MOBILE);
       await screen.findByText(fullName(employeeA));
       const user = userEvent.setup();
@@ -1863,7 +1746,7 @@ describe('ScheduleView', () => {
       await waitFor(() => expect(screen.getByText('print-route-landed')).toBeInTheDocument());
     });
 
-    it('the sheet\'s "Vorwoche übertragen" action opens CarryOverPreviousWeekDialog, same as the laptop button', async () => {
+    it('the sheet\'s "Vorwoche übertragen" action opens CarryOverPreviousWeekDialog, same as the header button', async () => {
       renderScheduleView(MOBILE);
       await screen.findByText(fullName(employeeA));
       const user = userEvent.setup();
@@ -1875,7 +1758,7 @@ describe('ScheduleView', () => {
       expect(await screen.findByText('Mehr-/Minusstunden aus Vorwoche übertragen')).toBeInTheDocument();
     });
 
-    it('the sheet\'s "Vorwoche kopieren" action opens the same H7 confirmation as the laptop button', async () => {
+    it('the sheet\'s "Vorwoche kopieren" action opens the same H7 confirmation as the header button', async () => {
       renderScheduleView(MOBILE);
       await screen.findByText(fullName(employeeA));
       const user = userEvent.setup();
@@ -1901,19 +1784,9 @@ describe('ScheduleView', () => {
     const ist = minutesToDecimalHours(480).toLocaleString('de-DE');
     const soll = formatHoursRangeGerman(60 * 60, 60 * 60);
 
-    it('shows the KPI summary inline in the header row at laptop width, not as a chip strip', async () => {
+    it('shows the KPI summary as a chip strip at tablet width', async () => {
       scheduleGetOrCreate.mockResolvedValueOnce(buildKpiSchedule());
-      const { container } = renderScheduleView(LAPTOP);
-      await screen.findByText(fullName(employeeA));
-
-      expect(container.textContent).toContain(`Ist ${ist} / ${soll} Soll`);
-      expect(container.textContent).not.toContain('Ist / Soll');
-      expect(container.textContent).not.toContain(`Ist ${ist} von ${soll} Soll`);
-    });
-
-    it('shows the KPI summary as a separate chip strip at tablet width, not inline in the header row', async () => {
-      scheduleGetOrCreate.mockResolvedValueOnce(buildKpiSchedule());
-      const { container } = renderScheduleView(TABLET_LANDSCAPE);
+      const { container } = renderScheduleView(TABLET);
       await screen.findByText(fullName(employeeA));
 
       expect(container.textContent).toContain(`Ist ${ist} von ${soll} Soll`);
@@ -1932,18 +1805,8 @@ describe('ScheduleView', () => {
       expect(container.textContent).not.toContain(`Ist ${ist} / ${soll} Soll`);
     });
 
-    it('renders the toolbar before the table in the DOM at laptop width', async () => {
-      renderScheduleView(LAPTOP);
-      await screen.findByText(fullName(employeeA));
-
-      const toolbar = screen.getByRole('region', { name: 'Werkzeugleiste' });
-      const table = screen.getByRole('table');
-
-      expect(!!(toolbar.compareDocumentPosition(table) & Node.DOCUMENT_POSITION_FOLLOWING)).toBe(true);
-    });
-
     it('renders the toolbar before the table in the DOM at tablet width', async () => {
-      renderScheduleView(TABLET_LANDSCAPE);
+      renderScheduleView(TABLET);
       await screen.findByText(fullName(employeeA));
 
       const toolbar = screen.getByRole('region', { name: 'Werkzeugleiste' });

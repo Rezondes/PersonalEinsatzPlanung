@@ -41,10 +41,9 @@ import { BranchDialog } from './BranchDialog';
 import { notify } from '@ui/app/store/notificationStore';
 import { usePageActions } from '@ui/app/PageActionsContext';
 
-const COLUMN_COUNT = 7;
-const COLUMN_COUNT_TABLET = 4;
+const COLUMN_COUNT = 4;
 
-type SortKey = 'name' | 'branchNumber' | 'city' | 'federalState' | 'status';
+type SortKey = 'name' | 'city' | 'status';
 
 /** German collation, like EmployeeMasterDataView's own compareText - a plain "a < b" would sort
  * umlauts wrongly. */
@@ -57,9 +56,7 @@ function compareText(a: string, b: string): number {
  * left behind. */
 const COMPARATORS: Record<SortKey, (a: Branch, b: Branch) => number> = {
   name: (a, b) => compareText(a.name, b.name),
-  branchNumber: (a, b) => compareText(a.branchNumber, b.branchNumber) || compareText(a.name, b.name),
   city: (a, b) => compareText(a.address.city, b.address.city) || compareText(a.name, b.name),
-  federalState: (a, b) => compareText(a.federalState, b.federalState) || compareText(a.name, b.name),
   status: (a, b) => Number(a.active) - Number(b.active) || compareText(a.name, b.name),
 };
 
@@ -157,8 +154,6 @@ export function BranchMasterDataView() {
     fab: { label: 'Neue Filiale', icon: AddIcon, onClick: () => setDialog({ branch: null }) },
   });
 
-  const columnCount = layout === 'laptop' ? COLUMN_COUNT : COLUMN_COUNT_TABLET;
-
   const visibleBranches = useMemo(() => {
     const term = search.trim().toLowerCase();
     const filtered = branches.filter((b) => {
@@ -227,23 +222,12 @@ export function BranchMasterDataView() {
             <Table>
               <TableHead>
                 <TableRow>
-                  {layout === 'laptop' && <TableCell sx={stickyHeaderRowSx()}>Logo</TableCell>}
                   <TableCell sx={stickyCornerSx()}>
                     <TableSortLabel {...headProps('name')}>Filiale</TableSortLabel>
                   </TableCell>
-                  {layout === 'laptop' && (
-                    <TableCell sx={stickyHeaderRowSx()}>
-                      <TableSortLabel {...headProps('branchNumber')}>Nr.</TableSortLabel>
-                    </TableCell>
-                  )}
                   <TableCell sx={stickyHeaderRowSx()}>
                     <TableSortLabel {...headProps('city')}>Ort</TableSortLabel>
                   </TableCell>
-                  {layout === 'laptop' && (
-                    <TableCell sx={stickyHeaderRowSx()}>
-                      <TableSortLabel {...headProps('federalState')}>Bundesland</TableSortLabel>
-                    </TableCell>
-                  )}
                   <TableCell sx={stickyHeaderRowSx()}>
                     <TableSortLabel {...headProps('status')}>Status</TableSortLabel>
                   </TableCell>
@@ -255,7 +239,7 @@ export function BranchMasterDataView() {
               <TableBody>
                 {!loading && branches.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={columnCount}>
+                    <TableCell colSpan={COLUMN_COUNT}>
                       <Typography color="text.secondary" sx={{ py: 2 }}>
                         Noch keine Filiale angelegt.
                       </Typography>
@@ -264,7 +248,7 @@ export function BranchMasterDataView() {
                 )}
                 {!loading && branches.length > 0 && visibleBranches.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={columnCount}>
+                    <TableCell colSpan={COLUMN_COUNT}>
                       <Typography color="text.secondary" sx={{ py: 2 }}>
                         Keine Filiale passt zur Suche.
                       </Typography>
@@ -272,60 +256,33 @@ export function BranchMasterDataView() {
                   </TableRow>
                 )}
                 {visibleBranches.map((b) => {
-                  const rowClickable = layout !== 'laptop';
                   return (
                     <TableRow
                       key={b.id}
                       hover
-                      onClick={rowClickable ? () => setDialog({ branch: b }) : undefined}
-                      sx={{ opacity: b.active ? 1 : 0.55, cursor: rowClickable ? 'pointer' : undefined }}
+                      onClick={() => setDialog({ branch: b })}
+                      sx={{ opacity: b.active ? 1 : 0.55, cursor: 'pointer' }}
                     >
-                      {layout === 'laptop' && (
-                        <TableCell>
-                          <Avatar src={b.logoBase64 ?? undefined} variant="rounded" sx={{ bgcolor: '#eef3f1' }}>
-                            <StoreOutlinedIcon sx={{ color: '#2f5d50' }} fontSize="small" />
-                          </Avatar>
-                        </TableCell>
-                      )}
                       <TableCell sx={stickyFirstColumnSx}>
                         {b.name}
-                        {layout !== 'laptop' && (
-                          <Typography variant="caption" color="text.secondary" display="block">
-                            {b.branchNumber}
-                          </Typography>
-                        )}
+                        <Typography variant="caption" color="text.secondary" display="block">
+                          {b.branchNumber}
+                        </Typography>
                       </TableCell>
-                      {layout === 'laptop' && <TableCell>{b.branchNumber}</TableCell>}
                       <TableCell>{b.address.city || '-'}</TableCell>
-                      {layout === 'laptop' && <TableCell>{b.federalState}</TableCell>}
                       <TableCell>
                         <Chip size="small" label={b.active ? 'Aktiv' : 'Inaktiv'} color={b.active ? 'success' : 'default'} />
                       </TableCell>
                       <TableCell align="right">
-                        {layout === 'laptop' ? (
-                          <>
-                            <IconButton size="small" onClick={() => setDialog({ branch: b })} aria-label={`${b.name} bearbeiten`}>
-                              <EditOutlinedIcon fontSize="small" />
-                            </IconButton>
-                            <IconButton
-                              size="small"
-                              onClick={() => requestStatusChange(b)}
-                              aria-label={b.active ? `${b.name} deaktivieren` : `${b.name} aktivieren`}
-                            >
-                              {b.active ? <ToggleOnOutlinedIcon fontSize="small" /> : <ToggleOffOutlinedIcon fontSize="small" />}
-                            </IconButton>
-                          </>
-                        ) : (
-                          <IconButton
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSheetBranch(b);
-                            }}
-                            aria-label={`Weitere Aktionen für ${b.name}`}
-                          >
-                            <MoreVertIcon />
-                          </IconButton>
-                        )}
+                        <IconButton
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSheetBranch(b);
+                          }}
+                          aria-label={`Weitere Aktionen für ${b.name}`}
+                        >
+                          <MoreVertIcon />
+                        </IconButton>
                       </TableCell>
                     </TableRow>
                   );

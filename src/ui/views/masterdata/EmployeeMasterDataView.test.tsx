@@ -219,7 +219,6 @@ describe('EmployeeMasterDataView', () => {
   });
 
   it('shows a Resturlaub column reflecting taken vacation days for the current year, full entitlement when none were taken', async () => {
-    mockViewportWidth(1700);
     const year = new Date().getFullYear();
     // A 14-day range always contains exactly 2 Sundays regardless of which weekday it starts on,
     // and February in Niedersachsen carries no public holiday (Easter can never fall that early) -
@@ -250,7 +249,6 @@ describe('EmployeeMasterDataView', () => {
   });
 
   it('adds unused prior-year vacation to the Resturlaub total with a breakdown hint, while the March 31 deadline has not passed', async () => {
-    mockViewportWidth(1700);
     vi.setSystemTime(new Date('2027-02-01T10:00:00'));
     forEmployeesMock.mockResolvedValue([
       // Same deterministic 14-day-February trick as the test above, one year earlier: 12 work days
@@ -276,7 +274,6 @@ describe('EmployeeMasterDataView', () => {
   });
 
   it('drops the carry-over once the March 31 deadline of the following year has passed (regression: unchanged column)', async () => {
-    mockViewportWidth(1700);
     vi.setSystemTime(new Date('2027-04-01T10:00:00'));
     forEmployeesMock.mockResolvedValue([
       { id: 'abs1' as AbsenceId, employeeId: anna.id, type: 'Vacation', from: '2026-02-02', to: '2026-02-15', createdAt: '2026-01-01T00:00:00.000Z' },
@@ -528,14 +525,14 @@ describe('EmployeeMasterDataView', () => {
   });
 
   it('opens the edit dialog pre-filled for an existing employee and closes without saving on Abbrechen', async () => {
-    mockViewportWidth(1700);
     const user = userEvent.setup();
     renderView();
     await screen.findByText('Bauer, Anna');
 
-    await user.click(screen.getByRole('button', { name: 'Bauer, Anna bearbeiten' }));
+    await user.click(screen.getByRole('button', { name: 'Weitere Aktionen für Bauer, Anna' }));
+    await user.click(screen.getByRole('button', { name: 'Bearbeiten' }));
 
-    const dialog = screen.getByRole('dialog');
+    const dialog = await screen.findByRole('dialog');
     expect(within(dialog).getByText('Mitarbeiter bearbeiten')).toBeInTheDocument();
     expect(within(dialog).getByRole('textbox', { name: 'Vorname' })).toHaveValue('Anna');
     expect(within(dialog).getByRole('textbox', { name: 'Nachname' })).toHaveValue('Bauer');
@@ -550,14 +547,14 @@ describe('EmployeeMasterDataView', () => {
   });
 
   it('deactivates an employee via the confirm dialog, pinned text, and reloads the list', async () => {
-    mockViewportWidth(1700);
     const user = userEvent.setup();
     renderView();
     await screen.findByText('Bauer, Anna');
 
-    await user.click(screen.getByRole('button', { name: 'Bauer, Anna deaktivieren' }));
+    await user.click(screen.getByRole('button', { name: 'Weitere Aktionen für Bauer, Anna' }));
+    await user.click(screen.getByRole('button', { name: /^Deaktivieren/ }));
 
-    expect(screen.getByText('Mitarbeiter deaktivieren?')).toBeInTheDocument();
+    expect(await screen.findByText('Mitarbeiter deaktivieren?')).toBeInTheDocument();
     expect(
       screen.getByText(
         'Bauer, Anna wird als inaktiv markiert und nicht mehr in der Wochenplanung eingeplant. Bereits erfasste Wochenpläne und Abwesenheiten bleiben vollständig erhalten und werden dort weiterhin schreibgeschützt angezeigt; der Mitarbeiter kann jederzeit wieder aktiviert werden.',
@@ -582,7 +579,6 @@ describe('EmployeeMasterDataView', () => {
   });
 
   it('shows a busy state while changing status: disables Abbrechen, spins the confirm button, blocks dismissal (M15)', async () => {
-    mockViewportWidth(1700);
     const user = userEvent.setup();
     renderView();
     await screen.findByText('Bauer, Anna');
@@ -594,7 +590,9 @@ describe('EmployeeMasterDataView', () => {
       }),
     );
 
-    await user.click(screen.getByRole('button', { name: 'Bauer, Anna deaktivieren' }));
+    await user.click(screen.getByRole('button', { name: 'Weitere Aktionen für Bauer, Anna' }));
+    await user.click(screen.getByRole('button', { name: /^Deaktivieren/ }));
+    await screen.findByText('Mitarbeiter deaktivieren?');
     await user.click(screen.getByRole('button', { name: 'Deaktivieren' }));
 
     expect(screen.getByRole('button', { name: 'Abbrechen' })).toBeDisabled();
@@ -608,14 +606,14 @@ describe('EmployeeMasterDataView', () => {
   });
 
   it('activates an inactive employee via the confirm dialog with its own pinned text', async () => {
-    mockViewportWidth(1700);
     const user = userEvent.setup();
     renderView();
     await screen.findByText('Engel, David');
 
-    await user.click(screen.getByRole('button', { name: 'Engel, David aktivieren' }));
+    await user.click(screen.getByRole('button', { name: 'Weitere Aktionen für Engel, David' }));
+    await user.click(screen.getByRole('button', { name: 'Aktivieren' }));
 
-    expect(screen.getByText('Mitarbeiter aktivieren?')).toBeInTheDocument();
+    expect(await screen.findByText('Mitarbeiter aktivieren?')).toBeInTheDocument();
     expect(
       screen.getByText('Engel, David wird wieder als aktiv markiert und kann wieder in der Wochenplanung eingeplant werden.'),
     ).toBeInTheDocument();
@@ -673,7 +671,6 @@ describe('EmployeeMasterDataView', () => {
   });
 
   it('reports an error and still closes the confirm dialog when the status change fails', async () => {
-    mockViewportWidth(1700);
     const user = userEvent.setup();
     renderView();
     await screen.findByText('Bauer, Anna');
@@ -681,7 +678,9 @@ describe('EmployeeMasterDataView', () => {
     changeActiveStatusMock.mockRejectedValueOnce(new Error('Datenbank offline'));
     expect(forBranchMock).toHaveBeenCalledTimes(1);
 
-    await user.click(screen.getByRole('button', { name: 'Bauer, Anna deaktivieren' }));
+    await user.click(screen.getByRole('button', { name: 'Weitere Aktionen für Bauer, Anna' }));
+    await user.click(screen.getByRole('button', { name: /^Deaktivieren/ }));
+    await screen.findByText('Mitarbeiter deaktivieren?');
     await user.click(screen.getByRole('button', { name: 'Deaktivieren' }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Status konnte nicht geändert werden: Datenbank offline');

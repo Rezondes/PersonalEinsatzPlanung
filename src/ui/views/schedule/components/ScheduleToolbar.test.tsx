@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, screen, fireEvent, waitFor, within, act } from '@testing-library/react';
+import { render, screen, waitFor, within, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { BranchId, ShiftTemplateId } from '@domain/shared/ids';
 import { clockTime } from '@domain/shared/ClockTime';
@@ -10,17 +10,10 @@ import type { ScheduleTool } from '../scheduleTools';
 import { OFF_TOOL } from '../scheduleTools';
 import { ScheduleToolbar } from './ScheduleToolbar';
 
-/** Tracks the width most recently passed to mockViewportWidth, so renderToolbar's default
- * `touchMode` mirrors it automatically. In the real app ScheduleView derives both `layout` and
- * `touchMode` from the exact same breakpoint and passes touchMode down as a prop - a test that
- * mocked one independently of the other could exercise a combination the app can never produce. */
-let mockedWidth = 0;
-
 /** jsdom has no real layout engine, so `window.matchMedia` is mocked per test to answer as if the
  * viewport were `width` wide - MUI's `theme.breakpoints.up(key)` produces a `(min-width:...px)`
  * query, which this parses back out. Copied from useBreakpoint.test.tsx. */
 function mockViewportWidth(width: number) {
-  mockedWidth = width;
   window.matchMedia = ((query: string) => {
     const match = /min-width:\s*(\d+(?:\.\d+)?)px/.exec(query);
     const minWidth = match ? Number(match[1]) : 0;
@@ -37,9 +30,7 @@ function mockViewportWidth(width: number) {
   }) as typeof window.matchMedia;
 }
 
-const LAPTOP = 1700;
-const TABLET_LANDSCAPE = 1100;
-const TABLET_PORTRAIT = 800;
+const TABLET = 1100;
 const MOBILE = 500;
 
 const branchId = 'b1' as BranchId;
@@ -69,11 +60,9 @@ function renderToolbar(overrides: Partial<ToolbarProps> = {}) {
     templates: [templateA, templateB],
     activeTool: null,
     onSelect: vi.fn(),
-    onDragTool: vi.fn(),
     onCreate: vi.fn(),
     onEdit: vi.fn(),
     onDelete: vi.fn(),
-    touchMode: mockedWidth !== LAPTOP,
     assignModeActive: false,
     onFinishAssigning: vi.fn(),
     selectionModeActive: false,
@@ -113,41 +102,28 @@ describe('ScheduleToolbar', () => {
     delete window.matchMedia;
   });
 
-  describe('non-collapsible layout (laptop and tablet)', () => {
-    it.each([
-      ['laptop', LAPTOP],
-      ['tabletLandscape', TABLET_LANDSCAPE],
-      ['tabletPortrait', TABLET_PORTRAIT],
-    ])('renders one tile per tool and the "Vorlage" create button at %s width', (_name, width) => {
-      mockViewportWidth(width);
+  describe('non-collapsible layout (tablet)', () => {
+    it('renders one tile per tool and the "Vorlage" create button', () => {
+      mockViewportWidth(TABLET);
       renderToolbar();
 
       expect(tileButton('Frei')).toBeInTheDocument();
       expect(tileButton('Frühschicht')).toBeInTheDocument();
       expect(tileButton('Spätschicht')).toBeInTheDocument();
       expect(screen.getByRole('button', { name: 'Vorlage' })).toBeInTheDocument();
-      expect(screen.queryByText('Eigene Schichten anlegen, dann auf einen Tag ziehen.')).not.toBeInTheDocument();
     });
 
-    it('shows the empty-templates hint only when there are no templates', () => {
-      mockViewportWidth(LAPTOP);
+    it('shows the empty-templates hint (tap wording) only when there are no templates', () => {
+      mockViewportWidth(TABLET);
       renderToolbar({ templates: [] });
 
       expect(tileButton('Frei')).toBeInTheDocument();
-      expect(screen.getByText('Eigene Schichten anlegen, dann auf einen Tag ziehen.')).toBeInTheDocument();
-    });
-
-    it('shows the tap wording (not "ziehen") at tablet width, where drag is disabled (touchMode)', () => {
-      mockViewportWidth(TABLET_LANDSCAPE);
-      renderToolbar({ templates: [] });
-
       expect(screen.getByText('Eigene Schichten anlegen, dann auf einen Tag tippen.')).toBeInTheDocument();
-      expect(screen.queryByText('Eigene Schichten anlegen, dann auf einen Tag ziehen.')).not.toBeInTheDocument();
     });
 
     it('calls onCreate when the "Vorlage" button is clicked', async () => {
       const user = userEvent.setup();
-      mockViewportWidth(LAPTOP);
+      mockViewportWidth(TABLET);
       const { onCreate } = renderToolbar();
 
       await user.click(screen.getByRole('button', { name: 'Vorlage' }));
@@ -156,7 +132,7 @@ describe('ScheduleToolbar', () => {
     });
 
     it('marks only the active tile as pressed via aria-pressed', () => {
-      mockViewportWidth(LAPTOP);
+      mockViewportWidth(TABLET);
       renderToolbar({ activeTool: { kind: 'template', template: templateA } });
 
       expect(tileButton('Frühschicht')).toHaveAttribute('aria-pressed', 'true');
@@ -165,14 +141,14 @@ describe('ScheduleToolbar', () => {
     });
 
     it('shows the active clipboard tool as an extra tile', () => {
-      mockViewportWidth(LAPTOP);
+      mockViewportWidth(TABLET);
       renderToolbar({ activeTool: clipboardTool });
 
       expect(tileButton('Zwischenablage')).toBeInTheDocument();
     });
 
     it('does not show a clipboard tile when the active tool is not the clipboard', () => {
-      mockViewportWidth(LAPTOP);
+      mockViewportWidth(TABLET);
       renderToolbar({ activeTool: OFF_TOOL });
 
       expect(screen.queryByText('Zwischenablage')).not.toBeInTheDocument();
@@ -180,7 +156,7 @@ describe('ScheduleToolbar', () => {
 
     it('calls onSelect with the exact tool when a tile is clicked', async () => {
       const user = userEvent.setup();
-      mockViewportWidth(LAPTOP);
+      mockViewportWidth(TABLET);
       const { onSelect } = renderToolbar();
 
       await user.click(tileButton('Frühschicht'));
@@ -192,7 +168,7 @@ describe('ScheduleToolbar', () => {
 
     it('opens the tile menu and calls onEdit, closing the menu afterwards', async () => {
       const user = userEvent.setup();
-      mockViewportWidth(LAPTOP);
+      mockViewportWidth(TABLET);
       const { onEdit, onDelete } = renderToolbar();
 
       await user.click(screen.getByRole('button', { name: 'Frühschicht bearbeiten oder löschen' }));
@@ -208,7 +184,7 @@ describe('ScheduleToolbar', () => {
 
     it('opens the tile menu and calls onDelete, closing the menu afterwards', async () => {
       const user = userEvent.setup();
-      mockViewportWidth(LAPTOP);
+      mockViewportWidth(TABLET);
       const { onDelete, onEdit } = renderToolbar();
 
       await user.click(screen.getByRole('button', { name: 'Spätschicht bearbeiten oder löschen' }));
@@ -221,33 +197,21 @@ describe('ScheduleToolbar', () => {
   });
 
   describe('assign-mode banner', () => {
-    it('is shown at laptop width too when assignModeActive is true (independent of touchMode)', () => {
-      mockViewportWidth(LAPTOP);
+    it('is shown alongside the tile row when assignModeActive is true', () => {
+      mockViewportWidth(TABLET);
       renderToolbar({ assignModeActive: true, activeTool: { kind: 'template', template: templateA } });
 
       expect(screen.getByText('Frühschicht zuweisen')).toBeInTheDocument();
       expect(screen.getByText('Tage antippen')).toBeInTheDocument();
       expect(screen.getByRole('button', { name: 'Zuweisen beenden' })).toBeInTheDocument();
       expect(screen.getByRole('button', { name: 'Fertig' })).toBeInTheDocument();
-      // The tile row stays visible alongside the banner at laptop width too.
-      expect(tileButton('Frühschicht')).toBeInTheDocument();
-    });
-
-    it('is shown at tablet width alongside the tile row when assignModeActive is true', () => {
-      mockViewportWidth(TABLET_LANDSCAPE);
-      renderToolbar({ assignModeActive: true, activeTool: { kind: 'template', template: templateA } });
-
-      expect(screen.getByText('Frühschicht zuweisen')).toBeInTheDocument();
-      expect(screen.getByText('Tage antippen')).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: 'Zuweisen beenden' })).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: 'Fertig' })).toBeInTheDocument();
-      // The tile row stays visible alongside the banner at tablet width.
+      // The tile row stays visible alongside the banner.
       expect(tileButton('Frühschicht')).toBeInTheDocument();
     });
 
     it('calls onFinishAssigning when the banner\'s close icon is clicked', async () => {
       const user = userEvent.setup();
-      mockViewportWidth(TABLET_LANDSCAPE);
+      mockViewportWidth(TABLET);
       const { onFinishAssigning } = renderToolbar({
         assignModeActive: true,
         activeTool: { kind: 'template', template: templateA },
@@ -259,7 +223,7 @@ describe('ScheduleToolbar', () => {
 
     it('calls onFinishAssigning when the banner\'s "Fertig" button is clicked', async () => {
       const user = userEvent.setup();
-      mockViewportWidth(TABLET_LANDSCAPE);
+      mockViewportWidth(TABLET);
       const { onFinishAssigning } = renderToolbar({
         assignModeActive: true,
         activeTool: { kind: 'template', template: templateA },
@@ -271,8 +235,8 @@ describe('ScheduleToolbar', () => {
   });
 
   describe('selection mode (Mehrfachauswahl)', () => {
-    it('renders the toggle button reflecting selectionModeActive via aria-pressed, at laptop width', () => {
-      mockViewportWidth(LAPTOP);
+    it('renders the toggle button reflecting selectionModeActive via aria-pressed', () => {
+      mockViewportWidth(TABLET);
       renderToolbar();
 
       expect(screen.getByRole('button', { name: 'Mehrfachauswahl' })).toHaveAttribute('aria-pressed', 'false');
@@ -280,7 +244,7 @@ describe('ScheduleToolbar', () => {
 
     it('calls onToggleSelectionMode when the toggle button is clicked', async () => {
       const user = userEvent.setup();
-      mockViewportWidth(LAPTOP);
+      mockViewportWidth(TABLET);
       const { onToggleSelectionMode } = renderToolbar();
 
       await user.click(screen.getByRole('button', { name: 'Mehrfachauswahl' }));
@@ -288,8 +252,8 @@ describe('ScheduleToolbar', () => {
       expect(onToggleSelectionMode).toHaveBeenCalledTimes(1);
     });
 
-    it('shows the selection banner with the selected count instead of the tile row\'s toggle state, at laptop width', () => {
-      mockViewportWidth(LAPTOP);
+    it('shows the selection banner with the selected count instead of the tile row\'s toggle state', () => {
+      mockViewportWidth(TABLET);
       renderToolbar({ selectionModeActive: true, selectedCount: 3 });
 
       expect(screen.getByText('3 Zellen ausgewählt')).toBeInTheDocument();
@@ -299,16 +263,9 @@ describe('ScheduleToolbar', () => {
       expect(tileButton('Frühschicht')).toBeInTheDocument();
     });
 
-    it('shows the selection banner at tablet width too', () => {
-      mockViewportWidth(TABLET_LANDSCAPE);
-      renderToolbar({ selectionModeActive: true, selectedCount: 1 });
-
-      expect(screen.getByText('1 Zellen ausgewählt')).toBeInTheDocument();
-    });
-
     it('calls onFinishSelecting when the selection banner\'s close icon is clicked', async () => {
       const user = userEvent.setup();
-      mockViewportWidth(LAPTOP);
+      mockViewportWidth(TABLET);
       const { onFinishSelecting } = renderToolbar({ selectionModeActive: true, selectedCount: 2 });
 
       await user.click(screen.getByRole('button', { name: 'Auswahl beenden' }));
@@ -317,7 +274,7 @@ describe('ScheduleToolbar', () => {
 
     it('calls onFinishSelecting when the selection banner\'s "Fertig" button is clicked', async () => {
       const user = userEvent.setup();
-      mockViewportWidth(LAPTOP);
+      mockViewportWidth(TABLET);
       const { onFinishSelecting } = renderToolbar({ selectionModeActive: true, selectedCount: 2 });
 
       await user.click(screen.getByRole('button', { name: 'Fertig' }));
@@ -326,7 +283,7 @@ describe('ScheduleToolbar', () => {
 
     it('routes a tile click to onApplyToSelection instead of onSelect while selectionModeActive is true', async () => {
       const user = userEvent.setup();
-      mockViewportWidth(LAPTOP);
+      mockViewportWidth(TABLET);
       const { onSelect, onApplyToSelection } = renderToolbar({ selectionModeActive: true, selectedCount: 2 });
 
       await user.click(tileButton('Frei'));
@@ -336,7 +293,7 @@ describe('ScheduleToolbar', () => {
     });
 
     it('prefers the selection banner over the assign banner if both were somehow active at once', () => {
-      mockViewportWidth(LAPTOP);
+      mockViewportWidth(TABLET);
       renderToolbar({
         selectionModeActive: true,
         selectedCount: 1,
@@ -576,52 +533,6 @@ describe('ScheduleToolbar', () => {
 
       expect(onFinishAssigning).toHaveBeenCalledTimes(1);
       expect(screen.queryByRole('button', { name: 'Vorwoche übertragen' })).not.toBeInTheDocument();
-    });
-  });
-
-  describe('drag and drop', () => {
-    it('marks a tile draggable at laptop width and reports drag start/end to the parent', () => {
-      mockViewportWidth(LAPTOP);
-      const { onDragTool } = renderToolbar();
-      const button = tileButton('Frühschicht');
-
-      expect(button).toHaveAttribute('draggable', 'true');
-
-      const dataTransfer = { setData: vi.fn(), effectAllowed: '' };
-      fireEvent.dragStart(button, { dataTransfer });
-      expect(onDragTool).toHaveBeenCalledWith({ kind: 'template', template: templateA });
-      expect(dataTransfer.setData).toHaveBeenCalledWith('application/x-pep-tool', 'template:t1');
-      expect(dataTransfer.effectAllowed).toBe('copy');
-
-      fireEvent.dragEnd(button);
-      expect(onDragTool).toHaveBeenLastCalledWith(null);
-    });
-
-    it('does not mark a tile draggable at tablet width and ignores drag events there', () => {
-      mockViewportWidth(TABLET_LANDSCAPE);
-      const { onDragTool } = renderToolbar();
-      const button = tileButton('Frühschicht');
-
-      expect(button).toHaveAttribute('draggable', 'false');
-
-      fireEvent.dragStart(button, { dataTransfer: { setData: vi.fn(), effectAllowed: '' } });
-      fireEvent.dragEnd(button);
-      expect(onDragTool).not.toHaveBeenCalled();
-    });
-
-    it('does not mark a tile draggable at mobile width and ignores drag events there', async () => {
-      const user = userEvent.setup();
-      mockViewportWidth(MOBILE);
-      const { onDragTool } = renderToolbar();
-
-      await user.click(within(bar()).getByRole('button'));
-      const button = tileButton('Frühschicht');
-
-      expect(button).toHaveAttribute('draggable', 'false');
-
-      fireEvent.dragStart(button, { dataTransfer: { setData: vi.fn(), effectAllowed: '' } });
-      fireEvent.dragEnd(button);
-      expect(onDragTool).not.toHaveBeenCalled();
     });
   });
 });

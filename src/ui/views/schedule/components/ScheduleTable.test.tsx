@@ -68,7 +68,7 @@ const noSelection = {
 
 describe('ScheduleTable', () => {
   it('renders one row per employee with their shift times', () => {
-    render(<ScheduleTable rows={rowsFor(employees)} weekDays={weekDays} validationResults={[]} onCellClick={() => {}} onToolDrop={() => {}} {...notAssigning} {...noSelection} />);
+    render(<ScheduleTable rows={rowsFor(employees)} weekDays={weekDays} validationResults={[]} onCellClick={() => {}} {...notAssigning} {...noSelection} />);
 
     expect(screen.getByText('Müller, Anna')).toBeInTheDocument();
     expect(screen.getByText('Schulz, Anna')).toBeInTheDocument();
@@ -77,7 +77,7 @@ describe('ScheduleTable', () => {
   });
 
   it('names the employee, day and current content in a cell\'s aria-label, not just the day (H6)', () => {
-    render(<ScheduleTable rows={rowsFor(employees)} weekDays={weekDays} validationResults={[]} onCellClick={() => {}} onToolDrop={() => {}} {...notAssigning} {...noSelection} />);
+    render(<ScheduleTable rows={rowsFor(employees)} weekDays={weekDays} validationResults={[]} onCellClick={() => {}} {...notAssigning} {...noSelection} />);
 
     expect(screen.getByRole('button', { name: 'Müller, Anna, Montag, 06:00-14:00 bearbeiten' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Müller, Anna, Dienstag, frei bearbeiten' })).toBeInTheDocument();
@@ -95,7 +95,7 @@ describe('ScheduleTable', () => {
     const weekViewWithIllness = createWeekView(schedule, [illness], { employees });
     const rows = buildScheduleRows(weekViewWithIllness, employees, '2026-09-07', '2026-09-13');
 
-    render(<ScheduleTable rows={rows} weekDays={weekDays} validationResults={[]} onCellClick={() => {}} onToolDrop={() => {}} {...notAssigning} {...noSelection} />);
+    render(<ScheduleTable rows={rows} weekDays={weekDays} validationResults={[]} onCellClick={() => {}} {...notAssigning} {...noSelection} />);
 
     expect(screen.getByRole('button', { name: 'Schulz, Anna, Montag, Krankheit bearbeiten' })).toBeInTheDocument();
   });
@@ -108,8 +108,7 @@ describe('ScheduleTable', () => {
         weekDays={weekDays}
         validationResults={[]}
         onCellClick={() => {}}
-        onToolDrop={() => {}}
-        touchMode={false}
+               touchMode={false}
         {...notAssigning}
         {...noSelection}
       />,
@@ -131,8 +130,7 @@ describe('ScheduleTable', () => {
         weekDays={weekDays}
         validationResults={[]}
         onCellClick={() => {}}
-        onToolDrop={() => {}}
-        touchMode
+               touchMode
         {...notAssigning}
         {...noSelection}
       />,
@@ -158,7 +156,7 @@ describe('ScheduleTable', () => {
     const weekViewWithIllness = createWeekView(schedule, [illness], { employees });
     const rows = buildScheduleRows(weekViewWithIllness, employees, '2026-09-07', '2026-09-13');
 
-    render(<ScheduleTable rows={rows} weekDays={weekDays} validationResults={[]} onCellClick={() => {}} onToolDrop={() => {}} {...notAssigning} {...noSelection} />);
+    render(<ScheduleTable rows={rows} weekDays={weekDays} validationResults={[]} onCellClick={() => {}} {...notAssigning} {...noSelection} />);
 
     expect(screen.getByText('Krankheit')).toBeInTheDocument();
     expect(screen.queryByText('Krank')).not.toBeInTheDocument();
@@ -177,8 +175,7 @@ describe('ScheduleTable', () => {
         weekDays={weekDays}
         validationResults={results}
         onCellClick={onCellClick}
-        onToolDrop={() => {}}
-        {...notAssigning}
+               {...notAssigning}
         {...noSelection}
       />,
     );
@@ -208,8 +205,7 @@ describe('ScheduleTable', () => {
         weekDays={weekDays}
         validationResults={results}
         onCellClick={onCellClick}
-        onToolDrop={() => {}}
-        {...notAssigning}
+               {...notAssigning}
         {...noSelection}
       />,
     );
@@ -228,7 +224,7 @@ describe('ScheduleTable', () => {
   it('reports the clicked cell with its employee and day', async () => {
     const user = userEvent.setup();
     const onCellClick = vi.fn();
-    render(<ScheduleTable rows={rowsFor(employees)} weekDays={weekDays} validationResults={[]} onCellClick={onCellClick} onToolDrop={() => {}} {...notAssigning} {...noSelection} />);
+    render(<ScheduleTable rows={rowsFor(employees)} weekDays={weekDays} validationResults={[]} onCellClick={onCellClick} {...notAssigning} {...noSelection} />);
 
     const tuesdayOfSecondRow = screen.getByRole('button', { name: 'Schulz, Anna, Dienstag, frei bearbeiten' });
     await user.click(tuesdayOfSecondRow);
@@ -237,14 +233,14 @@ describe('ScheduleTable', () => {
   });
 
   it('skips assignments whose employee is unknown', () => {
-    render(<ScheduleTable rows={rowsFor([employee(m1, 'Müller')])} weekDays={weekDays} validationResults={[]} onCellClick={() => {}} onToolDrop={() => {}} {...notAssigning} {...noSelection} />);
+    render(<ScheduleTable rows={rowsFor([employee(m1, 'Müller')])} weekDays={weekDays} validationResults={[]} onCellClick={() => {}} {...notAssigning} {...noSelection} />);
 
     expect(screen.queryByText('Schulz, Anna')).not.toBeInTheDocument();
     expect(screen.getAllByRole('row')).toHaveLength(2);
   });
 
   it('shows the hover highlight for a normal (editable) row', () => {
-    render(<ScheduleTable rows={rowsFor(employees)} weekDays={weekDays} validationResults={[]} onCellClick={() => {}} onToolDrop={() => {}} {...notAssigning} {...noSelection} />);
+    render(<ScheduleTable rows={rowsFor(employees)} weekDays={weekDays} validationResults={[]} onCellClick={() => {}} {...notAssigning} {...noSelection} />);
 
     const row = screen.getByText('Müller, Anna').closest('tr');
     expect(row).toHaveClass('MuiTableRow-hover');
@@ -261,7 +257,7 @@ describe('ScheduleTable', () => {
     const inactiveWeekView = createWeekView(scheduleWithInactive, [], { employees: [inactiveEmployee] });
     const rows = buildScheduleRows(inactiveWeekView, [inactiveEmployee], '2026-09-07', '2026-09-13');
 
-    render(<ScheduleTable rows={rows} weekDays={weekDays} validationResults={[]} onCellClick={() => {}} onToolDrop={() => {}} {...notAssigning} {...noSelection} />);
+    render(<ScheduleTable rows={rows} weekDays={weekDays} validationResults={[]} onCellClick={() => {}} {...notAssigning} {...noSelection} />);
 
     const row = screen.getByText('Alt, Anna').closest('tr');
     expect(row).not.toHaveClass('MuiTableRow-hover');
@@ -278,8 +274,7 @@ describe('ScheduleTable', () => {
           weekDays={weekDays}
           validationResults={[]}
           onCellClick={onCellClick}
-          onToolDrop={() => {}}
-          assignMode
+                   assignMode
           onToolTap={onToolTap}
           isAssignTarget={() => false}
           {...noSelection}
@@ -307,8 +302,7 @@ describe('ScheduleTable', () => {
           weekDays={weekDays}
           validationResults={[]}
           onCellClick={onCellClick}
-          onToolDrop={() => {}}
-          assignMode
+                   assignMode
           onToolTap={onToolTap}
           isAssignTarget={() => false}
           {...noSelection}
@@ -329,8 +323,7 @@ describe('ScheduleTable', () => {
           weekDays={weekDays}
           validationResults={[]}
           onCellClick={() => {}}
-          onToolDrop={() => {}}
-          assignMode
+                   assignMode
           onToolTap={() => {}}
           isAssignTarget={(employeeId, dayView) => employeeId === m1 && dayView.day === 'Montag'}
           {...noSelection}
@@ -352,8 +345,7 @@ describe('ScheduleTable', () => {
           weekDays={weekDays}
           validationResults={[]}
           onCellClick={() => {}}
-          onToolDrop={() => {}}
-          {...notAssigning}
+                   {...notAssigning}
           selectionMode
           selectedCells={new Set()}
           onToggleCellSelection={onToggleCellSelection}
@@ -373,8 +365,7 @@ describe('ScheduleTable', () => {
           weekDays={weekDays}
           validationResults={[]}
           onCellClick={() => {}}
-          onToolDrop={() => {}}
-          {...notAssigning}
+                   {...notAssigning}
           selectionMode
           selectedCells={new Set([`${m2}|2026-09-08`])}
           onToggleCellSelection={() => {}}
@@ -397,8 +388,7 @@ describe('ScheduleTable', () => {
           weekDays={weekDays}
           validationResults={[]}
           onCellClick={() => {}}
-          onToolDrop={() => {}}
-          {...notAssigning}
+                   {...notAssigning}
           selectionMode
           selectedCells={new Set()}
           onToggleCellSelection={() => {}}
@@ -426,8 +416,7 @@ describe('ScheduleTable', () => {
           weekDays={weekDays}
           validationResults={[]}
           onCellClick={() => {}}
-          onToolDrop={() => {}}
-          {...notAssigning}
+                   {...notAssigning}
           selectionMode
           selectedCells={new Set()}
           onToggleCellSelection={() => {}}

@@ -38,27 +38,15 @@ describe('useBreakpoint', () => {
     expect(screen.getByText('mobile')).toBeInTheDocument();
   });
 
-  it('reports tabletPortrait from 768px', () => {
-    mockViewportWidth(800);
+  it('reports tablet from 768px', () => {
+    mockViewportWidth(768);
     render(<Harness />);
-    expect(screen.getByText('tabletPortrait')).toBeInTheDocument();
+    expect(screen.getByText('tablet')).toBeInTheDocument();
   });
 
-  it('reports tabletLandscape from 1024px', () => {
-    mockViewportWidth(1100);
+  it('still reports tablet at a very wide viewport', () => {
+    mockViewportWidth(2200);
     render(<Harness />);
-    expect(screen.getByText('tabletLandscape')).toBeInTheDocument();
-  });
-
-  it('still reports tabletLandscape at 1400px, below the 1620px laptop threshold', () => {
-    mockViewportWidth(1400);
-    render(<Harness />);
-    expect(screen.getByText('tabletLandscape')).toBeInTheDocument();
-  });
-
-  it('reports laptop from 1620px', () => {
-    mockViewportWidth(1700);
-    render(<Harness />);
-    expect(screen.getByText('laptop')).toBeInTheDocument();
+    expect(screen.getByText('tablet')).toBeInTheDocument();
   });
 });

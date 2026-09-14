@@ -41,9 +41,9 @@ const deleteMock = vi.mocked(services.absence.delete);
 const createHolidaysForYearMock = vi.mocked(services.holidayBulkCreation.createHolidaysForYear);
 
 /** Copied from src/ui/hooks/useBreakpoint.test.tsx: jsdom has no real layout engine, so
- * window.matchMedia is mocked to answer as if the viewport were `width` wide. Forced to laptop
- * throughout this file since most of what's under test here (the Std./Tag column, TableSortLabel
- * headers) only exists in the table layout, not the mobile card list. */
+ * window.matchMedia is mocked to answer as if the viewport were `width` wide. Forced to tablet
+ * throughout this file since most of what's under test here (TableSortLabel headers) only exists
+ * in the table layout, not the mobile card list. */
 function mockViewportWidth(width: number) {
   window.matchMedia = ((query: string) => {
     const match = /min-width:\s*(\d+(?:\.\d+)?)px/.exec(query);
@@ -221,7 +221,7 @@ describe('AbsencesView', () => {
       expect(await screen.findByRole('tooltip')).toHaveTextContent(/aktiven Mitarbeiter/i);
     });
 
-    it('renders employee names, type labels, Std./Tag and date ranges for a mix of absence types', async () => {
+    it('renders employee names, type labels and date ranges for a mix of absence types', async () => {
       employeeForBranchMock.mockResolvedValue([e1, e2]);
       absenceForBranchMock.mockResolvedValue([a1, a2, a3, a4, a5]);
       renderView();
@@ -233,7 +233,6 @@ describe('AbsencesView', () => {
       const row1 = within(rows[0]);
       expect(row1.getByText('Bauer, Anna')).toBeInTheDocument();
       expect(row1.getByText('Fortbildung')).toBeInTheDocument();
-      expect(row1.getByText('4,5')).toBeInTheDocument();
       expect(row1.getAllByText('01.08.2026')).toHaveLength(2);
 
       const row2 = within(rows[1]);
@@ -253,7 +252,7 @@ describe('AbsencesView', () => {
       expect(row4.getByText('05.06.2026')).toBeInTheDocument();
 
       const row5 = within(rows[4]);
-      expect(row5.getAllByText('–')).toHaveLength(2);
+      expect(row5.getAllByText('–')).toHaveLength(1);
       expect(row5.getAllByText('01.05.2026')).toHaveLength(2);
     });
 

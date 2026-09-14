@@ -51,7 +51,7 @@ type SortKey = 'employee' | 'type' | 'from' | 'to';
 type TypeFilter = 'all' | AbsenceType;
 
 const ALL = 'all';
-const COLUMN_COUNT = 6;
+const COLUMN_COUNT = 5;
 
 function getAbsenceRowActions(
   absence: Absence,
@@ -247,7 +247,6 @@ export function AbsencesView() {
   }
 
   const employeeName = (employee: Employee | undefined) => (employee ? fullName(employee) : '–');
-  const columnCount = layout === 'laptop' ? COLUMN_COUNT : COLUMN_COUNT - 1;
 
   return (
     <Box
@@ -390,7 +389,6 @@ export function AbsencesView() {
                   <TableCell sx={stickyHeaderRowSx()}>
                     <TableSortLabel {...headProps('type')}>Art</TableSortLabel>
                   </TableCell>
-                  {layout === 'laptop' && <TableCell sx={stickyHeaderRowSx()}>Std./Tag</TableCell>}
                   <TableCell sx={stickyHeaderRowSx()}>
                     <TableSortLabel {...headProps('from')}>Von</TableSortLabel>
                   </TableCell>
@@ -405,7 +403,7 @@ export function AbsencesView() {
               <TableBody>
                 {!absencesLoading && absences.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={columnCount}>
+                    <TableCell colSpan={COLUMN_COUNT}>
                       <Typography color="text.secondary" sx={{ py: 2 }}>
                         Noch keine Abwesenheiten erfasst.
                       </Typography>
@@ -414,7 +412,7 @@ export function AbsencesView() {
                 )}
                 {!absencesLoading && absences.length > 0 && visibleAbsences.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={columnCount}>
+                    <TableCell colSpan={COLUMN_COUNT}>
                       <Typography color="text.secondary" sx={{ py: 2 }}>
                         Kein Eintrag passt zu den Filtern.
                       </Typography>
@@ -439,27 +437,22 @@ export function AbsencesView() {
                       <TableCell>
                         <Chip size="small" label={absenceTypeLabel(a) + halfDayText} />
                       </TableCell>
-                      {layout === 'laptop' && (
-                        <TableCell>
-                          {a.type === 'Other' && a.hoursPerDay !== undefined ? a.hoursPerDay.toLocaleString('de-DE') : '–'}
-                        </TableCell>
-                      )}
                       <TableCell>{formatISODateGerman(a.from)}</TableCell>
                       <TableCell>{formatISODateGerman(a.to)}</TableCell>
                       <TableCell align="right">
                         <IconButton
-                          size={layout === 'laptop' ? 'small' : 'medium'}
+                          size="medium"
                           onClick={() => setDialog({ absence: a })}
                           aria-label={`Abwesenheit von ${employeeName(employee)} bearbeiten`}
                         >
-                          <EditOutlinedIcon fontSize={layout === 'laptop' ? 'small' : 'medium'} />
+                          <EditOutlinedIcon fontSize="medium" />
                         </IconButton>
                         <IconButton
-                          size={layout === 'laptop' ? 'small' : 'medium'}
+                          size="medium"
                           onClick={() => setDeleteTarget(a)}
                           aria-label={`Abwesenheit von ${employeeName(employee)} löschen`}
                         >
-                          <DeleteOutlineIcon fontSize={layout === 'laptop' ? 'small' : 'medium'} />
+                          <DeleteOutlineIcon fontSize="medium" />
                         </IconButton>
                       </TableCell>
                     </TableRow>

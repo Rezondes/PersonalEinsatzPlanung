@@ -246,7 +246,7 @@ export function DayEditor({
         title={`${employeeName} · ${day}`}
         subtitle={formatISODateGerman(date)}
         maxWidth="sm"
-        actions={<Button onClick={onClose}>Schließen</Button>}
+        actions={null}
       >
         <Alert severity="info">
           {employeeName} ist an diesem Tag im Rahmen eines mehrtägigen Eintrags ({absenceKindLabel(absence.type)},{' '}

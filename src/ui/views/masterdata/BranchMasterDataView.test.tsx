@@ -35,8 +35,8 @@ function makeBranch(overrides: Partial<Branch> = {}): Branch {
   };
 }
 
-/** Same viewport-mocking helper as useBreakpoint.test.tsx, copied to force the laptop layout for
- * tests that need the inline edit/toggle IconButtons instead of the mobile/tablet action sheet. */
+/** Same viewport-mocking helper as useBreakpoint.test.tsx, copied to force the tablet (table)
+ * layout for tests that need the table instead of the mobile card list. */
 function mockViewportWidth(width: number) {
   window.matchMedia = ((query: string) => {
     const match = /min-width:\s*(\d+(?:\.\d+)?)px/.exec(query);
@@ -89,8 +89,8 @@ describe('BranchMasterDataView', () => {
     delete window.matchMedia;
   });
 
-  it('renders the seeded branches with their name, number, city, federal state and status chip', () => {
-    mockViewportWidth(1700);
+  it('renders the seeded branches with their name, number, city and status chip', () => {
+    mockViewportWidth(1100);
     const active = makeBranch({ id: 'branch-1' as BranchId, name: 'Filiale Nord', branchNumber: '001' });
     const inactive = makeBranch({
       id: 'branch-2' as BranchId,
@@ -108,17 +108,15 @@ describe('BranchMasterDataView', () => {
     expect(within(table).getByText('Filiale Nord')).toBeInTheDocument();
     expect(within(table).getByText('001')).toBeInTheDocument();
     expect(within(table).getByText('Hannover')).toBeInTheDocument();
-    expect(within(table).getByText('Niedersachsen')).toBeInTheDocument();
     expect(within(table).getByText('Filiale Süd')).toBeInTheDocument();
     expect(within(table).getByText('002')).toBeInTheDocument();
     expect(within(table).getByText('München')).toBeInTheDocument();
-    expect(within(table).getByText('Bayern')).toBeInTheDocument();
     expect(within(table).getByText('Aktiv')).toBeInTheDocument();
     expect(within(table).getByText('Inaktiv')).toBeInTheDocument();
   });
 
   it('search narrows the visible branches by name, number or city, and clearing restores them (N26)', async () => {
-    mockViewportWidth(1700);
+    mockViewportWidth(1100);
     const user = userEvent.setup();
     const nord = makeBranch({ id: 'branch-1' as BranchId, name: 'Filiale Nord', branchNumber: '001' });
     const sued = makeBranch({
@@ -144,7 +142,7 @@ describe('BranchMasterDataView', () => {
   });
 
   it('sorts by Filiale (name) ascending and descending when the column header is clicked (N26)', async () => {
-    mockViewportWidth(1700);
+    mockViewportWidth(1100);
     const user = userEvent.setup();
     const nord = makeBranch({ id: 'branch-1' as BranchId, name: 'Filiale Nord', branchNumber: '001' });
     const sued = makeBranch({ id: 'branch-2' as BranchId, name: 'Filiale Süd', branchNumber: '002' });
@@ -168,8 +166,8 @@ describe('BranchMasterDataView', () => {
     expect(screen.queryByRole('table')).not.toBeInTheDocument();
   });
 
-  it('shows the table\'s own empty-row message at the laptop layout', () => {
-    mockViewportWidth(1700);
+  it('shows the table\'s own empty-row message at the tablet layout', () => {
+    mockViewportWidth(1100);
     seedBranches([]);
 
     renderView();
@@ -188,21 +186,22 @@ describe('BranchMasterDataView', () => {
     expect(screen.getByRole('heading', { name: 'Neue Filiale' })).toBeInTheDocument();
   });
 
-  it('opens BranchDialog pre-filled for editing via the laptop-layout edit button', async () => {
-    mockViewportWidth(1700);
+  it('opens BranchDialog pre-filled for editing via the kebab menu', async () => {
+    mockViewportWidth(1100);
     const user = userEvent.setup();
     const branch = makeBranch({ name: 'Filiale Nord' });
     seedBranches([branch]);
     renderView();
 
-    await user.click(screen.getByRole('button', { name: 'Filiale Nord bearbeiten' }));
+    await user.click(screen.getByRole('button', { name: 'Weitere Aktionen für Filiale Nord' }));
+    await user.click(screen.getByRole('button', { name: 'Bearbeiten' }));
 
-    expect(screen.getByRole('heading', { name: 'Filiale bearbeiten' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Filiale bearbeiten' })).toBeInTheDocument();
     expect(screen.getByRole('textbox', { name: 'Name' })).toHaveValue('Filiale Nord');
   });
 
   it('confirms and deactivates an active branch, then reloads the list', async () => {
-    mockViewportWidth(1700);
+    mockViewportWidth(1100);
     const user = userEvent.setup();
     const branch = makeBranch({ name: 'Filiale Nord', active: true });
     seedBranches([branch]);
@@ -210,9 +209,10 @@ describe('BranchMasterDataView', () => {
     allMock.mockResolvedValue([{ ...branch, active: false }]);
     renderView();
 
-    await user.click(screen.getByRole('button', { name: 'Filiale Nord deaktivieren' }));
+    await user.click(screen.getByRole('button', { name: 'Weitere Aktionen für Filiale Nord' }));
+    await user.click(screen.getByRole('button', { name: /^Deaktivieren/ }));
 
-    expect(screen.getByRole('heading', { name: 'Filiale deaktivieren?' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Filiale deaktivieren?' })).toBeInTheDocument();
     expect(
       screen.getByText(
         'Filiale Nord wird als inaktiv markiert und verschwindet aus der Filial-Auswahl. Mitarbeiter, Wochenpläne und Abwesenheiten bleiben vollständig erhalten und die Filiale kann jederzeit wieder aktiviert werden.',
@@ -232,7 +232,7 @@ describe('BranchMasterDataView', () => {
   });
 
   it('shows a busy state while changing status: disables Abbrechen, spins the confirm button, blocks dismissal (M15)', async () => {
-    mockViewportWidth(1700);
+    mockViewportWidth(1100);
     const user = userEvent.setup();
     const branch = makeBranch({ name: 'Filiale Nord', active: true });
     seedBranches([branch]);
@@ -244,7 +244,9 @@ describe('BranchMasterDataView', () => {
     );
     renderView();
 
-    await user.click(screen.getByRole('button', { name: 'Filiale Nord deaktivieren' }));
+    await user.click(screen.getByRole('button', { name: 'Weitere Aktionen für Filiale Nord' }));
+    await user.click(screen.getByRole('button', { name: /^Deaktivieren/ }));
+    await screen.findByRole('heading', { name: 'Filiale deaktivieren?' });
     await user.click(screen.getByRole('button', { name: 'Deaktivieren' }));
 
     expect(screen.getByRole('button', { name: 'Abbrechen' })).toBeDisabled();
@@ -258,29 +260,32 @@ describe('BranchMasterDataView', () => {
   });
 
   it('opens the activate confirmation with the pinned title and text for an inactive branch', async () => {
-    mockViewportWidth(1700);
+    mockViewportWidth(1100);
     const user = userEvent.setup();
     const branch = makeBranch({ name: 'Filiale Nord', active: false });
     seedBranches([branch]);
     renderView();
 
-    await user.click(screen.getByRole('button', { name: 'Filiale Nord aktivieren' }));
+    await user.click(screen.getByRole('button', { name: 'Weitere Aktionen für Filiale Nord' }));
+    await user.click(screen.getByRole('button', { name: 'Aktivieren' }));
 
-    expect(screen.getByRole('heading', { name: 'Filiale aktivieren?' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Filiale aktivieren?' })).toBeInTheDocument();
     expect(
       screen.getByText('Filiale Nord wird wieder als aktiv markiert und erscheint wieder in der Filial-Auswahl.'),
     ).toBeInTheDocument();
   });
 
   it('reports an error and keeps the branch active when changeActiveStatus rejects', async () => {
-    mockViewportWidth(1700);
+    mockViewportWidth(1100);
     const user = userEvent.setup();
     const branch = makeBranch({ name: 'Filiale Nord', active: true });
     seedBranches([branch]);
     changeActiveStatusMock.mockRejectedValue(new Error('Netzwerkfehler'));
     renderView();
 
-    await user.click(screen.getByRole('button', { name: 'Filiale Nord deaktivieren' }));
+    await user.click(screen.getByRole('button', { name: 'Weitere Aktionen für Filiale Nord' }));
+    await user.click(screen.getByRole('button', { name: /^Deaktivieren/ }));
+    await screen.findByRole('heading', { name: 'Filiale deaktivieren?' });
     await user.click(screen.getByRole('button', { name: 'Deaktivieren' }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent(

@@ -1,5 +1,5 @@
 import { memo, useMemo, useState } from 'react';
-import type { DragEvent, KeyboardEvent } from 'react';
+import type { KeyboardEvent } from 'react';
 import Table from '@mui/material/Table';
 import TableBody from '@mui/material/TableBody';
 import TableCell from '@mui/material/TableCell';
@@ -30,7 +30,6 @@ import type { DayView } from '@application/schedule/scheduleAssessment';
 import { effectiveTargetMinutesRange } from '@application/schedule/scheduleAssessment';
 import type { RowLockReason, ScheduleRow } from '../scheduleRows';
 import { canReceiveEntry, isCellLocked } from '../scheduleRows';
-import { TOOL_MIME } from '../scheduleTools';
 import { stickyCornerSx, stickyFirstColumnSx, stickyHeaderRowSx } from '@ui/components/stickyFirstColumn';
 import { useBreakpoint } from '@ui/hooks/useBreakpoint';
 
@@ -42,9 +41,6 @@ interface ScheduleTableProps {
   weekDays: { day: Weekday; date: string }[];
   validationResults: ValidationResult[];
   onCellClick: (employeeId: EmployeeId, dayView: DayView) => void;
-  /** A toolbar tool was dropped on this cell. Which tool it was comes from the drag payload the
-   * parent holds - the table stays free of any knowledge about tools. */
-  onToolDrop: (employeeId: EmployeeId, dayView: DayView) => void;
   /** Touch-only tap-to-assign: true once the parent has armed a tool on a touch breakpoint (see
    * ScheduleView/ScheduleToolbar). While active, tapping a cell that can receive an entry calls
    * onToolTap instead of opening DayEditor; the table still stays free of which tool is active -
@@ -116,7 +112,6 @@ export const ScheduleTable = memo(function ScheduleTable({
   weekDays,
   validationResults,
   onCellClick,
-  onToolDrop,
   assignMode,
   onToolTap,
   isAssignTarget,
@@ -126,10 +121,6 @@ export const ScheduleTable = memo(function ScheduleTable({
   touchMode = true,
 }: ScheduleTableProps) {
   const layout = useBreakpoint();
-  // Kept HERE and not in ScheduleView on purpose: dragover fires continuously, and a highlight in
-  // the parent would re-render it (and defeat this component's memo) many times per second. As
-  // cell state it only changes when the pointer crosses a cell boundary.
-  const [dropTargetKey, setDropTargetKey] = useState<string | null>(null);
   // Warning/deviation tooltips: one shared key instead of per-icon local state, so opening a new
   // one always closes whichever was open - matches "tap elsewhere dismisses it". Controlled mode
   // (open/onClose + the three disable*Listener props) turns MUI Tooltip's default 700ms
@@ -157,12 +148,6 @@ export const ScheduleTable = memo(function ScheduleTable({
 
   const resultsFor = (employeeId: EmployeeId, date: string) =>
     resultsByCell.get(cellKey(employeeId, date)) ?? NO_RESULTS;
-
-  // Laptop shows the full weekday name (matches the mockup's wider artboard and the user's own
-  // "hinter dem Tag wie 'Mittwoch'" description); mobile/tablet show the abbreviated form - mobile
-  // stacks name and date (narrower column), tablet keeps them side by side (same row layout as
-  // laptop, just abbreviated).
-  const dayLabel = (day: (typeof weekDays)[number]['day']) => (layout === 'laptop' ? day : WEEKDAYS_SHORT[day]);
 
   return (
     // Bounded height, self-scrolling on both axes - see stickyFirstColumn.ts for why a sticky
@@ -208,7 +193,7 @@ export const ScheduleTable = memo(function ScheduleTable({
                 {layout === 'mobile' ? (
                   <Stack direction="column" alignItems="center">
                     <Typography variant="caption" fontWeight={500}>
-                      {dayLabel(day)}
+                      {WEEKDAYS_SHORT[day]}
                     </Typography>
                     <Typography variant="caption" color="text.secondary">
                       {formatISODateShortGerman(date)}
@@ -217,7 +202,7 @@ export const ScheduleTable = memo(function ScheduleTable({
                 ) : (
                   <Stack direction="row" spacing={0.5} justifyContent="center">
                     <Typography variant="caption" fontWeight={500}>
-                      {dayLabel(day)}
+                      {WEEKDAYS_SHORT[day]}
                     </Typography>
                     <Typography variant="caption" color="text.secondary">
                       {formatISODateShortGerman(date)}
@@ -289,14 +274,13 @@ export const ScheduleTable = memo(function ScheduleTable({
                   const locked = isCellLocked(row, dayView.day);
                   const droppable = canReceiveEntry(row, dayView);
                   const cellId = cellKey(view.employeeId, dayView.date);
-                  const isDropTarget = dropTargetKey === cellId;
                   const hasOverride =
                     dayView.entry.type === 'Shift' && dayView.entry.netMinutesOverride !== undefined;
                   // Same guard tap-to-assign shares with drag-and-drop (canReceiveEntry/droppable
                   // below) - a cell that cannot receive an entry never shows the target highlight
                   // either, even while assignMode is on.
                   const isTarget = assignMode && droppable && isAssignTarget(view.employeeId, dayView);
-                  const background = isDropTarget || isTarget
+                  const background = isTarget
                     ? '#dce9e3'
                     : locked
                     ? '#f0f0ee'
@@ -357,38 +341,6 @@ export const ScheduleTable = memo(function ScheduleTable({
                         },
                       };
 
-                  // A cell that cannot receive an entry gets no drag handlers at all - the browser
-                  // then shows the "no drop" cursor by itself, no extra code needed. getData() is
-                  // blanked during dragover by every browser, so only the marker type can be checked
-                  // there; the payload itself is read from the parent on drop.
-                  const dropHandlers = droppable
-                    ? {
-                        onDragEnter: (e: DragEvent) => {
-                          if (!e.dataTransfer.types.includes(TOOL_MIME)) return;
-                          e.preventDefault();
-                          setDropTargetKey(cellId);
-                        },
-                        onDragOver: (e: DragEvent) => {
-                          if (!e.dataTransfer.types.includes(TOOL_MIME)) return;
-                          // Without this the drop event never fires at all.
-                          e.preventDefault();
-                          e.dataTransfer.dropEffect = 'copy';
-                        },
-                        onDragLeave: (e: DragEvent<HTMLElement>) => {
-                          // Moving onto a child element also fires dragleave; only a real exit counts.
-                          if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
-                            setDropTargetKey(null);
-                          }
-                        },
-                        onDrop: (e: DragEvent) => {
-                          e.preventDefault();
-                          setDropTargetKey(null);
-                          if (!e.dataTransfer.types.includes(TOOL_MIME)) return;
-                          onToolDrop(view.employeeId, dayView);
-                        },
-                      }
-                    : {};
-
                   const warningKey = `cell|${cellId}`;
 
                   const cell = (
@@ -396,7 +348,6 @@ export const ScheduleTable = memo(function ScheduleTable({
                       data-employeeid={view.employeeId}
                       data-day={dayView.day}
                       {...interaction}
-                      {...dropHandlers}
                       sx={{
                         position: 'relative',
                         cursor: locked ? 'default' : 'pointer',

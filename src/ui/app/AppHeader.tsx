@@ -1,4 +1,4 @@
-import type { ReactNode, Ref } from 'react';
+import type { Ref } from 'react';
 import AppBar from '@mui/material/AppBar';
 import Toolbar from '@mui/material/Toolbar';
 import Typography from '@mui/material/Typography';
@@ -13,17 +13,13 @@ interface AppHeaderProps {
   /** Forwarded to AppShell's ResizeObserver, which publishes --pep-header-height for
    * ScheduleToolbar's own sticky positioning. */
   headerRef?: Ref<HTMLElement>;
-  /** The breakpoint-specific nav slot: LaptopNav at the laptop breakpoint, or nothing when
-   * navigation lives elsewhere - BottomTabBar on mobile, NavRail at both tablet breakpoints. */
-  nav?: ReactNode;
 }
 
 /**
  * Logo + Filiale switcher, extracted verbatim from AppShell.tsx's previous inline JSX so every
- * breakpoint that shows a top bar (laptop, tablet portrait, and the content column at tablet
- * landscape) reuses the same instance instead of four copies of the Filiale-select logic.
+ * breakpoint reuses the same instance instead of copies of the Filiale-select logic.
  */
-export function AppHeader({ headerRef, nav }: AppHeaderProps) {
+export function AppHeader({ headerRef }: AppHeaderProps) {
   const { branches } = useBranchList();
   const activeBranches = branches.filter((b) => b.active);
   const selectedBranchId = useBranchSelectionStore((s) => s.selectedBranchId);
@@ -75,8 +71,6 @@ export function AppHeader({ headerRef, nav }: AppHeaderProps) {
             ))}
           </Select>
         )}
-
-        {nav}
       </Toolbar>
     </AppBar>
   );

@@ -30,7 +30,6 @@ import { compareByLastName, fullName } from '@domain/employee/Employee';
 import { employmentTypeLabel, targetWeeklyHoursRange } from '@domain/employee/EmploymentType';
 import type { EmploymentTypeKind } from '@domain/employee/EmploymentType';
 import type { EmployeeId } from '@domain/shared/ids';
-import { formatISODateGerman } from '@domain/shared/DateFormat';
 import { isMinor } from '@domain/validation/arbzg/youthProtection';
 import type { Absence } from '@domain/absence/Absence';
 import { remainingVacationByEmployee, carriedOverVacationDays } from '@domain/absence/vacationCalculation';
@@ -53,14 +52,11 @@ import { EmployeeDialog } from './EmployeeDialog';
 import { notify } from '@ui/app/store/notificationStore';
 import { usePageActions } from '@ui/app/PageActionsContext';
 
-type SortKey = 'name' | 'jobTitle' | 'employment' | 'hours' | 'vacation' | 'remainingVacation' | 'holidayHours' | 'status';
+type SortKey = 'name' | 'employment' | 'hours' | 'vacation' | 'remainingVacation' | 'status';
 type StatusFilter = 'all' | 'active' | 'inactive';
 type EmploymentFilter = 'all' | EmploymentTypeKind;
 
-const COLUMN_COUNT = 9;
-// Tätigkeit and Std./Urlaubstag fold into the Name cell / drop out at tablet width - see the Name
-// TableCell and the layout checks below. Resturlaub stays visible at both widths.
-const COLUMN_COUNT_TABLET = 7;
+const COLUMN_COUNT = 7;
 
 /** German collation, like compareByLastName - a plain "a < b" would sort umlauts wrongly. */
 function compareText(a: string, b: string): number {
@@ -116,7 +112,6 @@ function vacationDisplayByEmployee(
  * is built per-render instead - see STATIC_COMPARATORS's only caller. */
 const STATIC_COMPARATORS: Record<Exclude<SortKey, 'remainingVacation'>, (a: Employee, b: Employee) => number> = {
   name: compareByLastName,
-  jobTitle: (a, b) => compareText(a.jobTitle, b.jobTitle) || compareByLastName(a, b),
   employment: (a, b) =>
     compareText(employmentTypeLabel(a.employmentType), employmentTypeLabel(b.employmentType)) ||
     compareByLastName(a, b),
@@ -124,9 +119,6 @@ const STATIC_COMPARATORS: Record<Exclude<SortKey, 'remainingVacation'>, (a: Empl
     targetWeeklyHoursRange(a.employmentType).max - targetWeeklyHoursRange(b.employmentType).max ||
     compareByLastName(a, b),
   vacation: (a, b) => a.vacationEntitlementPerYear - b.vacationEntitlementPerYear || compareByLastName(a, b),
-  // Records written before the field existed sort as 0 rather than producing NaN.
-  holidayHours: (a, b) =>
-    (a.holidayVacationHours ?? 0) - (b.holidayVacationHours ?? 0) || compareByLastName(a, b),
   status: (a, b) => Number(a.active) - Number(b.active) || compareByLastName(a, b),
 };
 
@@ -135,20 +127,6 @@ function weeklyHoursText(employee: Employee): string {
   return range.min === range.max
     ? range.max.toLocaleString('de-DE')
     : `${range.min.toLocaleString('de-DE')}-${range.max.toLocaleString('de-DE')}`;
-}
-
-/** Shown as a caption under the name instead of two more columns - the table is wide enough. */
-function employmentPeriodText(employee: Employee): string {
-  if (employee.entryDate && employee.exitDate) {
-    return `${formatISODateGerman(employee.entryDate)} - ${formatISODateGerman(employee.exitDate)}`;
-  }
-  if (employee.entryDate) {
-    return `seit ${formatISODateGerman(employee.entryDate)}`;
-  }
-  if (employee.exitDate) {
-    return `bis ${formatISODateGerman(employee.exitDate)}`;
-  }
-  return '';
 }
 
 function getRowActions(
@@ -343,8 +321,6 @@ export function EmployeeMasterDataView() {
     return <NoBranchSelectedAlert />;
   }
 
-  const columnCount = layout === 'laptop' ? COLUMN_COUNT : COLUMN_COUNT_TABLET;
-
   return (
     <Box
       sx={{
@@ -444,11 +420,6 @@ export function EmployeeMasterDataView() {
                   <TableCell sx={stickyCornerSx()}>
                     <TableSortLabel {...headProps('name')}>Name</TableSortLabel>
                   </TableCell>
-                  {layout === 'laptop' && (
-                    <TableCell sx={stickyHeaderRowSx()}>
-                      <TableSortLabel {...headProps('jobTitle')}>Tätigkeit</TableSortLabel>
-                    </TableCell>
-                  )}
                   <TableCell sx={stickyHeaderRowSx()}>
                     <TableSortLabel {...headProps('employment')}>Beschäftigung</TableSortLabel>
                   </TableCell>
@@ -461,11 +432,6 @@ export function EmployeeMasterDataView() {
                   <TableCell sx={stickyHeaderRowSx()}>
                     <TableSortLabel {...headProps('remainingVacation')}>Resturlaub</TableSortLabel>
                   </TableCell>
-                  {layout === 'laptop' && (
-                    <TableCell sx={stickyHeaderRowSx()}>
-                      <TableSortLabel {...headProps('holidayHours')}>Std./Urlaubstag</TableSortLabel>
-                    </TableCell>
-                  )}
                   <TableCell sx={stickyHeaderRowSx()}>
                     <TableSortLabel {...headProps('status')}>Status</TableSortLabel>
                   </TableCell>
@@ -477,7 +443,7 @@ export function EmployeeMasterDataView() {
               <TableBody>
                 {!loading && employeeList.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={columnCount}>
+                    <TableCell colSpan={COLUMN_COUNT}>
                       <Typography color="text.secondary" sx={{ py: 2 }}>
                         Noch kein Mitarbeiter angelegt.
                       </Typography>
@@ -486,7 +452,7 @@ export function EmployeeMasterDataView() {
                 )}
                 {!loading && employeeList.length > 0 && visibleEmployees.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={columnCount}>
+                    <TableCell colSpan={COLUMN_COUNT}>
                       <Typography color="text.secondary" sx={{ py: 2 }}>
                         Kein Mitarbeiter passt zu den Filtern.
                       </Typography>
@@ -495,18 +461,13 @@ export function EmployeeMasterDataView() {
                 )}
                 {visibleEmployees.map((emp) => {
                   const minor = isMinor(emp.birthDate, new Date());
-                  const period = employmentPeriodText(emp);
                   const vacation = vacationDisplay.get(emp.id);
-                  // Tablet: the row itself opens the edit dialog (matching the mockup's "row
-                  // clickable, one overflow button" pattern); laptop keeps its inline icon buttons
-                  // and no row click, exactly as today.
-                  const rowClickable = layout !== 'laptop';
                   return (
                     <TableRow
                       key={emp.id}
                       hover
-                      onClick={rowClickable ? () => setDialog({ employee: emp }) : undefined}
-                      sx={{ opacity: emp.active ? 1 : 0.55, cursor: rowClickable ? 'pointer' : undefined }}
+                      onClick={() => setDialog({ employee: emp })}
+                      sx={{ opacity: emp.active ? 1 : 0.55, cursor: 'pointer' }}
                     >
                       <TableCell sx={stickyFirstColumnSx}>
                         <Stack direction="row" spacing={0.5} alignItems="center">
@@ -519,19 +480,10 @@ export function EmployeeMasterDataView() {
                             />
                           )}
                         </Stack>
-                        {layout === 'laptop' ? (
-                          period && (
-                            <Typography variant="caption" color="text.secondary">
-                              {period}
-                            </Typography>
-                          )
-                        ) : (
-                          <Typography variant="caption" color="text.secondary" display="block">
-                            {emp.jobTitle}
-                          </Typography>
-                        )}
+                        <Typography variant="caption" color="text.secondary" display="block">
+                          {emp.jobTitle}
+                        </Typography>
                       </TableCell>
-                      {layout === 'laptop' && <TableCell>{emp.jobTitle}</TableCell>}
                       <TableCell>
                         <Chip size="small" label={employmentTypeLabel(emp.employmentType)} />
                       </TableCell>
@@ -545,35 +497,19 @@ export function EmployeeMasterDataView() {
                           </Typography>
                         )}
                       </TableCell>
-                      {layout === 'laptop' && <TableCell>{(emp.holidayVacationHours ?? 0).toLocaleString('de-DE')}</TableCell>}
                       <TableCell>
                         <Chip size="small" label={emp.active ? 'Aktiv' : 'Inaktiv'} color={emp.active ? 'success' : 'default'} />
                       </TableCell>
                       <TableCell align="right">
-                        {layout === 'laptop' ? (
-                          <>
-                            <IconButton size="small" onClick={() => setDialog({ employee: emp })} aria-label={`${fullName(emp)} bearbeiten`}>
-                              <EditOutlinedIcon fontSize="small" />
-                            </IconButton>
-                            <IconButton
-                              size="small"
-                              onClick={() => requestStatusChange(emp)}
-                              aria-label={emp.active ? `${fullName(emp)} deaktivieren` : `${fullName(emp)} aktivieren`}
-                            >
-                              {emp.active ? <ToggleOnOutlinedIcon fontSize="small" /> : <ToggleOffOutlinedIcon fontSize="small" />}
-                            </IconButton>
-                          </>
-                        ) : (
-                          <IconButton
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSheetEmployee(emp);
-                            }}
-                            aria-label={`Weitere Aktionen für ${fullName(emp)}`}
-                          >
-                            <MoreVertIcon />
-                          </IconButton>
-                        )}
+                        <IconButton
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSheetEmployee(emp);
+                          }}
+                          aria-label={`Weitere Aktionen für ${fullName(emp)}`}
+                        >
+                          <MoreVertIcon />
+                        </IconButton>
                       </TableCell>
                     </TableRow>
                   );

@@ -14,7 +14,6 @@ import Button from '@mui/material/Button';
 import Stack from '@mui/material/Stack';
 import CloseIcon from '@mui/icons-material/Close';
 import { theme } from '@ui/app/theme';
-import { useBreakpoint } from '@ui/hooks/useBreakpoint';
 import { useDismissOnBack } from '@ui/hooks/useDismissOnBack';
 import type { RowAction } from './ResponsiveList/RowAction';
 
@@ -32,17 +31,15 @@ interface ResponsiveDialogProps {
    * onClose. */
   onClose: (() => void) | undefined;
   title: ReactNode;
-  /** Second line in the full-screen header only - the centered laptop DialogTitle has no room for
-   * it and none of today's dialogs show one there either. */
+  /** Second line in the full-screen header. */
   subtitle?: ReactNode;
   /** The dialog's own footer content (Abbrechen/Speichern, FormErrorNotice...) - kept as a prop
    * rather than owned here since disabled/busy state differs per dialog. */
   actions: ReactNode;
-  /** Rendered as a labelled "Weitere Aktionen" section at the end of the form, full-screen only -
-   * matches the mockup's edit sheet, and reuses the exact RowAction[] each list view already
-   * builds for its long-press sheet (see ResponsiveList/RowAction.ts) rather than a second copy of
-   * the same actions. Omitted at laptop, where the centered dialog keeps its existing separate
-   * hover-icon affordance for these. */
+  /** Rendered as a labelled "Weitere Aktionen" section at the end of the form - matches the
+   * mockup's edit sheet, and reuses the exact RowAction[] each list view already builds for its
+   * long-press sheet (see ResponsiveList/RowAction.ts) rather than a second copy of the same
+   * actions. */
   secondaryActions?: RowAction[];
   children: ReactNode;
   maxWidth?: DialogProps['maxWidth'];
@@ -51,11 +48,10 @@ interface ResponsiveDialogProps {
 }
 
 /**
- * Shared shell so every data-entry dialog becomes a full-screen sheet below the laptop breakpoint
- * (MUI's documented `fullScreen` + slide-up `TransitionComponent` recipe) and stays today's
- * centered dialog at laptop - zero behavior change there. Only the close affordance differs per
- * mode (a top-left X `IconButton` full-screen vs. the dialog's own "Abbrechen" button, which every
- * caller already renders in `actions`); `onClose`, validation, and `busy` behavior are untouched.
+ * Shared shell so every data-entry dialog is a full-screen sheet (MUI's documented `fullScreen` +
+ * slide-up `TransitionComponent` recipe). The close affordance is a top-left X `IconButton`; every
+ * caller also renders its own "Abbrechen" button in `actions`. `onClose`, validation, and `busy`
+ * behavior are untouched.
  */
 export function ResponsiveDialog({
   open,
@@ -69,8 +65,7 @@ export function ResponsiveDialog({
   dividers,
   contentRef,
 }: ResponsiveDialogProps) {
-  const layout = useBreakpoint();
-  const fullScreen = layout !== 'laptop';
+  const fullScreen = true;
   useDismissOnBack(open && fullScreen, () => onClose?.());
   // MUI's Dialog normally learns its aria-labelledby from a child DialogTitle via context; the
   // full-screen branch below doesn't render one, so that wiring is done by hand here instead -
@@ -172,24 +167,26 @@ export function ResponsiveDialog({
         )}
       </DialogContent>
 
-      <DialogActions
-        sx={
-          fullScreen
-            ? {
-                position: 'sticky',
-                bottom: 0,
-                bgcolor: 'background.paper',
-                borderTop: '1px solid',
-                borderColor: 'divider',
-                px: 2,
-                py: 1.5,
-                flexShrink: 0,
-              }
-            : { px: 3, pb: 2 }
-        }
-      >
-        {actions}
-      </DialogActions>
+      {actions && (
+        <DialogActions
+          sx={
+            fullScreen
+              ? {
+                  position: 'sticky',
+                  bottom: 0,
+                  bgcolor: 'background.paper',
+                  borderTop: '1px solid',
+                  borderColor: 'divider',
+                  px: 2,
+                  py: 1.5,
+                  flexShrink: 0,
+                }
+              : { px: 3, pb: 2 }
+          }
+        >
+          {actions}
+        </DialogActions>
+      )}
     </Dialog>
   );
 }

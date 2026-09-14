@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { DragEvent, MouseEvent, ReactNode } from 'react';
+import type { MouseEvent, ReactNode } from 'react';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import Stack from '@mui/material/Stack';
@@ -21,7 +21,7 @@ import PrintOutlinedIcon from '@mui/icons-material/PrintOutlined';
 import ChecklistOutlinedIcon from '@mui/icons-material/ChecklistOutlined';
 import type { ShiftTemplate } from '@domain/schedule/ShiftTemplate';
 import type { ScheduleTool } from '../scheduleTools';
-import { OFF_TOOL, TOOL_MIME, toolKey, toolLabel, toolSummary } from '../scheduleTools';
+import { OFF_TOOL, toolKey, toolLabel, toolSummary } from '../scheduleTools';
 import { useBreakpoint } from '@ui/hooks/useBreakpoint';
 import { useDismissOnBack } from '@ui/hooks/useDismissOnBack';
 
@@ -29,18 +29,9 @@ interface ScheduleToolbarProps {
   templates: ShiftTemplate[];
   activeTool: ScheduleTool | null;
   onSelect: (tool: ScheduleTool) => void;
-  /** Hands the dragged tool to the parent (which holds it in a ref) and clears it again on drop or
-   * abort - dataTransfer cannot carry it, since its data is unreadable while dragging over a cell.
-   * Only ever called at the laptop breakpoint - see the `draggable` gate on the tile itself. */
-  onDragTool: (tool: ScheduleTool | null) => void;
   onCreate: () => void;
   onEdit: (template: ShiftTemplate) => void;
   onDelete: (template: ShiftTemplate) => void;
-  /** True below the laptop breakpoint (ScheduleView derives this once from useBreakpoint() and
-   * passes it down, instead of this component deriving its own copy). Gates only the tile's
-   * `draggable`/drag handlers - a mouse-only fast path that only makes sense at laptop width -
-   * never the assign-mode banner below, which shows at every breakpoint. */
-  touchMode: boolean;
   /** True once a tile tap/click has armed tap-to-assign (see ScheduleView.selectTool) - at every
    * breakpoint, laptop included, so this is what actually gates whether the banner below shows. */
   assignModeActive: boolean;
@@ -85,26 +76,18 @@ interface ScheduleToolbarProps {
 /**
  * The tool palette above the weekly grid. Every tile tap arms tap-to-assign at every breakpoint
  * (ScheduleView sets assignModeActive) - a click/Enter on a tile followed by a click/Enter on a
- * cell applies the tool, keyboard-operable with no drag gesture required. At the laptop breakpoint
- * a tile is additionally draggable as a faster mouse-only path (see `touchMode`/`draggable` below);
- * the "Zuweisen-Modus" banner shows alongside the tile row there too while assigning, matching
- * PEP Responsive.dc.html's Handy "Vorlagen-Sheet, Zuweisen-Modus" screen at every width instead of
- * only below laptop.
+ * cell applies the tool. Tap-to-assign is the only interaction mode; there is no drag gesture.
  *
- * Chrome differs only at the narrowest class: both tablet widths and laptop keep the same
- * horizontal row (compare the mockup's 4c/4d tablet renders, which never collapse it). Only mobile
- * collapses the row into a "Vorlagen & Werkzeuge" bar that opens a bottom sheet - the mockup does
- * this only for the 390px Handy class, never for tablet.
+ * Chrome differs only at the narrowest class: tablet keeps a horizontal row. Only mobile collapses
+ * the row into a "Vorlagen & Werkzeuge" bar that opens a bottom sheet.
  */
 export function ScheduleToolbar({
   templates,
   activeTool,
   onSelect,
-  onDragTool,
   onCreate,
   onEdit,
   onDelete,
-  touchMode,
   assignModeActive,
   onFinishAssigning,
   selectionModeActive,
@@ -187,21 +170,8 @@ export function ScheduleToolbar({
         <Box
           component="button"
           type="button"
-          draggable={!touchMode}
           aria-pressed={isActive}
           onClick={() => selectTool(tool)}
-          onDragStart={
-            touchMode
-              ? undefined
-              : (e: DragEvent) => {
-                  // Firefox refuses to start a drag without setData. The value is only a marker:
-                  // the real payload goes to the parent via onDragTool.
-                  e.dataTransfer.setData(TOOL_MIME, key);
-                  e.dataTransfer.effectAllowed = 'copy';
-                  onDragTool(tool);
-                }
-          }
-          onDragEnd={touchMode ? undefined : () => onDragTool(null)}
           sx={{
             display: 'flex',
             flex: vertical ? 1 : undefined,
@@ -210,14 +180,14 @@ export function ScheduleToolbar({
             justifyContent: 'space-between',
             gap: 1,
             textAlign: 'left',
-            cursor: touchMode ? 'pointer' : 'grab',
+            cursor: 'pointer',
             border: 'none',
             background: 'transparent',
             font: 'inherit',
             color: 'inherit',
             px: 1.5,
             py: 0.75,
-            minHeight: touchMode ? 44 : undefined,
+            minHeight: 44,
             borderRadius: vertical ? 2 : 1.5,
             // Otherwise the browser drags the label text instead of the tile.
             userSelect: 'none',
@@ -384,11 +354,9 @@ export function ScheduleToolbar({
   );
 
   if (!collapsible) {
-    // Laptop and both tablet widths (same chrome, tap-to-assign works the same everywhere, laptop
-    // additionally supports drag) share this branch. All three keep the tile row visible even while
-    // assigning - unlike mobile's collapsed sheet below, there is no other way to reach a different
-    // tile there, so hiding the row would mean "Fertig" is the only way to switch tools
-    // mid-assignment.
+    // Tablet keeps the tile row visible even while assigning - unlike mobile's collapsed sheet
+    // below, there is no other way to reach a different tile there, so hiding the row would mean
+    // "Fertig" is the only way to switch tools mid-assignment.
     return (
       <>
         <Paper
@@ -416,9 +384,7 @@ export function ScheduleToolbar({
             {selectionToggleButton}
             {templates.length === 0 && (
               <Typography variant="caption" color="text.secondary" sx={{ flexShrink: 0, pl: 1 }}>
-                {touchMode
-                  ? 'Eigene Schichten anlegen, dann auf einen Tag tippen.'
-                  : 'Eigene Schichten anlegen, dann auf einen Tag ziehen.'}
+                Eigene Schichten anlegen, dann auf einen Tag tippen.
               </Typography>
             )}
           </Stack>

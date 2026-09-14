@@ -118,10 +118,8 @@ export function ScheduleView() {
   // pastes, what a dropped tile writes, and what a clicked/tapped cell writes once assignModeActive
   // is armed.
   const [activeTool, setActiveTool] = useState<ScheduleTool | null>(null);
-  // Armed by selectTool below whenever a toolbar tile is clicked/tapped, at every breakpoint. Native
-  // HTML5 drag-and-drop stays an additional, mouse-only fast path at the laptop breakpoint (see
-  // touchMode below) - this is the sole gate between "click opens DayEditor" and "click writes
-  // activeTool", for both the mouse and touch/keyboard paths alike.
+  // Armed by selectTool below whenever a toolbar tile is clicked/tapped - this is the sole gate
+  // between "click opens DayEditor" and "click writes activeTool".
   const [assignModeActive, setAssignModeActive] = useState(false);
   // Mutually exclusive with tap-to-assign above (see toggleSelectionMode) - while active, a toolbar
   // tile click applies to every cell in selectedCells instead of arming assignModeActive. Keyed to
@@ -130,7 +128,6 @@ export function ScheduleView() {
   const [selectionModeActive, setSelectionModeActive] = useState(false);
   const [selectedCells, setSelectedCells] = useState<Set<string>>(new Set());
   const layout = useBreakpoint();
-  const touchMode = layout !== 'laptop';
   // AppShell's Container becomes a bounded, non-scrolling flex column - see PageActionsContext's
   // doc comment on fullBleedPage. Every page calls this; ScheduleTable is the region below that
   // fills the bounded space and scrolls internally.
@@ -139,10 +136,6 @@ export function ScheduleView() {
   const [templateDialog, setTemplateDialog] = useState<
     { template: ShiftTemplate | null; drafts?: ShiftDraft[] } | null
   >(null);
-  // The dragged tool travels in a ref, not in dataTransfer: getData() is blanked during dragover,
-  // and a ref keeps the real Shift objects instead of an id that would have to be resolved again.
-  // dataTransfer only carries a marker type so foreign drags (files, text) can be told apart.
-  const draggedToolRef = useRef<ScheduleTool | null>(null);
   const [templateDeleteTarget, setTemplateDeleteTarget] = useState<ShiftTemplate | null>(null);
   const [templateDeleting, setTemplateDeleting] = useState(false);
   const [weekSelectionOpen, setWeekSelectionOpen] = useState(false);
@@ -452,19 +445,8 @@ export function ScheduleView() {
     [setEntryInCell, writeAbsenceToCell],
   );
 
-  const toolDrop = useCallback(
-    (employeeId: EmployeeId, dayView: DayView) => {
-      const tool = draggedToolRef.current;
-      draggedToolRef.current = null;
-      if (!tool) return;
-      applyTool(tool, employeeId, dayView);
-    },
-    [applyTool],
-  );
-
-  // ScheduleToolbar's onSelect at every breakpoint - a tile click/tap arms the tool AND starts
-  // tap-to-assign, so a subsequent click/Enter on a cell applies it without requiring a drag
-  // gesture (drag remains an additional, faster mouse-only path at the laptop breakpoint).
+  // ScheduleToolbar's onSelect - a tile click/tap arms the tool AND starts tap-to-assign, so a
+  // subsequent click/Enter on a cell applies it.
   const selectTool = useCallback((tool: ScheduleTool) => {
     setActiveTool(tool);
     setAssignModeActive(true);
@@ -478,12 +460,11 @@ export function ScheduleView() {
   // Switching branches must drop out of tap-to-assign entirely: without resetting on branch.id, a
   // template armed under one branch would silently get written into a different branch's cells the
   // moment assign mode is still active when the user switches - toolToDayEntry never checks
-  // template.branchId. Deliberately NOT keyed on touchMode/layout: assignModeActive now applies at
-  // every breakpoint (see selectTool above), so a tool armed at one width must keep surviving a
-  // window resize (widening/maximizing, undocking a tablet past the laptop breakpoint) instead of
-  // silently dropping the user's selection. activeTool deliberately keeps surviving WEEK navigation
-  // (selectedWeek is not a dependency here) - that persistence is a separate, existing, intentional
-  // design (see the clipboard/toolbar comment above).
+  // template.branchId. Deliberately NOT keyed on layout: a tool armed at one width must keep
+  // surviving a window resize instead of silently dropping the user's selection. activeTool
+  // deliberately keeps surviving WEEK navigation (selectedWeek is not a dependency here) - that
+  // persistence is a separate, existing, intentional design (see the clipboard/toolbar comment
+  // above).
   useEffect(() => {
     finishAssigning();
   }, [branch?.id, finishAssigning]);
@@ -697,11 +678,9 @@ export function ScheduleView() {
   // AppShell's fullBleedPage Container hands every view a bounded, zero-padding region between
   // the header and whatever fixed chrome sits below it (see PageActionsContext/AppShell) - to fill
   // it, this becomes a flex column itself, with its own px/py taking over the padding AppShell's
-  // Container no longer supplies. Applies at every breakpoint now, not just touchMode (which stays
-  // reserved for the separate tap-vs-drag interaction question below). Mobile omits pb
-  // deliberately: the "Weitere Aktionen" bar sits flush against the fixed bottom tab bar (see its
-  // own mx:-1.5 trick), whereas tablet/laptop have no such fixed bottom chrome to sit flush
-  // against, so they keep a normal symmetric bottom padding instead.
+  // Container no longer supplies. Mobile omits pb deliberately: the "Weitere Aktionen" bar sits
+  // flush against the fixed bottom tab bar (see its own mx:-1.5 trick), whereas tablet has no such
+  // fixed bottom chrome to sit flush against, so it keeps a normal symmetric bottom padding instead.
   return (
     <Box
       sx={{
@@ -743,42 +722,6 @@ export function ScheduleView() {
             {formatCalendarWeekRange(selectedWeek)}
           </Typography>
         </Box>
-
-        {/* Laptop only: the mockup folds the KPI figures directly into this header row instead of
-            a separate card grid below it (see the KPI section further down, which renders nothing
-            at this breakpoint). Mobile/tablet keep a dedicated KPI strip since there is no room
-            for it here at those widths. */}
-        {layout === 'laptop' && (
-          <Stack direction="row" gap={1} alignItems="center">
-            <Box sx={{ border: '1px solid #e0e0dc', borderRadius: 1, px: 1.5, py: 0.75 }}>
-              <Typography variant="body2">
-                Ist {formatHoursGerman(totalWorkedMinutes)} /{' '}
-                {formatHoursRangeGerman(totalTarget.min, totalTarget.max)} Soll ·{' '}
-                {absencesLoading ? '–' : notYetScheduledCount.toLocaleString('de-DE')} noch nicht eingeplant
-              </Typography>
-            </Box>
-            <ValidationNotices
-              results={validationResults}
-              employeeList={employeeList}
-              renderTrigger={({ errorCount, warningCount, onClick, expanded }) => (
-                <Button
-                  size="small"
-                  onClick={onClick}
-                  aria-expanded={expanded}
-                  aria-haspopup="dialog"
-                  sx={{
-                    backgroundColor: '#fbeaea',
-                    border: '1px solid #e5a3a0',
-                    color: '#b3261e',
-                    '&:hover': { backgroundColor: '#f7dcdb' },
-                  }}
-                >
-                  {errorCount} Fehler, {warningCount} Warnung(en)
-                </Button>
-              )}
-            />
-          </Stack>
-        )}
 
         <Stack direction="row" gap={1} alignItems="center">
           <Tooltip title="Rückgängig (Strg+Z)">
@@ -855,10 +798,6 @@ export function ScheduleView() {
         )}
 
         {(() => {
-          // Laptop folds these figures into the header row instead (see above) - nothing to render
-          // here at that breakpoint.
-          if (layout === 'laptop') return null;
-
           const notYetScheduledText = absencesLoading ? '–' : notYetScheduledCount.toLocaleString('de-DE');
           const chipSx = {
             flexShrink: 0,
@@ -962,13 +901,9 @@ export function ScheduleView() {
             templates={templates}
             activeTool={activeTool}
             onSelect={selectTool}
-            onDragTool={(tool) => {
-              draggedToolRef.current = tool;
-            }}
             onCreate={() => setTemplateDialog({ template: null })}
             onEdit={(template) => setTemplateDialog({ template })}
             onDelete={setTemplateDeleteTarget}
-            touchMode={touchMode}
             assignModeActive={assignModeActive}
             onFinishAssigning={finishAssigning}
             selectionModeActive={selectionModeActive}
@@ -992,14 +927,12 @@ export function ScheduleView() {
                 weekDays={weekDays}
                 validationResults={validationResults}
                 onCellClick={cellClick}
-                onToolDrop={toolDrop}
                 assignMode={assignModeActive}
                 onToolTap={toolTap}
                 isAssignTarget={isAssignTarget}
                 selectionMode={selectionModeActive}
                 selectedCells={selectedCells}
                 onToggleCellSelection={toggleCellSelection}
-                touchMode={touchMode}
               />
             )}
 
@@ -1011,7 +944,7 @@ export function ScheduleView() {
 
         // Mobile: the toolbar bar must be the LAST flex child so it lands directly above the fixed
         // bottom tab bar (see Aufgabe 2) - the grid comes first and takes the remaining flex:1
-        // space above it. Tablet/laptop keep today's order (toolbar above the grid) unchanged.
+        // space above it. Tablet keeps today's order (toolbar above the grid) unchanged.
         return layout === 'mobile' ? (
           <>
             {tableSection}

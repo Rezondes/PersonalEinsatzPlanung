@@ -8,7 +8,6 @@ import { useDocumentTitle } from '@ui/hooks/useDocumentTitle';
 import { AppHeader } from './AppHeader';
 import { titleForPath } from './routeMeta';
 import { PageActionsProvider, usePageActionsValue } from './PageActionsContext';
-import { LaptopNav } from './nav/LaptopNav';
 import { NavRail } from './nav/NavRail';
 import { BottomTabBar } from './nav/BottomTabBar';
 import { MobileFab } from './nav/MobileFab';
@@ -40,9 +39,9 @@ function AppShellLayout() {
   // The header's toolbar wraps at narrow widths, so its height is not a constant. Publishing it as
   // a CSS custom property lets a sticky element below it (the Wochenplanung toolbar) dock exactly
   // underneath without hardcoding 64px. Written straight to the DOM, deliberately not via state:
-  // a resize must not re-render the whole shell. AppHeader is mounted at every breakpoint (its
-  // `nav` slot varies; navigation itself moves to BottomTabBar/NavRail where applicable), so the
-  // observed element never disappears and this needs no per-layout branch.
+  // a resize must not re-render the whole shell. AppHeader is mounted at every breakpoint (navigation
+  // itself moves to BottomTabBar/NavRail), so the observed element never disappears and this needs
+  // no per-layout branch.
   useLayoutEffect(() => {
     const root = rootRef.current;
     const header = headerRef.current;
@@ -58,11 +57,8 @@ function AppShellLayout() {
     return () => observer.disconnect();
   }, []);
 
-  // Mobile -> bottom tab bar; tablet (portrait AND landscape) -> the sidebar rail; only once
-  // there's room for a full horizontal row (laptop) does navigation move into the top bar. Not
-  // three separate nav chromes in sequence - the rail covers both tablet widths.
-  const showRail = layout === 'tabletPortrait' || layout === 'tabletLandscape';
-  const nav = layout === 'laptop' ? <LaptopNav /> : undefined;
+  // Mobile -> bottom tab bar; tablet -> the sidebar rail. Just two nav chromes now.
+  const showRail = layout === 'tablet';
 
   // A view can opt into a zero-padding, bounded flex-column instead of the normal
   // padded/page-scrolling Container - see PageActionsContext's doc comment on fullBleedPage for
@@ -93,7 +89,7 @@ function AppShellLayout() {
       {showRail && <NavRail />}
 
       <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-        <AppHeader headerRef={headerRef} nav={nav} />
+        <AppHeader headerRef={headerRef} />
 
         <Container
           maxWidth={fullBleed ? false : 'xl'}

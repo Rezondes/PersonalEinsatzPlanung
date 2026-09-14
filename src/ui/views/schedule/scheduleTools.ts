@@ -5,11 +5,6 @@ import type { ShiftTemplate } from '@domain/schedule/ShiftTemplate';
 import type { Absence } from '@domain/absence/Absence';
 import { formatHoursGerman, shiftNetMinutes } from '@domain/schedule/scheduleCalculation';
 
-/** Marker type on the drag payload. During dragover the browser hides the DATA of a drag but not
- * its types, so this is the only thing a drop target can check to tell one of our tools apart from
- * a file or some text dragged in from outside the app. Must stay lowercase - setData lowercases it. */
-export const TOOL_MIME = 'application/x-pep-tool';
-
 /**
  * Something the user can apply to a day: the fixed "Frei" tile, whatever was last copied, or one of
  * their own saved shift templates. One type for all three, so the toolbar, the clipboard and the
