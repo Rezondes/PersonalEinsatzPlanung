@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
@@ -25,6 +26,7 @@ import StoreOutlinedIcon from '@mui/icons-material/StoreOutlined';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import SearchOutlinedIcon from '@mui/icons-material/SearchOutlined';
+import type { TFunction } from 'i18next';
 import type { Branch } from '@domain/branch/Branch';
 import { services } from '@infrastructure/services';
 import { useBranchList } from '@ui/hooks/useBranch';
@@ -60,13 +62,19 @@ const COMPARATORS: Record<SortKey, (a: Branch, b: Branch) => number> = {
   status: (a, b) => Number(a.active) - Number(b.active) || compareText(a.name, b.name),
 };
 
-function getRowActions(branch: Branch, onEdit: (b: Branch) => void, onToggle: (b: Branch) => void): RowAction[] {
+function getRowActions(
+  branch: Branch,
+  onEdit: (b: Branch) => void,
+  onToggle: (b: Branch) => void,
+  t: TFunction<'masterdata'>,
+  tCommon: TFunction,
+): RowAction[] {
   return [
-    { key: 'edit', label: 'Bearbeiten', icon: EditOutlinedIcon, onSelect: () => onEdit(branch) },
+    { key: 'edit', label: tCommon('edit'), icon: EditOutlinedIcon, onSelect: () => onEdit(branch) },
     {
       key: 'toggle',
-      label: branch.active ? 'Deaktivieren' : 'Aktivieren',
-      hint: branch.active ? 'Bleibt in Wochenplänen und Abwesenheiten sichtbar' : undefined,
+      label: branch.active ? tCommon('deactivate') : tCommon('activate'),
+      hint: branch.active ? t('branch.deactivateHint') : undefined,
       icon: branch.active ? ToggleOnOutlinedIcon : ToggleOffOutlinedIcon,
       dangerous: branch.active,
       onSelect: () => onToggle(branch),
@@ -81,6 +89,7 @@ function getRowActions(branch: Branch, onEdit: (b: Branch) => void, onToggle: (b
  * ScheduleToolbar's assign banner. Without it, deactivating/reactivating a card was reachable only
  * via a timed long-press gesture, which has no keyboard equivalent. */
 function BranchCard({ branch, onTap, onLongPress }: { branch: Branch; onTap: () => void; onLongPress: () => void }) {
+  const { t } = useTranslation();
   const handlers = useLongPress({ onTap, onLongPress });
   return (
     <Box
@@ -123,10 +132,10 @@ function BranchCard({ branch, onTap, onLongPress }: { branch: Branch; onTap: () 
             {branch.address.city || '-'} · {branch.federalState}
           </Typography>
         </Box>
-        <Chip size="small" label={branch.active ? 'Aktiv' : 'Inaktiv'} color={branch.active ? 'success' : 'default'} sx={{ flexShrink: 0 }} />
+        <Chip size="small" label={branch.active ? t('active') : t('inactive')} color={branch.active ? 'success' : 'default'} sx={{ flexShrink: 0 }} />
         <ChevronRightIcon sx={{ color: 'rgba(0,0,0,0.38)', flexShrink: 0 }} />
       </ButtonBase>
-      <IconButton onClick={onLongPress} aria-label={`Weitere Aktionen für ${branch.name}`} sx={{ flexShrink: 0 }}>
+      <IconButton onClick={onLongPress} aria-label={t('otherActionsFor', { name: branch.name })} sx={{ flexShrink: 0 }}>
         <MoreVertIcon />
       </IconButton>
     </Box>
@@ -134,6 +143,8 @@ function BranchCard({ branch, onTap, onLongPress }: { branch: Branch; onTap: () 
 }
 
 export function BranchMasterDataView() {
+  const { t } = useTranslation('masterdata');
+  const { t: tCommon } = useTranslation();
   const layout = useBreakpoint();
   const { branches, loading, reload } = useBranchList();
   // null = closed; { branch: null } = "Neue Filiale"; { branch } = edit. Mounted only while open.
@@ -144,14 +155,14 @@ export function BranchMasterDataView() {
     cancel: cancelStatusChange,
     confirm: changeStatus,
     busy: statusChangeBusy,
-  } = useActivationToggle(services.branch, reload, 'Filiale');
+  } = useActivationToggle(services.branch, reload, t('branch.entityLabel'));
   const [sheetBranch, setSheetBranch] = useState<Branch | null>(null);
   const [search, setSearch] = useState('');
   const { headProps, sortRows } = useTableSort<SortKey>('name');
 
   usePageActions({
     fullBleedPage: true,
-    fab: { label: 'Neue Filiale', icon: AddIcon, onClick: () => setDialog({ branch: null }) },
+    fab: { label: t('branch.newButton'), icon: AddIcon, onClick: () => setDialog({ branch: null }) },
   });
 
   const visibleBranches = useMemo(() => {
@@ -184,18 +195,18 @@ export function BranchMasterDataView() {
           onClick={() => setDialog({ branch: null })}
           sx={{ display: { xs: 'none', sm: 'inline-flex' } }}
         >
-          Neue Filiale
+          {t('branch.newButton')}
         </Button>
       </Stack>
 
       <Paper sx={{ p: 2, mb: 2 }}>
         <TextField
           size="small"
-          placeholder="Name, Nummer oder Ort"
+          placeholder={t('branch.searchPlaceholder')}
           // A top-level aria-label prop lands on TextField's outer wrapper, not the native input
           // getByLabelText/screen readers need - inputProps forwards down to that inner element
           // (same fix as AppHeader.tsx's Filiale Select, see its comment there).
-          inputProps={{ 'aria-label': 'Filiale suchen' }}
+          inputProps={{ 'aria-label': t('branch.searchAriaLabel') }}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           sx={{ width: 260 }}
@@ -213,7 +224,7 @@ export function BranchMasterDataView() {
         <ResponsiveDataList
           rows={visibleBranches}
           getKey={(b) => b.id}
-          emptyMessage={branches.length === 0 ? 'Noch keine Filiale angelegt.' : 'Keine Filiale passt zur Suche.'}
+          emptyMessage={branches.length === 0 ? t('branch.emptyNone') : t('branch.emptyNoMatch')}
           renderCard={(b) => (
             <BranchCard branch={b} onTap={() => setDialog({ branch: b })} onLongPress={() => setSheetBranch(b)} />
           )}
@@ -223,16 +234,16 @@ export function BranchMasterDataView() {
               <TableHead>
                 <TableRow>
                   <TableCell sx={stickyCornerSx()}>
-                    <TableSortLabel {...headProps('name')}>Filiale</TableSortLabel>
+                    <TableSortLabel {...headProps('name')}>{t('branch.entityLabel')}</TableSortLabel>
                   </TableCell>
                   <TableCell sx={stickyHeaderRowSx()}>
-                    <TableSortLabel {...headProps('city')}>Ort</TableSortLabel>
+                    <TableSortLabel {...headProps('city')}>{t('branch.columnCity')}</TableSortLabel>
                   </TableCell>
                   <TableCell sx={stickyHeaderRowSx()}>
-                    <TableSortLabel {...headProps('status')}>Status</TableSortLabel>
+                    <TableSortLabel {...headProps('status')}>{t('branch.columnStatus')}</TableSortLabel>
                   </TableCell>
                   <TableCell align="right" sx={stickyHeaderRowSx()}>
-                    Aktionen
+                    {t('branch.columnActions')}
                   </TableCell>
                 </TableRow>
               </TableHead>
@@ -241,7 +252,7 @@ export function BranchMasterDataView() {
                   <TableRow>
                     <TableCell colSpan={COLUMN_COUNT}>
                       <Typography color="text.secondary" sx={{ py: 2 }}>
-                        Noch keine Filiale angelegt.
+                        {t('branch.emptyNone')}
                       </Typography>
                     </TableCell>
                   </TableRow>
@@ -250,7 +261,7 @@ export function BranchMasterDataView() {
                   <TableRow>
                     <TableCell colSpan={COLUMN_COUNT}>
                       <Typography color="text.secondary" sx={{ py: 2 }}>
-                        Keine Filiale passt zur Suche.
+                        {t('branch.emptyNoMatch')}
                       </Typography>
                     </TableCell>
                   </TableRow>
@@ -271,7 +282,7 @@ export function BranchMasterDataView() {
                       </TableCell>
                       <TableCell>{b.address.city || '-'}</TableCell>
                       <TableCell>
-                        <Chip size="small" label={b.active ? 'Aktiv' : 'Inaktiv'} color={b.active ? 'success' : 'default'} />
+                        <Chip size="small" label={b.active ? tCommon('active') : tCommon('inactive')} color={b.active ? 'success' : 'default'} />
                       </TableCell>
                       <TableCell align="right">
                         <IconButton
@@ -279,7 +290,7 @@ export function BranchMasterDataView() {
                             e.stopPropagation();
                             setSheetBranch(b);
                           }}
-                          aria-label={`Weitere Aktionen für ${b.name}`}
+                          aria-label={tCommon('otherActionsFor', { name: b.name })}
                         >
                           <MoreVertIcon />
                         </IconButton>
@@ -301,7 +312,9 @@ export function BranchMasterDataView() {
           onError={notify.report}
           secondaryActions={
             dialog.branch
-              ? getRowActions(dialog.branch, (b) => setDialog({ branch: b }), (b) => requestStatusChange(b)).filter((a) => a.key !== 'edit')
+              ? getRowActions(dialog.branch, (b) => setDialog({ branch: b }), (b) => requestStatusChange(b), t, tCommon).filter(
+                  (a) => a.key !== 'edit',
+                )
               : undefined
           }
         />
@@ -309,13 +322,9 @@ export function BranchMasterDataView() {
 
       <ConfirmDialog
         open={!!statusTarget}
-        title={statusTarget?.active ? 'Filiale deaktivieren?' : 'Filiale aktivieren?'}
-        text={
-          statusTarget?.active
-            ? `${statusTarget?.name} wird als inaktiv markiert und verschwindet aus der Filial-Auswahl. Mitarbeiter, Wochenpläne und Abwesenheiten bleiben vollständig erhalten und die Filiale kann jederzeit wieder aktiviert werden.`
-            : `${statusTarget?.name} wird wieder als aktiv markiert und erscheint wieder in der Filial-Auswahl.`
-        }
-        confirmText={statusTarget?.active ? 'Deaktivieren' : 'Aktivieren'}
+        title={statusTarget?.active ? t('branch.deactivateTitle') : t('branch.activateTitle')}
+        text={t(statusTarget?.active ? 'branch.deactivateText' : 'branch.activateText', { name: statusTarget?.name ?? '' })}
+        confirmText={statusTarget?.active ? tCommon('deactivate') : tCommon('activate')}
         dangerous={!!statusTarget?.active}
         busy={statusChangeBusy}
         onConfirm={changeStatus}
@@ -327,7 +336,7 @@ export function BranchMasterDataView() {
         onClose={() => setSheetBranch(null)}
         title={sheetBranch ? `${sheetBranch.branchNumber} ${sheetBranch.name}` : ''}
         subtitle={sheetBranch ? `${sheetBranch.address.city || '-'} · ${sheetBranch.federalState}` : undefined}
-        actions={sheetBranch ? getRowActions(sheetBranch, (b) => setDialog({ branch: b }), (b) => requestStatusChange(b)) : []}
+        actions={sheetBranch ? getRowActions(sheetBranch, (b) => setDialog({ branch: b }), (b) => requestStatusChange(b), t, tCommon) : []}
       />
     </Box>
   );

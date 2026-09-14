@@ -8,8 +8,18 @@ const common = {
   cancel: 'Abbrechen',
   close: 'Schließen',
   delete: 'Löschen',
+  save: 'Speichern',
+  edit: 'Bearbeiten',
+  activate: 'Aktivieren',
+  deactivate: 'Deaktivieren',
+  active: 'Aktiv',
+  inactive: 'Inaktiv',
+  activatedNotice: '{{entityLabel}} wurde aktiviert.',
+  deactivatedNotice: '{{entityLabel}} wurde deaktiviert.',
+  statusChangeError: 'Status konnte nicht geändert werden',
   formErrorNotice: 'Bitte die rot markierten Felder prüfen.',
   secondaryActions: 'Weitere Aktionen',
+  otherActionsFor: 'Weitere Aktionen für {{name}}',
 } as const;
 
 export default common;

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { notify } from '@ui/app/store/notificationStore';
 
 interface Activatable {
@@ -23,6 +24,7 @@ export function useActivationToggle<T extends Activatable>(
   reload: () => Promise<void>,
   entityLabel: string,
 ) {
+  const { t } = useTranslation();
   const [target, setTarget] = useState<T | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -33,9 +35,9 @@ export function useActivationToggle<T extends Activatable>(
     try {
       await service.changeActiveStatus(target, activating);
       await reload();
-      notify.success(`${entityLabel} wurde ${activating ? 'aktiviert' : 'deaktiviert'}.`);
+      notify.success(t(activating ? 'activatedNotice' : 'deactivatedNotice', { entityLabel }));
     } catch (e) {
-      notify.report(e, 'Status konnte nicht geändert werden');
+      notify.report(e, t('statusChangeError'));
     } finally {
       setBusy(false);
       setTarget(null);

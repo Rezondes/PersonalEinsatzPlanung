@@ -7,6 +7,7 @@ import type changelog from './resources/de/changelog';
 import type privacy from './resources/de/privacy';
 import type terms from './resources/de/terms';
 import type settings from './resources/de/settings';
+import type masterdata from './resources/de/masterdata';
 
 // Augments i18next's own CustomTypeOptions (react-i18next reuses this same interface, so this is
 // the module that must be augmented). Keyed off the real resource objects, so a typo like
@@ -23,6 +24,7 @@ declare module 'i18next' {
       privacy: typeof privacy;
       terms: typeof terms;
       settings: typeof settings;
+      masterdata: typeof masterdata;
     };
   }
 }

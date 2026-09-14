@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import Button from '@mui/material/Button';
 import TextField from '@mui/material/TextField';
 import MenuItem from '@mui/material/MenuItem';
@@ -114,6 +115,8 @@ interface EmployeeDialogProps {
  * conditionally), so form state and the "already tried to save" flag start fresh every time.
  * Field rules come from validateEmployee in the domain; see useFormValidation for the UX. */
 export function EmployeeDialog({ branchId, employee, onClose, onSaved, onError, secondaryActions }: EmployeeDialogProps) {
+  const { t } = useTranslation('masterdata');
+  const { t: tCommon } = useTranslation();
   const [form, setForm] = useState<FormState>(() => (employee ? formFromEmployee(employee) : emptyForm()));
   const [saving, setSaving] = useState(false);
   const validation = useFormValidation<EmployeeField>(() =>
@@ -158,7 +161,7 @@ export function EmployeeDialog({ branchId, employee, onClose, onSaved, onError, 
       onClose();
       await onSaved();
     } catch (e) {
-      onError(e, 'Mitarbeiter konnte nicht gespeichert werden');
+      onError(e, t('employee.dialog.saveError'));
     } finally {
       setSaving(false);
     }
@@ -168,15 +171,15 @@ export function EmployeeDialog({ branchId, employee, onClose, onSaved, onError, 
     <ResponsiveDialog
       open
       onClose={saving ? undefined : onClose}
-      title={employee ? 'Mitarbeiter bearbeiten' : 'Neuer Mitarbeiter'}
-      subtitle={employee ? 'Stammdaten, Vertrag, Urlaub' : undefined}
+      title={employee ? t('employee.dialog.titleEdit') : t('employee.newButton')}
+      subtitle={employee ? t('employee.dialog.subtitleEdit') : undefined}
       contentRef={validation.containerRef}
       secondaryActions={secondaryActions}
       actions={
         <>
           <FormErrorNotice errors={validation.errors} />
           <Button onClick={onClose} disabled={saving}>
-            Abbrechen
+            {tCommon('cancel')}
           </Button>
           <Button
             variant="contained"
@@ -184,7 +187,7 @@ export function EmployeeDialog({ branchId, employee, onClose, onSaved, onError, 
             disabled={saving}
             startIcon={saving ? <CircularProgress size={16} color="inherit" /> : undefined}
           >
-            Speichern
+            {tCommon('save')}
           </Button>
         </>
       }
@@ -193,7 +196,7 @@ export function EmployeeDialog({ branchId, employee, onClose, onSaved, onError, 
         <Stack spacing={2} sx={{ mt: 1 }}>
           <Stack direction="row" spacing={2}>
             <TextField
-              label="Vorname"
+              label={t('employee.dialog.firstNameLabel')}
               required
               value={form.firstName}
               onChange={(e) => setForm((f) => ({ ...f, firstName: e.target.value }))}
@@ -201,7 +204,7 @@ export function EmployeeDialog({ branchId, employee, onClose, onSaved, onError, 
               {...validation.fieldProps('firstName')}
             />
             <TextField
-              label="Nachname"
+              label={t('employee.dialog.lastNameLabel')}
               required
               value={form.lastName}
               onChange={(e) => setForm((f) => ({ ...f, lastName: e.target.value }))}
@@ -215,18 +218,20 @@ export function EmployeeDialog({ branchId, employee, onClose, onSaved, onError, 
             options={[...JOB_TITLE_SUGGESTIONS]}
             value={form.jobTitle}
             onInputChange={(_, value) => setForm((f) => ({ ...f, jobTitle: value }))}
-            renderInput={(params) => <TextField {...params} label="Tätigkeit" required {...validation.fieldProps('jobTitle')} />}
+            renderInput={(params) => (
+              <TextField {...params} label={t('employee.dialog.jobTitleLabel')} required {...validation.fieldProps('jobTitle')} />
+            )}
           />
 
           <TextField
             select
-            label="Beschäftigungsart"
+            label={t('employee.dialog.employmentTypeLabel')}
             required
             value={form.type}
             onChange={(e) => setForm((f) => ({ ...f, type: e.target.value as EmploymentTypeKind }))}
           >
-            <MenuItem value="FullTime">Vollzeit</MenuItem>
-            <MenuItem value="PartTime">Teilzeit</MenuItem>
+            <MenuItem value="FullTime">{t('employee.fullTimeOption')}</MenuItem>
+            <MenuItem value="PartTime">{t('employee.partTimeOption')}</MenuItem>
             <MenuItem value="Minijob">{employmentTypeLabel({ type: 'Minijob', minHours: 0, maxHours: 0 })}</MenuItem>
           </TextField>
 
@@ -234,7 +239,7 @@ export function EmployeeDialog({ branchId, employee, onClose, onSaved, onError, 
             <>
               <Stack direction="row" spacing={2}>
                 <DecimalTextField
-                  label="Min. Std./Woche"
+                  label={t('employee.dialog.minHoursLabel')}
                   required
                   value={form.minHours}
                   onChange={(value) => setForm((f) => ({ ...f, minHours: value }))}
@@ -242,7 +247,7 @@ export function EmployeeDialog({ branchId, employee, onClose, onSaved, onError, 
                   {...validation.fieldProps('minHours')}
                 />
                 <DecimalTextField
-                  label="Max. Std./Woche"
+                  label={t('employee.dialog.maxHoursLabel')}
                   required
                   value={form.maxHours}
                   onChange={(value) => setForm((f) => ({ ...f, maxHours: value }))}
@@ -251,19 +256,16 @@ export function EmployeeDialog({ branchId, employee, onClose, onSaved, onError, 
                 />
               </Stack>
               <DecimalTextField
-                label="Max. Std./Monat (optional)"
+                label={t('employee.dialog.maxMonthlyHoursLabel')}
                 value={form.maxMonthlyHours}
                 onChange={(value) => setForm((f) => ({ ...f, maxMonthlyHours: value }))}
                 fullWidth
-                {...validation.fieldProps(
-                  'maxMonthlyHours',
-                  'Warnt in der Monatsübersicht, wenn die geleisteten Stunden diese Grenze überschreiten.',
-                )}
+                {...validation.fieldProps('maxMonthlyHours', t('employee.dialog.maxMonthlyHoursHint'))}
               />
             </>
           ) : (
             <DecimalTextField
-              label="Wochenstunden"
+              label={t('employee.dialog.weeklyHoursLabel')}
               required
               value={form.weeklyHours}
               onChange={(value) => setForm((f) => ({ ...f, weeklyHours: value }))}
@@ -274,7 +276,7 @@ export function EmployeeDialog({ branchId, employee, onClose, onSaved, onError, 
 
           <Stack direction="row" spacing={2}>
             <DecimalTextField
-              label="Urlaubsanspruch/Jahr (Tage)"
+              label={t('employee.dialog.vacationEntitlementLabel')}
               required
               value={form.vacationEntitlementPerYear}
               onChange={(value) => setForm((f) => ({ ...f, vacationEntitlementPerYear: value }))}
@@ -282,46 +284,43 @@ export function EmployeeDialog({ branchId, employee, onClose, onSaved, onError, 
               {...validation.fieldProps('vacationEntitlementPerYear')}
             />
             <DecimalTextField
-              label="Std. je Feier-/Urlaubstag"
+              label={t('employee.dialog.holidayVacationHoursLabel')}
               required
               value={form.holidayVacationHours}
               onChange={(value) => setForm((f) => ({ ...f, holidayVacationHours: value }))}
               fullWidth
-              {...validation.fieldProps(
-                'holidayVacationHours',
-                'Zählt nur für diesen Mitarbeiter, nicht für die Filialstunden.',
-              )}
+              {...validation.fieldProps('holidayVacationHours', t('employee.dialog.holidayVacationHoursHint'))}
             />
           </Stack>
 
           <TextField
-            label="Geburtsdatum (optional)"
+            label={t('employee.dialog.birthDateLabel')}
             type="date"
             value={form.birthDate}
             onChange={(e) => setForm((f) => ({ ...f, birthDate: e.target.value }))}
             InputLabelProps={{ shrink: true }}
-            helperText="Nur für Jugendarbeitsschutz relevant"
+            helperText={t('employee.dialog.birthDateHint')}
             fullWidth
           />
 
           <Stack direction="row" spacing={2}>
             <TextField
-              label="Eintrittsdatum (optional)"
+              label={t('employee.dialog.entryDateLabel')}
               type="date"
               value={form.entryDate}
               onChange={(e) => setForm((f) => ({ ...f, entryDate: e.target.value }))}
               InputLabelProps={{ shrink: true }}
-              helperText="Vorher nicht einplanbar"
+              helperText={t('employee.dialog.entryDateHint')}
               fullWidth
             />
             <TextField
-              label="Austrittsdatum (optional)"
+              label={t('employee.dialog.exitDateLabel')}
               type="date"
               value={form.exitDate}
               onChange={(e) => setForm((f) => ({ ...f, exitDate: e.target.value }))}
               InputLabelProps={{ shrink: true }}
               fullWidth
-              {...validation.fieldProps('exitDate', 'Danach nicht mehr einplanbar')}
+              {...validation.fieldProps('exitDate', t('employee.dialog.exitDateHint'))}
             />
           </Stack>
         </Stack>

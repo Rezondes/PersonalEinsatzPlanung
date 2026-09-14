@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import Button from '@mui/material/Button';
 import TextField from '@mui/material/TextField';
 import MenuItem from '@mui/material/MenuItem';
@@ -9,6 +10,7 @@ import Chip from '@mui/material/Chip';
 import Typography from '@mui/material/Typography';
 import CircularProgress from '@mui/material/CircularProgress';
 import StoreOutlinedIcon from '@mui/icons-material/StoreOutlined';
+import type { TFunction } from 'i18next';
 import type { Branch, FederalState } from '@domain/branch/Branch';
 import { FEDERAL_STATES } from '@domain/branch/Branch';
 import { validateBranch, validateOpenSundayDate } from '@domain/branch/branchValidation';
@@ -65,17 +67,17 @@ function formFromBranch(b: Branch): FormState {
  * doesn't silently bloat every future JSON export/import and Dexie record it now rides along in. */
 const MAX_LOGO_SIZE_BYTES = 500 * 1024;
 
-function readLogoAsBase64(file: File): Promise<string> {
+function readLogoAsBase64(file: File, t: TFunction<'masterdata'>): Promise<string> {
   if (!file.type.startsWith('image/')) {
-    return Promise.reject(new Error('Bitte eine Bilddatei auswählen.'));
+    return Promise.reject(new Error(t('branch.dialog.imageOnlyError')));
   }
   if (file.size > MAX_LOGO_SIZE_BYTES) {
-    return Promise.reject(new Error('Das Logo darf höchstens 500 KB groß sein.'));
+    return Promise.reject(new Error(t('branch.dialog.logoTooLarge')));
   }
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(String(reader.result));
-    reader.onerror = () => reject(new Error('Logo konnte nicht gelesen werden.'));
+    reader.onerror = () => reject(new Error(t('branch.dialog.logoReadError')));
     reader.readAsDataURL(file);
   });
 }
@@ -95,6 +97,8 @@ interface BranchDialogProps {
  * "already tried to save" flag start fresh every time. The open-Sundays list has its own small
  * sub-form ("Datum hinzufügen") with its own validation, independent of Speichern. */
 export function BranchDialog({ branch, onClose, onSaved, onError, secondaryActions }: BranchDialogProps) {
+  const { t } = useTranslation('masterdata');
+  const { t: tCommon } = useTranslation();
   const [form, setForm] = useState<FormState>(() => (branch ? formFromBranch(branch) : emptyForm()));
   const [saving, setSaving] = useState(false);
   const [logoReading, setLogoReading] = useState(false);
@@ -141,7 +145,7 @@ export function BranchDialog({ branch, onClose, onSaved, onError, secondaryActio
       onClose();
       await onSaved();
     } catch (e) {
-      onError(e, 'Filiale konnte nicht gespeichert werden');
+      onError(e, t('branch.dialog.saveError'));
     } finally {
       setSaving(false);
     }
@@ -151,10 +155,10 @@ export function BranchDialog({ branch, onClose, onSaved, onError, secondaryActio
     if (!file) return;
     setLogoReading(true);
     try {
-      const base64 = await readLogoAsBase64(file);
+      const base64 = await readLogoAsBase64(file, t);
       setForm((f) => ({ ...f, logoBase64: base64 }));
     } catch (e) {
-      onError(e, 'Logo konnte nicht gelesen werden');
+      onError(e, t('branch.dialog.logoUploadError'));
     } finally {
       setLogoReading(false);
     }
@@ -175,14 +179,14 @@ export function BranchDialog({ branch, onClose, onSaved, onError, secondaryActio
     <ResponsiveDialog
       open
       onClose={saving ? undefined : onClose}
-      title={branch ? 'Filiale bearbeiten' : 'Neue Filiale'}
+      title={branch ? t('branch.dialog.titleEdit') : t('branch.newButton')}
       contentRef={validation.containerRef}
       secondaryActions={secondaryActions}
       actions={
         <>
           <FormErrorNotice errors={validation.errors} />
           <Button onClick={onClose} disabled={saving}>
-            Abbrechen
+            {tCommon('cancel')}
           </Button>
           <Button
             variant="contained"
@@ -190,7 +194,7 @@ export function BranchDialog({ branch, onClose, onSaved, onError, secondaryActio
             disabled={saving || logoReading}
             startIcon={saving ? <CircularProgress size={16} color="inherit" /> : undefined}
           >
-            Speichern
+            {tCommon('save')}
           </Button>
         </>
       }
@@ -202,31 +206,31 @@ export function BranchDialog({ branch, onClose, onSaved, onError, secondaryActio
               <StoreOutlinedIcon sx={{ color: '#2f5d50' }} />
             </Avatar>
             <Button variant="text" component="label" size="small" disabled={logoReading}>
-              {logoReading ? 'Logo wird gelesen…' : 'Logo hochladen (optional)'}
+              {logoReading ? t('branch.dialog.logoReading') : t('branch.dialog.logoUploadLabel')}
               <input type="file" accept="image/*" hidden onChange={(e) => uploadLogo(e.target.files?.[0] ?? null)} />
             </Button>
           </Stack>
           <TextField
-            label="Name"
+            label={t('branch.dialog.nameLabel')}
             required
             value={form.name}
             onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-            placeholder="Velpke - Weidenweg"
+            placeholder={t('branch.dialog.namePlaceholder')}
             fullWidth
             {...validation.fieldProps('name')}
           />
           <TextField
-            label="Filialnummer"
+            label={t('branch.dialog.numberLabel')}
             required
             value={form.branchNumber}
             onChange={(e) => setForm((f) => ({ ...f, branchNumber: e.target.value }))}
-            placeholder="2504"
+            placeholder={t('branch.dialog.numberPlaceholder')}
             fullWidth
             {...validation.fieldProps('branchNumber')}
           />
           <TextField
             select
-            label="Bundesland"
+            label={t('branch.dialog.federalStateLabel')}
             required
             value={form.federalState}
             onChange={(e) => setForm((f) => ({ ...f, federalState: e.target.value as FederalState }))}
@@ -240,13 +244,13 @@ export function BranchDialog({ branch, onClose, onSaved, onError, secondaryActio
           </TextField>
           <Stack direction="row" spacing={2}>
             <TextField
-              label="Straße (optional)"
+              label={t('branch.dialog.streetLabel')}
               value={form.street}
               onChange={(e) => setForm((f) => ({ ...f, street: e.target.value }))}
               fullWidth
             />
             <TextField
-              label="Nr. (optional)"
+              label={t('branch.dialog.houseNumberLabel')}
               value={form.houseNumber}
               onChange={(e) => setForm((f) => ({ ...f, houseNumber: e.target.value }))}
               sx={{ width: 130 }}
@@ -254,13 +258,13 @@ export function BranchDialog({ branch, onClose, onSaved, onError, secondaryActio
           </Stack>
           <Stack direction="row" spacing={2}>
             <TextField
-              label="PLZ (optional)"
+              label={t('branch.dialog.postalCodeLabel')}
               value={form.postalCode}
               onChange={(e) => setForm((f) => ({ ...f, postalCode: e.target.value }))}
               sx={{ width: 160 }}
             />
             <TextField
-              label="Ort (optional)"
+              label={t('branch.dialog.cityLabel')}
               value={form.city}
               onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))}
               fullWidth
@@ -268,13 +272,13 @@ export function BranchDialog({ branch, onClose, onSaved, onError, secondaryActio
           </Stack>
 
           <Divider />
-          <Typography variant="subtitle2">Verkaufsoffene Sonntage</Typography>
+          <Typography variant="subtitle2">{t('branch.dialog.openSundaysHeading')}</Typography>
           <Typography variant="caption" color="text.secondary">
-            Nur an diesen Terminen wird Sonntagsarbeit nicht als rechtlicher Hinweis markiert.
+            {t('branch.dialog.openSundaysCaption')}
           </Typography>
           <Stack direction="row" spacing={2} alignItems="flex-start" ref={sundayValidation.containerRef}>
             <TextField
-              label="Datum hinzufügen"
+              label={t('branch.dialog.addDateLabel')}
               type="date"
               required
               size="small"
@@ -285,13 +289,13 @@ export function BranchDialog({ branch, onClose, onSaved, onError, secondaryActio
               {...sundayValidation.fieldProps('newSunday')}
             />
             <Button onClick={addSunday} sx={{ mt: 0.5 }}>
-              Hinzufügen
+              {t('branch.dialog.addButton')}
             </Button>
           </Stack>
           <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
             {form.allowedOpenSundays.length === 0 && (
               <Typography variant="body2" color="text.secondary">
-                Keine verkaufsoffenen Sonntage hinterlegt.
+                {t('branch.dialog.noOpenSundays')}
               </Typography>
             )}
             {form.allowedOpenSundays.map((date) => (

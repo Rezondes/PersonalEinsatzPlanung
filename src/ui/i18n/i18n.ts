@@ -9,6 +9,7 @@ import changelog from './resources/de/changelog';
 import privacy from './resources/de/privacy';
 import terms from './resources/de/terms';
 import settings from './resources/de/settings';
+import masterdata from './resources/de/masterdata';
 
 /**
  * The one i18next instance for the whole app - imported for its side effect by both main.tsx
@@ -28,10 +29,10 @@ import settings from './resources/de/settings';
  * (not i18next.createInstance()), so useTranslation() anywhere in the tree already resolves to it.
  */
 void i18n.use(initReactI18next).init({
-  resources: { [DEFAULT_LOCALE]: { common, nav, absences, app, changelog, privacy, terms, settings } },
+  resources: { [DEFAULT_LOCALE]: { common, nav, absences, app, changelog, privacy, terms, settings, masterdata } },
   lng: DEFAULT_LOCALE,
   fallbackLng: DEFAULT_LOCALE,
-  ns: ['common', 'nav', 'absences', 'app', 'changelog', 'privacy', 'terms', 'settings'],
+  ns: ['common', 'nav', 'absences', 'app', 'changelog', 'privacy', 'terms', 'settings', 'masterdata'],
   defaultNS: 'common',
   // React already escapes interpolated values; i18next's own HTML-escaping on top would
   // double-escape (e.g. a literal "&" becomes "&amp;amp;"). Standard react-i18next guidance.

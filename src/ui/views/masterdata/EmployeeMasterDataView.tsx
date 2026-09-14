@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
@@ -25,6 +26,7 @@ import ChildCareOutlinedIcon from '@mui/icons-material/ChildCareOutlined';
 import SearchOutlinedIcon from '@mui/icons-material/SearchOutlined';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
+import type { TFunction } from 'i18next';
 import type { Employee } from '@domain/employee/Employee';
 import { compareByLastName, fullName } from '@domain/employee/Employee';
 import { employmentTypeLabel, targetWeeklyHoursRange } from '@domain/employee/EmploymentType';
@@ -133,13 +135,15 @@ function getRowActions(
   employee: Employee,
   onEdit: (e: Employee) => void,
   onToggle: (e: Employee) => void,
+  t: TFunction<'masterdata'>,
+  tCommon: TFunction,
 ): RowAction[] {
   return [
-    { key: 'edit', label: 'Bearbeiten', icon: EditOutlinedIcon, onSelect: () => onEdit(employee) },
+    { key: 'edit', label: tCommon('edit'), icon: EditOutlinedIcon, onSelect: () => onEdit(employee) },
     {
       key: 'toggle',
-      label: employee.active ? 'Deaktivieren' : 'Aktivieren',
-      hint: employee.active ? 'Bleibt in erfassten Wochen sichtbar' : undefined,
+      label: employee.active ? tCommon('deactivate') : tCommon('activate'),
+      hint: employee.active ? t('employee.deactivateHint') : undefined,
       icon: employee.active ? ToggleOnOutlinedIcon : ToggleOffOutlinedIcon,
       dangerous: employee.active,
       onSelect: () => onToggle(employee),
@@ -165,6 +169,8 @@ function EmployeeCard({
   onTap: () => void;
   onLongPress: () => void;
 }) {
+  const { t } = useTranslation();
+  const { t: tMasterdata } = useTranslation('masterdata');
   const handlers = useLongPress({ onTap, onLongPress });
   const minor = isMinor(employee.birthDate, new Date());
   return (
@@ -206,12 +212,12 @@ function EmployeeCard({
               <ChildCareOutlinedIcon
                 fontSize="small"
                 sx={{ color: 'text.secondary', flexShrink: 0 }}
-                titleAccess="Minderjährig — Jugendarbeitsschutz beachten"
+                titleAccess={tMasterdata('employee.minorTitle')}
               />
             )}
             <Chip
               size="small"
-              label={employee.active ? 'Aktiv' : 'Inaktiv'}
+              label={employee.active ? t('active') : t('inactive')}
               color={employee.active ? 'success' : 'default'}
               sx={{ ml: 'auto', flexShrink: 0 }}
             />
@@ -221,14 +227,14 @@ function EmployeeCard({
           </Typography>
           <Stack direction="row" spacing={2} sx={{ mt: 0.5 }}>
             <Typography variant="caption" color="text.secondary">
-              {weeklyHoursText(employee)} Std./Wo.
+              {weeklyHoursText(employee)} {tMasterdata('employee.weeklyHoursSuffix')}
             </Typography>
             <Typography variant="caption" color="text.secondary">
-              {employee.vacationEntitlementPerYear.toLocaleString('de-DE')} Urlaubstage
+              {employee.vacationEntitlementPerYear.toLocaleString('de-DE')} {tMasterdata('employee.vacationDaysSuffix')}
             </Typography>
           </Stack>
           <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
-            {remainingVacationDays.toLocaleString('de-DE')} Resturlaub
+            {remainingVacationDays.toLocaleString('de-DE')} {tMasterdata('employee.columnRemainingVacation')}
           </Typography>
           {vacationHint && (
             <Typography variant="caption" color="text.secondary" display="block">
@@ -240,7 +246,7 @@ function EmployeeCard({
       </ButtonBase>
       <IconButton
         onClick={onLongPress}
-        aria-label={`Weitere Aktionen für ${fullName(employee)}`}
+        aria-label={t('otherActionsFor', { name: fullName(employee) })}
         sx={{ flexShrink: 0, mt: 0.5 }}
       >
         <MoreVertIcon />
@@ -250,6 +256,8 @@ function EmployeeCard({
 }
 
 export function EmployeeMasterDataView() {
+  const { t } = useTranslation('masterdata');
+  const { t: tCommon } = useTranslation();
   const layout = useBreakpoint();
   const { branch } = useSelectedBranch();
   const { employeeList, loading, reload } = useEmployeeList(branch?.id ?? null);
@@ -262,7 +270,7 @@ export function EmployeeMasterDataView() {
     cancel: cancelStatusChange,
     confirm: changeStatus,
     busy: statusChangeBusy,
-  } = useActivationToggle(services.employee, reload, 'Mitarbeiter');
+  } = useActivationToggle(services.employee, reload, t('employee.entityLabel'));
   const [sheetEmployee, setSheetEmployee] = useState<Employee | null>(null);
   const [search, setSearch] = useState('');
   // Both filters default to "Alle": opening the view must never hide records the user expects.
@@ -271,7 +279,7 @@ export function EmployeeMasterDataView() {
   const sort = useTableSort<SortKey>('name');
 
   usePageActions({
-    fab: { label: 'Neuer Mitarbeiter', icon: AddIcon, onClick: () => setDialog({ employee: null }) },
+    fab: { label: t('employee.newButton'), icon: AddIcon, onClick: () => setDialog({ employee: null }) },
     fullBleedPage: true,
   });
 
@@ -343,7 +351,7 @@ export function EmployeeMasterDataView() {
           onClick={() => setDialog({ employee: null })}
           sx={{ display: { xs: 'none', sm: 'inline-flex' } }}
         >
-          Neuer Mitarbeiter
+          {t('employee.newButton')}
         </Button>
       </Stack>
 
@@ -351,11 +359,11 @@ export function EmployeeMasterDataView() {
         <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap alignItems="center">
           <TextField
             size="small"
-            placeholder="Name oder Tätigkeit"
+            placeholder={t('employee.searchPlaceholder')}
             // A top-level aria-label prop lands on TextField's outer wrapper, not the native input
             // getByLabelText/screen readers need - inputProps forwards down to that inner element
             // (same fix as AppHeader.tsx's Filiale Select, see its comment there).
-            inputProps={{ 'aria-label': 'Mitarbeiter suchen' }}
+            inputProps={{ 'aria-label': t('employee.searchAriaLabel') }}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             sx={{ width: 260 }}
@@ -370,30 +378,30 @@ export function EmployeeMasterDataView() {
           <TextField
             select
             size="small"
-            label="Status"
+            label={t('employee.statusLabel')}
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
             sx={{ width: 160 }}
           >
-            <MenuItem value="all">Alle</MenuItem>
-            <MenuItem value="active">Aktiv</MenuItem>
-            <MenuItem value="inactive">Inaktiv</MenuItem>
+            <MenuItem value="all">{t('employee.filterAll')}</MenuItem>
+            <MenuItem value="active">{tCommon('active')}</MenuItem>
+            <MenuItem value="inactive">{tCommon('inactive')}</MenuItem>
           </TextField>
           <TextField
             select
             size="small"
-            label="Beschäftigung"
+            label={t('employee.employmentLabel')}
             value={employmentFilter}
             onChange={(e) => setEmploymentFilter(e.target.value as EmploymentFilter)}
             sx={{ width: 220 }}
           >
-            <MenuItem value="all">Alle</MenuItem>
-            <MenuItem value="FullTime">Vollzeit</MenuItem>
-            <MenuItem value="PartTime">Teilzeit</MenuItem>
+            <MenuItem value="all">{t('employee.filterAll')}</MenuItem>
+            <MenuItem value="FullTime">{t('employee.fullTimeOption')}</MenuItem>
+            <MenuItem value="PartTime">{t('employee.partTimeOption')}</MenuItem>
             <MenuItem value="Minijob">{employmentTypeLabel({ type: 'Minijob', minHours: 0, maxHours: 0 })}</MenuItem>
           </TextField>
           <Typography variant="body2" color="text.secondary">
-            {visibleEmployees.length} von {employeeList.length} Mitarbeitern
+            {t('employee.countSummary', { visible: visibleEmployees.length, total: employeeList.length })}
           </Typography>
         </Stack>
       </Paper>
@@ -402,7 +410,7 @@ export function EmployeeMasterDataView() {
         <ResponsiveDataList
           rows={visibleEmployees}
           getKey={(emp) => emp.id}
-          emptyMessage={employeeList.length === 0 ? 'Noch kein Mitarbeiter angelegt.' : 'Kein Mitarbeiter passt zu den Filtern.'}
+          emptyMessage={employeeList.length === 0 ? t('employee.emptyNone') : t('employee.emptyNoMatch')}
           renderCard={(emp) => (
             <EmployeeCard
               employee={emp}
@@ -418,25 +426,25 @@ export function EmployeeMasterDataView() {
               <TableHead>
                 <TableRow>
                   <TableCell sx={stickyCornerSx()}>
-                    <TableSortLabel {...headProps('name')}>Name</TableSortLabel>
+                    <TableSortLabel {...headProps('name')}>{t('employee.columnName')}</TableSortLabel>
                   </TableCell>
                   <TableCell sx={stickyHeaderRowSx()}>
-                    <TableSortLabel {...headProps('employment')}>Beschäftigung</TableSortLabel>
+                    <TableSortLabel {...headProps('employment')}>{t('employee.columnEmployment')}</TableSortLabel>
                   </TableCell>
                   <TableCell sx={stickyHeaderRowSx()}>
-                    <TableSortLabel {...headProps('hours')}>Wochenstunden</TableSortLabel>
+                    <TableSortLabel {...headProps('hours')}>{t('employee.columnHours')}</TableSortLabel>
                   </TableCell>
                   <TableCell sx={stickyHeaderRowSx()}>
-                    <TableSortLabel {...headProps('vacation')}>Urlaub/Jahr</TableSortLabel>
+                    <TableSortLabel {...headProps('vacation')}>{t('employee.columnVacation')}</TableSortLabel>
                   </TableCell>
                   <TableCell sx={stickyHeaderRowSx()}>
-                    <TableSortLabel {...headProps('remainingVacation')}>Resturlaub</TableSortLabel>
+                    <TableSortLabel {...headProps('remainingVacation')}>{t('employee.columnRemainingVacation')}</TableSortLabel>
                   </TableCell>
                   <TableCell sx={stickyHeaderRowSx()}>
-                    <TableSortLabel {...headProps('status')}>Status</TableSortLabel>
+                    <TableSortLabel {...headProps('status')}>{t('employee.statusLabel')}</TableSortLabel>
                   </TableCell>
                   <TableCell align="right" sx={stickyHeaderRowSx()}>
-                    Aktionen
+                    {t('employee.columnActions')}
                   </TableCell>
                 </TableRow>
               </TableHead>
@@ -445,7 +453,7 @@ export function EmployeeMasterDataView() {
                   <TableRow>
                     <TableCell colSpan={COLUMN_COUNT}>
                       <Typography color="text.secondary" sx={{ py: 2 }}>
-                        Noch kein Mitarbeiter angelegt.
+                        {t('employee.emptyNone')}
                       </Typography>
                     </TableCell>
                   </TableRow>
@@ -454,7 +462,7 @@ export function EmployeeMasterDataView() {
                   <TableRow>
                     <TableCell colSpan={COLUMN_COUNT}>
                       <Typography color="text.secondary" sx={{ py: 2 }}>
-                        Kein Mitarbeiter passt zu den Filtern.
+                        {t('employee.emptyNoMatch')}
                       </Typography>
                     </TableCell>
                   </TableRow>
@@ -476,7 +484,7 @@ export function EmployeeMasterDataView() {
                             <ChildCareOutlinedIcon
                               fontSize="small"
                               sx={{ color: 'text.secondary' }}
-                              titleAccess="Minderjährig — Jugendarbeitsschutz beachten"
+                              titleAccess={t('employee.minorTitle')}
                             />
                           )}
                         </Stack>
@@ -498,7 +506,7 @@ export function EmployeeMasterDataView() {
                         )}
                       </TableCell>
                       <TableCell>
-                        <Chip size="small" label={emp.active ? 'Aktiv' : 'Inaktiv'} color={emp.active ? 'success' : 'default'} />
+                        <Chip size="small" label={emp.active ? tCommon('active') : tCommon('inactive')} color={emp.active ? 'success' : 'default'} />
                       </TableCell>
                       <TableCell align="right">
                         <IconButton
@@ -506,7 +514,7 @@ export function EmployeeMasterDataView() {
                             e.stopPropagation();
                             setSheetEmployee(emp);
                           }}
-                          aria-label={`Weitere Aktionen für ${fullName(emp)}`}
+                          aria-label={tCommon('otherActionsFor', { name: fullName(emp) })}
                         >
                           <MoreVertIcon />
                         </IconButton>
@@ -529,7 +537,7 @@ export function EmployeeMasterDataView() {
           onError={notify.report}
           secondaryActions={
             dialog.employee
-              ? getRowActions(dialog.employee, (e) => setDialog({ employee: e }), (e) => requestStatusChange(e)).filter(
+              ? getRowActions(dialog.employee, (e) => setDialog({ employee: e }), (e) => requestStatusChange(e), t, tCommon).filter(
                   (a) => a.key !== 'edit',
                 )
               : undefined
@@ -539,13 +547,11 @@ export function EmployeeMasterDataView() {
 
       <ConfirmDialog
         open={!!statusTarget}
-        title={statusTarget?.active ? 'Mitarbeiter deaktivieren?' : 'Mitarbeiter aktivieren?'}
-        text={
-          statusTarget?.active
-            ? `${statusTarget ? fullName(statusTarget) : ''} wird als inaktiv markiert und nicht mehr in der Wochenplanung eingeplant. Bereits erfasste Wochenpläne und Abwesenheiten bleiben vollständig erhalten und werden dort weiterhin schreibgeschützt angezeigt; der Mitarbeiter kann jederzeit wieder aktiviert werden.`
-            : `${statusTarget ? fullName(statusTarget) : ''} wird wieder als aktiv markiert und kann wieder in der Wochenplanung eingeplant werden.`
-        }
-        confirmText={statusTarget?.active ? 'Deaktivieren' : 'Aktivieren'}
+        title={statusTarget?.active ? t('employee.deactivateTitle') : t('employee.activateTitle')}
+        text={t(statusTarget?.active ? 'employee.deactivateText' : 'employee.activateText', {
+          name: statusTarget ? fullName(statusTarget) : '',
+        })}
+        confirmText={statusTarget?.active ? tCommon('deactivate') : tCommon('activate')}
         dangerous={!!statusTarget?.active}
         busy={statusChangeBusy}
         onConfirm={changeStatus}
@@ -557,7 +563,7 @@ export function EmployeeMasterDataView() {
         onClose={() => setSheetEmployee(null)}
         title={sheetEmployee ? fullName(sheetEmployee) : ''}
         subtitle={sheetEmployee ? `${sheetEmployee.jobTitle} · ${employmentTypeLabel(sheetEmployee.employmentType)}` : undefined}
-        actions={sheetEmployee ? getRowActions(sheetEmployee, (e) => setDialog({ employee: e }), (e) => requestStatusChange(e)) : []}
+        actions={sheetEmployee ? getRowActions(sheetEmployee, (e) => setDialog({ employee: e }), (e) => requestStatusChange(e), t, tCommon) : []}
       />
     </Box>
   );
