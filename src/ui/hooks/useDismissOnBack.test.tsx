@@ -55,6 +55,28 @@ describe('useDismissOnBack', () => {
     backSpy.mockRestore();
   });
 
+  it('does not call history.back() when something else already pushed a new entry on top before the deferred timer fires', () => {
+    // Regression test for the real bug found in ScheduleToolbar's mobile "Weitere Aktionen" sheet:
+    // its "Druckansicht" action closes the sheet AND navigate()s to the print route in the same
+    // synchronous handler. The navigate() pushes its own history entry before this hook's deferred
+    // cleanup fires, so blindly calling history.back() would pop that fresh navigation instead of
+    // this hook's own marker, bouncing the user straight back.
+    const backSpy = vi.spyOn(window.history, 'back').mockImplementation(() => {});
+    const onClose = vi.fn();
+    const { rerender } = renderHook(({ open }) => useDismissOnBack(open, onClose), {
+      wrapper: StrictMode,
+      initialProps: { open: true },
+    });
+
+    rerender({ open: false }); // schedules the deferred back(), not yet run
+    act(() => window.history.pushState({ someOtherRoute: true }, '')); // a foreign navigation lands on top
+
+    act(() => vi.runAllTimers());
+
+    expect(backSpy).not.toHaveBeenCalled();
+    backSpy.mockRestore();
+  });
+
   it('does not leak a stale deferred history.back() into a DIFFERENT dialog instance opened before it fires', () => {
     // Regression test for the real bug found testing EmployeeDialog/ShiftTemplateDialog: this
     // hook's stale-entry cleanup is deferred via a real (un-mocked in those test files) setTimeout.

@@ -43,7 +43,8 @@ export function PrivacyView() {
   return (
     <Box
       sx={{
-        maxWidth: 720,
+        maxWidth: 920,
+        mx: 'auto',
         display: 'flex',
         flexDirection: 'column',
         flex: 1,

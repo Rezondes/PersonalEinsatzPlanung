@@ -61,7 +61,13 @@ export function useDismissOnBack(open: boolean, onClose: () => void): void {
 
       const timer = setTimeout(() => {
         pendingStaleEntryCancel = null;
-        window.history.back();
+        // Something else may have pushed a new entry on top of ours since this was scheduled (e.g.
+        // a navigate() fired synchronously by the same handler that closed us) - popping now would
+        // wrongly consume THAT entry instead of the marker we pushed. Only consume our own marker,
+        // and only if it's still on top.
+        if ((window.history.state as { pepDismissOnBack?: boolean } | null)?.pepDismissOnBack) {
+          window.history.back();
+        }
       }, 0);
       pendingStaleEntryCancel = () => clearTimeout(timer);
     };

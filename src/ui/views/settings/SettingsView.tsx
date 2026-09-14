@@ -424,7 +424,8 @@ export function SettingsView() {
         flex: 1,
         minHeight: 0,
         height: '100%',
-        maxWidth: 640,
+        maxWidth: 760,
+        mx: 'auto',
         px: layout === 'mobile' ? 1.5 : 3,
         py: layout === 'mobile' ? 1.5 : 3,
       }}

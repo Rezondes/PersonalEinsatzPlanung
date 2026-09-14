@@ -43,13 +43,6 @@ export function AppHeader({ headerRef }: AppHeaderProps) {
       <Toolbar sx={{ gap: isMobile ? 1.5 : 3, flexWrap: isMobile ? 'nowrap' : 'wrap', py: 1 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0 }}>
           <Box component="img" src={`${import.meta.env.BASE_URL}favicon.svg`} alt="" sx={{ width: 24, height: 24 }} />
-          {/* Mobile: no title text - the Filiale dropdown takes its place and stretches to fill the
-              remaining width instead (see the Select below). */}
-          {!isMobile && (
-            <Typography variant="subtitle1" fontWeight={500}>
-              Personaleinsatzplanung
-            </Typography>
-          )}
         </Box>
 
         {activeBranches.length > 0 && (
@@ -62,7 +55,7 @@ export function AppHeader({ headerRef }: AppHeaderProps) {
             // the inner role="combobox" element that actually needs the accessible name -
             // inputProps is what Select forwards down to that inner element.
             inputProps={{ 'aria-label': 'Filiale auswählen' }}
-            sx={isMobile ? { flex: 1, minWidth: 0 } : { minWidth: 220 }}
+            sx={isMobile ? { flex: 1, minWidth: 0 } : { flex: 1, minWidth: 220 }}
           >
             {activeBranches.map((b) => (
               <MenuItem key={b.id} value={b.id}>

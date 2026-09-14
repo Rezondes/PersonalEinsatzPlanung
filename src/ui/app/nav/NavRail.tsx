@@ -7,7 +7,6 @@ import MenuIcon from '@mui/icons-material/Menu';
 import { MAIN_NAV_ITEMS, FOOTER_NAV_ITEMS } from './navItems';
 import { NAV_LINK_CLASS } from './navLinkStyle';
 import { useNavRailStore } from '../store/navRailStore';
-import { APP_VERSION } from '../buildInfo';
 import { useLocale } from '../locale/useLocale';
 import { buildLocalizedPath } from '../locale/locale';
 
@@ -69,20 +68,12 @@ export function NavRail() {
           alignItems: 'center',
           gap: 1,
           height: 56,
-          px: collapsed ? 0 : 2,
-          justifyContent: collapsed ? 'center' : 'flex-start',
+          px: 0,
+          justifyContent: 'center',
           borderBottom: '1px solid #e0e0dc',
           flexShrink: 0,
         }}
       >
-        {!collapsed && (
-          <>
-            <Box component="img" src={`${import.meta.env.BASE_URL}favicon.svg`} alt="" sx={{ width: 24, height: 24, flexShrink: 0 }} />
-            <Typography variant="subtitle2" fontWeight={500} sx={{ flex: 1, minWidth: 0 }}>
-              Planung
-            </Typography>
-          </>
-        )}
         <IconButton
           onClick={toggle}
           aria-label={collapsed ? 'Navigation ausklappen' : 'Navigation einklappen'}
@@ -148,11 +139,6 @@ export function NavRail() {
             </Box>
           </NavLink>
         ))}
-        {!collapsed && (
-          <Typography variant="caption" sx={{ px: 1.5, pt: 0.5, color: 'rgba(0, 0, 0, 0.6)' }}>
-            {APP_VERSION}
-          </Typography>
-        )}
       </Box>
     </Box>
   );

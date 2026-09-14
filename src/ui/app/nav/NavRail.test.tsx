@@ -2,7 +2,6 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { useNavRailStore } from '@ui/app/store/navRailStore';
-import { APP_VERSION } from '@ui/app/buildInfo';
 import { MAIN_NAV_ITEMS, FOOTER_NAV_ITEMS } from './navItems';
 import { NavRail } from './NavRail';
 
@@ -42,12 +41,6 @@ describe('NavRail', () => {
     for (const item of [...MAIN_NAV_ITEMS, ...FOOTER_NAV_ITEMS]) {
       expect(screen.getByRole('link', { name: item.label })).toHaveClass('pep-nav-link');
     }
-  });
-
-  it('shows the version caption in an AA-contrast-compliant color', () => {
-    renderRail();
-
-    expect(screen.getByText(APP_VERSION)).toHaveStyle({ color: 'rgba(0, 0, 0, 0.6)' });
   });
 
   it('leaves an inactive link with no inline background-color, so the shared :active rule can win the cascade', () => {
