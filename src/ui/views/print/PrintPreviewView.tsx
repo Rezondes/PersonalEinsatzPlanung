@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Stack from '@mui/material/Stack';
@@ -31,6 +32,7 @@ function splitIntoGroups<T>(list: T[], size: number): T[][] {
 }
 
 export function PrintPreviewView() {
+  const { t } = useTranslation('print');
   const { scheduleId } = useParams<{ scheduleId: string }>();
   const navigate = useNavigate();
   const [schedule, setSchedule] = useState<WeeklySchedule | null>(null);
@@ -75,14 +77,14 @@ export function PrintPreviewView() {
       <Stack alignItems="center" spacing={2} sx={{ py: 8 }}>
         <CircularProgress />
         <Typography role="status" variant="body2" color="text.secondary">
-          Wochenplan wird geladen…
+          {t('loadingSchedule')}
         </Typography>
       </Stack>
     );
   }
 
   if (!schedule || !branch) {
-    return <Alert severity="error">Wochenplan konnte nicht gefunden werden.</Alert>;
+    return <Alert severity="error">{t('notFoundAlert')}</Alert>;
   }
 
   const { fullPartTimeRows, minijobRows, dayTotals } = preparePrintData(
@@ -100,10 +102,10 @@ export function PrintPreviewView() {
     <Box data-selectable>
       <Stack direction="row" gap={2} className="print-action-bar" sx={{ p: 2 }}>
         <Button startIcon={<ArrowBackIcon />} onClick={() => navigate(-1)}>
-          Zurück
+          {t('backButton')}
         </Button>
         <Button variant="contained" startIcon={<PrintOutlinedIcon />} onClick={() => window.print()}>
-          Drucken
+          {t('printButton')}
         </Button>
       </Stack>
 

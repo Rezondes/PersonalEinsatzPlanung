@@ -1,5 +1,6 @@
 import { Fragment } from 'react';
 import type { ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import { WEEKDAYS, dateForWeekday } from '@domain/shared/CalendarWeek';
 import type { CalendarWeek, Weekday } from '@domain/shared/CalendarWeek';
 import type { Branch } from '@domain/branch/Branch';
@@ -29,6 +30,7 @@ function renderJobTitle(jobTitle: string | undefined): ReactNode {
 }
 
 export function MinijobForm({ branch, calendarWeek, rows, dayTotals }: MinijobFormProps) {
+  const { t } = useTranslation('print');
   const slots = Array.from({ length: COLUMNS_PER_SHEET }, (_, i) => rows[i] ?? null);
 
   return (
@@ -37,10 +39,10 @@ export function MinijobForm({ branch, calendarWeek, rows, dayTotals }: MinijobFo
       <div className="print-header">
         <div className="print-header-meta" />
         <p className="print-title">
-          Personaleinsatzplanung (PEP): geringfügig Beschäftigte (Aufbewahrungsfrist: 2 Jahre)
+          {t('minijobTitle')}
         </p>
         {branch.logoBase64 ? (
-          <img src={branch.logoBase64} className="print-header-logo" alt={`Logo ${branch.name}`} />
+          <img src={branch.logoBase64} className="print-header-logo" alt={t('logoAlt', { name: branch.name })} />
         ) : (
           <div className="print-header-logo" />
         )}
@@ -60,15 +62,15 @@ export function MinijobForm({ branch, calendarWeek, rows, dayTotals }: MinijobFo
         <thead>
           <tr>
             <th className="column-label" colSpan={2}>
-              Woche: {calendarWeek.week} / {calendarWeek.year}
+              {t('weekHeader', { week: calendarWeek.week, year: calendarWeek.year })}
             </th>
             <th colSpan={COLUMNS_PER_SHEET * 2} className="employee-header column-branch">
-              Filiale: {branch.branchNumber} {branch.name}
+              {t('branchHeader', { number: branch.branchNumber, name: branch.name })}
             </th>
           </tr>
           <tr>
             <th className="column-label" colSpan={2}>
-              Name
+              {t('nameLabel')}
             </th>
             {slots.map((s, i) => (
               <th key={i} colSpan={2} className="employee-header">
@@ -78,7 +80,7 @@ export function MinijobForm({ branch, calendarWeek, rows, dayTotals }: MinijobFo
           </tr>
           <tr>
             <th className="column-label" colSpan={2}>
-              Tätigkeit
+              {t('jobTitleLabel')}
             </th>
             {slots.map((s, i) => (
               <th key={i} colSpan={2}>
@@ -88,7 +90,7 @@ export function MinijobForm({ branch, calendarWeek, rows, dayTotals }: MinijobFo
           </tr>
           <tr>
             <th className="column-label" colSpan={2}>
-              Min. Std.
+              {t('minHoursLabel')}
             </th>
             {slots.map((s, i) => (
               <th key={i} colSpan={2}>
@@ -98,7 +100,7 @@ export function MinijobForm({ branch, calendarWeek, rows, dayTotals }: MinijobFo
           </tr>
           <tr>
             <th className="column-label" colSpan={2}>
-              Max. Std.
+              {t('maxHoursLabel')}
             </th>
             {slots.map((s, i) => (
               <th key={i} colSpan={2}>
@@ -107,12 +109,12 @@ export function MinijobForm({ branch, calendarWeek, rows, dayTotals }: MinijobFo
             ))}
           </tr>
           <tr>
-            <th className="column-label">Soll-Std.</th>
-            <th className="column-label">Ist-Std.</th>
+            <th className="column-label">{t('targetHoursLabel')}</th>
+            <th className="column-label">{t('actualHoursLabel')}</th>
             {slots.map((_, i) => (
               <Fragment key={i}>
-                <th>Zeit</th>
-                <th>Std.</th>
+                <th>{t('timeLabel')}</th>
+                <th>{t('hoursLabel')}</th>
               </Fragment>
             ))}
           </tr>
@@ -143,7 +145,7 @@ export function MinijobForm({ branch, calendarWeek, rows, dayTotals }: MinijobFo
               </tr>
               <tr className="break-row">
                 <td className="column-label pause-label" colSpan={2}>
-                  Pause
+                  {t('breakLabel')}
                 </td>
                 {slots.map((s, i) => (
                   <Fragment key={i}>
@@ -154,7 +156,7 @@ export function MinijobForm({ branch, calendarWeek, rows, dayTotals }: MinijobFo
               </tr>
               <tr className="break-row">
                 <td className="column-label pause-label" colSpan={2}>
-                  Pause
+                  {t('breakLabel')}
                 </td>
                 {slots.map((s, i) => (
                   <Fragment key={i}>
@@ -167,7 +169,7 @@ export function MinijobForm({ branch, calendarWeek, rows, dayTotals }: MinijobFo
           ))}
           <tr>
             <td className="column-label" colSpan={2}>
-              <strong>Gesamtstunden (gearbeitet)</strong>
+              <strong>{t('totalWorkedLabel')}</strong>
             </td>
             {slots.map((s, i) => (
               <td key={i} colSpan={2}>
@@ -179,8 +181,8 @@ export function MinijobForm({ branch, calendarWeek, rows, dayTotals }: MinijobFo
       </table>
 
       <div className="print-signatures">
-        <div className="field">Unterschrift ML</div>
-        <div className="field">Unterschrift VL</div>
+        <div className="field">{t('signatureMl')}</div>
+        <div className="field">{t('signatureVl')}</div>
       </div>
       </PrintPageContent>
     </div>

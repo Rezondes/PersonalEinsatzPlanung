@@ -10,6 +10,7 @@ import type settings from './resources/de/settings';
 import type masterdata from './resources/de/masterdata';
 import type month from './resources/de/month';
 import type schedule from './resources/de/schedule';
+import type print from './resources/de/print';
 
 // Augments i18next's own CustomTypeOptions (react-i18next reuses this same interface, so this is
 // the module that must be augmented). Keyed off the real resource objects, so a typo like
@@ -29,6 +30,7 @@ declare module 'i18next' {
       masterdata: typeof masterdata;
       month: typeof month;
       schedule: typeof schedule;
+      print: typeof print;
     };
   }
 }
