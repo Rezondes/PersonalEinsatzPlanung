@@ -2,6 +2,7 @@ import { useLayoutEffect, useRef } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Container from '@mui/material/Container';
+import { useTranslation } from 'react-i18next';
 import { BuildVersionBadge } from '@ui/components/BuildVersionBadge';
 import { useBreakpoint } from '@ui/hooks/useBreakpoint';
 import { useDocumentTitle } from '@ui/hooks/useDocumentTitle';
@@ -37,7 +38,9 @@ function AppShellLayout() {
   // browser tab and assistive tech.
   const location = useLocation();
   const locale = useLocale();
-  useDocumentTitle(titleForPath(stripLocalePrefix(location.pathname, locale)));
+  const { t } = useTranslation('nav');
+  const titleKey = titleForPath(stripLocalePrefix(location.pathname, locale));
+  useDocumentTitle(titleKey ? t(titleKey) : undefined);
 
   // The header's toolbar wraps at narrow widths, so its height is not a constant. Publishing it as
   // a CSS custom property lets a sticky element below it (the Wochenplanung toolbar) dock exactly

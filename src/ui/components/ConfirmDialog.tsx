@@ -5,6 +5,7 @@ import DialogActions from '@mui/material/DialogActions';
 import DialogContentText from '@mui/material/DialogContentText';
 import Button from '@mui/material/Button';
 import CircularProgress from '@mui/material/CircularProgress';
+import { useTranslation } from 'react-i18next';
 
 interface ConfirmDialogProps {
   open: boolean;
@@ -27,12 +28,15 @@ export function ConfirmDialog({
   open,
   title,
   text,
-  confirmText = 'Bestätigen',
+  confirmText,
   dangerous = false,
   busy = false,
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
+  const { t } = useTranslation();
+  const resolvedConfirmText = confirmText ?? t('confirm');
+
   return (
     // onClose is short-circuited while busy: Escape and a click on the backdrop would otherwise
     // tear the dialog down in the middle of the very action it is reporting on.
@@ -45,7 +49,7 @@ export function ConfirmDialog({
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2 }}>
         <Button onClick={onCancel} disabled={busy}>
-          Abbrechen
+          {t('cancel')}
         </Button>
         <Button
           variant="contained"
@@ -54,7 +58,7 @@ export function ConfirmDialog({
           disabled={busy}
           startIcon={busy ? <CircularProgress size={16} color="inherit" /> : undefined}
         >
-          {confirmText}
+          {resolvedConfirmText}
         </Button>
       </DialogActions>
     </Dialog>

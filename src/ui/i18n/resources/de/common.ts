@@ -4,6 +4,11 @@ const common = {
   requiredLegend: '* Pflichtfeld',
   noBranchSelected: 'Bitte zuerst oben eine Filiale auswählen oder anlegen.',
   goToBranches: 'Zu den Filialen',
+  confirm: 'Bestätigen',
+  cancel: 'Abbrechen',
+  close: 'Schließen',
+  formErrorNotice: 'Bitte die rot markierten Felder prüfen.',
+  secondaryActions: 'Weitere Aktionen',
 } as const;
 
 export default common;

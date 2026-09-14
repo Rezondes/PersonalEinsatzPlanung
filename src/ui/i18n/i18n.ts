@@ -4,6 +4,7 @@ import { DEFAULT_LOCALE } from '@ui/app/locale/locale';
 import common from './resources/de/common';
 import nav from './resources/de/nav';
 import absences from './resources/de/absences';
+import app from './resources/de/app';
 
 /**
  * The one i18next instance for the whole app - imported for its side effect by both main.tsx
@@ -23,10 +24,10 @@ import absences from './resources/de/absences';
  * (not i18next.createInstance()), so useTranslation() anywhere in the tree already resolves to it.
  */
 void i18n.use(initReactI18next).init({
-  resources: { [DEFAULT_LOCALE]: { common, nav, absences } },
+  resources: { [DEFAULT_LOCALE]: { common, nav, absences, app } },
   lng: DEFAULT_LOCALE,
   fallbackLng: DEFAULT_LOCALE,
-  ns: ['common', 'nav', 'absences'],
+  ns: ['common', 'nav', 'absences', 'app'],
   defaultNS: 'common',
   // React already escapes interpolated values; i18next's own HTML-escaping on top would
   // double-escape (e.g. a literal "&" becomes "&amp;amp;"). Standard react-i18next guidance.

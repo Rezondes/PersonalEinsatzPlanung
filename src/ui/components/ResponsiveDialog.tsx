@@ -13,6 +13,7 @@ import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
 import Stack from '@mui/material/Stack';
 import CloseIcon from '@mui/icons-material/Close';
+import { useTranslation } from 'react-i18next';
 import { theme } from '@ui/app/theme';
 import { useDismissOnBack } from '@ui/hooks/useDismissOnBack';
 import type { RowAction } from './ResponsiveList/RowAction';
@@ -66,6 +67,7 @@ export function ResponsiveDialog({
   contentRef,
 }: ResponsiveDialogProps) {
   const fullScreen = true;
+  const { t } = useTranslation();
   useDismissOnBack(open && fullScreen, () => onClose?.());
   // MUI's Dialog normally learns its aria-labelledby from a child DialogTitle via context; the
   // full-screen branch below doesn't render one, so that wiring is done by hand here instead -
@@ -97,7 +99,7 @@ export function ResponsiveDialog({
             borderColor: 'divider',
           }}
         >
-          <IconButton onClick={onClose} disabled={!onClose} aria-label="Schließen">
+          <IconButton onClick={onClose} disabled={!onClose} aria-label={t('close')}>
             <CloseIcon />
           </IconButton>
           <Box sx={{ flex: 1, minWidth: 0 }}>
@@ -132,7 +134,7 @@ export function ResponsiveDialog({
               color="text.secondary"
               sx={{ display: 'block', mb: 1, letterSpacing: '0.04em' }}
             >
-              Weitere Aktionen
+              {t('secondaryActions')}
             </Typography>
             <Stack spacing={1}>
               {secondaryActions.map((action) => (

@@ -3,6 +3,7 @@ import Snackbar from '@mui/material/Snackbar';
 import Alert from '@mui/material/Alert';
 import Button from '@mui/material/Button';
 import { useRegisterSW } from 'virtual:pwa-register/react';
+import { useTranslation } from 'react-i18next';
 import { useBreakpoint } from '@ui/hooks/useBreakpoint';
 import { mobileSafeBottom } from './nav/mobileChromeOffset';
 
@@ -34,6 +35,7 @@ const DISMISSED_UPDATE_KEY = 'pep.update.dismissedScriptURL';
  */
 export function UpdatePrompt() {
   const layout = useBreakpoint();
+  const { t } = useTranslation('app');
   const registration = useRef<ServiceWorkerRegistration | undefined>(undefined);
   const {
     needRefresh: [needRefresh, setNeedRefresh],
@@ -82,15 +84,15 @@ export function UpdatePrompt() {
                 setNeedRefresh(false);
               }}
             >
-              Später
+              {t('updateLater')}
             </Button>
             <Button color="inherit" size="small" onClick={() => void updateServiceWorker(true)}>
-              Jetzt laden
+              {t('updateNow')}
             </Button>
           </>
         }
       >
-        Eine neue Version ist verfügbar.
+        {t('updateAvailable')}
       </Alert>
     </Snackbar>
   );

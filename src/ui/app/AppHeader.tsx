@@ -5,6 +5,7 @@ import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
 import Select from '@mui/material/Select';
 import MenuItem from '@mui/material/MenuItem';
+import { useTranslation } from 'react-i18next';
 import { useBranchList } from '@ui/hooks/useBranch';
 import { useBranchSelectionStore } from '@ui/app/store/branchSelectionStore';
 import { useBreakpoint } from '@ui/hooks/useBreakpoint';
@@ -25,6 +26,7 @@ export function AppHeader({ headerRef }: AppHeaderProps) {
   const selectedBranchId = useBranchSelectionStore((s) => s.selectedBranchId);
   const setSelectedBranch = useBranchSelectionStore((s) => s.setSelectedBranch);
   const isMobile = useBreakpoint() === 'mobile';
+  const { t } = useTranslation('app');
 
   // Truncates with an ellipsis instead of the Select auto-sizing to the branch name - only visible
   // on mobile, where the Select is width-constrained (flex:1, minWidth:0) below; at every other
@@ -54,7 +56,7 @@ export function AppHeader({ headerRef }: AppHeaderProps) {
             // A top-level aria-label prop lands on Select's outer MuiInputBase-root wrapper, not
             // the inner role="combobox" element that actually needs the accessible name -
             // inputProps is what Select forwards down to that inner element.
-            inputProps={{ 'aria-label': 'Filiale auswählen' }}
+            inputProps={{ 'aria-label': t('branchSelect') }}
             sx={isMobile ? { flex: 1, minWidth: 0 } : { flex: 1, minWidth: 220 }}
           >
             {activeBranches.map((b) => (

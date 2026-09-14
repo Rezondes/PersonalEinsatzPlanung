@@ -5,6 +5,7 @@ import Box from '@mui/material/Box';
 import ButtonBase from '@mui/material/ButtonBase';
 import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
+import { useTranslation } from 'react-i18next';
 import { useDismissOnBack } from '@ui/hooks/useDismissOnBack';
 import type { RowAction } from './RowAction';
 
@@ -26,6 +27,7 @@ interface RowActionSheetProps {
  * fighting the schedule grid's own touch gestures later.
  */
 export function RowActionSheet({ open, onClose, title, subtitle, actions }: RowActionSheetProps) {
+  const { t } = useTranslation();
   useDismissOnBack(open, onClose);
   // Holds the chosen action until the sheet has actually finished closing (onExited) - firing it
   // in the same handler as onClose (this typically opens a ConfirmDialog) would build that
@@ -105,7 +107,7 @@ export function RowActionSheet({ open, onClose, title, subtitle, actions }: RowA
 
       <Box sx={{ p: 2 }}>
         <Button fullWidth variant="outlined" onClick={onClose}>
-          Abbrechen
+          {t('cancel')}
         </Button>
       </Box>
     </SwipeableDrawer>
