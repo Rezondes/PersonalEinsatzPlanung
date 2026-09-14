@@ -505,7 +505,9 @@ describe('AbsencesView', () => {
       await user.click(screen.getByRole('button', { name: 'Speichern' }));
 
       await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
-      expect(await screen.findByText('Urlaub')).toBeInTheDocument();
+      // Generous timeout: this waits on the post-save reload round trip, which occasionally
+      // outruns the 1000ms default under CI's slower/shared runners (saw it flake there).
+      expect(await screen.findByText('Urlaub', {}, { timeout: 5000 })).toBeInTheDocument();
       expect(screen.queryByText('Noch keine Abwesenheiten erfasst.')).not.toBeInTheDocument();
     });
 

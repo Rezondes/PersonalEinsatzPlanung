@@ -1,4 +1,4 @@
-import { defineConfig } from 'vitest/config';
+import { defineConfig, configDefaults } from 'vitest/config';
 import react from '@vitejs/plugin-react';
 import path from 'node:path';
 import { buildDefines } from './build/buildDefines';
@@ -19,5 +19,10 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['./src/testSetup.ts'],
     globals: true,
+    // Nested git worktrees under .claude/worktrees/ (see `git worktree list`) ship their own
+    // node_modules with a second React copy; without this exclude, vitest's default include
+    // glob picks up their test files too and every hook call crashes with a duplicate-instance
+    // "Cannot read properties of null" error.
+    exclude: [...configDefaults.exclude, '.claude/**'],
   },
 });
