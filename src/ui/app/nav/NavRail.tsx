@@ -4,6 +4,7 @@ import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
 import MenuOpenIcon from '@mui/icons-material/MenuOpen';
 import MenuIcon from '@mui/icons-material/Menu';
+import { useTranslation } from 'react-i18next';
 import { MAIN_NAV_ITEMS, FOOTER_NAV_ITEMS } from './navItems';
 import { NAV_LINK_CLASS } from './navLinkStyle';
 import { useNavRailStore } from '../store/navRailStore';
@@ -47,6 +48,7 @@ export function NavRail() {
   const toggle = useNavRailStore((s) => s.toggle);
   const width = collapsed ? COLLAPSED_WIDTH : EXPANDED_WIDTH;
   const locale = useLocale();
+  const { t } = useTranslation('nav');
 
   return (
     <Box
@@ -88,8 +90,8 @@ export function NavRail() {
           <NavLink
             key={item.path}
             to={buildLocalizedPath(locale, item.path)}
-            title={item.label}
-            aria-label={item.label}
+            title={t(item.label)}
+            aria-label={t(item.label)}
             style={railLinkStyle}
             className={NAV_LINK_CLASS}
           >
@@ -105,7 +107,7 @@ export function NavRail() {
               }}
             >
               <item.icon fontSize="small" sx={{ flexShrink: 0 }} />
-              {!collapsed && <Typography noWrap>{item.label}</Typography>}
+              {!collapsed && <Typography noWrap>{t(item.label)}</Typography>}
             </Box>
           </NavLink>
         ))}
@@ -118,8 +120,8 @@ export function NavRail() {
           <NavLink
             key={item.path}
             to={buildLocalizedPath(locale, item.path)}
-            title={item.label}
-            aria-label={item.label}
+            title={t(item.label)}
+            aria-label={t(item.label)}
             style={railLinkStyle}
             className={NAV_LINK_CLASS}
           >
@@ -135,7 +137,7 @@ export function NavRail() {
               }}
             >
               <item.icon fontSize="small" sx={{ flexShrink: 0, color: 'rgba(0,0,0,0.54)' }} />
-              {!collapsed && <Typography noWrap>{item.label}</Typography>}
+              {!collapsed && <Typography noWrap>{t(item.label)}</Typography>}
             </Box>
           </NavLink>
         ))}

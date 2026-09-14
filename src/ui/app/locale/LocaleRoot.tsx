@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { Outlet } from 'react-router-dom';
+import i18n from '@ui/i18n/i18n';
 import { useLocaleStore } from './localeStore';
 import { useLocale } from './useLocale';
 
@@ -14,6 +15,7 @@ export function LocaleRoot() {
   useEffect(() => {
     useLocaleStore.getState().setLocale(locale);
     document.documentElement.lang = locale;
+    void i18n.changeLanguage(locale);
   }, [locale]);
 
   return <Outlet />;

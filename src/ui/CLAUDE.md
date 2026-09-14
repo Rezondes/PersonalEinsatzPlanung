@@ -45,6 +45,31 @@ keeps the store and `<html lang>` in sync). Only German exists today - see `doma
 so nothing renders `LanguageSwitcher.tsx` yet; it exists so a second locale is a one-array-entry
 change, not a routing rewrite.
 
+## i18n (translation mechanism)
+
+`ui/i18n/` is a sibling of `app/locale/`, not part of it: `app/locale/` owns the URL/routing
+decision of WHICH locale is active; `ui/i18n/` (react-i18next + i18next) owns actually translating
+UI-layer copy once that decision is made. `ui/i18n/i18n.ts` is the one shared i18next instance -
+imported for its side effect by both main.tsx and testSetup.ts, so there is exactly one place that
+ever defines what German resources exist, and tests exercise the same real translations the app
+ships. `LocaleRoot.tsx`'s effect calls `i18n.changeLanguage(locale)` alongside its existing
+store/`<html lang>` sync, so the URL segment stays the ONLY source of truth for the active language.
+
+Rules that must not erode as more views migrate:
+- Never add i18next-browser-languagedetector or any auto-detection: the active language is always
+  and only whatever `useLocale()`/`localeLoader` derives from the URL.
+- Never add i18next-http-backend or fetch a namespace's resources at runtime: every namespace file
+  under `ui/i18n/resources/de/` is a statically imported .ts module, bundled into the normal
+  precached JS - required for the app's fully-offline PWA guarantee.
+- `src/domain/validation/*` message strings are OUT of scope: domain/ can never import ui/, so
+  those stay plain hardcoded German pending a future dependency-inversion redesign.
+- A number interpolated into a t() call is NOT auto-formatted German-style by i18next - pre-format
+  it with `.toLocaleString('de-DE')` first, exactly like every other rendered number.
+- To migrate a view: add its strings as keys to the right namespace file (a new file for a new
+  feature area, an existing one for shared copy), replace the literal with `t('key')`, then run the
+  existing tests unchanged - only a test that imported the old field/string directly (not through
+  rendered DOM output) needs touching.
+
 ## German number/date formatting (mandatory, no exceptions)
 
 This applies to **every layer**, not just views: `ValidationResult.message` strings built in

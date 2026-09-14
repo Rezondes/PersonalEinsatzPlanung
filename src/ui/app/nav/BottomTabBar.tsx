@@ -2,6 +2,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import BottomNavigation from '@mui/material/BottomNavigation';
 import BottomNavigationAction from '@mui/material/BottomNavigationAction';
 import Paper from '@mui/material/Paper';
+import { useTranslation } from 'react-i18next';
 import { BOTTOM_TABS } from './navItems';
 import { useLocale } from '../locale/useLocale';
 import { buildLocalizedPath, stripLocalePrefix } from '../locale/locale';
@@ -21,6 +22,7 @@ export function BottomTabBar() {
   const { pathname } = useLocation();
   const navigate = useNavigate();
   const locale = useLocale();
+  const { t } = useTranslation('nav');
   const activeTab = activeTabPath(stripLocalePrefix(pathname, locale));
 
   return (
@@ -45,7 +47,7 @@ export function BottomTabBar() {
         {BOTTOM_TABS.map((tab) => (
           <BottomNavigationAction
             key={tab.path}
-            label={tab.shortLabel ?? tab.label}
+            label={t(tab.shortLabel ?? tab.label)}
             value={tab.path}
             icon={<tab.icon />}
             // Unlike NavRail (a plain NavLink, which sets this automatically), BottomNavigationAction

@@ -38,5 +38,7 @@ Discriminant values that route through a separate display-label function (e.g.
 
 The user interface itself stays German - the app's users are German-speaking store managers.
 UI-facing strings (validation `message` values, labels) stay German; do not translate them. This
-is unaffected by `ui/app/locale/` (URL-driven locale routing plumbing, see `ui/CLAUDE.md`): only
-German is a `SUPPORTED_LOCALES` entry today, so no string in this layer has anywhere else to go yet.
+is unaffected by `ui/app/locale/` (URL-driven locale routing plumbing) or its sibling `ui/i18n/`
+(the actual translation mechanism that consumes that routing decision, see `ui/CLAUDE.md`): only
+German is a `SUPPORTED_LOCALES` entry today, and domain/ can never import ui/ regardless, so no
+string in this layer has anywhere else to go yet.

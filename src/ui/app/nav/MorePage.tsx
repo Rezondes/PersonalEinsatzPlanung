@@ -6,6 +6,7 @@ import ListItemButton from '@mui/material/ListItemButton';
 import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
+import { useTranslation } from 'react-i18next';
 import { useBreakpoint } from '@ui/hooks/useBreakpoint';
 import { usePageActions } from '@ui/app/PageActionsContext';
 import type { NavItem } from './navItems';
@@ -31,6 +32,7 @@ export function MorePage() {
   const navigate = useNavigate();
   const layout = useBreakpoint();
   const locale = useLocale();
+  const { t } = useTranslation('nav');
   usePageActions({ fullBleedPage: true });
   const entries = buildMoreEntries(MAIN_NAV_ITEMS, FOOTER_NAV_ITEMS);
 
@@ -56,7 +58,7 @@ export function MorePage() {
               <ListItemIcon>
                 <item.icon />
               </ListItemIcon>
-              <ListItemText primary={item.label} />
+              <ListItemText primary={t(item.label)} />
               <ChevronRightIcon sx={{ color: 'rgba(0,0,0,0.38)' }} />
             </ListItemButton>
           ))}

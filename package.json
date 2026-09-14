@@ -20,8 +20,10 @@
     "@mui/material": "^6.1.9",
     "date-fns": "^4.1.0",
     "dexie": "^4.0.10",
+    "i18next": "^26.4.2",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "react-i18next": "^17.0.14",
     "react-router-dom": "^6.28.0",
     "zustand": "^5.0.1"
   },

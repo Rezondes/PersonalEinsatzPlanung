@@ -19,6 +19,7 @@ import MenuItem from '@mui/material/MenuItem';
 import Checkbox from '@mui/material/Checkbox';
 import ListItemText from '@mui/material/ListItemText';
 import Tooltip from '@mui/material/Tooltip';
+import { useTranslation } from 'react-i18next';
 import AddIcon from '@mui/icons-material/Add';
 import EventAvailableOutlinedIcon from '@mui/icons-material/EventAvailableOutlined';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
@@ -135,6 +136,7 @@ function AbsenceCard({
 
 export function AbsencesView() {
   const layout = useBreakpoint();
+  const { t } = useTranslation('absences');
   const { branch } = useSelectedBranch();
   const { employeeList } = useEmployeeList(branch?.id ?? null);
   const activeEmployees = employeeList.filter((emp) => emp.active);
@@ -482,7 +484,7 @@ export function AbsencesView() {
           absences={absences}
           onClose={() => setHolidaysDialogOpen(false)}
           onApplied={({ created, skipped }) => {
-            notify.success(`${created} Feiertage angelegt, ${skipped} übersprungen (bereits erfasst/überschneidend).`);
+            notify.success(t('holidaysCreated', { created, skipped }));
             reload();
           }}
           onError={notify.report}

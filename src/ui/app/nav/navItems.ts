@@ -1,4 +1,5 @@
 import type { SvgIconComponent } from '@mui/icons-material';
+import type { NavKey } from '@ui/i18n/resources/de/nav';
 import EventNoteOutlinedIcon from '@mui/icons-material/EventNoteOutlined';
 import CalendarViewMonthOutlinedIcon from '@mui/icons-material/CalendarViewMonthOutlined';
 import GroupOutlinedIcon from '@mui/icons-material/GroupOutlined';
@@ -12,10 +13,11 @@ import MoreHorizOutlinedIcon from '@mui/icons-material/MoreHorizOutlined';
 
 export interface NavItem {
   path: string;
-  /** Full label, used by NavRail. */
-  label: string;
-  /** Short label for the mobile bottom tab bar's tight width; falls back to `label`. */
-  shortLabel?: string;
+  /** Translation key in the `nav` i18n namespace, not a finished string - consumers call
+   * t(item.label). Full label, used by NavRail. */
+  label: NavKey;
+  /** Translation key for the mobile bottom tab bar's tight width; falls back to `label`. */
+  shortLabel?: NavKey;
   icon: SvgIconComponent;
 }
 
@@ -24,19 +26,19 @@ export interface NavItem {
  * matches the mockup's `railMain`.
  */
 export const MAIN_NAV_ITEMS: NavItem[] = [
-  { path: '/schedule', label: 'Wochenplanung', shortLabel: 'Woche', icon: EventNoteOutlinedIcon },
-  { path: '/month', label: 'Monatsübersicht', shortLabel: 'Monat', icon: CalendarViewMonthOutlinedIcon },
-  { path: '/employees', label: 'Mitarbeiter', shortLabel: 'Team', icon: GroupOutlinedIcon },
-  { path: '/absences', label: 'Abwesenheiten', shortLabel: 'Abwesend', icon: EventBusyOutlinedIcon },
-  { path: '/branches', label: 'Filialen', icon: StoreOutlinedIcon },
+  { path: '/schedule', label: 'schedule', shortLabel: 'scheduleShort', icon: EventNoteOutlinedIcon },
+  { path: '/month', label: 'month', shortLabel: 'monthShort', icon: CalendarViewMonthOutlinedIcon },
+  { path: '/employees', label: 'employees', shortLabel: 'employeesShort', icon: GroupOutlinedIcon },
+  { path: '/absences', label: 'absences', shortLabel: 'absencesShort', icon: EventBusyOutlinedIcon },
+  { path: '/branches', label: 'branches', icon: StoreOutlinedIcon },
 ];
 
 /** Secondary destinations, shown in a footer section on NavRail. */
 export const FOOTER_NAV_ITEMS: NavItem[] = [
-  { path: '/changelog', label: 'Änderungen', icon: HistoryOutlinedIcon },
-  { path: '/privacy', label: 'Datenschutz', icon: ShieldOutlinedIcon },
-  { path: '/terms', label: 'Nutzungsbedingungen', icon: GavelOutlinedIcon },
-  { path: '/settings', label: 'Einstellungen', icon: SettingsOutlinedIcon },
+  { path: '/changelog', label: 'changelog', icon: HistoryOutlinedIcon },
+  { path: '/privacy', label: 'privacy', icon: ShieldOutlinedIcon },
+  { path: '/terms', label: 'terms', icon: GavelOutlinedIcon },
+  { path: '/settings', label: 'settings', icon: SettingsOutlinedIcon },
 ];
 
 export interface BottomTab extends NavItem {
@@ -56,7 +58,7 @@ export const BOTTOM_TABS: BottomTab[] = [
   MAIN_NAV_ITEMS[3],
   {
     path: '/more',
-    label: 'Mehr',
+    label: 'more',
     icon: MoreHorizOutlinedIcon,
     matchPaths: ['/more', '/branches', '/settings', '/privacy', '/terms', '/changelog'],
   },

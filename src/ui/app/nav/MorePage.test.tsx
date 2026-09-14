@@ -31,8 +31,8 @@ describe('MorePage', () => {
 });
 
 describe('buildMoreEntries', () => {
-  const filialen: NavItem = { path: '/branches', label: 'Filialen', icon: StoreOutlinedIcon };
-  const settings: NavItem = { path: '/settings', label: 'Einstellungen', icon: SettingsOutlinedIcon };
+  const filialen: NavItem = { path: '/branches', label: 'branches', icon: StoreOutlinedIcon };
+  const settings: NavItem = { path: '/settings', label: 'settings', icon: SettingsOutlinedIcon };
 
   it('puts the Filialen entry first, then the footer items, when it exists in mainNavItems', () => {
     expect(buildMoreEntries([filialen], [settings])).toEqual([filialen, settings]);

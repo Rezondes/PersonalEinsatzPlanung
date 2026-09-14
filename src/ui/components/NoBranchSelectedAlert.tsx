@@ -1,6 +1,7 @@
 import { Link as RouterLink } from 'react-router-dom';
 import Alert from '@mui/material/Alert';
 import Button from '@mui/material/Button';
+import { useTranslation } from 'react-i18next';
 import { useLocale } from '@ui/app/locale/useLocale';
 import { buildLocalizedPath } from '@ui/app/locale/locale';
 
@@ -12,17 +13,18 @@ import { buildLocalizedPath } from '@ui/app/locale/locale';
  */
 export function NoBranchSelectedAlert() {
   const locale = useLocale();
+  const { t } = useTranslation();
 
   return (
     <Alert
       severity="info"
       action={
         <Button component={RouterLink} to={buildLocalizedPath(locale, '/branches')} color="inherit" size="small">
-          Zu den Filialen
+          {t('goToBranches')}
         </Button>
       }
     >
-      Bitte zuerst oben eine Filiale auswählen oder anlegen.
+      {t('noBranchSelected')}
     </Alert>
   );
 }
