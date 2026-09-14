@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { WeeklySchedule } from '@domain/schedule/WeeklySchedule';
 import type { Absence } from '@domain/absence/Absence';
 
@@ -51,6 +52,7 @@ export function useScheduleHistory({
   applyStep,
   onError,
 }: UseScheduleHistoryOptions) {
+  const { t } = useTranslation('schedule');
   const pastRef = useRef<KeyedStep[]>([]);
   const futureRef = useRef<KeyedStep[]>([]);
   const queueRef = useRef<Promise<unknown>>(Promise.resolve());
@@ -121,7 +123,7 @@ export function useScheduleHistory({
           from.current = from.current.slice(0, -1);
           to.current = [...to.current, step];
         } catch (e) {
-          onError(e, direction === 'undo' ? 'Rückgängig fehlgeschlagen' : 'Wiederholen fehlgeschlagen');
+          onError(e, direction === 'undo' ? t('undoFailed') : t('redoFailed'));
         }
       });
       queueRef.current = task;
@@ -132,7 +134,7 @@ export function useScheduleHistory({
         bumpStackVersion();
       });
     },
-    [applyStep, onError],
+    [applyStep, onError, t],
   );
 
   const undo = useCallback(() => move('undo'), [move]);

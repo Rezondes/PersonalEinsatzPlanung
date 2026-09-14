@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
@@ -83,6 +84,8 @@ import { useLocale } from '@ui/app/locale/useLocale';
 import { buildLocalizedPath } from '@ui/app/locale/locale';
 
 export function ScheduleView() {
+  const { t } = useTranslation('schedule');
+  const { t: tCommon } = useTranslation();
   const { branch } = useSelectedBranch();
   const { employeeList, loading: employeeListLoading } = useEmployeeList(branch?.id ?? null);
   const selectedWeek = useCalendarWeekStore((s) => s.selectedWeek);
@@ -281,8 +284,8 @@ export function ScheduleView() {
           setSchedule(updated);
         }
         return { scheduleBefore: before, scheduleAfter: updated, absenceOps };
-      }, 'Eintrag konnte nicht gespeichert werden'),
-    [run, reloadAbsences, setSchedule],
+      }, t('entryError')),
+    [run, reloadAbsences, setSchedule, t],
   );
 
   const saveEntry = (entry: DayEntry) => {
@@ -333,8 +336,8 @@ export function ScheduleView() {
         await reloadAbsences();
 
         return { scheduleBefore: before, scheduleAfter: before, absenceOps };
-      }, 'Abwesenheit konnte nicht gespeichert werden'),
-    [run, reloadAbsences],
+      }, t('absenceSaveError')),
+    [run, reloadAbsences, t],
   );
 
   /** H7: replaces this week's shifts with the previous week's, after the user has confirmed the
@@ -346,14 +349,14 @@ export function ScheduleView() {
     try {
       const updated = await services.schedule.overwriteWithPreviousWeek(schedule);
       if (updated === schedule) {
-        notify.error('Für die Vorwoche wurde kein Dienstplan gefunden.');
+        notify.error(t('noPreviousSchedule'));
       } else {
         scheduleReplaced(updated);
-        notify.success('Schichten der Vorwoche wurden übernommen.');
+        notify.success(t('previousWeekCopied'));
       }
       setCopyPreviousWeekOpen(false);
     } catch (e) {
-      notify.report(e, 'Vorwoche konnte nicht übernommen werden');
+      notify.report(e, t('previousWeekCopyError'));
     } finally {
       setCopyingPreviousWeek(false);
     }
@@ -575,7 +578,7 @@ export function ScheduleView() {
 
         if (dayEntryWrites.length === 0 && absenceOps.length === 0) {
           if (skipped > 0) {
-            notify.error(`Keine der ${skipped} ausgewählten Zellen konnte aktualisiert werden (gesperrt/nicht anwendbar).`);
+            notify.error(t('bulkNoneUpdated', { skipped }));
           }
           return null;
         }
@@ -596,14 +599,14 @@ export function ScheduleView() {
         const appliedCount = targets.length - skipped;
         notify.success(
           skipped > 0
-            ? `${appliedCount} von ${targets.length} aktualisiert, ${skipped} übersprungen (gesperrt/nicht anwendbar).`
-            : `${appliedCount} von ${targets.length} aktualisiert.`,
+            ? t('bulkUpdatedWithSkipped', { applied: appliedCount, total: targets.length, skipped })
+            : t('bulkUpdated', { applied: appliedCount, total: targets.length }),
         );
         finishSelecting();
 
         return { scheduleBefore: before, scheduleAfter: updated, absenceOps };
-      }, 'Massen-Bearbeitung konnte nicht gespeichert werden'),
-    [run, rows, selectedCells, absences, reloadAbsences, setSchedule, finishSelecting],
+      }, t('bulkError')),
+    [run, rows, selectedCells, absences, reloadAbsences, setSchedule, finishSelecting, t],
   );
 
   // ScheduleTable only calls this for a cell canReceiveEntry already accepted (same trust boundary
@@ -713,7 +716,7 @@ export function ScheduleView() {
             }}
             role="button"
             tabIndex={0}
-            aria-label={`${formatCalendarWeekRange(selectedWeek)}, andere Woche auswählen`}
+            aria-label={t('weekRangeAriaLabel', { range: formatCalendarWeekRange(selectedWeek) })}
             sx={{
               cursor: 'pointer',
               textDecoration: 'underline',
@@ -727,21 +730,21 @@ export function ScheduleView() {
         </Box>
 
         <Stack direction="row" gap={1} alignItems="center">
-          <Tooltip title="Rückgängig (Strg+Z)">
+          <Tooltip title={t('undoTooltip')}>
             <span>
-              <IconButton onClick={() => history.undo()} disabled={!history.canUndo} aria-label="Rückgängig">
+              <IconButton onClick={() => history.undo()} disabled={!history.canUndo} aria-label={t('undoAriaLabel')}>
                 <UndoIcon />
               </IconButton>
             </span>
           </Tooltip>
-          <Tooltip title="Wiederholen (Strg+Y)">
+          <Tooltip title={t('redoTooltip')}>
             <span>
-              <IconButton onClick={() => history.redo()} disabled={!history.canRedo} aria-label="Wiederholen">
+              <IconButton onClick={() => history.redo()} disabled={!history.canRedo} aria-label={t('redoAriaLabel')}>
                 <RedoIcon />
               </IconButton>
             </span>
           </Tooltip>
-          <IconButton onClick={() => setSelectedWeek(previousCalendarWeek(selectedWeek))} aria-label="Vorherige Woche">
+          <IconButton onClick={() => setSelectedWeek(previousCalendarWeek(selectedWeek))} aria-label={t('previousWeekAriaLabel')}>
             <ChevronLeftIcon />
           </IconButton>
           <Button
@@ -750,9 +753,9 @@ export function ScheduleView() {
             onClick={() => setSelectedWeek(calendarWeekFromDate(new Date()))}
             disabled={calendarWeeksEqual(selectedWeek, calendarWeekFromDate(new Date()))}
           >
-            Heute
+            {t('todayButton')}
           </Button>
-          <IconButton onClick={() => setSelectedWeek(nextCalendarWeek(selectedWeek))} aria-label="Nächste Woche">
+          <IconButton onClick={() => setSelectedWeek(nextCalendarWeek(selectedWeek))} aria-label={t('nextWeekAriaLabel')}>
             <ChevronRightIcon />
           </IconButton>
           {/* Mobile: these two move into the "Weitere Aktionen" sheet's Aktionen section instead
@@ -761,12 +764,12 @@ export function ScheduleView() {
               overflow:hidden on mobile). */}
           {layout !== 'mobile' && (
             <Button variant="outlined" startIcon={<SwapHorizOutlinedIcon />} onClick={() => setCarryOverOpen(true)}>
-              Vorwoche übertragen
+              {t('carryOverButton')}
             </Button>
           )}
           {layout !== 'mobile' && (
             <Button variant="outlined" startIcon={<ContentCopyOutlinedIcon />} onClick={() => setCopyPreviousWeekOpen(true)}>
-              Vorwoche kopieren
+              {t('copyPreviousWeekButton')}
             </Button>
           )}
           {layout !== 'mobile' && schedule && (
@@ -775,7 +778,7 @@ export function ScheduleView() {
               startIcon={<PrintOutlinedIcon />}
               onClick={() => navigate(buildLocalizedPath(locale, `/print/${schedule.id}`))}
             >
-              Drucken
+              {t('printButton')}
             </Button>
           )}
         </Stack>
@@ -821,14 +824,17 @@ export function ScheduleView() {
           const istSollText =
             layout === 'mobile'
               ? `${formatHoursGerman(totalWorkedMinutes)} / ${formatHoursRangeGerman(totalTarget.min, totalTarget.max)}`
-              : `Ist ${formatHoursGerman(totalWorkedMinutes)} von ${formatHoursRangeGerman(totalTarget.min, totalTarget.max)} Soll`;
+              : t('istSollSentence', {
+                  worked: formatHoursGerman(totalWorkedMinutes),
+                  range: formatHoursRangeGerman(totalTarget.min, totalTarget.max),
+                });
 
           return (
             <Stack direction="row" gap={1} sx={{ mb: 2, overflowX: 'auto', pb: 0.5 }}>
               <Box sx={{ ...chipSx, backgroundColor: 'background.paper' }}>
                 {layout === 'mobile' && (
                   <Typography variant="caption" color="text.secondary" noWrap display="block">
-                    Ist / Soll
+                    {t('istSollMobileCaption')}
                   </Typography>
                 )}
                 <Typography variant="body2" fontWeight={500} noWrap>
@@ -860,7 +866,8 @@ export function ScheduleView() {
                   >
                     <WarningAmberIcon fontSize="small" />
                     <Typography variant="body2" fontWeight={500} noWrap>
-                      {errorCount} Fehler{warningCount > 0 ? `, ${warningCount} Warnung(en)` : ''}
+                      {t('errorSummary', { count: errorCount })}
+                      {warningCount > 0 ? t('warningSuffix', { count: warningCount }) : ''}
                     </Typography>
                   </Box>
                 )}
@@ -868,7 +875,7 @@ export function ScheduleView() {
 
               <Box sx={{ ...chipSx, backgroundColor: '#eef3f1', color: '#2f5d50' }}>
                 <Typography variant="body2" fontWeight={500} noWrap>
-                  {notYetScheduledText} noch nicht eingeplant
+                  {t('notYetScheduled', { value: notYetScheduledText })}
                 </Typography>
               </Box>
             </Stack>
@@ -877,20 +884,20 @@ export function ScheduleView() {
 
       {!isLoading && employeeList.length === 0 && (
         <Alert severity="info" sx={{ mb: 2 }}>
-          Für diese Filiale sind noch keine Mitarbeiter angelegt. Lege zuerst Mitarbeiter unter „Mitarbeiter“ an.
+          {t('noEmployeesAlert')}
         </Alert>
       )}
 
       {rows.length > 0 && (
         <TextField
           size="small"
-          placeholder="Mitarbeiter suchen"
+          placeholder={t('searchPlaceholder')}
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           // A top-level aria-label prop lands on TextField's outer wrapper, not the native input
           // getByLabelText/screen readers need - inputProps forwards down to that inner element
           // (same fix as AppHeader.tsx's Filiale Select, see its comment there).
-          inputProps={{ 'aria-label': 'Mitarbeiter suchen' }}
+          inputProps={{ 'aria-label': t('searchPlaceholder') }}
           sx={{ mb: 2, width: 280 }}
           InputProps={{
             startAdornment: (
@@ -944,7 +951,7 @@ export function ScheduleView() {
             )}
 
             {schedule && rows.length > 0 && visibleRows.length === 0 && (
-              <Alert severity="info">Kein Mitarbeiter gefunden.</Alert>
+              <Alert severity="info">{t('noEmployeeFound')}</Alert>
             )}
           </Box>
         );
@@ -974,19 +981,19 @@ export function ScheduleView() {
       >
         <MenuItem onClick={copy}>
           <ContentCopyIcon fontSize="small" sx={{ mr: 1 }} />
-          Kopieren
+          {t('copyMenuItem')}
         </MenuItem>
         <MenuItem onClick={paste} disabled={pasteDisabled}>
           <ContentPasteIcon fontSize="small" sx={{ mr: 1 }} />
-          Einfügen
+          {t('pasteMenuItem')}
         </MenuItem>
         <MenuItem onClick={setToOff} disabled={setToOffDisabled}>
           <EventBusyOutlinedIcon fontSize="small" sx={{ mr: 1 }} />
-          Frei
+          {t('offMenuItem')}
         </MenuItem>
         <MenuItem onClick={saveAsTemplate} disabled={saveAsTemplateDisabled}>
           <BookmarkAddOutlinedIcon fontSize="small" sx={{ mr: 1 }} />
-          Als Vorlage speichern
+          {t('saveAsTemplateMenuItem')}
         </MenuItem>
       </Menu>
 
@@ -1045,9 +1052,9 @@ export function ScheduleView() {
 
       <ConfirmDialog
         open={!!templateDeleteTarget}
-        title="Vorlage löschen?"
-        text={`Die Vorlage „${templateDeleteTarget?.name ?? ''}“ wird entfernt. Bereits eingetragene Arbeitszeiten bleiben unverändert, sie sind Kopien der Vorlage.`}
-        confirmText="Löschen"
+        title={t('deleteTemplateTitle')}
+        text={t('deleteTemplateText', { name: templateDeleteTarget?.name ?? '' })}
+        confirmText={tCommon('delete')}
         dangerous
         busy={templateDeleting}
         onConfirm={async () => {
@@ -1063,7 +1070,7 @@ export function ScheduleView() {
             }
             await reloadTemplates();
           } catch (e) {
-            notify.report(e, 'Vorlage konnte nicht gelöscht werden');
+            notify.report(e, t('deleteTemplateError'));
           } finally {
             setTemplateDeleteTarget(null);
             setTemplateDeleting(false);
@@ -1074,9 +1081,9 @@ export function ScheduleView() {
 
       <ConfirmDialog
         open={copyPreviousWeekOpen}
-        title="Vorwoche komplett übernehmen?"
-        text="Alle Schichten dieser Woche werden durch die Schichten der Vorwoche ersetzt. Bereits eingetragene Schichten dieser Woche gehen dabei verloren."
-        confirmText="Übernehmen"
+        title={t('copyPreviousWeekTitle')}
+        text={t('copyPreviousWeekText')}
+        confirmText={t('copyPreviousWeekConfirm')}
         dangerous
         busy={copyingPreviousWeek}
         onConfirm={copyPreviousWeek}
