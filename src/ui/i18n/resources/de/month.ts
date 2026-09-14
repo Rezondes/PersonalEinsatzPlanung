@@ -1,0 +1,26 @@
+/** MonthOverviewView.tsx copy. MONTH_NAMES and every ValidationResult.message shown in the
+ * per-week tooltip are domain-layer (out of scope, see ui/CLAUDE.md's i18n section). */
+const month = {
+  previousMonth: 'Vorheriger Monat',
+  nextMonth: 'Nächster Monat',
+  monthLabel: 'Monat',
+  yearLabel: 'Jahr',
+  exportButton: 'Exportieren',
+  infoCaption:
+    'Zeigt je Kalenderwoche nur Tages-/Wochenprüfungen auf ArbZG-/JArbSchG-Verstöße; eine Ruhezeit-Prüfung über Wochengrenzen hinweg findet hier nicht statt.',
+  loading: 'Wird geladen…',
+  columnEmployee: 'Mitarbeiter',
+  columnTargetWeekly: 'Soll/Woche',
+  columnTotal: 'Gesamt Monat',
+  weekPrefix: 'KW {{week}}',
+  jumpToWeekAriaLabel: 'Zu Kalenderwoche {{week}} springen',
+  noEntries: 'keine Einträge',
+  hoursValue: '{{hours}} Std.',
+  weekCellAriaLabel: '{{name}}, KW {{week}}, {{hoursText}} bearbeiten',
+  showHintAriaLabel: 'Hinweis anzeigen',
+  monthlyLimitTooltip: '{{hours}} Std. diesen Monat, Grenze {{limit}} Std./Monat',
+  monthlyLimitAriaLabel: 'Monatsgrenze überschritten anzeigen',
+  exportError: 'Die Monatsübersicht konnte nicht exportiert werden',
+} as const;
+
+export default month;

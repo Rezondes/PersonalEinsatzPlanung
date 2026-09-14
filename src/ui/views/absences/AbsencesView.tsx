@@ -20,6 +20,7 @@ import Checkbox from '@mui/material/Checkbox';
 import ListItemText from '@mui/material/ListItemText';
 import Tooltip from '@mui/material/Tooltip';
 import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import AddIcon from '@mui/icons-material/Add';
 import EventAvailableOutlinedIcon from '@mui/icons-material/EventAvailableOutlined';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
@@ -58,10 +59,11 @@ function getAbsenceRowActions(
   absence: Absence,
   onEdit: (a: Absence) => void,
   onDelete: (a: Absence) => void,
+  tCommon: TFunction,
 ): RowAction[] {
   return [
-    { key: 'edit', label: 'Bearbeiten', icon: EditOutlinedIcon, onSelect: () => onEdit(absence) },
-    { key: 'delete', label: 'Löschen', icon: DeleteOutlineIcon, dangerous: true, onSelect: () => onDelete(absence) },
+    { key: 'edit', label: tCommon('edit'), icon: EditOutlinedIcon, onSelect: () => onEdit(absence) },
+    { key: 'delete', label: tCommon('delete'), icon: DeleteOutlineIcon, dangerous: true, onSelect: () => onDelete(absence) },
   ];
 }
 
@@ -80,13 +82,14 @@ function AbsenceCard({
   onTap: () => void;
   onLongPress: () => void;
 }) {
+  const { t } = useTranslation('absences');
   const handlers = useLongPress({ onTap, onLongPress });
   const halfDayText =
     absence.type === 'Vacation' && absence.halfDay && absence.from === absence.to
       ? absence.halfDay.atStart
-        ? ' (vormittags)'
+        ? t('halfDayMorning')
         : absence.halfDay.atEnd
-          ? ' (nachmittags)'
+          ? t('halfDayAfternoon')
           : ''
       : '';
   const rangeText =
@@ -122,12 +125,12 @@ function AbsenceCard({
           <Typography variant="body2">{rangeText}</Typography>
           {absence.type === 'Other' && absence.hoursPerDay !== undefined && (
             <Typography variant="caption" color="text.secondary">
-              {absence.hoursPerDay.toLocaleString('de-DE')} Std./Tag
+              {absence.hoursPerDay.toLocaleString('de-DE')} {t('hoursPerDaySuffix')}
             </Typography>
           )}
         </Box>
       </ButtonBase>
-      <IconButton onClick={onLongPress} aria-label={`Weitere Aktionen für Abwesenheit von ${employeeName}`}>
+      <IconButton onClick={onLongPress} aria-label={t('otherActionsFor', { name: employeeName })}>
         <MoreVertIcon />
       </IconButton>
     </Box>
@@ -137,6 +140,7 @@ function AbsenceCard({
 export function AbsencesView() {
   const layout = useBreakpoint();
   const { t } = useTranslation('absences');
+  const { t: tCommon } = useTranslation();
   const { branch } = useSelectedBranch();
   const { employeeList } = useEmployeeList(branch?.id ?? null);
   const activeEmployees = employeeList.filter((emp) => emp.active);
@@ -162,7 +166,7 @@ export function AbsencesView() {
   usePageActions({
     fab: branch
       ? {
-          label: 'Erfassen',
+          label: t('fabLabel'),
           icon: AddIcon,
           onClick: () => setDialog({ absence: null }),
           disabled: activeEmployees.length === 0,
@@ -235,9 +239,9 @@ export function AbsencesView() {
     try {
       await services.absence.delete(deleteTarget.id);
       await reload();
-      notify.success('Abwesenheit wurde gelöscht.');
+      notify.success(t('deleteSuccess'));
     } catch (e) {
-      notify.report(e, 'Abwesenheit konnte nicht gelöscht werden');
+      notify.report(e, t('deleteError'));
     } finally {
       setDeleting(false);
       setDeleteTarget(null);
@@ -269,7 +273,7 @@ export function AbsencesView() {
           {/* Tooltip on a disabled button never fires - MUI's own documented workaround is a plain
               span wrapper, which still receives the pointer/focus events the button itself no
               longer does (N18). */}
-          <Tooltip title={activeEmployees.length === 0 ? 'Es sind keine aktiven Mitarbeiter vorhanden.' : ''}>
+          <Tooltip title={activeEmployees.length === 0 ? t('noActiveEmployees') : ''}>
             <span>
               <Button
                 variant="outlined"
@@ -277,11 +281,11 @@ export function AbsencesView() {
                 onClick={() => setDialog({ absence: null })}
                 disabled={activeEmployees.length === 0}
               >
-                Abwesenheit erfassen
+                {t('createButton')}
               </Button>
             </span>
           </Tooltip>
-          <Tooltip title={activeEmployees.length === 0 ? 'Es sind keine aktiven Mitarbeiter vorhanden.' : ''}>
+          <Tooltip title={activeEmployees.length === 0 ? t('noActiveEmployees') : ''}>
             <span>
               <Button
                 variant="outlined"
@@ -289,7 +293,7 @@ export function AbsencesView() {
                 onClick={() => setHolidaysDialogOpen(true)}
                 disabled={activeEmployees.length === 0}
               >
-                Feiertage anlegen
+                {t('createHolidaysLabel')}
               </Button>
             </span>
           </Tooltip>
@@ -301,37 +305,37 @@ export function AbsencesView() {
           <TextField
             select
             size="small"
-            label="Mitarbeiter"
+            label={t('employeeLabel')}
             value={employeeFilter}
             onChange={(e) => setEmployeeFilter(e.target.value)}
             sx={{ width: 240 }}
           >
-            <MenuItem value={ALL}>Alle</MenuItem>
+            <MenuItem value={ALL}>{t('filterAll')}</MenuItem>
             {employeeList.map((emp) => (
               <MenuItem key={emp.id} value={emp.id}>
                 {fullName(emp)}
-                {!emp.active && ' (inaktiv)'}
+                {!emp.active && t('employeeInactiveSuffix')}
               </MenuItem>
             ))}
           </TextField>
           <TextField
             select
             size="small"
-            label="Art"
+            label={t('typeLabel')}
             value={typeFilter}
             onChange={(e) => setTypeFilter(e.target.value as TypeFilter)}
             sx={{ width: 180 }}
           >
-            <MenuItem value={ALL}>Alle</MenuItem>
-            <MenuItem value="Vacation">Urlaub</MenuItem>
-            <MenuItem value="Illness">Krankheit</MenuItem>
-            <MenuItem value="PublicHoliday">Feiertag</MenuItem>
-            <MenuItem value="Other">Sonstige</MenuItem>
+            <MenuItem value={ALL}>{t('filterAll')}</MenuItem>
+            <MenuItem value="Vacation">{t('typeVacation')}</MenuItem>
+            <MenuItem value="Illness">{t('typeIllness')}</MenuItem>
+            <MenuItem value="PublicHoliday">{t('typeHoliday')}</MenuItem>
+            <MenuItem value="Other">{t('typeOther')}</MenuItem>
           </TextField>
           <TextField
             select
             size="small"
-            label="Jahr"
+            label={t('yearLabel')}
             value={yearFilters}
             onChange={(e) => {
               const value = e.target.value as unknown as string | string[];
@@ -343,7 +347,7 @@ export function AbsencesView() {
               // value is an empty array - it assumes "empty" means "show the floating label only",
               // which is wrong here since an empty selection is a meaningful state ("Alle").
               displayEmpty: true,
-              renderValue: (selected) => ((selected as string[]).length === 0 ? 'Alle' : (selected as string[]).join(', ')),
+              renderValue: (selected) => ((selected as string[]).length === 0 ? t('filterAll') : (selected as string[]).join(', ')),
             }}
             InputLabelProps={{ shrink: true }}
             sx={{ minWidth: 160 }}
@@ -356,7 +360,7 @@ export function AbsencesView() {
             ))}
           </TextField>
           <Typography variant="body2" color="text.secondary">
-            {visibleAbsences.length} von {absences.length} Einträgen
+            {t('countSummary', { visible: visibleAbsences.length, total: absences.length })}
           </Typography>
         </Stack>
       </Paper>
@@ -369,8 +373,8 @@ export function AbsencesView() {
             absencesLoading
               ? ''
               : absences.length === 0
-                ? 'Noch keine Abwesenheiten erfasst.'
-                : 'Kein Eintrag passt zu den Filtern.'
+                ? t('emptyNone')
+                : t('emptyNoMatch')
           }
           renderCard={(a) => (
             <AbsenceCard
@@ -386,19 +390,19 @@ export function AbsencesView() {
               <TableHead>
                 <TableRow>
                   <TableCell sx={stickyCornerSx()}>
-                    <TableSortLabel {...headProps('employee')}>Mitarbeiter</TableSortLabel>
+                    <TableSortLabel {...headProps('employee')}>{t('employeeLabel')}</TableSortLabel>
                   </TableCell>
                   <TableCell sx={stickyHeaderRowSx()}>
-                    <TableSortLabel {...headProps('type')}>Art</TableSortLabel>
+                    <TableSortLabel {...headProps('type')}>{t('typeLabel')}</TableSortLabel>
                   </TableCell>
                   <TableCell sx={stickyHeaderRowSx()}>
-                    <TableSortLabel {...headProps('from')}>Von</TableSortLabel>
+                    <TableSortLabel {...headProps('from')}>{t('columnFrom')}</TableSortLabel>
                   </TableCell>
                   <TableCell sx={stickyHeaderRowSx()}>
-                    <TableSortLabel {...headProps('to')}>Bis</TableSortLabel>
+                    <TableSortLabel {...headProps('to')}>{t('columnTo')}</TableSortLabel>
                   </TableCell>
                   <TableCell align="right" sx={stickyHeaderRowSx()}>
-                    Aktionen
+                    {t('columnActions')}
                   </TableCell>
                 </TableRow>
               </TableHead>
@@ -407,7 +411,7 @@ export function AbsencesView() {
                   <TableRow>
                     <TableCell colSpan={COLUMN_COUNT}>
                       <Typography color="text.secondary" sx={{ py: 2 }}>
-                        Noch keine Abwesenheiten erfasst.
+                        {t('emptyNone')}
                       </Typography>
                     </TableCell>
                   </TableRow>
@@ -416,7 +420,7 @@ export function AbsencesView() {
                   <TableRow>
                     <TableCell colSpan={COLUMN_COUNT}>
                       <Typography color="text.secondary" sx={{ py: 2 }}>
-                        Kein Eintrag passt zu den Filtern.
+                        {t('emptyNoMatch')}
                       </Typography>
                     </TableCell>
                   </TableRow>
@@ -428,9 +432,9 @@ export function AbsencesView() {
                   const halfDayText =
                     a.type === 'Vacation' && a.halfDay && a.from === a.to
                       ? a.halfDay.atStart
-                        ? ' (vormittags)'
+                        ? t('halfDayMorning')
                         : a.halfDay.atEnd
-                          ? ' (nachmittags)'
+                          ? t('halfDayAfternoon')
                           : ''
                       : '';
                   return (
@@ -445,14 +449,14 @@ export function AbsencesView() {
                         <IconButton
                           size="medium"
                           onClick={() => setDialog({ absence: a })}
-                          aria-label={`Abwesenheit von ${employeeName(employee)} bearbeiten`}
+                          aria-label={t('editAriaLabel', { name: employeeName(employee) })}
                         >
                           <EditOutlinedIcon fontSize="medium" />
                         </IconButton>
                         <IconButton
                           size="medium"
                           onClick={() => setDeleteTarget(a)}
-                          aria-label={`Abwesenheit von ${employeeName(employee)} löschen`}
+                          aria-label={t('deleteAriaLabel', { name: employeeName(employee) })}
                         >
                           <DeleteOutlineIcon fontSize="medium" />
                         </IconButton>
@@ -493,9 +497,9 @@ export function AbsencesView() {
 
       <ConfirmDialog
         open={!!deleteTarget}
-        title="Abwesenheit löschen?"
-        text="Dieser Eintrag wird unwiderruflich entfernt."
-        confirmText="Löschen"
+        title={t('deleteConfirmTitle')}
+        text={t('deleteConfirmText')}
+        confirmText={tCommon('delete')}
         dangerous
         busy={deleting}
         onConfirm={deleteAbsence}
@@ -509,7 +513,7 @@ export function AbsencesView() {
         subtitle={sheetAbsence ? absenceTypeLabel(sheetAbsence) : undefined}
         actions={
           sheetAbsence
-            ? getAbsenceRowActions(sheetAbsence, (a) => setDialog({ absence: a }), (a) => setDeleteTarget(a))
+            ? getAbsenceRowActions(sheetAbsence, (a) => setDialog({ absence: a }), (a) => setDeleteTarget(a), tCommon)
             : []
         }
       />

@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import type { KeyboardEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Stack from '@mui/material/Stack';
@@ -61,6 +62,8 @@ function focusAdjacentWeekCell(e: KeyboardEvent<HTMLElement>, direction: 1 | -1)
 }
 
 export function MonthOverviewView() {
+  const { t } = useTranslation('month');
+  const { t: tCommon } = useTranslation();
   const { branch } = useSelectedBranch();
   const { employeeList } = useEmployeeList(branch?.id ?? null);
   const { absences } = useAbsences(employeeList.map((emp) => emp.id));
@@ -144,7 +147,7 @@ export function MonthOverviewView() {
       const csv = buildMonthCsv(rows, visibleEmployees, allWeeks);
       downloadTextFile(filename, csv, 'text/csv;charset=utf-8');
     } catch (e) {
-      notify.report(e, 'Die Monatsübersicht konnte nicht exportiert werden');
+      notify.report(e, t('exportError'));
     }
   };
 
@@ -168,13 +171,13 @@ export function MonthOverviewView() {
       <Stack direction="row" flexWrap="wrap" justifyContent="space-between" alignItems="center" gap={1} sx={{ mb: 1 }}>
         <Stack direction="row" flexWrap="wrap" alignItems="center" gap={1}>
           <Stack direction="row" alignItems="center" gap={1}>
-            <IconButton onClick={() => changeMonth(-1)} aria-label="Vorheriger Monat">
+            <IconButton onClick={() => changeMonth(-1)} aria-label={t('previousMonth')}>
               <ChevronLeftIcon />
             </IconButton>
             <Typography variant="body1" sx={{ minWidth: 160, textAlign: 'center' }}>
               {MONTH_NAMES[month - 1]} {year}
             </Typography>
-            <IconButton onClick={() => changeMonth(1)} aria-label="Nächster Monat">
+            <IconButton onClick={() => changeMonth(1)} aria-label={t('nextMonth')}>
               <ChevronRightIcon />
             </IconButton>
           </Stack>
@@ -183,7 +186,7 @@ export function MonthOverviewView() {
             <TextField
               select
               size="small"
-              label="Monat"
+              label={t('monthLabel')}
               value={month}
               onChange={(e) => setMonth(Number(e.target.value))}
               sx={{ minWidth: 140 }}
@@ -197,7 +200,7 @@ export function MonthOverviewView() {
             <TextField
               select
               size="small"
-              label="Jahr"
+              label={t('yearLabel')}
               value={year}
               onChange={(e) => setYear(Number(e.target.value))}
               sx={{ minWidth: 100 }}
@@ -212,20 +215,19 @@ export function MonthOverviewView() {
         </Stack>
 
         <Button variant="outlined" startIcon={<FileDownloadOutlinedIcon />} onClick={exportCsv}>
-          Exportieren
+          {t('exportButton')}
         </Button>
       </Stack>
 
       <Typography variant="caption" color="text.secondary" sx={{ mb: 2, display: 'block' }}>
-        Zeigt je Kalenderwoche nur Tages-/Wochenprüfungen auf ArbZG-/JArbSchG-Verstöße; eine
-        Ruhezeit-Prüfung über Wochengrenzen hinweg findet hier nicht statt.
+        {t('infoCaption')}
       </Typography>
 
       {schedulesLoading ? (
         <Stack alignItems="center" justifyContent="center" spacing={2} sx={{ flex: 1, minHeight: 0 }}>
           <CircularProgress />
           <Typography role="status" variant="body2" color="text.secondary">
-            Wird geladen…
+            {t('loading')}
           </Typography>
         </Stack>
       ) : (
@@ -237,9 +239,9 @@ export function MonthOverviewView() {
         <Table size="small">
           <TableHead>
             <TableRow>
-              <TableCell sx={stickyCornerSx()}>Mitarbeiter</TableCell>
+              <TableCell sx={stickyCornerSx()}>{t('columnEmployee')}</TableCell>
               <TableCell align="right" sx={stickyHeaderRowSx()}>
-                Soll/Woche
+                {t('columnTargetWeekly')}
               </TableCell>
               {allWeeks.map((cw, weekIndex) => (
                 <TableCell key={`${cw.year}-${cw.week}`} align="center" sx={stickyHeaderRowSx()}>
@@ -263,15 +265,15 @@ export function MonthOverviewView() {
                     // keyboard trap rather than a shortcut. ArrowLeft/ArrowRight above still reach
                     // every other week cell in the same row.
                     tabIndex={weekIndex === 0 ? 0 : -1}
-                    aria-label={`Zu Kalenderwoche ${cw.week} springen`}
+                    aria-label={t('jumpToWeekAriaLabel', { week: cw.week })}
                     sx={{ cursor: 'pointer', display: 'inline-block', '&:focus-visible': { outline: '2px solid #2f5d50', outlineOffset: -2 } }}
                   >
-                    KW {cw.week}
+                    {t('weekPrefix', { week: cw.week })}
                   </Box>
                 </TableCell>
               ))}
               <TableCell align="right" sx={stickyHeaderRowSx()}>
-                Gesamt Monat
+                {t('columnTotal')}
               </TableCell>
             </TableRow>
           </TableHead>
@@ -289,7 +291,7 @@ export function MonthOverviewView() {
                   <TableCell sx={stickyFirstColumnSx}>
                     <Stack direction="row" spacing={0.5} alignItems="center">
                       {fullName(employee)}
-                      {!employee.active && <Chip size="small" label="Inaktiv" />}
+                      {!employee.active && <Chip size="small" label={tCommon('inactive')} />}
                     </Stack>
                   </TableCell>
                   <TableCell align="right">
@@ -306,7 +308,7 @@ export function MonthOverviewView() {
                     const weekResults = weekValidation.get(cellKey) ?? [];
                     const hasError = weekResults.some((r) => r.severity === 'error');
                     const hasWarning = weekResults.some((r) => r.severity === 'warning');
-                    const hoursText = weekValue ? `${formatHoursGerman(weekValue.totalNetMinutes)} Std.` : 'keine Einträge';
+                    const hoursText = weekValue ? t('hoursValue', { hours: formatHoursGerman(weekValue.totalNetMinutes) }) : t('noEntries');
                     return (
                       <TableCell key={`${cw.year}-${cw.week}`} align="center">
                       {/* Interactive role/aria-label live on this inner Box, not the <td> itself
@@ -329,7 +331,7 @@ export function MonthOverviewView() {
                         // See the matching comment on the header cell above - only the first week
                         // cell of each row is a Tab stop, ArrowLeft/ArrowRight reach the rest.
                         tabIndex={weekIndex === 0 ? 0 : -1}
-                        aria-label={`${fullName(employee)}, KW ${cw.week}, ${hoursText} bearbeiten`}
+                        aria-label={t('weekCellAriaLabel', { name: fullName(employee), week: cw.week, hoursText })}
                         sx={{
                           position: 'relative',
                           cursor: 'pointer',
@@ -355,7 +357,7 @@ export function MonthOverviewView() {
                             <Box
                               component="button"
                               type="button"
-                              aria-label="Hinweis anzeigen"
+                              aria-label={t('showHintAriaLabel')}
                               onClick={(e) => {
                                 e.stopPropagation();
                                 setWarningOpenFor((prev) => (prev === cellKey ? null : cellKey));
@@ -390,7 +392,10 @@ export function MonthOverviewView() {
                       <Typography fontWeight={500}>{formatHoursGerman(totalNetMinutes)}</Typography>
                       {overMonthlyLimit && (
                         <Tooltip
-                          title={`${formatHoursGerman(totalNetMinutes)} Std. diesen Monat, Grenze ${monthlyLimit!.toLocaleString('de-DE')} Std./Monat`}
+                          title={t('monthlyLimitTooltip', {
+                            hours: formatHoursGerman(totalNetMinutes),
+                            limit: monthlyLimit!.toLocaleString('de-DE'),
+                          })}
                           arrow
                           open={warningOpenFor === employee.id}
                           onClose={() => setWarningOpenFor(null)}
@@ -401,7 +406,7 @@ export function MonthOverviewView() {
                           <Box
                             component="button"
                             type="button"
-                            aria-label="Monatsgrenze überschritten anzeigen"
+                            aria-label={t('monthlyLimitAriaLabel')}
                             onClick={() => setWarningOpenFor((prev) => (prev === employee.id ? null : employee.id))}
                             sx={{ display: 'flex', alignItems: 'center', p: 0, border: 'none', background: 'transparent', cursor: 'pointer' }}
                           >

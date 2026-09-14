@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import Button from '@mui/material/Button';
 import TextField from '@mui/material/TextField';
 import MenuItem from '@mui/material/MenuItem';
@@ -102,6 +103,8 @@ interface AbsenceDialogProps {
  * validateAbsence - deliberately not re-applied stricter on edit than on create (see
  * domain/CLAUDE.md's "update paths ... deliberately do NOT re-validate" rule). */
 export function AbsenceDialog({ employees, absences, absence, onClose, onSaved, onError }: AbsenceDialogProps) {
+  const { t } = useTranslation('absences');
+  const { t: tCommon } = useTranslation();
   const [form, setForm] = useState<FormState>(() => (absence ? formFromAbsence(absence) : emptyForm(employees[0]?.id ?? '')));
   const selectedEmployee = employees.find((emp) => emp.id === form.employeeId);
   const validation = useFormValidation<AbsenceField>(() =>
@@ -208,7 +211,7 @@ export function AbsenceDialog({ employees, absences, absence, onClose, onSaved, 
       onClose();
       await onSaved();
     } catch (e) {
-      onError(e, 'Abwesenheit konnte nicht gespeichert werden');
+      onError(e, t('dialog.saveError'));
     } finally {
       setSaving(false);
     }
@@ -228,13 +231,13 @@ export function AbsenceDialog({ employees, absences, absence, onClose, onSaved, 
     <ResponsiveDialog
       open
       onClose={saving ? undefined : onClose}
-      title={absence ? 'Abwesenheit bearbeiten' : 'Abwesenheit erfassen'}
+      title={absence ? t('dialog.titleEdit') : t('dialog.titleNew')}
       contentRef={validation.containerRef}
       actions={
         <>
           <FormErrorNotice errors={validation.errors} />
           <Button onClick={onClose} disabled={saving}>
-            Abbrechen
+            {tCommon('cancel')}
           </Button>
           <Button
             variant="contained"
@@ -242,7 +245,7 @@ export function AbsenceDialog({ employees, absences, absence, onClose, onSaved, 
             disabled={saving}
             startIcon={saving ? <CircularProgress size={16} color="inherit" /> : undefined}
           >
-            Speichern
+            {tCommon('save')}
           </Button>
         </>
       }
@@ -251,7 +254,7 @@ export function AbsenceDialog({ employees, absences, absence, onClose, onSaved, 
         <Stack spacing={2} sx={{ mt: 1 }}>
           <TextField
             select
-            label="Mitarbeiter"
+            label={t('employeeLabel')}
             required
             value={form.employeeId}
             onChange={(e) => setForm((f) => ({ ...f, employeeId: e.target.value }))}
@@ -266,52 +269,49 @@ export function AbsenceDialog({ employees, absences, absence, onClose, onSaved, 
           </TextField>
           <TextField
             select
-            label="Art"
+            label={t('typeLabel')}
             required
             value={form.type}
             onChange={(e) => setForm((f) => ({ ...f, type: e.target.value as AbsenceType }))}
             fullWidth
           >
-            <MenuItem value="Vacation">Urlaub</MenuItem>
-            <MenuItem value="Illness">Krankheit</MenuItem>
-            <MenuItem value="PublicHoliday">Feiertag</MenuItem>
-            <MenuItem value="Other">Sonstige</MenuItem>
+            <MenuItem value="Vacation">{t('typeVacation')}</MenuItem>
+            <MenuItem value="Illness">{t('typeIllness')}</MenuItem>
+            <MenuItem value="PublicHoliday">{t('typeHoliday')}</MenuItem>
+            <MenuItem value="Other">{t('typeOther')}</MenuItem>
           </TextField>
           {(form.type === 'Vacation' || form.type === 'Illness' || form.type === 'PublicHoliday') && (
             <DecimalTextField
-              label="Angerechnete Stunden manuell (optional)"
+              label={t('dialog.creditedHoursLabel')}
               value={form.creditedHoursOverride}
               onChange={(value) => setForm((f) => ({ ...f, creditedHoursOverride: value }))}
               sx={{ width: 280 }}
-              {...validation.fieldProps(
-                CREDITED_OVERRIDE_FIELD,
-                'Ersetzt die automatisch berechneten Stunden (Std. je Feier-/Urlaubstag) für jeden Tag des Zeitraums.',
-              )}
+              {...validation.fieldProps(CREDITED_OVERRIDE_FIELD, t('dialog.creditedHoursHint'))}
             />
           )}
           {form.type === 'Other' && (
             <Stack direction="row" spacing={2} alignItems="flex-start">
               <TextField
-                label="Bezeichnung"
+                label={t('dialog.labelLabel')}
                 required
-                placeholder="z. B. Fortbildung, Feiertag"
+                placeholder={t('dialog.labelPlaceholder')}
                 value={form.label}
                 onChange={(e) => setForm((f) => ({ ...f, label: e.target.value }))}
                 fullWidth
                 {...validation.fieldProps('label')}
               />
               <DecimalTextField
-                label="Stunden pro Tag (optional)"
+                label={t('dialog.hoursPerDayLabel')}
                 value={form.hoursPerDay}
                 onChange={(value) => setForm((f) => ({ ...f, hoursPerDay: value }))}
                 sx={{ width: 220 }}
-                {...validation.fieldProps('hoursPerDay', 'Zählen nur für diesen Mitarbeiter.')}
+                {...validation.fieldProps('hoursPerDay', t('dialog.hoursPerDayHint'))}
               />
             </Stack>
           )}
           <Stack direction="row" spacing={2} alignItems="flex-start">
             <TextField
-              label="Von"
+              label={t('dialog.fromLabel')}
               type="date"
               required
               value={form.from}
@@ -321,7 +321,7 @@ export function AbsenceDialog({ employees, absences, absence, onClose, onSaved, 
               {...validation.fieldProps('from')}
             />
             <TextField
-              label="Bis"
+              label={t('dialog.toLabel')}
               type="date"
               required
               value={form.to}
@@ -340,7 +340,7 @@ export function AbsenceDialog({ employees, absences, absence, onClose, onSaved, 
                     onChange={(e) => setForm((f) => ({ ...f, halfDayAtStart: e.target.checked, halfDayAtEnd: false }))}
                   />
                 }
-                label="Nur vormittags frei"
+                label={t('dialog.halfDayMorningCheckbox')}
               />
               <FormControlLabel
                 control={
@@ -349,13 +349,13 @@ export function AbsenceDialog({ employees, absences, absence, onClose, onSaved, 
                     onChange={(e) => setForm((f) => ({ ...f, halfDayAtEnd: e.target.checked, halfDayAtStart: false }))}
                   />
                 }
-                label="Nur nachmittags frei"
+                label={t('dialog.halfDayAfternoonCheckbox')}
               />
             </Stack>
           )}
           {form.type === 'Vacation' && (
             <TextField
-              label="Notiz (optional)"
+              label={t('dialog.noteLabel')}
               value={form.note}
               onChange={(e) => setForm((f) => ({ ...f, note: e.target.value }))}
               fullWidth
@@ -363,17 +363,15 @@ export function AbsenceDialog({ employees, absences, absence, onClose, onSaved, 
               minRows={2}
             />
           )}
-          {form.type === 'Illness' && (
-            <Alert severity="info">Es werden bewusst keine Diagnose- oder Gesundheitsdetails erfasst.</Alert>
-          )}
+          {form.type === 'Illness' && <Alert severity="info">{t('dialog.illnessNotice')}</Alert>}
         </Stack>
     </ResponsiveDialog>
 
     <ConfirmDialog
       open={showConfirmation}
-      title="Überschneidung mit bestehender Abwesenheit?"
-      text={`Diese Abwesenheit überschneidet sich mit: ${conflicts.map(formatConflict).join(', ')}.`}
-      confirmText="Trotzdem speichern"
+      title={t('dialog.conflictTitle')}
+      text={t('dialog.conflictText', { conflicts: conflicts.map(formatConflict).join(', ') })}
+      confirmText={t('dialog.conflictConfirmButton')}
       onConfirm={() => {
         setShowConfirmation(false);
         void actuallySave();

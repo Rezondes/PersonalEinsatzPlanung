@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
 import TextField from '@mui/material/TextField';
@@ -34,6 +35,8 @@ interface CreateHolidaysDialogProps {
  * the holiday calculator itself.
  */
 export function CreateHolidaysDialog({ onClose, branch, employees, absences, onApplied, onError }: CreateHolidaysDialogProps) {
+  const { t } = useTranslation('absences');
+  const { t: tCommon } = useTranslation();
   const currentYear = new Date().getFullYear();
   const [year, setYear] = useState(currentYear);
   const [applying, setApplying] = useState(false);
@@ -46,7 +49,7 @@ export function CreateHolidaysDialog({ onClose, branch, employees, absences, onA
       onApplied(result);
       onClose();
     } catch (e) {
-      onError(e, 'Feiertage konnten nicht angelegt werden');
+      onError(e, t('createHolidaysDialog.error'));
     } finally {
       setApplying(false);
     }
@@ -56,25 +59,24 @@ export function CreateHolidaysDialog({ onClose, branch, employees, absences, onA
     <ResponsiveDialog
       open
       onClose={applying ? undefined : onClose}
-      title="Feiertage anlegen"
+      title={t('createHolidaysLabel')}
       maxWidth="xs"
       actions={
         <>
           <Button onClick={onClose} disabled={applying}>
-            Abbrechen
+            {tCommon('cancel')}
           </Button>
           <Button variant="contained" onClick={apply} disabled={applying || employees.length === 0}>
-            Anlegen
+            {t('createHolidaysDialog.createButton')}
           </Button>
         </>
       }
     >
       <Stack spacing={2} sx={{ pt: 1 }}>
         <Typography variant="body2" color="text.secondary">
-          Legt für jeden gesetzlichen Feiertag in {branch.federalState} eine Feiertags-Abwesenheit für alle aktiven
-          Mitarbeiter an. Bereits erfasste oder überschneidende Tage werden übersprungen.
+          {t('createHolidaysDialog.description', { federalState: branch.federalState })}
         </Typography>
-        <TextField select label="Jahr" value={year} onChange={(e) => setYear(Number(e.target.value))}>
+        <TextField select label={t('yearLabel')} value={year} onChange={(e) => setYear(Number(e.target.value))}>
           {[currentYear - 1, currentYear, currentYear + 1, currentYear + 2].map((y) => (
             <MenuItem key={y} value={y}>
               {y}
@@ -83,7 +85,7 @@ export function CreateHolidaysDialog({ onClose, branch, employees, absences, onA
         </TextField>
         {employees.length === 0 && (
           <Typography variant="body2" color="text.secondary">
-            Keine aktiven Mitarbeiter für diese Filiale.
+            {t('createHolidaysDialog.noActiveEmployees')}
           </Typography>
         )}
       </Stack>

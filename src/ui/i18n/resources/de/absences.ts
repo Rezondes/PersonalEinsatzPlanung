@@ -1,8 +1,64 @@
-/** Seed of the `absences` namespace - one key, proving t()'s {{variable}} interpolation end to
- * end. The rest of this feature's strings are deliberately NOT migrated here - left for whichever
- * later package takes absences+month. That package EXTENDS this file, it does not replace it. */
+/** Covers AbsencesView.tsx, AbsenceDialog.tsx and CreateHolidaysDialog.tsx. Verbs already in
+ * common.ts (Speichern/Abbrechen/Bearbeiten/Löschen) are reused from there, not duplicated here. */
 const absences = {
   holidaysCreated: '{{created}} Feiertage angelegt, {{skipped}} übersprungen (bereits erfasst/überschneidend).',
+  fabLabel: 'Erfassen',
+  noActiveEmployees: 'Es sind keine aktiven Mitarbeiter vorhanden.',
+  createButton: 'Abwesenheit erfassen',
+  createHolidaysLabel: 'Feiertage anlegen',
+  employeeLabel: 'Mitarbeiter',
+  employeeInactiveSuffix: ' (inaktiv)',
+  typeLabel: 'Art',
+  typeVacation: 'Urlaub',
+  typeIllness: 'Krankheit',
+  typeHoliday: 'Feiertag',
+  typeOther: 'Sonstige',
+  yearLabel: 'Jahr',
+  filterAll: 'Alle',
+  countSummary: '{{visible}} von {{total}} Einträgen',
+  emptyNone: 'Noch keine Abwesenheiten erfasst.',
+  emptyNoMatch: 'Kein Eintrag passt zu den Filtern.',
+  columnFrom: 'Von',
+  columnTo: 'Bis',
+  columnActions: 'Aktionen',
+  halfDayMorning: ' (vormittags)',
+  halfDayAfternoon: ' (nachmittags)',
+  hoursPerDaySuffix: 'Std./Tag',
+  otherActionsFor: 'Weitere Aktionen für Abwesenheit von {{name}}',
+  editAriaLabel: 'Abwesenheit von {{name}} bearbeiten',
+  deleteAriaLabel: 'Abwesenheit von {{name}} löschen',
+  deleteSuccess: 'Abwesenheit wurde gelöscht.',
+  deleteError: 'Abwesenheit konnte nicht gelöscht werden',
+  deleteConfirmTitle: 'Abwesenheit löschen?',
+  deleteConfirmText: 'Dieser Eintrag wird unwiderruflich entfernt.',
+  dialog: {
+    titleEdit: 'Abwesenheit bearbeiten',
+    titleNew: 'Abwesenheit erfassen',
+    saveError: 'Abwesenheit konnte nicht gespeichert werden',
+    creditedHoursLabel: 'Angerechnete Stunden manuell (optional)',
+    creditedHoursHint:
+      'Ersetzt die automatisch berechneten Stunden (Std. je Feier-/Urlaubstag) für jeden Tag des Zeitraums.',
+    labelLabel: 'Bezeichnung',
+    labelPlaceholder: 'z. B. Fortbildung, Feiertag',
+    hoursPerDayLabel: 'Stunden pro Tag (optional)',
+    hoursPerDayHint: 'Zählen nur für diesen Mitarbeiter.',
+    fromLabel: 'Von',
+    toLabel: 'Bis',
+    halfDayMorningCheckbox: 'Nur vormittags frei',
+    halfDayAfternoonCheckbox: 'Nur nachmittags frei',
+    noteLabel: 'Notiz (optional)',
+    illnessNotice: 'Es werden bewusst keine Diagnose- oder Gesundheitsdetails erfasst.',
+    conflictTitle: 'Überschneidung mit bestehender Abwesenheit?',
+    conflictText: 'Diese Abwesenheit überschneidet sich mit: {{conflicts}}.',
+    conflictConfirmButton: 'Trotzdem speichern',
+  },
+  createHolidaysDialog: {
+    description:
+      'Legt für jeden gesetzlichen Feiertag in {{federalState}} eine Feiertags-Abwesenheit für alle aktiven Mitarbeiter an. Bereits erfasste oder überschneidende Tage werden übersprungen.',
+    createButton: 'Anlegen',
+    noActiveEmployees: 'Keine aktiven Mitarbeiter für diese Filiale.',
+    error: 'Feiertage konnten nicht angelegt werden',
+  },
 } as const;
 
 export default absences;
