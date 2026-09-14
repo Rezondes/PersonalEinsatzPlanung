@@ -3,6 +3,8 @@ import BottomNavigation from '@mui/material/BottomNavigation';
 import BottomNavigationAction from '@mui/material/BottomNavigationAction';
 import Paper from '@mui/material/Paper';
 import { BOTTOM_TABS } from './navItems';
+import { useLocale } from '../locale/useLocale';
+import { buildLocalizedPath, stripLocalePrefix } from '../locale/locale';
 
 /** Which tab, if any, should show as active for the current path - the "Mehr" tab also covers
  * /branches, /settings and /privacy, since those are only reached through it. */
@@ -18,6 +20,8 @@ function activeTabPath(pathname: string): string | false {
 export function BottomTabBar() {
   const { pathname } = useLocation();
   const navigate = useNavigate();
+  const locale = useLocale();
+  const activeTab = activeTabPath(stripLocalePrefix(pathname, locale));
 
   return (
     <Paper
@@ -33,17 +37,21 @@ export function BottomTabBar() {
         pb: 'env(safe-area-inset-bottom, 0px)',
       }}
     >
-      <BottomNavigation showLabels value={activeTabPath(pathname)} onChange={(_e, value: string) => navigate(value)}>
+      <BottomNavigation
+        showLabels
+        value={activeTab}
+        onChange={(_e, value: string) => navigate(buildLocalizedPath(locale, value))}
+      >
         {BOTTOM_TABS.map((tab) => (
           <BottomNavigationAction
             key={tab.path}
             label={tab.shortLabel ?? tab.label}
             value={tab.path}
             icon={<tab.icon />}
-            // Unlike LaptopNav/NavRail (both plain NavLinks, which set this automatically),
-            // BottomNavigationAction navigates programmatically via onChange, not an <a href> - so
-            // nothing marks the active tab for assistive tech unless done by hand here.
-            aria-current={tab.path === activeTabPath(pathname) ? 'page' : undefined}
+            // Unlike NavRail (a plain NavLink, which sets this automatically), BottomNavigationAction
+            // navigates programmatically via onChange, not an <a href> - so nothing marks the active
+            // tab for assistive tech unless done by hand here.
+            aria-current={tab.path === activeTab ? 'page' : undefined}
           />
         ))}
       </BottomNavigation>

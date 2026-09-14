@@ -8,6 +8,8 @@ import { MAIN_NAV_ITEMS, FOOTER_NAV_ITEMS } from './navItems';
 import { NAV_LINK_CLASS } from './navLinkStyle';
 import { useNavRailStore } from '../store/navRailStore';
 import { APP_VERSION } from '../buildInfo';
+import { useLocale } from '../locale/useLocale';
+import { buildLocalizedPath } from '../locale/locale';
 
 const EXPANDED_WIDTH = 216;
 const COLLAPSED_WIDTH = 72;
@@ -36,17 +38,16 @@ const railLinkStyle = ({ isActive }: { isActive: boolean }) => ({
 });
 
 /**
- * Collapsible left navigation rail, shown at BOTH tablet breakpoints (768-1279px, portrait and
- * landscape) - not landscape only. Only mobile (bottom tab bar) and laptop (horizontal top nav)
- * get their own chrome; everything in between uses this rail, per an explicit correction to the
- * original mockup-derived plan (which had a separate tablet-portrait pill-nav step) after seeing
- * it rendered live. Only the rail itself lives here - the Filiale switcher, undo/redo, Drucken etc.
- * sit in the content column's own AppHeader to the right, not in the rail.
+ * Collapsible left navigation rail, shown at the tablet breakpoint (768px and up). Mobile gets its
+ * own bottom tab bar instead; this rail is the only chrome anywhere from tablet width up. Only the
+ * rail itself lives here - the Filiale switcher, undo/redo, Drucken etc. sit in the content
+ * column's own AppHeader to the right, not in the rail.
  */
 export function NavRail() {
   const collapsed = useNavRailStore((s) => s.collapsed);
   const toggle = useNavRailStore((s) => s.toggle);
   const width = collapsed ? COLLAPSED_WIDTH : EXPANDED_WIDTH;
+  const locale = useLocale();
 
   return (
     <Box
@@ -95,7 +96,7 @@ export function NavRail() {
         {MAIN_NAV_ITEMS.map((item) => (
           <NavLink
             key={item.path}
-            to={item.path}
+            to={buildLocalizedPath(locale, item.path)}
             title={item.label}
             aria-label={item.label}
             style={railLinkStyle}
@@ -125,7 +126,7 @@ export function NavRail() {
         {FOOTER_NAV_ITEMS.map((item) => (
           <NavLink
             key={item.path}
-            to={item.path}
+            to={buildLocalizedPath(locale, item.path)}
             title={item.label}
             aria-label={item.label}
             style={railLinkStyle}

@@ -13,6 +13,6 @@ describe('NoBranchSelectedAlert', () => {
 
     expect(screen.getByText('Bitte zuerst oben eine Filiale auswählen oder anlegen.')).toBeInTheDocument();
     const link = screen.getByRole('link', { name: 'Zu den Filialen' });
-    expect(link).toHaveAttribute('href', '/branches');
+    expect(link).toHaveAttribute('href', '/de/branches');
   });
 });

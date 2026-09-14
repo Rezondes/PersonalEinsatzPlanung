@@ -1,6 +1,8 @@
 import { Link as RouterLink } from 'react-router-dom';
 import Alert from '@mui/material/Alert';
 import Button from '@mui/material/Button';
+import { useLocale } from '@ui/app/locale/useLocale';
+import { buildLocalizedPath } from '@ui/app/locale/locale';
 
 /**
  * Shown by every view that needs a selected Branch once none is selected. The message says
@@ -9,11 +11,13 @@ import Button from '@mui/material/Button';
  * case, not just a shortcut.
  */
 export function NoBranchSelectedAlert() {
+  const locale = useLocale();
+
   return (
     <Alert
       severity="info"
       action={
-        <Button component={RouterLink} to="/branches" color="inherit" size="small">
+        <Button component={RouterLink} to={buildLocalizedPath(locale, '/branches')} color="inherit" size="small">
           Zu den Filialen
         </Button>
       }

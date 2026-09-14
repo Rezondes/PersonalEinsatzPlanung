@@ -12,6 +12,8 @@ import { NavRail } from './nav/NavRail';
 import { BottomTabBar } from './nav/BottomTabBar';
 import { MobileFab } from './nav/MobileFab';
 import { mobileSafeBottom } from './nav/mobileChromeOffset';
+import { useLocale } from './locale/useLocale';
+import { stripLocalePrefix } from './locale/locale';
 
 export function AppShell() {
   // A thin wrapper: the actual layout lives in AppShellLayout, mounted as a CHILD of
@@ -34,7 +36,8 @@ function AppShellLayout() {
   // a visible on-page heading (see ui/CLAUDE.md on why those were removed); this only reaches the
   // browser tab and assistive tech.
   const location = useLocation();
-  useDocumentTitle(titleForPath(location.pathname));
+  const locale = useLocale();
+  useDocumentTitle(titleForPath(stripLocalePrefix(location.pathname, locale)));
 
   // The header's toolbar wraps at narrow widths, so its height is not a constant. Publishing it as
   // a CSS custom property lets a sticky element below it (the Wochenplanung toolbar) dock exactly

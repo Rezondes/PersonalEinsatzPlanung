@@ -6,7 +6,7 @@ import { APP_VERSION } from '@ui/app/buildInfo';
 import { MAIN_NAV_ITEMS, FOOTER_NAV_ITEMS } from './navItems';
 import { NavRail } from './NavRail';
 
-function renderRail(initialPath = '/schedule') {
+function renderRail(initialPath = '/de/schedule') {
   return render(
     <MemoryRouter initialEntries={[initialPath]}>
       <NavRail />
@@ -20,7 +20,7 @@ describe('NavRail', () => {
   });
 
   it('marks the active route with aria-current="page" and every other link with none', () => {
-    renderRail('/schedule');
+    renderRail('/de/schedule');
 
     expect(screen.getByRole('link', { name: MAIN_NAV_ITEMS[0].label })).toHaveAttribute('aria-current', 'page');
     expect(screen.getByRole('link', { name: MAIN_NAV_ITEMS[1].label })).not.toHaveAttribute('aria-current');
@@ -28,7 +28,7 @@ describe('NavRail', () => {
 
   it('gives every collapsed nav link an aria-label matching its full label, alongside the existing title', () => {
     useNavRailStore.setState({ collapsed: true });
-    renderRail('/schedule');
+    renderRail('/de/schedule');
 
     for (const item of [...MAIN_NAV_ITEMS, ...FOOTER_NAV_ITEMS]) {
       const link = screen.getByTitle(item.label);
@@ -36,7 +36,7 @@ describe('NavRail', () => {
     }
   });
 
-  it('gives every nav link the shared press-feedback class LaptopNav already uses', () => {
+  it('gives every nav link the shared press-feedback class', () => {
     renderRail();
 
     for (const item of [...MAIN_NAV_ITEMS, ...FOOTER_NAV_ITEMS]) {
@@ -51,7 +51,7 @@ describe('NavRail', () => {
   });
 
   it('leaves an inactive link with no inline background-color, so the shared :active rule can win the cascade', () => {
-    renderRail('/schedule');
+    renderRail('/de/schedule');
 
     // An inline background-color (even 'transparent') always beats a class-based CSS rule for the
     // same property, so `.pep-nav-link:active` would never visibly apply while this link is

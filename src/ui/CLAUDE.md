@@ -27,8 +27,23 @@ different design system.
 
 ## Routing
 
-`app/router.tsx` uses react-router-dom. `/print/:scheduleId` is intentionally OUTSIDE the
-`AppShell` layout (no nav chrome) since it's a print-only view.
+`app/router.tsx` uses react-router-dom's data router (`createHashRouter`). Every route is nested
+under a `/:locale` segment (`localeLoader` redirects to `DEFAULT_LOCALE` when that segment is
+missing or unsupported, preserving the rest of the path); `/print/:scheduleId` is intentionally
+OUTSIDE the `AppShell` layout (no nav chrome) since it's a print-only view, but still inside
+`/:locale` so it gets the same locale sync. The route tree is exported as its own `routes` array
+(not just the built `router`) so tests can drive it with `createMemoryRouter` instead of a real
+hash history.
+
+`app/locale/` holds the locale plumbing: `locale.ts` (the `Locale` type, `SUPPORTED_LOCALES`,
+`DEFAULT_LOCALE`, and the `buildLocalizedPath`/`stripLocalePrefix` helpers used by every nav
+call site), `useLocale()` (the render-time source of truth, reading the already-validated
+`:locale` route param), `localeStore.ts` (a `localStorage`-only mirror for anything that can't
+reach `useParams()`, same pattern as `app/store/navRailStore.ts` - never written to Dexie or the
+JSON/Google-Drive backup format), and `LocaleRoot.tsx` (the `/:locale` route's `element`, which
+keeps the store and `<html lang>` in sync). Only German exists today - see `domain/CLAUDE.md` -
+so nothing renders `LanguageSwitcher.tsx` yet; it exists so a second locale is a one-array-entry
+change, not a routing rewrite.
 
 ## German number/date formatting (mandatory, no exceptions)
 

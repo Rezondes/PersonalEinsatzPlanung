@@ -79,6 +79,8 @@ import { useScheduleHistory } from './useScheduleHistory';
 import type { AbsenceOp, HistoryDirection, HistoryStep } from './useScheduleHistory';
 import { notify } from '@ui/app/store/notificationStore';
 import CircularProgress from '@mui/material/CircularProgress';
+import { useLocale } from '@ui/app/locale/useLocale';
+import { buildLocalizedPath } from '@ui/app/locale/locale';
 
 export function ScheduleView() {
   const { branch } = useSelectedBranch();
@@ -101,6 +103,7 @@ export function ScheduleView() {
   const { templates, reload: reloadTemplates } = useShiftTemplates(branch?.id ?? null);
   const validationResults = useScheduleValidation(schedule, branch, absences);
   const navigate = useNavigate();
+  const locale = useLocale();
 
   const [editorState, setEditorState] = useState<{
     employeeId: EmployeeId;
@@ -767,7 +770,11 @@ export function ScheduleView() {
             </Button>
           )}
           {layout !== 'mobile' && schedule && (
-            <Button variant="outlined" startIcon={<PrintOutlinedIcon />} onClick={() => navigate(`/print/${schedule.id}`)}>
+            <Button
+              variant="outlined"
+              startIcon={<PrintOutlinedIcon />}
+              onClick={() => navigate(buildLocalizedPath(locale, `/print/${schedule.id}`))}
+            >
               Drucken
             </Button>
           )}
@@ -913,7 +920,7 @@ export function ScheduleView() {
             onFinishSelecting={finishSelecting}
             onCarryOver={() => setCarryOverOpen(true)}
             onCopyPreviousWeek={() => setCopyPreviousWeekOpen(true)}
-            onPrint={() => schedule && navigate(`/print/${schedule.id}`)}
+            onPrint={() => schedule && navigate(buildLocalizedPath(locale, `/print/${schedule.id}`))}
             printAvailable={!!schedule}
             headerFields={headerFields}
           />

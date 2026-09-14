@@ -36,6 +36,8 @@ import { useBreakpoint } from '@ui/hooks/useBreakpoint';
 import { usePageActions } from '@ui/app/PageActionsContext';
 import { ConfirmDialog } from '@ui/components/ConfirmDialog';
 import { ResponsiveDialog } from '@ui/components/ResponsiveDialog';
+import { useLocale } from '@ui/app/locale/useLocale';
+import { buildLocalizedPath } from '@ui/app/locale/locale';
 import { DriveBackupDialog } from './DriveBackupDialog';
 import { BackupPasswordDialog } from './BackupPasswordDialog';
 import { APP_BUILD_TIME, APP_COMMIT, APP_VERSION } from '@ui/app/buildInfo';
@@ -58,6 +60,7 @@ class PasswordPromptCancelled extends Error {}
 
 export function SettingsView() {
   const layout = useBreakpoint();
+  const locale = useLocale();
   usePageActions({ fullBleedPage: true });
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [confirmationText, setConfirmationText] = useState('');
@@ -622,14 +625,14 @@ export function SettingsView() {
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
             Informationen dazu, welche Daten wo gespeichert werden, findest du in den{' '}
-            <Link component={RouterLink} to="/privacy">
+            <Link component={RouterLink} to={buildLocalizedPath(locale, '/privacy')}>
               Datenschutzhinweisen
             </Link>
             .
           </Typography>
           <Typography variant="body2" color="text.secondary">
             Die Regeln zur Nutzung der App stehen in den{' '}
-            <Link component={RouterLink} to="/terms">
+            <Link component={RouterLink} to={buildLocalizedPath(locale, '/terms')}>
               Nutzungsbedingungen
             </Link>
             .

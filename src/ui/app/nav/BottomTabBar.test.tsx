@@ -10,7 +10,7 @@ const label = (tab: BottomTab) => tab.shortLabel ?? tab.label;
 describe('BottomTabBar', () => {
   it('marks the active tab with aria-current="page" and every other tab with none', () => {
     render(
-      <MemoryRouter initialEntries={['/schedule']}>
+      <MemoryRouter initialEntries={['/de/schedule']}>
         <BottomTabBar />
       </MemoryRouter>,
     );

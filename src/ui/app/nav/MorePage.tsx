@@ -10,6 +10,8 @@ import { useBreakpoint } from '@ui/hooks/useBreakpoint';
 import { usePageActions } from '@ui/app/PageActionsContext';
 import type { NavItem } from './navItems';
 import { FOOTER_NAV_ITEMS, MAIN_NAV_ITEMS } from './navItems';
+import { useLocale } from '../locale/useLocale';
+import { buildLocalizedPath } from '../locale/locale';
 
 /** Filialen leads (it's the one MAIN_NAV_ITEMS entry not otherwise reachable from this hub) unless
  * a future rename ever drops it from MAIN_NAV_ITEMS - falls back to the footer items alone rather
@@ -28,6 +30,7 @@ export function buildMoreEntries(mainNavItems: NavItem[], footerNavItems: NavIte
 export function MorePage() {
   const navigate = useNavigate();
   const layout = useBreakpoint();
+  const locale = useLocale();
   usePageActions({ fullBleedPage: true });
   const entries = buildMoreEntries(MAIN_NAV_ITEMS, FOOTER_NAV_ITEMS);
 
@@ -49,7 +52,7 @@ export function MorePage() {
       <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
         <List sx={{ bgcolor: 'background.paper', border: '1px solid #e0e0dc', borderRadius: 2, overflow: 'hidden' }}>
           {entries.map((item) => (
-            <ListItemButton key={item.path} onClick={() => navigate(item.path)} divider>
+            <ListItemButton key={item.path} onClick={() => navigate(buildLocalizedPath(locale, item.path))} divider>
               <ListItemIcon>
                 <item.icon />
               </ListItemIcon>

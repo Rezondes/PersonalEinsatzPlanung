@@ -129,7 +129,7 @@ const renderView = () =>
             </>
           }
         />
-        <Route path="/schedule" element={<div>schedule-route-landed</div>} />
+        <Route path="/de/schedule" element={<div>schedule-route-landed</div>} />
       </Routes>
     </MemoryRouter>,
   );
@@ -158,7 +158,7 @@ describe('MonthOverviewView', () => {
     renderView();
 
     expect(await screen.findByText('Bitte zuerst oben eine Filiale auswählen oder anlegen.')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Zu den Filialen' })).toHaveAttribute('href', '/branches');
+    expect(screen.getByRole('link', { name: 'Zu den Filialen' })).toHaveAttribute('href', '/de/branches');
     expect(screen.queryByRole('table')).not.toBeInTheDocument();
     expect(scheduleForBranch).not.toHaveBeenCalled();
   });

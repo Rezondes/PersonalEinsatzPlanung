@@ -12,7 +12,7 @@ import MoreHorizOutlinedIcon from '@mui/icons-material/MoreHorizOutlined';
 
 export interface NavItem {
   path: string;
-  /** Full label, used by LaptopNav and NavRail. */
+  /** Full label, used by NavRail. */
   label: string;
   /** Short label for the mobile bottom tab bar's tight width; falls back to `label`. */
   shortLabel?: string;
@@ -20,8 +20,8 @@ export interface NavItem {
 }
 
 /**
- * The five primary destinations, one definition reused by LaptopNav (today's pill row) and
- * NavRail (mobile uses BOTTOM_TABS instead). Order matches the mockup's `railMain`.
+ * The five primary destinations, shown on NavRail (mobile uses BOTTOM_TABS instead). Order
+ * matches the mockup's `railMain`.
  */
 export const MAIN_NAV_ITEMS: NavItem[] = [
   { path: '/schedule', label: 'Wochenplanung', shortLabel: 'Woche', icon: EventNoteOutlinedIcon },
@@ -31,7 +31,7 @@ export const MAIN_NAV_ITEMS: NavItem[] = [
   { path: '/branches', label: 'Filialen', icon: StoreOutlinedIcon },
 ];
 
-/** Secondary destinations, shown inline on LaptopNav and in a footer section on NavRail. */
+/** Secondary destinations, shown in a footer section on NavRail. */
 export const FOOTER_NAV_ITEMS: NavItem[] = [
   { path: '/changelog', label: 'Änderungen', icon: HistoryOutlinedIcon },
   { path: '/privacy', label: 'Datenschutz', icon: ShieldOutlinedIcon },

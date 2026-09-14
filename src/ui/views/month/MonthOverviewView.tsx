@@ -45,6 +45,8 @@ import { useCalendarWeekStore } from '@ui/app/store/calendarWeekStore';
 import { usePageActions } from '@ui/app/PageActionsContext';
 import { NoBranchSelectedAlert } from '@ui/components/NoBranchSelectedAlert';
 import { stickyCornerSx, stickyFirstColumnSx, stickyHeaderRowSx } from '@ui/components/stickyFirstColumn';
+import { useLocale } from '@ui/app/locale/useLocale';
+import { buildLocalizedPath } from '@ui/app/locale/locale';
 
 /** Moves focus to the previous/next week cell within the SAME row (header or data), so arrow keys
  * still reach every column once only the first cell of each row is a Tab stop (see the tabIndex
@@ -68,6 +70,7 @@ export function MonthOverviewView() {
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
   const navigate = useNavigate();
+  const locale = useLocale();
   const setSelectedWeek = useCalendarWeekStore((s) => s.setSelectedWeek);
   // Controlled (not hover) so a tap works on mobile too, matching ScheduleTable's identical
   // deviation-warning tooltip pattern; only one employee's warning open at a time.
@@ -147,7 +150,7 @@ export function MonthOverviewView() {
 
   const jumpToWeek = (cw: CalendarWeek) => {
     setSelectedWeek(cw);
-    navigate('/schedule');
+    navigate(buildLocalizedPath(locale, '/schedule'));
   };
 
   return (
