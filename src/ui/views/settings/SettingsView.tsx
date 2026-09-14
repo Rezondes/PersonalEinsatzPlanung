@@ -15,6 +15,7 @@ import DeleteForeverOutlinedIcon from '@mui/icons-material/DeleteForeverOutlined
 import InstallMobileOutlinedIcon from '@mui/icons-material/InstallMobileOutlined';
 import CircularProgress from '@mui/material/CircularProgress';
 import Backdrop from '@mui/material/Backdrop';
+import { useTranslation } from 'react-i18next';
 import { services } from '@infrastructure/services';
 import { notify } from '@ui/app/store/notificationStore';
 import {
@@ -61,6 +62,9 @@ class PasswordPromptCancelled extends Error {}
 export function SettingsView() {
   const layout = useBreakpoint();
   const locale = useLocale();
+  const { t } = useTranslation('settings');
+  const { t: tCommon } = useTranslation();
+  const { t: tNav } = useTranslation('nav');
   usePageActions({ fullBleedPage: true });
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [confirmationText, setConfirmationText] = useState('');
@@ -128,14 +132,12 @@ export function SettingsView() {
       const result = await requestPersistentStorage();
       setDurability(result);
       if (result === 'persistent') {
-        notify.success('Der Browser bewahrt die Daten dieser App jetzt dauerhaft auf.');
+        notify.success(t('notify.persistentGranted'));
       } else {
-        notify.error(
-          'Der Browser hat den dauerhaften Speicher nicht gewährt. Installiere die App auf dem Startbildschirm, das genügt den meisten Browsern als Nachweis.',
-        );
+        notify.error(t('notify.persistentDenied'));
       }
     } catch (error) {
-      notify.report(error, 'Der dauerhafte Speicher konnte nicht angefragt werden');
+      notify.report(error, t('notify.persistentError'));
     } finally {
       setAskingStorage(false);
     }
@@ -181,9 +183,9 @@ export function SettingsView() {
       await services.backupStorage.signIn();
       setDriveSignedIn(true);
       setDriveRemembered(true);
-      notify.success('Mit Google verbunden.');
+      notify.success(t('notify.driveConnected'));
     } catch (error) {
-      reportDriveError(error, 'Die Anmeldung bei Google ist fehlgeschlagen.');
+      reportDriveError(error, t('notify.driveConnectFailed'));
     } finally {
       setDriveBusy(false);
     }
@@ -193,7 +195,7 @@ export function SettingsView() {
     services.backupStorage.signOut();
     setDriveSignedIn(false);
     setDriveRemembered(false);
-    notify.success('Verbindung zu Google getrennt.');
+    notify.success(t('notify.driveDisconnected'));
   };
 
   /** Mirrors disconnectDrive()'s shape: setBackupPasswordConfigured(false) existed already but was
@@ -203,7 +205,7 @@ export function SettingsView() {
     setCachedPassword(null);
     setBackupPasswordConfigured(false);
     setPasswordConfigured(false);
-    notify.success('Backup-Passwort wurde entfernt.');
+    notify.success(t('notify.passwordRemoved'));
   };
 
   /**
@@ -236,7 +238,7 @@ export function SettingsView() {
    * place that finishes an import (replace + reload), exactly as before this feature existed. */
   const finishImport = async (rawData: unknown) => {
     await services.dataExport.importAndReplace(rawData);
-    setReloadingText('Import abgeschlossen. Die App wird neu geladen…');
+    setReloadingText(t('notify.importCompleteReloading'));
     setTimeout(() => window.location.reload(), 1200);
   };
 
@@ -261,7 +263,7 @@ export function SettingsView() {
       setBackupPasswordConfigured(true);
       setPasswordConfigured(true);
       setPasswordDialogMode(null);
-      notify.success('Backup-Passwort wurde festgelegt.');
+      notify.success(t('notify.passwordSet'));
       return;
     }
 
@@ -295,7 +297,7 @@ export function SettingsView() {
         } else {
           setPasswordDialogMode(null);
           setPendingImportEnvelope(null);
-          notify.error(error instanceof Error ? error.message : 'Import fehlgeschlagen.');
+          notify.error(error instanceof Error ? error.message : t('notify.importFailed'));
         }
       } finally {
         setPasswordDialogBusy(false);
@@ -310,10 +312,10 @@ export function SettingsView() {
       const file = await services.dataExport.export();
       const content = password !== null ? await encryptBackup(file, password) : file;
       const saved = await services.backupStorage.upload(backupFilename(), content);
-      notify.success(`„${saved.name}“ wurde in Google Drive gesichert.`);
+      notify.success(t('notify.driveBackupSaved', { name: saved.name }));
     } catch (error) {
       if (!(error instanceof PasswordPromptCancelled)) {
-        reportDriveError(error, 'Die Sicherung in Google Drive ist fehlgeschlagen.');
+        reportDriveError(error, t('notify.driveBackupFailed'));
       }
     } finally {
       setDriveBusy(false);
@@ -331,7 +333,7 @@ export function SettingsView() {
       setDrivePickerOpen(false);
       setImportFile(new File([JSON.stringify(rawData)], backup.name, { type: 'application/json' }));
     } catch (error) {
-      reportDriveError(error, 'Die Sicherung konnte nicht geladen werden.');
+      reportDriveError(error, t('notify.driveLoadFailed'));
     } finally {
       setDriveBusy(false);
     }
@@ -345,10 +347,10 @@ export function SettingsView() {
       const file = await services.dataExport.export();
       const content = password !== null ? await encryptBackup(file, password) : file;
       downloadFile(backupFilename(), content);
-      notify.success('Backup wurde heruntergeladen.');
+      notify.success(t('notify.localBackupSaved'));
     } catch (error) {
       if (!(error instanceof PasswordPromptCancelled)) {
-        notify.report(error, 'Der Export ist fehlgeschlagen');
+        notify.report(error, t('notify.exportFailed'));
       }
     } finally {
       setExporting(false);
@@ -383,7 +385,7 @@ export function SettingsView() {
       await finishImport(rawData);
     } catch (error) {
       closeImportDialog();
-      notify.error(error instanceof Error ? error.message : 'Import fehlgeschlagen.');
+      notify.error(error instanceof Error ? error.message : t('notify.importFailed'));
     } finally {
       setImporting(false);
     }
@@ -395,8 +397,10 @@ export function SettingsView() {
     setConfirmationText('');
   };
 
+  const deleteConfirmWord = t('dangerZone.confirmWord');
+
   const deleteAllData = async () => {
-    if (confirmationText !== 'LÖSCHEN') return;
+    if (confirmationText !== deleteConfirmWord) return;
     setDeleting(true);
     try {
       await services.dataExport.deleteAllData();
@@ -407,10 +411,10 @@ export function SettingsView() {
       setBackupPasswordConfigured(false);
       services.backupStorage.signOut();
       closeDeleteDialog();
-      setReloadingText('Alle Daten wurden gelöscht. Die App wird neu geladen…');
+      setReloadingText(t('notify.allDataDeletedReloading'));
       setTimeout(() => window.location.reload(), 1200);
     } catch (error) {
-      notify.report(error, 'Die Daten konnten nicht gelöscht werden');
+      notify.report(error, t('notify.deleteFailed'));
     } finally {
       setDeleting(false);
     }
@@ -433,11 +437,10 @@ export function SettingsView() {
       <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
         <Paper sx={{ p: 3, mb: 3 }}>
           <Typography variant="subtitle1" fontWeight={500} sx={{ mb: 1 }}>
-            Backup & Datenübertragung
+            {t('backup.heading')}
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Alle Daten liegen ausschließlich lokal in diesem Browser. Für ein Backup oder einen Geräte-/Browserwechsel
-            exportiere den kompletten Datenbestand als Datei und importiere ihn auf dem anderen Gerät wieder.
+            {t('backup.description')}
           </Typography>
           <Stack direction="row" spacing={2}>
             <Button
@@ -446,10 +449,10 @@ export function SettingsView() {
               onClick={exportData}
               disabled={exporting}
             >
-              {exporting ? 'Export wird erstellt…' : 'Daten exportieren'}
+              {exporting ? t('backup.exporting') : t('backup.exportButton')}
             </Button>
             <Button variant="outlined" component="label" startIcon={<UploadOutlinedIcon />}>
-              Daten importieren
+              {t('backup.importButton')}
               <input
                 ref={fileInputRef}
                 type="file"
@@ -464,24 +467,21 @@ export function SettingsView() {
             <>
               <Divider sx={{ my: 3 }} />
               <Typography variant="subtitle1" fontWeight={500} sx={{ mb: 1 }}>
-                Google Drive
+                {t('drive.heading')}
               </Typography>
               {!online && (
                 <Alert severity="info" sx={{ mb: 2 }}>
-                  Ohne Internetverbindung ist Google Drive nicht erreichbar. Alles andere in dieser App
-                  funktioniert weiter, auch der Export als Datei.
+                  {t('drive.offlineAlert')}
                 </Alert>
               )}
               {driveRestoring ? (
                 <Typography variant="body2" color="text.secondary">
-                  Verbindung zu Google wird wiederhergestellt…
+                  {t('drive.restoring')}
                 </Typography>
               ) : driveSignedIn ? (
                 <>
                   <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                    Sicherungen liegen in deinem Google Drive im Ordner „Personaleinsatzplanung“. Unter „Aus Google Drive laden“ kannst du sie auch löschen. Der Zugriff wird
-                    aus Sicherheitsgründen nicht gespeichert, sondern bei Bedarf still erneuert, solange du bei
-                    Google angemeldet bist.
+                    {t('drive.signedInDescription')}
                   </Typography>
                   <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap>
                     <Button
@@ -490,7 +490,7 @@ export function SettingsView() {
                       onClick={exportToDrive}
                       disabled={driveBusy || !online}
                     >
-                      {driveBusy ? 'Wird gesichert…' : 'In Google Drive sichern'}
+                      {driveBusy ? t('drive.saving') : t('drive.saveButton')}
                     </Button>
                     <Button
                       variant="outlined"
@@ -498,19 +498,17 @@ export function SettingsView() {
                       onClick={() => setDrivePickerOpen(true)}
                       disabled={driveBusy || !online}
                     >
-                      Aus Google Drive laden
+                      {t('drive.loadButton')}
                     </Button>
                     <Button onClick={disconnectDrive} disabled={driveBusy}>
-                      Verbindung trennen
+                      {t('drive.disconnectButton')}
                     </Button>
                   </Stack>
                 </>
               ) : (
                 <>
                   <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                    {driveRemembered
-                      ? 'Google konnte den Zugriff nicht ohne Nachfrage erneuern. Melde dich einmal neu an, dann geht es wie gewohnt weiter. Willst du Google Drive gar nicht mehr nutzen, trenne die Verbindung: Danach nimmt die App von sich aus keine Verbindung mehr zu Google auf.'
-                      : 'Statt einer Datei kannst du dein Backup auch in deinem eigenen Google Drive ablegen und es auf einem anderen Gerät von dort laden. Erst beim Klick auf „Mit Google anmelden“ nimmt die App Verbindung zu Google auf. Die App sieht dabei ausschließlich die Sicherungen, die sie selbst angelegt hat.'}
+                    {driveRemembered ? t('drive.rememberedDescription') : t('drive.neverConnectedDescription')}
                   </Typography>
                   <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap>
                     <Button
@@ -519,11 +517,11 @@ export function SettingsView() {
                       disabled={driveBusy || !online}
                       startIcon={driveBusy ? <CircularProgress size={16} color="inherit" /> : undefined}
                     >
-                      {driveBusy ? 'Anmeldung läuft…' : 'Mit Google anmelden'}
+                      {driveBusy ? t('drive.signingIn') : t('drive.signInButton')}
                     </Button>
                     {driveRemembered && (
                       <Button onClick={disconnectDrive} disabled={driveBusy}>
-                        Google Drive nicht mehr verwenden
+                        {t('drive.stopUsingButton')}
                       </Button>
                     )}
                   </Stack>
@@ -534,15 +532,15 @@ export function SettingsView() {
 
           <Divider sx={{ my: 3 }} />
           <Typography variant="subtitle1" fontWeight={500} sx={{ mb: 1 }}>
-            Backup-Passwort
+            {t('password.heading')}
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Ist ein Passwort festgelegt, werden neue Backups (als Datei und in Google Drive) automatisch damit
-            verschlüsselt. Ein geändertes Passwort wirkt sich nur auf zukünftige Backups aus - bereits erstellte
-            Sicherungen benötigen weiterhin das Passwort, das zum Zeitpunkt ihrer Erstellung galt.
+            {t('password.description')}
           </Typography>
           <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap" useFlexGap>
-            <Typography variant="body2">Status: {passwordConfigured ? 'Festgelegt' : 'Nicht festgelegt'}</Typography>
+            <Typography variant="body2">
+              {t('password.status', { status: passwordConfigured ? t('password.statusSet') : t('password.statusNotSet') })}
+            </Typography>
             <Button
               variant="outlined"
               startIcon={<VpnKeyOutlinedIcon />}
@@ -551,31 +549,27 @@ export function SettingsView() {
                 setPasswordDialogMode('set');
               }}
             >
-              {passwordConfigured ? 'Passwort ändern' : 'Backup-Passwort festlegen'}
+              {passwordConfigured ? t('password.changeButton') : t('password.setLabel')}
             </Button>
-            {passwordConfigured && <Button onClick={removeBackupPassword}>Passwort entfernen</Button>}
+            {passwordConfigured && <Button onClick={removeBackupPassword}>{t('password.removeButton')}</Button>}
           </Stack>
         </Paper>
 
 
         <Paper sx={{ p: 3, mb: 3 }}>
           <Typography variant="subtitle1" fontWeight={500} sx={{ mb: 1 }}>
-            App & Speicher
+            {t('appStorage.heading')}
           </Typography>
 
           {installed ? (
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              Die App ist auf diesem Gerät installiert. Sie startet vom Startbildschirm aus und funktioniert auch
-              ohne Internetverbindung.
+              {t('appStorage.installedDescription')}
             </Typography>
           ) : (
             <>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                Du kannst die Planung als App auf dem Gerät installieren. Sie startet dann ohne Browserleiste, ist
-                über ein eigenes Symbol erreichbar und funktioniert vollständig ohne Internetverbindung.
-                {isManualInstallPlatform() && !installable
-                  ? ' Auf iPhone und iPad geht das über Safari: unten auf das Teilen-Symbol tippen und „Zum Home-Bildschirm“ wählen.'
-                  : ''}
+                {t('appStorage.notInstalledDescription')}
+                {isManualInstallPlatform() && !installable ? t('appStorage.iosInstallHint') : ''}
               </Typography>
               {installable && (
                 <Button
@@ -584,7 +578,7 @@ export function SettingsView() {
                   onClick={() => void promptInstall()}
                   sx={{ mb: 2 }}
                 >
-                  App installieren
+                  {t('appStorage.installButton')}
                 </Button>
               )}
             </>
@@ -593,21 +587,19 @@ export function SettingsView() {
           <Divider sx={{ my: 2 }} />
 
           <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-            Dauerhafter Speicher:{' '}
+            {t('appStorage.durableStorageLabel')}{' '}
             {durability === 'persistent'
-              ? 'Ja. Der Browser bewahrt die Daten dieser App auf.'
+              ? t('appStorage.durablePersistent')
               : durability === 'best-effort'
-                ? 'Nein. Der Browser darf die Daten löschen, wenn der Speicher knapp wird.'
-                : 'Vom Browser nicht unterstützt.'}
+                ? t('appStorage.durableBestEffort')
+                : t('appStorage.durableUnsupported')}
             {usage &&
-              ` Belegt: ${Math.max(1, Math.round(usage.usedBytes / 1024)).toLocaleString('de-DE')} KB.`}
+              t('appStorage.usageSuffix', { kb: Math.max(1, Math.round(usage.usedBytes / 1024)).toLocaleString('de-DE') })}
           </Typography>
           {durability === 'best-effort' && (
             <>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                Das ist wichtiger, als es klingt: Die Daten dieser App liegen nur auf diesem Gerät. Auf iPhone und
-                iPad räumt Safari den Speicher gewöhnlicher Webseiten nach sieben Tagen ohne Besuch weg,
-                installierte Apps sind davon ausgenommen. Erstelle unabhängig davon regelmäßig ein Backup.
+                {t('appStorage.bestEffortWarning')}
               </Typography>
               <Button
                 variant="outlined"
@@ -615,26 +607,26 @@ export function SettingsView() {
                 disabled={askingStorage}
                 startIcon={askingStorage ? <CircularProgress size={16} color="inherit" /> : undefined}
               >
-                Dauerhaften Speicher anfordern
+                {t('appStorage.requestDurableButton')}
               </Button>
             </>
           )}
         </Paper>
         <Paper sx={{ p: 3, mb: 3 }}>
           <Typography variant="subtitle1" fontWeight={500} sx={{ mb: 1 }}>
-            Datenschutz
+            {t('legal.heading')}
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-            Informationen dazu, welche Daten wo gespeichert werden, findest du in den{' '}
+            {t('legal.privacyIntro')}{' '}
             <Link component={RouterLink} to={buildLocalizedPath(locale, '/privacy')}>
-              Datenschutzhinweisen
+              {t('legal.privacyLinkText')}
             </Link>
             .
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            Die Regeln zur Nutzung der App stehen in den{' '}
+            {t('legal.termsIntro')}{' '}
             <Link component={RouterLink} to={buildLocalizedPath(locale, '/terms')}>
-              Nutzungsbedingungen
+              {tNav('terms')}
             </Link>
             .
           </Typography>
@@ -642,12 +634,10 @@ export function SettingsView() {
 
         <Paper sx={{ p: 3, borderColor: '#e5a3a0' }}>
           <Typography variant="subtitle1" fontWeight={500} sx={{ mb: 1 }}>
-            Alle Daten löschen
+            {t('dangerZone.heading')}
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Entfernt unwiderruflich alle Filialen, Mitarbeiter, Wochenpläne, Abwesenheiten und Schichtvorlagen aus
-            diesem Browser.
-            Erstelle vorher ein Backup, falls du die Daten noch benötigst.
+            {t('dangerZone.description')}
           </Typography>
           <Button
             variant="outlined"
@@ -655,17 +645,16 @@ export function SettingsView() {
             startIcon={<DeleteForeverOutlinedIcon />}
             onClick={() => setDeleteDialogOpen(true)}
           >
-            Alle Daten löschen
+            {t('dangerZone.heading')}
           </Button>
         </Paper>
 
         <Paper sx={{ p: 3, mt: 3 }}>
           <Typography variant="subtitle1" fontWeight={500} sx={{ mb: 1 }}>
-            Version
+            {t('version.heading')}
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Kennung des installierten Stands. Sie steht auch klein unten rechts in der Ecke, damit sie auf
-            Screenshots mitkommt. Bei einer Rückfrage bitte diese Angaben mitschicken.
+            {t('version.description')}
           </Typography>
           {/* data-selectable zusaetzlich zu userSelect: Es haelt auch das native Rechtsklick-Menue
               offen, das sonst app-weit unterdrueckt wird - und "Kopieren" per Rechtsklick ist genau
@@ -675,11 +664,17 @@ export function SettingsView() {
             spacing={0.5}
             sx={{ fontFamily: 'monospace', fontSize: 14, userSelect: 'all' }}
           >
-            <span>Version: {APP_VERSION}</span>
+            <span>
+              {t('version.versionLabel')} {APP_VERSION}
+            </span>
             {/* The raw ISO timestamp on purpose: unambiguous, time-zone free, and it sidesteps the
                 German date-format rules that apply to user-facing dates. */}
-            <span>Build: {APP_BUILD_TIME}</span>
-            <span>Commit: {APP_COMMIT || '-'}</span>
+            <span>
+              {t('version.buildLabel')} {APP_BUILD_TIME}
+            </span>
+            <span>
+              {t('version.commitLabel')} {APP_COMMIT || '-'}
+            </span>
           </Stack>
         </Paper>
       </Box>
@@ -689,34 +684,34 @@ export function SettingsView() {
       <ResponsiveDialog
         open={deleteDialogOpen}
         onClose={deleting ? undefined : closeDeleteDialog}
-        title="Alle Daten wirklich löschen?"
+        title={t('dangerZone.dialogTitle')}
         maxWidth="sm"
         actions={
           <>
             <Button onClick={closeDeleteDialog} disabled={deleting}>
-              Abbrechen
+              {tCommon('cancel')}
             </Button>
             <Button
               variant="contained"
               color="error"
-              disabled={confirmationText !== 'LÖSCHEN' || deleting}
+              disabled={confirmationText !== deleteConfirmWord || deleting}
               onClick={deleteAllData}
               startIcon={deleting ? <CircularProgress size={16} color="inherit" /> : undefined}
             >
-              Endgültig löschen
+              {t('dangerZone.confirmDeleteButton')}
             </Button>
           </>
         }
       >
         <Typography variant="body2" sx={{ mb: 2 }}>
-          Dieser Vorgang kann nicht rückgängig gemacht werden. Tippe zur Bestätigung <strong>LÖSCHEN</strong> ein.
+          {t('dangerZone.dialogBodyPrefix')} <strong>{deleteConfirmWord}</strong> {t('dangerZone.dialogBodySuffix')}
         </Typography>
         <TextField
           fullWidth
-          label="Bestätigung"
+          label={t('dangerZone.confirmLabel')}
           value={confirmationText}
           onChange={(e) => setConfirmationText(e.target.value)}
-          placeholder="LÖSCHEN"
+          placeholder={deleteConfirmWord}
         />
       </ResponsiveDialog>
 
@@ -741,9 +736,9 @@ export function SettingsView() {
 
       <ConfirmDialog
         open={!!importFile}
-        title="Daten importieren?"
-        text="Der komplette lokale Datenbestand wird durch den Inhalt dieser Datei ersetzt. Dieser Vorgang kann nicht rückgängig gemacht werden."
-        confirmText="Importieren"
+        title={t('importDialog.title')}
+        text={t('importDialog.text')}
+        confirmText={t('importDialog.confirmButton')}
         dangerous
         busy={importing}
         onConfirm={performImport}
@@ -752,7 +747,7 @@ export function SettingsView() {
 
       {/* modal + 1, not drawer + 1: a standalone Backdrop has no z-index of its own and would
           otherwise sit behind the dialog that just closed, while its exit transition still runs. */}
-      <Backdrop open={reloadingText !== null} sx={{ zIndex: (t) => t.zIndex.modal + 1, color: '#fff' }}>
+      <Backdrop open={reloadingText !== null} sx={{ zIndex: (theme) => theme.zIndex.modal + 1, color: '#fff' }}>
         <Stack spacing={2} alignItems="center">
           <CircularProgress color="inherit" />
           <Typography variant="body2">{reloadingText}</Typography>

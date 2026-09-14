@@ -8,6 +8,7 @@ import Stack from '@mui/material/Stack';
 import CircularProgress from '@mui/material/CircularProgress';
 import Visibility from '@mui/icons-material/Visibility';
 import VisibilityOff from '@mui/icons-material/VisibilityOff';
+import { useTranslation } from 'react-i18next';
 import type { FieldError } from '@domain/validation/FieldError';
 import { useFormValidation } from '@ui/hooks/useFormValidation';
 import { RequiredLegend } from '@ui/components/RequiredLegend';
@@ -42,6 +43,7 @@ interface BackupPasswordDialogProps {
 type PasswordField = 'password' | 'confirmPassword';
 
 export function BackupPasswordDialog({ mode, error = null, busy, onClose, onSubmit }: BackupPasswordDialogProps) {
+  const { t } = useTranslation('settings');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -53,10 +55,10 @@ export function BackupPasswordDialog({ mode, error = null, busy, onClose, onSubm
   const validation = useFormValidation<PasswordField>((): FieldError<PasswordField>[] => {
     const errors: FieldError<PasswordField>[] = [];
     if (password.length === 0) {
-      errors.push({ field: 'password', message: 'Bitte Passwort eingeben.' });
+      errors.push({ field: 'password', message: t('password.requiredError') });
     }
     if ((mode === 'set' || mode === 'confirm') && password.length > 0 && password !== confirmPassword) {
-      errors.push({ field: 'confirmPassword', message: 'Passwörter stimmen nicht überein.' });
+      errors.push({ field: 'confirmPassword', message: t('password.mismatchError') });
     }
     return errors;
   });
@@ -70,7 +72,7 @@ export function BackupPasswordDialog({ mode, error = null, busy, onClose, onSubm
     endAdornment: (
       <InputAdornment position="end">
         <IconButton
-          aria-label={showPassword ? 'Passwort verbergen' : 'Passwort anzeigen'}
+          aria-label={showPassword ? t('password.hidePassword') : t('password.showPassword')}
           onClick={() => setShowPassword((current) => !current)}
           edge="end"
           disabled={busy}
@@ -87,17 +89,17 @@ export function BackupPasswordDialog({ mode, error = null, busy, onClose, onSubm
       onClose={busy ? undefined : onClose}
       title={
         mode === 'set'
-          ? 'Backup-Passwort festlegen'
+          ? t('password.setLabel')
           : mode === 'confirm'
-            ? 'Backup-Passwort bestätigen'
-            : 'Backup-Passwort eingeben'
+            ? t('password.titleConfirm')
+            : t('password.titleEnter')
       }
       maxWidth="xs"
       contentRef={validation.containerRef}
       actions={
         <>
           <Button onClick={onClose} disabled={busy}>
-            Abbrechen
+            {t('cancel', { ns: 'common' })}
           </Button>
           <Button
             variant="contained"
@@ -107,11 +109,11 @@ export function BackupPasswordDialog({ mode, error = null, busy, onClose, onSubm
           >
             {busy
               ? mode === 'set'
-                ? 'Wird festgelegt…'
-                : 'Wird geprüft…'
+                ? t('password.settingBusy')
+                : t('password.checkingBusy')
               : mode === 'set'
-                ? 'Festlegen'
-                : 'Bestätigen'}
+                ? t('password.confirmSetButton')
+                : t('confirm', { ns: 'common' })}
           </Button>
         </>
       }
@@ -120,16 +122,13 @@ export function BackupPasswordDialog({ mode, error = null, busy, onClose, onSubm
 
       {mode === 'set' && (
         <Alert severity="warning" sx={{ mb: 2 }} data-selectable>
-          Wird dieses Passwort vergessen, lassen sich damit verschlüsselte Backups nicht mehr öffnen. Es gibt
-          keine Möglichkeit, das Passwort zurückzusetzen oder die Daten ohne das Passwort wiederherzustellen.
-          Bewahre es an einem sicheren Ort auf.
+          {t('password.setWarning')}
         </Alert>
       )}
 
       {mode === 'confirm' && (
         <Alert severity="info" sx={{ mb: 2 }} data-selectable>
-          Bitte gib das Backup-Passwort erneut ein, um dieses Backup zu verschlüsseln. So fällt ein Tippfehler
-          schon jetzt auf, statt erst bei einem späteren Wiederherstellungsversuch.
+          {t('password.confirmInfo')}
         </Alert>
       )}
 
@@ -143,7 +142,7 @@ export function BackupPasswordDialog({ mode, error = null, busy, onClose, onSubm
         <TextField
           required
           fullWidth
-          label="Passwort"
+          label={t('password.passwordLabel')}
           type={showPassword ? 'text' : 'password'}
           value={password}
           onChange={(e) => setPassword(e.target.value)}
@@ -158,7 +157,7 @@ export function BackupPasswordDialog({ mode, error = null, busy, onClose, onSubm
           <TextField
             required
             fullWidth
-            label="Passwort bestätigen"
+            label={t('password.confirmPasswordLabel')}
             type={showPassword ? 'text' : 'password'}
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}

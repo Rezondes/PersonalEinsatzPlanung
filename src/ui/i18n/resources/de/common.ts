@@ -7,6 +7,7 @@ const common = {
   confirm: 'Bestätigen',
   cancel: 'Abbrechen',
   close: 'Schließen',
+  delete: 'Löschen',
   formErrorNotice: 'Bitte die rot markierten Felder prüfen.',
   secondaryActions: 'Weitere Aktionen',
 } as const;

@@ -7,6 +7,7 @@ import ListItem from '@mui/material/ListItem';
 import ListItemText from '@mui/material/ListItemText';
 import CircularProgress from '@mui/material/CircularProgress';
 import Link from '@mui/material/Link';
+import { useTranslation } from 'react-i18next';
 import { formatDateGerman } from '@domain/shared/DateFormat';
 import { usePageActions } from '@ui/app/PageActionsContext';
 import { useBreakpoint } from '@ui/hooks/useBreakpoint';
@@ -19,6 +20,8 @@ export function ChangelogView() {
   const layout = useBreakpoint();
   usePageActions({ fullBleedPage: true });
   const { releases, loading } = useChangelog();
+  const { t } = useTranslation('changelog');
+  const { t: tNav } = useTranslation('nav');
 
   return (
     <Box
@@ -35,19 +38,19 @@ export function ChangelogView() {
       }}
     >
       <Typography variant="h5" component="h1" fontWeight={500} sx={{ mb: 3 }}>
-        Änderungen
+        {tNav('changelog')}
       </Typography>
       <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
         {loading ? (
           <Stack alignItems="center" spacing={2} sx={{ py: 8 }}>
             <CircularProgress />
             <Typography role="status" variant="body2" color="text.secondary">
-              Änderungen werden geladen…
+              {t('loading')}
             </Typography>
           </Stack>
         ) : releases.length === 0 ? (
           <Typography variant="body2" color="text.secondary">
-            Noch keine Einträge vorhanden.
+            {t('empty')}
           </Typography>
         ) : (
           <Stack spacing={2}>
@@ -71,7 +74,7 @@ export function ChangelogView() {
                   </List>
                 )}
                 <Link href={release.url} target="_blank" rel="noreferrer" variant="body2" sx={{ mt: 1, display: 'inline-block' }}>
-                  Auf GitHub ansehen
+                  {t('viewOnGitHub')}
                 </Link>
               </Paper>
             ))}

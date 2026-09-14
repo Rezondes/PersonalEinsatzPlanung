@@ -10,6 +10,8 @@ import Typography from '@mui/material/Typography';
 import CircularProgress from '@mui/material/CircularProgress';
 import Alert from '@mui/material/Alert';
 import Stack from '@mui/material/Stack';
+import type { TFunction } from 'i18next';
+import { useTranslation } from 'react-i18next';
 import type { RemoteBackup } from '@application/ports/BackupStorage';
 import { formatDateGerman } from '@domain/shared/DateFormat';
 import { services } from '@infrastructure/services';
@@ -29,13 +31,18 @@ interface DriveBackupDialogProps {
   onError: (e: unknown, context?: string) => void;
 }
 
-function subtitle(backup: RemoteBackup): string {
+// Not a hook itself (a plain helper called from render), so it takes the caller's own `t` rather
+// than calling useTranslation() - TFunction<'settings'> keeps the same typo-safety useTranslation
+// would give directly.
+function subtitle(backup: RemoteBackup, t: TFunction<'settings'>): string {
   const parts: string[] = [];
   if (backup.modifiedAt) {
-    parts.push(`Gesichert am ${formatDateGerman(new Date(backup.modifiedAt))}`);
+    parts.push(t('driveBackupDialog.subtitleSavedAt', { date: formatDateGerman(new Date(backup.modifiedAt)) }));
   }
   if (backup.sizeBytes !== null) {
-    parts.push(`${Math.max(1, Math.round(backup.sizeBytes / 1024)).toLocaleString('de-DE')} KB`);
+    parts.push(
+      t('driveBackupDialog.subtitleSizeKb', { kb: Math.max(1, Math.round(backup.sizeBytes / 1024)).toLocaleString('de-DE') }),
+    );
   }
   return parts.join(' · ');
 }
@@ -43,6 +50,8 @@ function subtitle(backup: RemoteBackup): string {
 /** Lists the backups this app put into the user's Google Drive, newest first, and lets them be
  * loaded or thrown away. */
 export function DriveBackupDialog({ busy = false, onClose, onSelect, onError }: DriveBackupDialogProps) {
+  const { t } = useTranslation('settings');
+  const { t: tCommon } = useTranslation();
   const [backups, setBackups] = useState<RemoteBackup[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<RemoteBackup | null>(null);
@@ -56,12 +65,12 @@ export function DriveBackupDialog({ busy = false, onClose, onSelect, onError }: 
         if (!cancelled) setBackups(list);
       })
       .catch((e: unknown) => {
-        if (!cancelled) setError(e instanceof Error ? e.message : 'Die Sicherungen konnten nicht geladen werden.');
+        if (!cancelled) setError(e instanceof Error ? e.message : t('driveBackupDialog.loadFailedFallback'));
       });
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [t]);
 
   const confirmDelete = async () => {
     const target = deleteTarget;
@@ -87,11 +96,11 @@ export function DriveBackupDialog({ busy = false, onClose, onSelect, onError }: 
       <ResponsiveDialog
         open
         onClose={anyBusy ? undefined : onClose}
-        title="Sicherung aus Google Drive laden oder löschen"
+        title={t('driveBackupDialog.title')}
         dividers
         actions={
           <Button onClick={onClose} disabled={anyBusy}>
-            Abbrechen
+            {tCommon('cancel')}
           </Button>
         }
       >
@@ -101,7 +110,7 @@ export function DriveBackupDialog({ busy = false, onClose, onSelect, onError }: 
             <Stack direction="row" spacing={2} alignItems="center" sx={{ py: 2 }}>
               <CircularProgress size={20} />
               <Typography role="status" variant="body2" color="text.secondary">
-                {busy ? 'Sicherung wird geladen…' : 'Sicherungen werden geladen…'}
+                {busy ? t('driveBackupDialog.loadingOne') : t('driveBackupDialog.loadingMany')}
               </Typography>
             </Stack>
           )}
@@ -109,7 +118,7 @@ export function DriveBackupDialog({ busy = false, onClose, onSelect, onError }: 
           {!error && !busy && backups !== null && backups.length === 0 && (
             // Neither "noch" nor "zuerst": you also land here by deleting your last backup.
             <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>
-              In Google Drive liegt keine Sicherung. Lege über „In Google Drive sichern“ eine an.
+              {t('driveBackupDialog.empty')}
             </Typography>
           )}
 
@@ -128,7 +137,7 @@ export function DriveBackupDialog({ busy = false, onClose, onSelect, onError }: 
                       <IconButton
                         edge="end"
                         size="small"
-                        aria-label={`${backup.name} löschen`}
+                        aria-label={t('driveBackupDialog.deleteAriaLabel', { name: backup.name })}
                         onClick={() => setDeleteTarget(backup)}
                         // NOT `deletingId !== null`: a disabled button cannot hold focus, and the
                         // focus trap of the confirmation would drop it on <body> when it closes.
@@ -141,7 +150,7 @@ export function DriveBackupDialog({ busy = false, onClose, onSelect, onError }: 
                   }
                 >
                   <ListItemButton onClick={() => onSelect(backup)} disabled={deletingId !== null}>
-                    <ListItemText primary={backup.name} secondary={subtitle(backup)} />
+                    <ListItemText primary={backup.name} secondary={subtitle(backup, t)} />
                   </ListItemButton>
                 </ListItem>
               ))}
@@ -151,11 +160,11 @@ export function DriveBackupDialog({ busy = false, onClose, onSelect, onError }: 
 
       <ConfirmDialog
         open={deleteTarget !== null}
-        title="Sicherung löschen?"
+        title={t('driveBackupDialog.deleteConfirmTitle')}
         // Says what actually happens. The adapter trashes rather than erases, so promising the file
         // is gone for good would be a lie - and the 30 days are the reassuring part.
-        text={`„${deleteTarget?.name ?? ''}“ wird in den Papierkorb von Google Drive verschoben und dort nach 30 Tagen endgültig gelöscht. Die Daten in dieser App bleiben unverändert.`}
-        confirmText="Löschen"
+        text={t('driveBackupDialog.deleteConfirmText', { name: deleteTarget?.name ?? '' })}
+        confirmText={tCommon('delete')}
         dangerous
         onConfirm={confirmDelete}
         onCancel={() => setDeleteTarget(null)}
