@@ -37,3 +37,4 @@ agentdb.rvf
 agentdb.rvf.lock
 .claude/*
 !.claude/agents/
+graphify-out/
