@@ -45,6 +45,64 @@ const schedule = {
   copyPreviousWeekText:
     'Alle Schichten dieser Woche werden durch die Schichten der Vorwoche ersetzt. Bereits eingetragene Schichten dieser Woche gehen dabei verloren.',
   copyPreviousWeekConfirm: 'Übernehmen',
+
+  // ScheduleTable.tsx
+  columnEmployee: 'Mitarbeiter',
+  notEmployedLabel: 'Nicht beschäftigt',
+  overTarget: 'über',
+  underTarget: 'unter',
+  deviationTooltip: '{{sign}}{{hours}} Std. {{direction}} Soll ({{range}} Std.)',
+  deviationAriaLabel: 'Abweichung von Soll anzeigen',
+  hintAriaLabel: 'Hinweis anzeigen',
+  creditedMinutesSuffix: '{{hours}} Std. angerechnet',
+  creditedMinutesSuffixPlus: '+ {{hours}} Std. angerechnet',
+  halfDaySuffix: '{{label}} (halbtags)',
+  workedHoursSuffix: '{{hours}} Std.',
+  manualSuffix: ' (manuell)',
+  breakSuffix: ' · {{hours}} Std. Pause',
+  emptyCellText: 'frei',
+  selectCellAriaLabel: '{{name}}, {{day}}, {{summary}} auswählen',
+  assignCellAriaLabel: '{{name}}, {{day}}, {{summary}} zuweisen',
+  editCellAriaLabel: '{{name}}, {{day}}, {{summary}} bearbeiten',
+
+  // ScheduleToolbar.tsx
+  activeChipLabel: 'aktiv',
+  templateMenuAriaLabel: '{{name}} bearbeiten oder löschen',
+  finishAssigningAriaLabel: 'Zuweisen beenden',
+  assignBannerText: '{{tool}} zuweisen',
+  tapDaysCaption: 'Tage antippen',
+  doneButton: 'Fertig',
+  finishSelectingAriaLabel: 'Auswahl beenden',
+  selectionBannerText: '{{selected}} Zellen ausgewählt',
+  tapToolCaption: 'Werkzeug antippen zum Anwenden',
+  multiSelectButton: 'Mehrfachauswahl',
+  toolbarAriaLabel: 'Werkzeugleiste',
+  newTemplateButton: 'Vorlage',
+  noTemplatesCaption: 'Eigene Schichten anlegen, dann auf einen Tag tippen.',
+  templatesCountCaption: '{{count}} Vorlagen',
+  actionsOverline: 'Aktionen',
+  printViewButton: 'Druckansicht',
+  planningOverline: 'Wochenplanung',
+  templatesOverline: 'Vorlagen',
+  newButton: 'Neu',
+
+  // scheduleTools.ts
+  clipboardLabel: 'Zwischenablage',
+  shiftsSummaryText: '{{times}} · {{hours}} Std.',
+  otherSummaryPlain: 'Sonstige · {{label}}',
+  otherSummaryWithHours: 'Sonstige · {{label}} · {{hours}} Std.',
+  emptyDayLabel: 'Tag leeren',
+
+  // ScheduleHeaderFields.tsx
+  headerSaveError: 'Kopfdaten konnten nicht gespeichert werden',
+  plannedRevenueLabel: 'Geplanter Wochenumsatz',
+  plannedHoursLabel: 'Geplante Wochenstunden',
+  savedStatus: 'Gespeichert',
+
+  // ValidationNotices.tsx
+  defaultTriggerLabel: '{{errorCount}} Fehler, {{warningCount}} Warnung(en) {{action}}',
+  showAction: 'anzeigen',
+  hideAction: 'ausblenden',
 } as const;
 
 export default schedule;

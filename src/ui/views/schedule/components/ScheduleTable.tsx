@@ -1,5 +1,6 @@
 import { memo, useMemo, useState } from 'react';
 import type { KeyboardEvent } from 'react';
+import { useTranslation } from 'react-i18next';
 import Table from '@mui/material/Table';
 import TableBody from '@mui/material/TableBody';
 import TableCell from '@mui/material/TableCell';
@@ -32,6 +33,7 @@ import type { RowLockReason, ScheduleRow } from '../scheduleRows';
 import { canReceiveEntry, isCellLocked } from '../scheduleRows';
 import { stickyCornerSx, stickyFirstColumnSx, stickyHeaderRowSx } from '@ui/components/stickyFirstColumn';
 import { useBreakpoint } from '@ui/hooks/useBreakpoint';
+import type { TFunction } from 'i18next';
 
 interface ScheduleTableProps {
   rows: ScheduleRow[];
@@ -66,10 +68,9 @@ interface ScheduleTableProps {
   touchMode?: boolean;
 }
 
-const LOCK_LABEL: Record<RowLockReason, string> = {
-  inactive: 'Inaktiv',
-  notEmployed: 'Nicht beschäftigt',
-};
+function lockLabel(reason: RowLockReason, tCommon: TFunction, t: TFunction<'schedule'>): string {
+  return reason === 'inactive' ? tCommon('inactive') : t('notEmployedLabel');
+}
 
 const NO_RESULTS: ValidationResult[] = [];
 
@@ -80,15 +81,16 @@ export function cellKey(employeeId: EmployeeId, date: string): string {
 }
 
 /** One-line summary of a cell's current content, for the aria-label (H6) - mirrors the exact same
- * branching the cell's own visible content below uses, so the two can never drift apart. */
-function cellSummaryText(dayView: DayView): string {
+ * branching the cell's own visible content below uses, so the two can never drift apart.
+ * `emptyLabel` is the already-translated fallback text (the only translatable literal here). */
+function cellSummaryText(dayView: DayView, emptyLabel: string): string {
   if (dayView.absenceCoversWholeDay && dayView.absence) {
     return absenceKindLabel(dayView.absence.type);
   }
   if (dayView.entry.type === 'Shift' && dayView.entry.shifts.length > 0) {
     return dayView.entry.shifts.map((s) => `${s.start}-${s.end}`).join(', ');
   }
-  return 'frei';
+  return emptyLabel;
 }
 
 /** How far the actual hours fall outside the target band. Zero while they are inside it, which for
@@ -120,7 +122,10 @@ export const ScheduleTable = memo(function ScheduleTable({
   onToggleCellSelection,
   touchMode = true,
 }: ScheduleTableProps) {
+  const { t } = useTranslation('schedule');
+  const { t: tCommon } = useTranslation();
   const layout = useBreakpoint();
+  const emptyCellText = t('emptyCellText');
   // Warning/deviation tooltips: one shared key instead of per-icon local state, so opening a new
   // one always closes whichever was open - matches "tap elsewhere dismisses it". Controlled mode
   // (open/onClose + the three disable*Listener props) turns MUI Tooltip's default 700ms
@@ -187,7 +192,7 @@ export const ScheduleTable = memo(function ScheduleTable({
       <Table size="small">
         <TableHead>
           <TableRow>
-            <TableCell sx={{ ...stickyCornerSx(), minWidth: layout === 'mobile' ? 140 : 180 }}>Mitarbeiter</TableCell>
+            <TableCell sx={{ ...stickyCornerSx(), minWidth: layout === 'mobile' ? 140 : 180 }}>{t('columnEmployee')}</TableCell>
             {weekDays.map(({ day, date }) => (
               <TableCell key={day} align="center" sx={{ ...stickyHeaderRowSx(), minWidth: layout === 'mobile' ? 76 : 120 }}>
                 {layout === 'mobile' ? (
@@ -226,7 +231,7 @@ export const ScheduleTable = memo(function ScheduleTable({
                     <Typography variant="body2" fontWeight={500}>
                       {fullName(employee)}
                     </Typography>
-                    {row.lockReason && <Chip size="small" label={LOCK_LABEL[row.lockReason]} />}
+                    {row.lockReason && <Chip size="small" label={lockLabel(row.lockReason, tCommon, t)} />}
                   </Stack>
                   <Typography variant="caption" color="text.secondary">
                     {employee.jobTitle}
@@ -237,7 +242,12 @@ export const ScheduleTable = memo(function ScheduleTable({
                     </Typography>
                     {differenceMinutes !== 0 && (
                       <Tooltip
-                        title={`${differenceMinutes > 0 ? '+' : ''}${formatHoursGerman(differenceMinutes)} Std. ${differenceMinutes > 0 ? 'über' : 'unter'} Soll (${formatHoursRangeGerman(target.min, target.max)} Std.)`}
+                        title={t('deviationTooltip', {
+                          sign: differenceMinutes > 0 ? '+' : '',
+                          hours: formatHoursGerman(differenceMinutes),
+                          direction: differenceMinutes > 0 ? t('overTarget') : t('underTarget'),
+                          range: formatHoursRangeGerman(target.min, target.max),
+                        })}
                         arrow
                         open={openTooltipKey === `deviation|${view.employeeId}`}
                         onOpen={() => setOpenTooltipKey(`deviation|${view.employeeId}`)}
@@ -249,7 +259,7 @@ export const ScheduleTable = memo(function ScheduleTable({
                         <Box
                           component="button"
                           type="button"
-                          aria-label="Abweichung von Soll anzeigen"
+                          aria-label={t('deviationAriaLabel')}
                           onClick={() => toggleTooltip(`deviation|${view.employeeId}`)}
                           sx={{
                             display: 'flex',
@@ -322,10 +332,10 @@ export const ScheduleTable = memo(function ScheduleTable({
                         ...(selectable ? { 'aria-checked': isSelected } : {}),
                         tabIndex: 0,
                         'aria-label': selectable
-                          ? `${fullName(employee)}, ${dayView.day}, ${cellSummaryText(dayView)} auswählen`
+                          ? t('selectCellAriaLabel', { name: fullName(employee), day: dayView.day, summary: cellSummaryText(dayView, emptyCellText) })
                           : assignMode && droppable
-                            ? `${fullName(employee)}, ${dayView.day}, ${cellSummaryText(dayView)} zuweisen`
-                            : `${fullName(employee)}, ${dayView.day}, ${cellSummaryText(dayView)} bearbeiten`,
+                            ? t('assignCellAriaLabel', { name: fullName(employee), day: dayView.day, summary: cellSummaryText(dayView, emptyCellText) })
+                            : t('editCellAriaLabel', { name: fullName(employee), day: dayView.day, summary: cellSummaryText(dayView, emptyCellText) }),
                         onClick: activateCell,
                         onKeyDown: (e: KeyboardEvent) => {
                           // Ignores a keydown that bubbled up from a nested interactive element
@@ -400,7 +410,7 @@ export const ScheduleTable = memo(function ScheduleTable({
                           <Box
                             component="button"
                             type="button"
-                            aria-label="Hinweis anzeigen"
+                            aria-label={t('hintAriaLabel')}
                             onClick={(e) => {
                               e.stopPropagation();
                               toggleTooltip(warningKey);
@@ -432,8 +442,7 @@ export const ScheduleTable = memo(function ScheduleTable({
                           </Typography>
                           {dayView.creditedMinutes > 0 && (
                             <Typography variant="caption" color="text.secondary">
-                              {formatHoursGerman(dayView.creditedMinutes)} Std.
-                              angerechnet
+                              {t('creditedMinutesSuffix', { hours: formatHoursGerman(dayView.creditedMinutes) })}
                             </Typography>
                           )}
                         </>
@@ -441,7 +450,7 @@ export const ScheduleTable = memo(function ScheduleTable({
                         <>
                           {dayView.absence && (
                             <Typography variant="caption" display="block" color="#2f5d50" fontWeight={500}>
-                              {absenceKindLabel(dayView.absence.type)} (halbtags)
+                              {t('halfDaySuffix', { label: absenceKindLabel(dayView.absence.type) })}
                             </Typography>
                           )}
                           {dayView.entry.shifts.map((s) => (
@@ -450,21 +459,19 @@ export const ScheduleTable = memo(function ScheduleTable({
                             </Typography>
                           ))}
                           <Typography variant="caption" color="text.secondary">
-                            {formatHoursGerman(dayView.workedMinutes)} Std.
-                            {hasOverride && ' (manuell)'}
-                            {breakMinutes > 0 &&
-                              ` · ${formatHoursGerman(breakMinutes)} Std. Pause`}
+                            {t('workedHoursSuffix', { hours: formatHoursGerman(dayView.workedMinutes) })}
+                            {hasOverride && t('manualSuffix')}
+                            {breakMinutes > 0 && t('breakSuffix', { hours: formatHoursGerman(breakMinutes) })}
                           </Typography>
                           {dayView.creditedMinutes > 0 && (
                             <Typography variant="caption" display="block" color="text.secondary">
-                              + {formatHoursGerman(dayView.creditedMinutes)} Std.
-                              angerechnet
+                              {t('creditedMinutesSuffixPlus', { hours: formatHoursGerman(dayView.creditedMinutes) })}
                             </Typography>
                           )}
                         </>
                       ) : (
                         <Typography variant="body2" color="text.secondary">
-                          frei
+                          {emptyCellText}
                         </Typography>
                       )}
                     </Box>

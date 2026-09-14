@@ -1,4 +1,6 @@
 import { describe, it, expect } from 'vitest';
+import i18n from '@ui/i18n/i18n';
+import { DEFAULT_LOCALE } from '@ui/app/locale/locale';
 import type { AbsenceId, BranchId, EmployeeId } from '@domain/shared/ids';
 import { clockTime } from '@domain/shared/ClockTime';
 import { createShift } from '@domain/schedule/Shift';
@@ -17,6 +19,7 @@ import {
 } from './scheduleTools';
 
 const branchId = 'b1' as BranchId;
+const t = i18n.getFixedT(DEFAULT_LOCALE, 'schedule');
 
 function shiftWithBreak() {
   const shift = createShift(clockTime('06:00'), clockTime('14:00'));
@@ -119,14 +122,14 @@ describe('dayEntryMatchesTool', () => {
 
 describe('tool labels', () => {
   it('names each kind for the toolbar', () => {
-    expect(toolLabel(OFF_TOOL)).toBe('Frei');
-    expect(toolLabel({ kind: 'template', template })).toBe('Frühschicht');
-    expect(toolLabel({ kind: 'clipboard', entry: { type: 'Off' } })).toBe('Zwischenablage');
+    expect(toolLabel(OFF_TOOL, t)).toBe('Frei');
+    expect(toolLabel({ kind: 'template', template }, t)).toBe('Frühschicht');
+    expect(toolLabel({ kind: 'clipboard', entry: { type: 'Off' } }, t)).toBe('Zwischenablage');
   });
 
   it('summarises the times and net hours behind the name', () => {
-    expect(toolSummary({ kind: 'template', template })).toBe('06:00-14:00 · 7,5 Std.');
-    expect(toolSummary(OFF_TOOL)).toBe('Tag leeren');
+    expect(toolSummary({ kind: 'template', template }, t)).toBe('06:00-14:00 · 7,5 Std.');
+    expect(toolSummary(OFF_TOOL, t)).toBe('Tag leeren');
   });
 
   it('keys a template by its id, so tiles stay stable across reloads', () => {
@@ -135,8 +138,8 @@ describe('tool labels', () => {
   });
 
   it('summarises an Other-kind template by its label and hours', () => {
-    expect(toolLabel({ kind: 'template', template: otherTemplate })).toBe('Inventur');
-    expect(toolSummary({ kind: 'template', template: otherTemplate })).toBe('Sonstige · Inventur · 4 Std.');
+    expect(toolLabel({ kind: 'template', template: otherTemplate }, t)).toBe('Inventur');
+    expect(toolSummary({ kind: 'template', template: otherTemplate }, t)).toBe('Sonstige · Inventur · 4 Std.');
   });
 });
 

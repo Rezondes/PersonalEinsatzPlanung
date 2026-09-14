@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { MouseEvent, ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import Stack from '@mui/material/Stack';
@@ -101,6 +102,8 @@ export function ScheduleToolbar({
   printAvailable,
   headerFields,
 }: ScheduleToolbarProps) {
+  const { t } = useTranslation('schedule');
+  const { t: tCommon } = useTranslation();
   const layout = useBreakpoint();
   const collapsible = layout === 'mobile';
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -135,7 +138,7 @@ export function ScheduleToolbar({
           setMenuFor(null);
         }}
       >
-        Bearbeiten
+        {tCommon('edit')}
       </MenuItem>
       <MenuItem
         onClick={() => {
@@ -143,7 +146,7 @@ export function ScheduleToolbar({
           setMenuFor(null);
         }}
       >
-        Löschen
+        {tCommon('delete')}
       </MenuItem>
     </Menu>
   );
@@ -196,19 +199,19 @@ export function ScheduleToolbar({
         >
           <Box sx={{ minWidth: 0 }}>
             <Typography variant="body2" fontWeight={500} noWrap>
-              {toolLabel(tool)}
+              {toolLabel(tool, t)}
             </Typography>
             <Typography variant="caption" color="text.secondary" noWrap display="block">
-              {toolSummary(tool)}
+              {toolSummary(tool, t)}
             </Typography>
           </Box>
-          {vertical && isActive && <Chip size="small" label="aktiv" sx={{ bgcolor: '#2f5d50', color: '#fff', flexShrink: 0 }} />}
+          {vertical && isActive && <Chip size="small" label={t('activeChipLabel')} sx={{ bgcolor: '#2f5d50', color: '#fff', flexShrink: 0 }} />}
         </Box>
 
         {tool.kind === 'template' && (
           <IconButton
             size="small"
-            aria-label={`${tool.template.name} bearbeiten oder löschen`}
+            aria-label={t('templateMenuAriaLabel', { name: tool.template.name })}
             onClick={(e: MouseEvent<HTMLElement>) => setMenuFor({ template: tool.template, anchor: e.currentTarget })}
             sx={{ mr: 0.5 }}
           >
@@ -237,7 +240,7 @@ export function ScheduleToolbar({
         color: '#ffffff',
       }}
     >
-      <IconButton aria-label="Zuweisen beenden" onClick={onFinishAssigning} sx={{ color: '#ffffff', ml: -0.5 }}>
+      <IconButton aria-label={t('finishAssigningAriaLabel')} onClick={onFinishAssigning} sx={{ color: '#ffffff', ml: -0.5 }}>
         <CloseIcon />
       </IconButton>
       <Box
@@ -259,10 +262,10 @@ export function ScheduleToolbar({
         }}
       >
         <Typography variant="body2" fontWeight={500} noWrap>
-          {activeTool ? toolLabel(activeTool) : ''} zuweisen
+          {t('assignBannerText', { tool: activeTool ? toolLabel(activeTool, t) : '' })}
         </Typography>
         <Typography variant="caption" noWrap display="block" sx={{ opacity: 0.85 }}>
-          Tage antippen
+          {t('tapDaysCaption')}
         </Typography>
       </Box>
       <Button
@@ -275,7 +278,7 @@ export function ScheduleToolbar({
           '&:hover': { borderColor: '#ffffff', backgroundColor: 'rgba(255,255,255,0.08)' },
         }}
       >
-        Fertig
+        {t('doneButton')}
       </Button>
     </Box>
   );
@@ -297,7 +300,7 @@ export function ScheduleToolbar({
         color: '#ffffff',
       }}
     >
-      <IconButton aria-label="Auswahl beenden" onClick={onFinishSelecting} sx={{ color: '#ffffff', ml: -0.5 }}>
+      <IconButton aria-label={t('finishSelectingAriaLabel')} onClick={onFinishSelecting} sx={{ color: '#ffffff', ml: -0.5 }}>
         <CloseIcon />
       </IconButton>
       <Box
@@ -319,10 +322,10 @@ export function ScheduleToolbar({
         }}
       >
         <Typography variant="body2" fontWeight={500} noWrap>
-          {selectedCount} Zellen ausgewählt
+          {t('selectionBannerText', { selected: selectedCount })}
         </Typography>
         <Typography variant="caption" noWrap display="block" sx={{ opacity: 0.85 }}>
-          Werkzeug antippen zum Anwenden
+          {t('tapToolCaption')}
         </Typography>
       </Box>
       <Button
@@ -335,7 +338,7 @@ export function ScheduleToolbar({
           '&:hover': { borderColor: '#ffffff', backgroundColor: 'rgba(255,255,255,0.08)' },
         }}
       >
-        Fertig
+        {t('doneButton')}
       </Button>
     </Box>
   );
@@ -349,7 +352,7 @@ export function ScheduleToolbar({
       variant={selectionModeActive ? 'contained' : 'text'}
       sx={{ flexShrink: 0 }}
     >
-      Mehrfachauswahl
+      {t('multiSelectButton')}
     </Button>
   );
 
@@ -361,7 +364,7 @@ export function ScheduleToolbar({
       <>
         <Paper
           component="section"
-          aria-label="Werkzeugleiste"
+          aria-label={t('toolbarAriaLabel')}
           sx={{
             position: 'sticky',
             top: 'var(--pep-header-height, 64px)',
@@ -379,12 +382,12 @@ export function ScheduleToolbar({
           <Stack direction="row" spacing={1} alignItems="center" sx={{ p: 1, overflowX: 'auto', pb: 0.5 }}>
             {tools.map((tool) => renderTile(tool, false))}
             <Button size="small" startIcon={<AddIcon />} onClick={onCreate} sx={{ flexShrink: 0 }}>
-              Vorlage
+              {t('newTemplateButton')}
             </Button>
             {selectionToggleButton}
             {templates.length === 0 && (
               <Typography variant="caption" color="text.secondary" sx={{ flexShrink: 0, pl: 1 }}>
-                Eigene Schichten anlegen, dann auf einen Tag tippen.
+                {t('noTemplatesCaption')}
               </Typography>
             )}
           </Stack>
@@ -402,7 +405,7 @@ export function ScheduleToolbar({
     <>
       <Paper
         component="section"
-        aria-label="Weitere Aktionen"
+        aria-label={tCommon('secondaryActions')}
         // Not sticky-from-top like the tablet/laptop Paper above: on mobile this is the LAST
         // flex-shrink:0 child of ScheduleView's bounded flex column (see AppShell's
         // fullBleedPage), placed directly above the fixed bottom tab bar by flex stacking alone -
@@ -435,10 +438,10 @@ export function ScheduleToolbar({
           >
             <Box sx={{ width: 36, height: 4, borderRadius: 1, backgroundColor: '#cfcfc9', flexShrink: 0 }} />
             <Typography variant="body2" fontWeight={500} sx={{ flex: 1 }}>
-              Weitere Aktionen
+              {tCommon('secondaryActions')}
             </Typography>
             <Typography variant="caption" color="text.secondary">
-              {templates.length} Vorlagen
+              {t('templatesCountCaption', { count: templates.length })}
             </Typography>
             <ExpandMoreIcon fontSize="small" sx={{ color: 'text.secondary' }} />
           </Box>
@@ -464,11 +467,11 @@ export function ScheduleToolbar({
         </Box>
         <Box sx={{ overflowY: 'auto', flex: 1, pb: 'calc(16px + env(safe-area-inset-bottom, 0px))' }}>
           <Typography variant="subtitle1" fontWeight={500} sx={{ px: 2, pb: 1 }}>
-            Weitere Aktionen
+            {tCommon('secondaryActions')}
           </Typography>
 
           <Typography variant="overline" color="text.secondary" sx={{ px: 2, display: 'block' }}>
-            Aktionen
+            {t('actionsOverline')}
           </Typography>
           <Stack spacing={1} sx={{ px: 2, pb: 2 }}>
             <Button
@@ -479,7 +482,7 @@ export function ScheduleToolbar({
                 onCarryOver();
               }}
             >
-              Vorwoche übertragen
+              {t('carryOverButton')}
             </Button>
             <Button
               variant="outlined"
@@ -489,7 +492,7 @@ export function ScheduleToolbar({
                 onCopyPreviousWeek();
               }}
             >
-              Vorwoche kopieren
+              {t('copyPreviousWeekButton')}
             </Button>
             {printAvailable && (
               <Button
@@ -500,7 +503,7 @@ export function ScheduleToolbar({
                   onPrint();
                 }}
               >
-                Druckansicht
+                {t('printViewButton')}
               </Button>
             )}
             <Button
@@ -512,20 +515,20 @@ export function ScheduleToolbar({
                 onToggleSelectionMode();
               }}
             >
-              Mehrfachauswahl
+              {t('multiSelectButton')}
             </Button>
           </Stack>
 
           <Divider />
           <Typography variant="overline" color="text.secondary" sx={{ px: 2, pt: 2, display: 'block' }}>
-            Wochenplanung
+            {t('planningOverline')}
           </Typography>
           <Box sx={{ px: 2, pb: 1 }}>{headerFields}</Box>
 
           <Divider />
           <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ px: 2, pt: 2, pb: 1 }}>
             <Typography variant="overline" color="text.secondary">
-              Vorlagen
+              {t('templatesOverline')}
             </Typography>
             <Button
               size="small"
@@ -535,14 +538,14 @@ export function ScheduleToolbar({
                 onCreate();
               }}
             >
-              Neu
+              {t('newButton')}
             </Button>
           </Stack>
           <Stack spacing={1} sx={{ px: 2 }}>
             {tools.map((tool) => renderTile(tool, true))}
             {templates.length === 0 && (
               <Typography variant="caption" color="text.secondary">
-                Eigene Schichten anlegen, dann auf einen Tag tippen.
+                {t('noTemplatesCaption')}
               </Typography>
             )}
           </Stack>

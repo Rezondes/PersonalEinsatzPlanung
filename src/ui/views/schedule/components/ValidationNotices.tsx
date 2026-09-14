@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { MouseEvent, ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import Stack from '@mui/material/Stack';
 import Alert from '@mui/material/Alert';
 import AlertTitle from '@mui/material/AlertTitle';
@@ -42,6 +43,7 @@ function employeeName(id: string | undefined, list: Employee[]): string {
  * without reimplementing that same collision logic.
  */
 export function ValidationNotices({ results, employeeList, renderTrigger }: ValidationNoticesProps) {
+  const { t } = useTranslation('schedule');
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
   const errors = results.filter((e) => e.severity === 'error');
   const warnings = results.filter((e) => e.severity === 'warning');
@@ -60,7 +62,11 @@ export function ValidationNotices({ results, employeeList, renderTrigger }: Vali
         renderTrigger({ errorCount: errors.length, warningCount: warnings.length, onClick: open, expanded })
       ) : (
         <Button size="small" onClick={open}>
-          {errors.length} Fehler, {warnings.length} Warnung(en) {expanded ? 'ausblenden' : 'anzeigen'}
+          {t('defaultTriggerLabel', {
+            errorCount: errors.length,
+            warningCount: warnings.length,
+            action: expanded ? t('hideAction') : t('showAction'),
+          })}
         </Button>
       )}
 

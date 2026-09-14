@@ -1,3 +1,4 @@
+import type { TFunction } from 'i18next';
 import type { DayEntry } from '@domain/schedule/EmployeeWeekAssignment';
 import type { Shift } from '@domain/schedule/Shift';
 import { withFreshShiftIds } from '@domain/schedule/Shift';
@@ -121,43 +122,45 @@ export function toolMatchesCell(dayView: { entry: DayEntry; absence?: Absence },
   return dayEntryMatchesTool(dayView.entry, tool);
 }
 
-export function toolLabel(tool: ScheduleTool): string {
+export function toolLabel(tool: ScheduleTool, t: TFunction<'schedule'>): string {
   switch (tool.kind) {
     case 'off':
-      return 'Frei';
+      return t('offMenuItem');
     case 'clipboard':
-      return 'Zwischenablage';
+      return t('clipboardLabel');
     case 'template':
       return tool.template.name;
   }
 }
 
-function shiftsSummary(shifts: Shift[]): string {
+function shiftsSummary(shifts: Shift[], t: TFunction<'schedule'>): string {
   if (shifts.length === 0) {
-    return 'Frei';
+    return t('offMenuItem');
   }
   const times = shifts.map((s) => `${s.start}-${s.end}`).join(' / ');
   const netMinutes = shifts.reduce((sum, s) => sum + shiftNetMinutes(s), 0);
-  return `${times} · ${formatHoursGerman(netMinutes)} Std.`;
+  return t('shiftsSummaryText', { times, hours: formatHoursGerman(netMinutes) });
 }
 
 /** Second line of a toolbar tile: the times behind the name, so two templates with similar names
  * stay distinguishable. */
 /** hoursPerDay is already a plain number of hours (see domain/absence/Absence.ts), unlike the
  * Shift-kind summary above which starts from minutes - no minutesToDecimalHours conversion here. */
-function otherSummary(label: string, hoursPerDay?: number): string {
-  return hoursPerDay === undefined ? `Sonstige · ${label}` : `Sonstige · ${label} · ${hoursPerDay.toLocaleString('de-DE')} Std.`;
+function otherSummary(label: string, hoursPerDay: number | undefined, t: TFunction<'schedule'>): string {
+  return hoursPerDay === undefined
+    ? t('otherSummaryPlain', { label })
+    : t('otherSummaryWithHours', { label, hours: hoursPerDay.toLocaleString('de-DE') });
 }
 
-export function toolSummary(tool: ScheduleTool): string {
+export function toolSummary(tool: ScheduleTool, t: TFunction<'schedule'>): string {
   switch (tool.kind) {
     case 'off':
-      return 'Tag leeren';
+      return t('emptyDayLabel');
     case 'template':
       return tool.template.kind === 'Shift'
-        ? shiftsSummary(tool.template.shifts)
-        : otherSummary(tool.template.label, tool.template.hoursPerDay);
+        ? shiftsSummary(tool.template.shifts, t)
+        : otherSummary(tool.template.label, tool.template.hoursPerDay, t);
     case 'clipboard':
-      return tool.entry.type === 'Shift' ? shiftsSummary(tool.entry.shifts) : 'Frei';
+      return tool.entry.type === 'Shift' ? shiftsSummary(tool.entry.shifts, t) : t('offMenuItem');
   }
 }

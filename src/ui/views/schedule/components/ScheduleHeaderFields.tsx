@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import InputAdornment from '@mui/material/InputAdornment';
@@ -19,6 +20,7 @@ interface ScheduleHeaderFieldsProps {
  * keystroke re-renders only these two fields - previously the drafts lived in ScheduleView, where
  * every keystroke re-rendered the whole schedule table underneath. Saves on blur. */
 export function ScheduleHeaderFields({ schedule, disabled = false, onSaved, onError }: ScheduleHeaderFieldsProps) {
+  const { t } = useTranslation('schedule');
   const [revenue, setRevenue] = useState<number | undefined>(schedule?.plannedWeeklyRevenue);
   const [hours, setHours] = useState<number | undefined>(schedule?.plannedWeeklyHours);
   const [savedAt, setSavedAt] = useState<number | null>(null);
@@ -49,14 +51,14 @@ export function ScheduleHeaderFields({ schedule, disabled = false, onSaved, onEr
       onSaved(updated);
       setSavedAt(Date.now());
     } catch (e) {
-      onError(e, 'Kopfdaten konnten nicht gespeichert werden');
+      onError(e, t('headerSaveError'));
     }
   };
 
   return (
     <Stack direction="row" gap={2} flexWrap="wrap" sx={{ mb: 2 }}>
       <DecimalTextField
-        label="Geplanter Wochenumsatz"
+        label={t('plannedRevenueLabel')}
         size="small"
         value={revenue}
         onChange={setRevenue}
@@ -66,7 +68,7 @@ export function ScheduleHeaderFields({ schedule, disabled = false, onSaved, onEr
         sx={{ width: 260 }}
       />
       <DecimalTextField
-        label="Geplante Wochenstunden"
+        label={t('plannedHoursLabel')}
         size="small"
         value={hours}
         onChange={setHours}
@@ -76,7 +78,7 @@ export function ScheduleHeaderFields({ schedule, disabled = false, onSaved, onEr
       />
       {savedAt !== null && (
         <Typography role="status" variant="caption" color="success.main" sx={{ alignSelf: 'center' }}>
-          Gespeichert
+          {t('savedStatus')}
         </Typography>
       )}
     </Stack>
