@@ -313,6 +313,16 @@ function isValidDataStructure(data: unknown): data is PepExportFileV3['data'] {
   );
 }
 
+/** `isValidDataStructure`/`isValidV1DataStructure` deliberately do not check shiftTemplates (see
+ * their own comment - older versions cannot have it), so every path that reads it straight from
+ * raw, untrusted JSON has to validate it itself before iterating over it - otherwise a field that
+ * is present but not an array (a hand-edited file, not just an old one missing it) reaches a bare
+ * `.map()` and crashes with a raw TypeError instead of the same clear German message every other
+ * structural problem gets (N2). */
+function hasValidShiftTemplatesField(data: { shiftTemplates?: unknown }): boolean {
+  return data.shiftTemplates === undefined || Array.isArray(data.shiftTemplates);
+}
+
 function isValidV1DataStructure(daten: unknown): daten is PepExportFileV1['daten'] {
   if (typeof daten !== 'object' || daten === null) {
     return false;
@@ -381,11 +391,19 @@ export function migrateToCurrentVersion(rawData: unknown): PepExportFile {
     return migrateV4ToV5(migrateV3ToV4(rawData as unknown as PepExportFileV3));
   }
   if (rawFile.formatVersion === 4) {
-    return migrateV4ToV5(rawData as unknown as PepExportFileV4);
+    const fileV4 = rawData as unknown as PepExportFileV4;
+    if (!hasValidShiftTemplatesField(fileV4.data)) {
+      throw new DomainError('Die Datei enthält kein gültiges PEP-Exportformat (fehlende oder beschädigte Datenfelder).');
+    }
+    return migrateV4ToV5(fileV4);
   }
 
-  // Already current. The fallback keeps a hand-edited file without the array from crashing the
-  // import, which walks data.shiftTemplates directly.
+  // Already current. The fallback keeps a hand-edited file MISSING the array from crashing the
+  // import, which walks data.shiftTemplates directly - but a field that is PRESENT and not an
+  // array still has to be rejected explicitly here, same reason (N2).
   const file = rawData as PepExportFile;
+  if (!hasValidShiftTemplatesField(file.data)) {
+    throw new DomainError('Die Datei enthält kein gültiges PEP-Exportformat (fehlende oder beschädigte Datenfelder).');
+  }
   return { ...file, data: { ...file.data, shiftTemplates: file.data.shiftTemplates ?? [] } };
 }

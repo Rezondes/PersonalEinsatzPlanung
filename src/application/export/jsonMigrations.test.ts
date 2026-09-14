@@ -70,6 +70,24 @@ describe('migrateToCurrentVersion', () => {
     expect(migrateToCurrentVersion(withoutTemplates).data.shiftTemplates).toEqual([]);
   });
 
+  it('rejects a current-version file whose shift-template list is present but not an array (N2)', () => {
+    expect(() =>
+      migrateToCurrentVersion({ ...validFile, data: { ...validFile.data, shiftTemplates: 'not an array' } }),
+    ).toThrow(DomainError);
+    expect(() =>
+      migrateToCurrentVersion({ ...validFile, data: { ...validFile.data, shiftTemplates: { oops: true } } }),
+    ).toThrow(DomainError);
+  });
+
+  it('rejects a v4 file whose shift-template list is present but not an array (N2)', () => {
+    const fileV4 = {
+      formatVersion: 4,
+      exportedAt: '2026-09-07T00:00:00.000Z',
+      data: { branches: [], employees: [], weeklySchedules: [], absences: [], shiftTemplates: null },
+    };
+    expect(() => migrateToCurrentVersion(fileV4)).toThrow(DomainError);
+  });
+
   it('rejects a newer, unknown formatVersion', () => {
     expect(() => migrateToCurrentVersion({ ...validFile, formatVersion: 99 })).toThrow(DomainError);
   });

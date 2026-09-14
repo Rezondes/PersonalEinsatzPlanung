@@ -36,6 +36,10 @@ export function ScheduleHeaderFields({ schedule, disabled = false, onSaved, onEr
 
   const save = async () => {
     if (!schedule || disabled) return;
+    // Both fields save on blur, so simply tabbing through without typing anything must not write -
+    // otherwise every such tab-through both hits the database for nothing and (via onSaved ->
+    // useScheduleHistory's record()) pushes a no-op step onto the undo stack (M20).
+    if (revenue === schedule.plannedWeeklyRevenue && hours === schedule.plannedWeeklyHours) return;
     try {
       const updated = await services.schedule.save({
         ...schedule,

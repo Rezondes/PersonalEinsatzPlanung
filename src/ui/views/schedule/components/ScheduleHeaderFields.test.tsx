@@ -92,4 +92,36 @@ describe('ScheduleHeaderFields', () => {
 
     expect(saveMock).not.toHaveBeenCalled();
   });
+
+  it('does not save when a field is blurred without changing its value (M20)', async () => {
+    const user = userEvent.setup();
+    const onSaved = vi.fn();
+    render(
+      <ScheduleHeaderFields
+        schedule={schedule({ plannedWeeklyRevenue: 25000, plannedWeeklyHours: 37.5 })}
+        onSaved={onSaved}
+        onError={() => {}}
+      />,
+    );
+
+    await user.click(revenueField());
+    await user.tab();
+    await user.click(hoursField());
+    await user.tab();
+
+    expect(saveMock).not.toHaveBeenCalled();
+    expect(onSaved).not.toHaveBeenCalled();
+  });
+
+  it('still saves when the value actually changes, unlike the unchanged-blur case above (M20)', async () => {
+    const user = userEvent.setup();
+    const onSaved = vi.fn();
+    render(<ScheduleHeaderFields schedule={schedule({ plannedWeeklyHours: 40 })} onSaved={onSaved} onError={() => {}} />);
+
+    await user.type(revenueField(), '25000');
+    await user.tab();
+
+    await waitFor(() => expect(onSaved).toHaveBeenCalledTimes(1));
+    expect(saveMock).toHaveBeenCalledTimes(1);
+  });
 });
