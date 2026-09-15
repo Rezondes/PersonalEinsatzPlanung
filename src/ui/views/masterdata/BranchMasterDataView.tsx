@@ -243,7 +243,7 @@ export function BranchMasterDataView() {
                     <TableSortLabel {...headProps('status')}>{t('branch.columnStatus')}</TableSortLabel>
                   </TableCell>
                   <TableCell align="right" sx={stickyHeaderRowSx()}>
-                    {t('branch.columnActions')}
+                    {tCommon('columnActions')}
                   </TableCell>
                 </TableRow>
               </TableHead>

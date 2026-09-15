@@ -49,7 +49,7 @@ export function MorePage() {
       }}
     >
       <Typography variant="h5" component="h1" fontWeight={500} sx={{ mb: 2 }}>
-        Mehr
+        {t('more')}
       </Typography>
       <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
         <List sx={{ bgcolor: 'background.paper', border: '1px solid #e0e0dc', borderRadius: 2, overflow: 'hidden' }}>

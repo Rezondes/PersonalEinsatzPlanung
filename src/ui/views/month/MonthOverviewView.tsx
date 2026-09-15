@@ -200,7 +200,7 @@ export function MonthOverviewView() {
             <TextField
               select
               size="small"
-              label={t('yearLabel')}
+              label={tCommon('yearLabel')}
               value={year}
               onChange={(e) => setYear(Number(e.target.value))}
               sx={{ minWidth: 100 }}

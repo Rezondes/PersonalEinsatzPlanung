@@ -275,10 +275,10 @@ export function AbsenceDialog({ employees, absences, absence, onClose, onSaved, 
             onChange={(e) => setForm((f) => ({ ...f, type: e.target.value as AbsenceType }))}
             fullWidth
           >
-            <MenuItem value="Vacation">{t('typeVacation')}</MenuItem>
-            <MenuItem value="Illness">{t('typeIllness')}</MenuItem>
-            <MenuItem value="PublicHoliday">{t('typeHoliday')}</MenuItem>
-            <MenuItem value="Other">{t('typeOther')}</MenuItem>
+            <MenuItem value="Vacation">{tCommon('absenceKind.vacation')}</MenuItem>
+            <MenuItem value="Illness">{tCommon('absenceKind.illness')}</MenuItem>
+            <MenuItem value="PublicHoliday">{tCommon('absenceKind.publicHoliday')}</MenuItem>
+            <MenuItem value="Other">{tCommon('absenceKind.other')}</MenuItem>
           </TextField>
           {(form.type === 'Vacation' || form.type === 'Illness' || form.type === 'PublicHoliday') && (
             <DecimalTextField

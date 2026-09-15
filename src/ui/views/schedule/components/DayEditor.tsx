@@ -296,10 +296,10 @@ export function DayEditor({
         >
           <ToggleButton value="Off">{t('offMenuItem')}</ToggleButton>
           <ToggleButton value="Shift">{t('arbeitszeitOption')}</ToggleButton>
-          <ToggleButton value="Vacation">{t('vacationOption')}</ToggleButton>
-          <ToggleButton value="Illness">{t('illnessOption')}</ToggleButton>
-          <ToggleButton value="PublicHoliday">{t('publicHolidayOption')}</ToggleButton>
-          <ToggleButton value="Other">{t('otherOption')}</ToggleButton>
+          <ToggleButton value="Vacation">{tCommon('absenceKind.vacation')}</ToggleButton>
+          <ToggleButton value="Illness">{tCommon('absenceKind.illness')}</ToggleButton>
+          <ToggleButton value="PublicHoliday">{tCommon('absenceKind.publicHoliday')}</ToggleButton>
+          <ToggleButton value="Other">{tCommon('absenceKind.other')}</ToggleButton>
         </ToggleButtonGroup>
 
         {(mode === 'Shift' || mode === 'Other') && <RequiredLegend />}

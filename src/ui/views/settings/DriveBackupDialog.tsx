@@ -70,7 +70,10 @@ export function DriveBackupDialog({ busy = false, onClose, onSelect, onError }: 
     return () => {
       cancelled = true;
     };
-  }, [t]);
+    // t only affects the error-message text, not the fetch itself - excluding it means a future
+    // language switch never re-fetches the list, it just reads the current t when the catch fires.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const confirmDelete = async () => {
     const target = deleteTarget;
@@ -83,7 +86,7 @@ export function DriveBackupDialog({ busy = false, onClose, onSelect, onError }: 
       // has just trashed, and a re-fetch would put the row back for a beat.
       setBackups((current) => (current ?? []).filter((b) => b.id !== target.id));
     } catch (e) {
-      onError(e, 'Die Sicherung konnte nicht gelöscht werden');
+      onError(e, t('driveBackupDialog.deleteError'));
     } finally {
       setDeletingId(null);
     }

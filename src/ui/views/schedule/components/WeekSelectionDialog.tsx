@@ -57,6 +57,7 @@ export function WeekSelectionDialog({
   onWeekSelect,
 }: WeekSelectionDialogProps) {
   const { t } = useTranslation('schedule');
+  const { t: tCommon } = useTranslation();
   const today = calendarWeekFromDate(new Date());
   const [year, setYear] = useState(mondayOfWeek(selectedWeek).getFullYear());
   const [month, setMonth] = useState(mondayOfWeek(selectedWeek).getMonth() + 1);
@@ -128,7 +129,7 @@ export function WeekSelectionDialog({
         <TextField
           select
           size="small"
-          label={t('yearSelectLabel')}
+          label={tCommon('yearLabel')}
           value={year}
           onChange={(e) => setYear(Number(e.target.value))}
           sx={{ flex: 1 }}

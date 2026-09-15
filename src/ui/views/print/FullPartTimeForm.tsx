@@ -41,6 +41,10 @@ export function FullPartTimeForm({
 }: FullPartTimeFormProps) {
   const { t } = useTranslation('print');
   const slots = Array.from({ length: COLUMNS_PER_SHEET }, (_, i) => rows[i] ?? null);
+  // Same 2 strings for every one of the fixed COLUMNS_PER_SHEET columns - computed once instead of
+  // once per column.
+  const timeLabel = t('timeLabel');
+  const hoursLabel = t('hoursLabel');
 
   return (
     <div className="print-page">
@@ -115,8 +119,8 @@ export function FullPartTimeForm({
             <th className="column-label">{t('actualHoursLabel')}</th>
             {slots.map((_, i) => (
               <Fragment key={i}>
-                <th>{t('timeLabel')}</th>
-                <th>{t('hoursLabel')}</th>
+                <th>{timeLabel}</th>
+                <th>{hoursLabel}</th>
               </Fragment>
             ))}
           </tr>

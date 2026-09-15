@@ -129,6 +129,7 @@ const settings = {
   },
   driveBackupDialog: {
     loadFailedFallback: 'Die Sicherungen konnten nicht geladen werden.',
+    deleteError: 'Die Sicherung konnte nicht gelöscht werden',
     title: 'Sicherung aus Google Drive laden oder löschen',
     loadingOne: 'Sicherung wird geladen…',
     loadingMany: 'Sicherungen werden geladen…',

@@ -125,8 +125,12 @@ export function CarryOverPreviousWeekDialog({
       // it replaces: the user would wait instead of seeing that something went wrong.
       .catch((e: unknown) => onError(e, t('loadPreviousWeekError')))
       .finally(() => setLoading(false));
-    // onError is notify.report, a stable module-level reference, so listing it cannot loop.
-  }, [open, branchId, selectedWeek, schedule, employeeList, absences, isHoliday, onError, t]);
+    // onError is notify.report, a stable module-level reference, so listing it cannot loop. t is
+    // deliberately excluded: it only affects the error-message text, not the fetch/compute above,
+    // so a future language switch never re-runs this expensive lookup, it just reads the current t
+    // when the catch fires.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, branchId, selectedWeek, schedule, employeeList, absences, isHoliday, onError]);
 
   const apply = async () => {
     setApplying(true);

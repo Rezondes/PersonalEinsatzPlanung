@@ -134,7 +134,11 @@ export function useScheduleHistory({
         bumpStackVersion();
       });
     },
-    [applyStep, onError, t],
+    // t is deliberately excluded: it only affects the error-message text on a failed move, not
+    // applyStep itself, so a future language switch never recreates this callback (which backs the
+    // document-level Strg+Z/Strg+Y listener) - it just reads the current t if onError fires.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [applyStep, onError],
   );
 
   const undo = useCallback(() => move('undo'), [move]);

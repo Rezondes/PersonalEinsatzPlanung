@@ -28,8 +28,13 @@ const schedule = {
   istSollMobileCaption: 'Ist / Soll',
   istSollSentence: 'Ist {{worked}} von {{range}} Soll',
   notYetScheduled: '{{value}} noch nicht eingeplant',
-  errorSummary: '{{count}} Fehler',
-  warningSuffix: ', {{count}} Warnung(en)',
+  // 'Fehler' is invariant between singular/plural in German, but i18next still needs both plural
+  // forms defined - without them it silently falls back to the bare key text for every count
+  // instead of erroring, which for "Warnung"/"Vorlage" below would render the wrong grammar.
+  errorSummary_one: '{{count}} Fehler',
+  errorSummary_other: '{{count}} Fehler',
+  warningSuffix_one: ', {{count}} Warnung',
+  warningSuffix_other: ', {{count}} Warnungen',
   noEmployeesAlert: 'Für diese Filiale sind noch keine Mitarbeiter angelegt. Lege zuerst Mitarbeiter unter „Mitarbeiter“ an.',
   searchPlaceholder: 'Mitarbeiter suchen',
   noEmployeeFound: 'Kein Mitarbeiter gefunden.',
@@ -51,6 +56,7 @@ const schedule = {
   notEmployedLabel: 'Nicht beschäftigt',
   overTarget: 'über',
   underTarget: 'unter',
+  actualVsTargetSuffix: '{{worked}} / {{range}} Std.',
   deviationTooltip: '{{sign}}{{hours}} Std. {{direction}} Soll ({{range}} Std.)',
   deviationAriaLabel: 'Abweichung von Soll anzeigen',
   hintAriaLabel: 'Hinweis anzeigen',
@@ -79,8 +85,8 @@ const schedule = {
   toolbarAriaLabel: 'Werkzeugleiste',
   newTemplateButton: 'Vorlage',
   noTemplatesCaption: 'Eigene Schichten anlegen, dann auf einen Tag tippen.',
-  templatesCountCaption: '{{count}} Vorlagen',
-  actionsOverline: 'Aktionen',
+  templatesCountCaption_one: '{{count}} Vorlage',
+  templatesCountCaption_other: '{{count}} Vorlagen',
   printViewButton: 'Druckansicht',
   planningOverline: 'Wochenplanung',
   templatesOverline: 'Vorlagen',
@@ -110,10 +116,6 @@ const schedule = {
     '{{name}} ist an diesem Tag im Rahmen eines mehrtägigen Eintrags ({{kind}}, {{from}} bis {{to}}) abwesend. Bitte bearbeite oder lösche diesen Eintrag über den Tab „Abwesenheiten“.',
   entryTypeAriaLabel: 'Eintragsart',
   arbeitszeitOption: 'Arbeitszeit',
-  vacationOption: 'Urlaub',
-  illnessOption: 'Krankheit',
-  publicHolidayOption: 'Feiertag',
-  otherOption: 'Sonstige',
   offDayText: '{{name}} ist an diesem Tag nicht eingeplant und hat keinen Eintrag (weder Arbeitszeit noch Abwesenheit).',
   vacationAlert:
     'Trägt für {{name}} am {{date}} einen ganztägigen Urlaubstag ein. Halbtags-Urlaub oder mehrtägige Zeiträume lassen sich im Tab „Abwesenheiten“ erfassen.',
@@ -163,7 +165,6 @@ const schedule = {
   previousMonthAriaLabel: 'Vorheriger Monat',
   nextMonthAriaLabel: 'Nächster Monat',
   monthSelectLabel: 'Monat',
-  yearSelectLabel: 'Jahr',
   loadingWeek: '…',
   noScheduleText: 'kein Plan',
 

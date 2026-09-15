@@ -327,15 +327,15 @@ export function AbsencesView() {
             sx={{ width: 180 }}
           >
             <MenuItem value={ALL}>{t('filterAll')}</MenuItem>
-            <MenuItem value="Vacation">{t('typeVacation')}</MenuItem>
-            <MenuItem value="Illness">{t('typeIllness')}</MenuItem>
-            <MenuItem value="PublicHoliday">{t('typeHoliday')}</MenuItem>
-            <MenuItem value="Other">{t('typeOther')}</MenuItem>
+            <MenuItem value="Vacation">{tCommon('absenceKind.vacation')}</MenuItem>
+            <MenuItem value="Illness">{tCommon('absenceKind.illness')}</MenuItem>
+            <MenuItem value="PublicHoliday">{tCommon('absenceKind.publicHoliday')}</MenuItem>
+            <MenuItem value="Other">{tCommon('absenceKind.other')}</MenuItem>
           </TextField>
           <TextField
             select
             size="small"
-            label={t('yearLabel')}
+            label={tCommon('yearLabel')}
             value={yearFilters}
             onChange={(e) => {
               const value = e.target.value as unknown as string | string[];
@@ -360,7 +360,10 @@ export function AbsencesView() {
             ))}
           </TextField>
           <Typography variant="body2" color="text.secondary">
-            {t('countSummary', { visible: visibleAbsences.length, total: absences.length })}
+            {t('countSummary', {
+              visible: visibleAbsences.length.toLocaleString('de-DE'),
+              total: absences.length.toLocaleString('de-DE'),
+            })}
           </Typography>
         </Stack>
       </Paper>
@@ -402,7 +405,7 @@ export function AbsencesView() {
                     <TableSortLabel {...headProps('to')}>{t('columnTo')}</TableSortLabel>
                   </TableCell>
                   <TableCell align="right" sx={stickyHeaderRowSx()}>
-                    {t('columnActions')}
+                    {tCommon('columnActions')}
                   </TableCell>
                 </TableRow>
               </TableHead>

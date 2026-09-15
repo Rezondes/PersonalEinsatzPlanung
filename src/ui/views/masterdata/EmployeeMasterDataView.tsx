@@ -169,8 +169,8 @@ function EmployeeCard({
   onTap: () => void;
   onLongPress: () => void;
 }) {
-  const { t } = useTranslation();
-  const { t: tMasterdata } = useTranslation('masterdata');
+  const { t } = useTranslation('masterdata');
+  const { t: tCommon } = useTranslation();
   const handlers = useLongPress({ onTap, onLongPress });
   const minor = isMinor(employee.birthDate, new Date());
   return (
@@ -212,12 +212,12 @@ function EmployeeCard({
               <ChildCareOutlinedIcon
                 fontSize="small"
                 sx={{ color: 'text.secondary', flexShrink: 0 }}
-                titleAccess={tMasterdata('employee.minorTitle')}
+                titleAccess={t('employee.minorTitle')}
               />
             )}
             <Chip
               size="small"
-              label={employee.active ? t('active') : t('inactive')}
+              label={employee.active ? tCommon('active') : tCommon('inactive')}
               color={employee.active ? 'success' : 'default'}
               sx={{ ml: 'auto', flexShrink: 0 }}
             />
@@ -227,14 +227,14 @@ function EmployeeCard({
           </Typography>
           <Stack direction="row" spacing={2} sx={{ mt: 0.5 }}>
             <Typography variant="caption" color="text.secondary">
-              {weeklyHoursText(employee)} {tMasterdata('employee.weeklyHoursSuffix')}
+              {weeklyHoursText(employee)} {t('employee.weeklyHoursSuffix')}
             </Typography>
             <Typography variant="caption" color="text.secondary">
-              {employee.vacationEntitlementPerYear.toLocaleString('de-DE')} {tMasterdata('employee.vacationDaysSuffix')}
+              {employee.vacationEntitlementPerYear.toLocaleString('de-DE')} {t('employee.vacationDaysSuffix')}
             </Typography>
           </Stack>
           <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
-            {remainingVacationDays.toLocaleString('de-DE')} {tMasterdata('employee.columnRemainingVacation')}
+            {remainingVacationDays.toLocaleString('de-DE')} {t('employee.columnRemainingVacation')}
           </Typography>
           {vacationHint && (
             <Typography variant="caption" color="text.secondary" display="block">
@@ -246,7 +246,7 @@ function EmployeeCard({
       </ButtonBase>
       <IconButton
         onClick={onLongPress}
-        aria-label={t('otherActionsFor', { name: fullName(employee) })}
+        aria-label={tCommon('otherActionsFor', { name: fullName(employee) })}
         sx={{ flexShrink: 0, mt: 0.5 }}
       >
         <MoreVertIcon />
@@ -401,7 +401,10 @@ export function EmployeeMasterDataView() {
             <MenuItem value="Minijob">{employmentTypeLabel({ type: 'Minijob', minHours: 0, maxHours: 0 })}</MenuItem>
           </TextField>
           <Typography variant="body2" color="text.secondary">
-            {t('employee.countSummary', { visible: visibleEmployees.length, total: employeeList.length })}
+            {t('employee.countSummary', {
+              visible: visibleEmployees.length.toLocaleString('de-DE'),
+              total: employeeList.length.toLocaleString('de-DE'),
+            })}
           </Typography>
         </Stack>
       </Paper>
@@ -444,7 +447,7 @@ export function EmployeeMasterDataView() {
                     <TableSortLabel {...headProps('status')}>{t('employee.statusLabel')}</TableSortLabel>
                   </TableCell>
                   <TableCell align="right" sx={stickyHeaderRowSx()}>
-                    {t('employee.columnActions')}
+                    {tCommon('columnActions')}
                   </TableCell>
                 </TableRow>
               </TableHead>

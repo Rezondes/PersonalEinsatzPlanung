@@ -20,6 +20,14 @@ const common = {
   formErrorNotice: 'Bitte die rot markierten Felder prüfen.',
   secondaryActions: 'Weitere Aktionen',
   otherActionsFor: 'Weitere Aktionen für {{name}}',
+  columnActions: 'Aktionen',
+  yearLabel: 'Jahr',
+  absenceKind: {
+    vacation: 'Urlaub',
+    illness: 'Krankheit',
+    publicHoliday: 'Feiertag',
+    other: 'Sonstige',
+  },
 } as const;
 
 export default common;

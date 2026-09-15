@@ -29,11 +29,10 @@ import type { ValidationResult } from '@domain/validation/ValidationResult';
 import { absenceKindLabel } from '@domain/absence/Absence';
 import type { DayView } from '@application/schedule/scheduleAssessment';
 import { effectiveTargetMinutesRange } from '@application/schedule/scheduleAssessment';
-import type { RowLockReason, ScheduleRow } from '../scheduleRows';
+import type { ScheduleRow } from '../scheduleRows';
 import { canReceiveEntry, isCellLocked } from '../scheduleRows';
 import { stickyCornerSx, stickyFirstColumnSx, stickyHeaderRowSx } from '@ui/components/stickyFirstColumn';
 import { useBreakpoint } from '@ui/hooks/useBreakpoint';
-import type { TFunction } from 'i18next';
 
 interface ScheduleTableProps {
   rows: ScheduleRow[];
@@ -66,10 +65,6 @@ interface ScheduleTableProps {
    * the many existing tests that don't care about hover-vs-touch don't all need updating for a
    * prop irrelevant to what they verify. */
   touchMode?: boolean;
-}
-
-function lockLabel(reason: RowLockReason, tCommon: TFunction, t: TFunction<'schedule'>): string {
-  return reason === 'inactive' ? tCommon('inactive') : t('notEmployedLabel');
 }
 
 const NO_RESULTS: ValidationResult[] = [];
@@ -126,6 +121,9 @@ export const ScheduleTable = memo(function ScheduleTable({
   const { t: tCommon } = useTranslation();
   const layout = useBreakpoint();
   const emptyCellText = t('emptyCellText');
+  // Only 2 fixed, non-interpolated outputs possible - computed once instead of once per locked row.
+  const inactiveLabel = tCommon('inactive');
+  const notEmployedLabel = t('notEmployedLabel');
   // Warning/deviation tooltips: one shared key instead of per-icon local state, so opening a new
   // one always closes whichever was open - matches "tap elsewhere dismisses it". Controlled mode
   // (open/onClose + the three disable*Listener props) turns MUI Tooltip's default 700ms
@@ -231,14 +229,19 @@ export const ScheduleTable = memo(function ScheduleTable({
                     <Typography variant="body2" fontWeight={500}>
                       {fullName(employee)}
                     </Typography>
-                    {row.lockReason && <Chip size="small" label={lockLabel(row.lockReason, tCommon, t)} />}
+                    {row.lockReason && (
+                      <Chip size="small" label={row.lockReason === 'inactive' ? inactiveLabel : notEmployedLabel} />
+                    )}
                   </Stack>
                   <Typography variant="caption" color="text.secondary">
                     {employee.jobTitle}
                   </Typography>
                   <Stack direction="row" spacing={0.5} alignItems="center">
                     <Typography variant="caption" color="text.secondary">
-                      {formatHoursGerman(view.totalNetMinutes)} / {formatHoursRangeGerman(target.min, target.max)} Std.
+                      {t('actualVsTargetSuffix', {
+                        worked: formatHoursGerman(view.totalNetMinutes),
+                        range: formatHoursRangeGerman(target.min, target.max),
+                      })}
                     </Typography>
                     {differenceMinutes !== 0 && (
                       <Tooltip

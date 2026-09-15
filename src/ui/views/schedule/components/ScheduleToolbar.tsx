@@ -471,7 +471,7 @@ export function ScheduleToolbar({
           </Typography>
 
           <Typography variant="overline" color="text.secondary" sx={{ px: 2, display: 'block' }}>
-            {t('actionsOverline')}
+            {tCommon('columnActions')}
           </Typography>
           <Stack spacing={1} sx={{ px: 2, pb: 2 }}>
             <Button

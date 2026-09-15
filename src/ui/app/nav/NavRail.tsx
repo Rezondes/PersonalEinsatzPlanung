@@ -78,7 +78,7 @@ export function NavRail() {
       >
         <IconButton
           onClick={toggle}
-          aria-label={collapsed ? 'Navigation ausklappen' : 'Navigation einklappen'}
+          aria-label={collapsed ? t('expandNavAriaLabel') : t('collapseNavAriaLabel')}
           size="small"
         >
           {collapsed ? <MenuIcon /> : <MenuOpenIcon />}

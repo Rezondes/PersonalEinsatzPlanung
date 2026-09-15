@@ -4,7 +4,6 @@ const month = {
   previousMonth: 'Vorheriger Monat',
   nextMonth: 'Nächster Monat',
   monthLabel: 'Monat',
-  yearLabel: 'Jahr',
   exportButton: 'Exportieren',
   infoCaption:
     'Zeigt je Kalenderwoche nur Tages-/Wochenprüfungen auf ArbZG-/JArbSchG-Verstöße; eine Ruhezeit-Prüfung über Wochengrenzen hinweg findet hier nicht statt.',

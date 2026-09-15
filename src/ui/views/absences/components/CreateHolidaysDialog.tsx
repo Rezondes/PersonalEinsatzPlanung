@@ -76,7 +76,7 @@ export function CreateHolidaysDialog({ onClose, branch, employees, absences, onA
         <Typography variant="body2" color="text.secondary">
           {t('createHolidaysDialog.description', { federalState: branch.federalState })}
         </Typography>
-        <TextField select label={t('yearLabel')} value={year} onChange={(e) => setYear(Number(e.target.value))}>
+        <TextField select label={tCommon('yearLabel')} value={year} onChange={(e) => setYear(Number(e.target.value))}>
           {[currentYear - 1, currentYear, currentYear + 1, currentYear + 2].map((y) => (
             <MenuItem key={y} value={y}>
               {y}

@@ -15,6 +15,8 @@ const nav = {
   terms: 'Nutzungsbedingungen',
   settings: 'Einstellungen',
   more: 'Mehr',
+  expandNavAriaLabel: 'Navigation ausklappen',
+  collapseNavAriaLabel: 'Navigation einklappen',
 } as const;
 
 export default nav;
