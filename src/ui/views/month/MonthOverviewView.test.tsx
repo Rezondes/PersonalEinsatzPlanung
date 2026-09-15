@@ -260,7 +260,7 @@ describe('MonthOverviewView', () => {
     renderView();
 
     expect(await screen.findByText(currentMonthLabel)).toBeInTheDocument();
-    const row = screen.getByText(fullName(employee)).closest('tr');
+    const row = (await screen.findByText(fullName(employee))).closest('tr');
     expect(row).not.toBeNull();
     expect(within(row!).getByText(sollWocheText(employee))).toBeInTheDocument();
     // No schedule loaded for any week of the month -> createMonthOverview finds nothing to
