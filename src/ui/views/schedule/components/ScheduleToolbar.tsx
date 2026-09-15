@@ -209,7 +209,7 @@ export function ScheduleToolbar({
             <Chip
               size="small"
               label={t('activeChipLabel')}
-              sx={(theme) => ({ bgcolor: theme.palette.primary.main, color: '#fff', flexShrink: 0 })}
+              sx={(theme) => ({ bgcolor: theme.palette.primary.dark, color: '#fff', flexShrink: 0 })}
             />
           )}
         </Box>
@@ -242,7 +242,7 @@ export function ScheduleToolbar({
         width: '100%',
         minHeight: 52,
         px: 1,
-        backgroundColor: theme.palette.primary.main,
+        backgroundColor: theme.palette.primary.dark,
         color: '#ffffff',
       })}
     >
@@ -302,7 +302,7 @@ export function ScheduleToolbar({
         width: '100%',
         minHeight: 52,
         px: 1,
-        backgroundColor: theme.palette.primary.main,
+        backgroundColor: theme.palette.primary.dark,
         color: '#ffffff',
       })}
     >

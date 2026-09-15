@@ -8,6 +8,8 @@ import Button from '@mui/material/Button';
 import Alert from '@mui/material/Alert';
 import TextField from '@mui/material/TextField';
 import Divider from '@mui/material/Divider';
+import ToggleButton from '@mui/material/ToggleButton';
+import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import Link from '@mui/material/Link';
 import DownloadOutlinedIcon from '@mui/icons-material/DownloadOutlined';
 import UploadOutlinedIcon from '@mui/icons-material/UploadOutlined';
@@ -34,6 +36,7 @@ import CloudDownloadOutlinedIcon from '@mui/icons-material/CloudDownloadOutlined
 import VpnKeyOutlinedIcon from '@mui/icons-material/VpnKeyOutlined';
 import type { RemoteBackup } from '@application/ports/BackupStorage';
 import { useBreakpoint } from '@ui/hooks/useBreakpoint';
+import { useThemeModeStore } from '@ui/app/store/themeModeStore';
 import { usePageActions } from '@ui/app/PageActionsContext';
 import { ConfirmDialog } from '@ui/components/ConfirmDialog';
 import { ResponsiveDialog } from '@ui/components/ResponsiveDialog';
@@ -65,6 +68,8 @@ export function SettingsView() {
   const { t } = useTranslation('settings');
   const { t: tCommon } = useTranslation();
   const { t: tNav } = useTranslation('nav');
+  const themeMode = useThemeModeStore((s) => s.mode);
+  const setThemeMode = useThemeModeStore((s) => s.setMode);
   usePageActions({ fullBleedPage: true });
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [confirmationText, setConfirmationText] = useState('');
@@ -555,6 +560,26 @@ export function SettingsView() {
           </Stack>
         </Paper>
 
+
+        <Paper sx={{ p: 3, mb: 3 }}>
+          <Typography variant="subtitle1" fontWeight={500} sx={{ mb: 1 }}>
+            {t('appearance.heading')}
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+            {t('appearance.modeLabel')}
+          </Typography>
+          <ToggleButtonGroup
+            exclusive
+            value={themeMode}
+            onChange={(_, value) => value && setThemeMode(value)}
+            size="small"
+            aria-label={t('appearance.modeLabel')}
+          >
+            <ToggleButton value="light">{t('appearance.modeLight')}</ToggleButton>
+            <ToggleButton value="dark">{t('appearance.modeDark')}</ToggleButton>
+            <ToggleButton value="system">{t('appearance.modeSystem')}</ToggleButton>
+          </ToggleButtonGroup>
+        </Paper>
 
         <Paper sx={{ p: 3, mb: 3 }}>
           <Typography variant="subtitle1" fontWeight={500} sx={{ mb: 1 }}>

@@ -33,7 +33,7 @@ function makeRailLinkStyle(theme: Theme) {
     display: 'flex',
     alignItems: 'center',
     textDecoration: 'none',
-    color: isActive ? theme.palette.primary.main : '#4b4b47',
+    color: isActive ? theme.palette.primary.main : theme.palette.text.secondary,
     fontWeight: isActive ? 500 : 400,
     fontSize: 14,
     borderRadius: 8,
@@ -67,8 +67,8 @@ export function NavRail() {
         flexShrink: 0,
         width,
         transition: 'width 150ms ease',
-        backgroundColor: '#ffffff',
-        borderRight: '1px solid #e0e0dc',
+        backgroundColor: theme.palette.background.paper,
+        borderRight: `1px solid ${theme.palette.divider}`,
         display: 'flex',
         flexDirection: 'column',
         overflow: 'hidden',
@@ -83,7 +83,7 @@ export function NavRail() {
           justifyContent: 'center',
           width: '100%',
           height: 'var(--pep-header-height, 64px)',
-          borderBottom: '1px solid #e0e0dc',
+          borderBottom: `1px solid ${theme.palette.divider}`,
           flexShrink: 0,
         }}
       >

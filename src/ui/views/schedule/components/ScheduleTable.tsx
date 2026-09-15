@@ -285,17 +285,26 @@ export const ScheduleTable = memo(function ScheduleTable({
                   // below) - a cell that cannot receive an entry never shows the target highlight
                   // either, even while assignMode is on.
                   const isTarget = assignMode && droppable && isAssignTarget(view.employeeId, dayView);
+                  // hasError/hasWarning keep their light-mode-only literals for now (a known, narrow
+                  // dark-mode gap): they only ever show on an actual ArbZG violation/deviation, and
+                  // giving them their own dark-mode-safe tones needs the same real contrast-tool
+                  // pass as the accent colors got, not a guessed hex value. locked/the plain default
+                  // are the common-path cells (most of the table, every day), so those get a real
+                  // dark-mode pair now; theme.palette.background.default is an exact match for the
+                  // pre-existing light-mode default literal, so light mode is pixel-identical.
                   const background = isTarget
                     ? theme.palette.accentSurface.strong
                     : locked
-                    ? '#f0f0ee'
+                    ? theme.palette.mode === 'dark'
+                      ? '#1c1c1a'
+                      : '#f0f0ee'
                     : dayView.absence
                       ? theme.palette.accentSurface.subtle
                       : hasError
                         ? '#fbeaea'
                         : hasWarning
                           ? '#fdf3e0'
-                          : '#f7f7f5';
+                          : theme.palette.background.default;
                   const breakMinutes =
                     dayView.entry.type === 'Shift'
                       ? dayView.entry.shifts.reduce((sum, s) => sum + shiftBreakMinutes(s), 0)

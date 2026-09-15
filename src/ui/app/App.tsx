@@ -5,7 +5,9 @@ import { useSuppressBrowserContextMenu } from '@ui/hooks/useSuppressBrowserConte
 // Imported for its side effect: the module catches beforeinstallprompt while the page loads, well
 // before the Einstellungen page exists. Nothing here uses an export of it.
 import '@ui/app/installPrompt';
-import { theme } from './theme';
+import { createAppTheme } from './theme';
+import { useThemeModeStore } from './store/themeModeStore';
+import { usePrefersDarkMode } from '@ui/hooks/usePrefersDarkMode';
 import { router } from './router';
 import { UpdatePrompt } from './UpdatePrompt';
 import { AppNotifications } from './AppNotifications';
@@ -15,6 +17,9 @@ export function App() {
   // Here and not in AppShell: the print route sits outside the shell, and both of these have to
   // hold everywhere. See the two modules for the details.
   useSuppressBrowserContextMenu();
+  const mode = useThemeModeStore((s) => s.mode);
+  const prefersDark = usePrefersDarkMode();
+  const theme = createAppTheme({ mode, prefersDark });
 
   return (
     <ThemeProvider theme={theme}>

@@ -4,6 +4,13 @@
  * proactive install banner), reusing the same label rather than duplicating it under a second
  * key. */
 const settings = {
+  appearance: {
+    heading: 'Erscheinungsbild',
+    modeLabel: 'Design',
+    modeLight: 'Hell',
+    modeDark: 'Dunkel',
+    modeSystem: 'System',
+  },
   backup: {
     heading: 'Backup & Datenübertragung',
     description:

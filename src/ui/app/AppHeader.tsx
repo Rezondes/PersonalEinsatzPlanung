@@ -41,7 +41,7 @@ export function AppHeader({ headerRef }: AppHeaderProps) {
   };
 
   return (
-    <AppBar ref={headerRef} position="sticky" color="transparent" sx={{ top: 0, backgroundColor: '#ffffff' }}>
+    <AppBar ref={headerRef} position="sticky" color="transparent" sx={{ top: 0, backgroundColor: 'background.paper' }}>
       <Toolbar sx={{ gap: isMobile ? 1.5 : 3, flexWrap: isMobile ? 'nowrap' : 'wrap', py: 1 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0 }}>
           <Box component="img" src={`${import.meta.env.BASE_URL}favicon.svg`} alt="" sx={{ width: 24, height: 24 }} />

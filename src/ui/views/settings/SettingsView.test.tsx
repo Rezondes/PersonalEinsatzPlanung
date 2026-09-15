@@ -14,6 +14,7 @@ import {
 import { encryptBackup } from '@infrastructure/export/backupEncryption';
 import { DriveSessionExpiredError } from '@infrastructure/backup/GoogleDriveBackupStorage';
 import type { PepExportFile } from '@application/export/jsonExportFormat';
+import { useThemeModeStore } from '@ui/app/store/themeModeStore';
 import { SettingsView } from './SettingsView';
 
 vi.mock('@infrastructure/services', () => ({
@@ -320,6 +321,39 @@ describe('SettingsView, Alle Daten löschen', () => {
     expect(isBackupPasswordConfigured()).toBe(false);
     expect(getCachedPassword()).toBeNull();
     expect(services.backupStorage.signOut).toHaveBeenCalled();
+  });
+});
+
+describe('SettingsView, Erscheinungsbild', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    useNotificationStore.getState().clear();
+    drive.isConfigured.mockReturnValue(false);
+    useThemeModeStore.setState({ mode: 'light' });
+  });
+
+  it('shows the Hell/Dunkel/System choice with the current store value selected', () => {
+    useThemeModeStore.setState({ mode: 'dark' });
+    renderView();
+
+    const light = screen.getByRole('button', { name: 'Hell' });
+    const dark = screen.getByRole('button', { name: 'Dunkel' });
+    const system = screen.getByRole('button', { name: 'System' });
+
+    expect(light).toBeInTheDocument();
+    expect(dark).toBeInTheDocument();
+    expect(system).toBeInTheDocument();
+    expect(dark).toHaveAttribute('aria-pressed', 'true');
+    expect(light).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  it('updates the store when the user picks Dunkel', async () => {
+    const user = userEvent.setup();
+    renderView();
+
+    await user.click(screen.getByRole('button', { name: 'Dunkel' }));
+
+    expect(useThemeModeStore.getState().mode).toBe('dark');
   });
 });
 
