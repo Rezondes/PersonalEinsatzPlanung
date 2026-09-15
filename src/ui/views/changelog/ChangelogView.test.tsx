@@ -66,6 +66,43 @@ describe('ChangelogView', () => {
     expect(await screen.findByRole('heading', { level: 2, name: 'Deploy 2026-09-13 10:00 UTC' })).toBeInTheDocument();
   });
 
+  it('renders releases in the order fetchChangelog provides, even when unsorted', async () => {
+    // Regression guard: ChangelogView itself must never re-sort - if fetchChangelog's own sort
+    // (see githubReleases.test.ts) is ever moved/removed, this should fail, not silently hide it.
+    fetchChangelogMock.mockResolvedValue([
+      {
+        tagName: 'deploy-early',
+        title: 'Deploy 2026-09-14 01:36 UTC',
+        publishedAt: '2026-09-14T01:36:00Z',
+        url: 'https://example.invalid/deploy-early',
+        entries: ['chore: first'],
+      },
+      {
+        tagName: 'deploy-latest',
+        title: 'Deploy 2026-09-14 18:34 UTC',
+        publishedAt: '2026-09-14T18:34:00Z',
+        url: 'https://example.invalid/deploy-latest',
+        entries: ['chore: third'],
+      },
+      {
+        tagName: 'deploy-middle',
+        title: 'Deploy 2026-09-14 17:27 UTC',
+        publishedAt: '2026-09-14T17:27:00Z',
+        url: 'https://example.invalid/deploy-middle',
+        entries: ['chore: second'],
+      },
+    ]);
+
+    render(<ChangelogView />);
+
+    const headings = await screen.findAllByRole('heading', { level: 2 });
+    expect(headings.map((h) => h.textContent)).toEqual([
+      'Deploy 2026-09-14 01:36 UTC',
+      'Deploy 2026-09-14 18:34 UTC',
+      'Deploy 2026-09-14 17:27 UTC',
+    ]);
+  });
+
   it('shows an empty message when there are no releases yet, without crashing', async () => {
     fetchChangelogMock.mockResolvedValue([]);
     render(<ChangelogView />);

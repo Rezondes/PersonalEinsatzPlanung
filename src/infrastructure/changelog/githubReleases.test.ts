@@ -47,6 +47,38 @@ describe('fetchChangelog', () => {
     });
   });
 
+  it('sorts releases newest-first by publishedAt regardless of API order', async () => {
+    // Deliberately scrambled, not simply reversed - mirrors the real repro (three same-day
+    // releases at 01:36/18:34/17:27 UTC rendered in exactly that wrong order).
+    mockFetchOnce(200, [
+      {
+        tag_name: 'deploy-early',
+        name: 'Deploy 2026-09-14 01:36 UTC',
+        body: '- chore: first',
+        published_at: '2026-09-14T01:36:00Z',
+        html_url: 'https://example.invalid/deploy-early',
+      },
+      {
+        tag_name: 'deploy-latest',
+        name: 'Deploy 2026-09-14 18:34 UTC',
+        body: '- chore: third',
+        published_at: '2026-09-14T18:34:00Z',
+        html_url: 'https://example.invalid/deploy-latest',
+      },
+      {
+        tag_name: 'deploy-middle',
+        name: 'Deploy 2026-09-14 17:27 UTC',
+        body: '- chore: second',
+        published_at: '2026-09-14T17:27:00Z',
+        html_url: 'https://example.invalid/deploy-middle',
+      },
+    ]);
+
+    const releases = await fetchChangelog();
+
+    expect(releases.map((r) => r.tagName)).toEqual(['deploy-latest', 'deploy-middle', 'deploy-early']);
+  });
+
   it('falls back to the raw body as a single entry when a line does not start with "- "', async () => {
     mockFetchOnce(200, [
       {

@@ -49,11 +49,14 @@ export async function fetchChangelog(): Promise<ChangelogRelease[]> {
     throw new Error(`Änderungsliste konnte nicht geladen werden (Fehler ${response.status}).`);
   }
   const releases = (await response.json()) as GitHubReleaseResponse[];
-  return releases.map((release) => ({
-    tagName: release.tag_name,
-    title: release.name ?? release.tag_name,
-    publishedAt: release.published_at,
-    url: release.html_url,
-    entries: parseEntries(release.body),
-  }));
+  return releases
+    .map((release) => ({
+      tagName: release.tag_name,
+      title: release.name ?? release.tag_name,
+      publishedAt: release.published_at,
+      url: release.html_url,
+      entries: parseEntries(release.body),
+    }))
+    // GitHub's "list releases" endpoint does not guarantee published_at-descending order.
+    .sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
 }
