@@ -12,7 +12,7 @@ import {
   isBackupPasswordConfigured,
 } from '@infrastructure/backup/backupPasswordSession';
 import { encryptBackup } from '@infrastructure/export/backupEncryption';
-import { DriveSessionExpiredError } from '@infrastructure/backup/GoogleDriveBackupStorage';
+import { DriveSessionExpiredError, markSilentRestorePending } from '@infrastructure/backup/GoogleDriveBackupStorage';
 import type { PepExportFile } from '@application/export/jsonExportFormat';
 import { useThemeModeStore } from '@ui/app/store/themeModeStore';
 import { useAccentColorStore } from '@ui/app/store/accentColorStore';
@@ -61,6 +61,9 @@ describe('SettingsView, Google Drive section', () => {
     vi.clearAllMocks();
     // The store is a module singleton; a queued message would otherwise leak into the next test.
     useNotificationStore.getState().clear();
+    // The silent-restore-pending marker is a real sessionStorage entry, not a mock - clear it so a
+    // test that sets it can never leak into the next one.
+    sessionStorage.clear();
     drive.isConfigured.mockReturnValue(true);
     drive.isSignedIn.mockReturnValue(false);
     drive.wasConnected.mockReturnValue(false);
@@ -83,9 +86,22 @@ describe('SettingsView, Google Drive section', () => {
     expect(drive.signIn).not.toHaveBeenCalled();
   });
 
+  it('does not attempt a silent restore on a normal reopening, even for a returning Drive user (the reported bug)', () => {
+    // A plain reopening of the app, independent of any import: the user connected Drive at some
+    // point in the past, but nothing marked this particular mount as following a self-triggered
+    // reload. Reaching for Google here - unasked, on every reopen - was the reported bug.
+    drive.wasConnected.mockReturnValue(true);
+    renderView();
+
+    expect(drive.restoreSession).not.toHaveBeenCalled();
+    expect(signInButton()).toBeInTheDocument();
+  });
+
   it('renews a previous connection silently, so the reload after an import does not sign you out', async () => {
-    // What the page looks like right after performImport's window.location.reload(): the in-memory
-    // token is gone, but the user connected before.
+    // What the page looks like right after finishImport's window.location.reload(): the in-memory
+    // token is gone, the user connected before, AND this mount is the one finishImport itself
+    // marked as following its own reload.
+    markSilentRestorePending();
     drive.wasConnected.mockReturnValue(true);
     drive.restoreSession.mockResolvedValue(true);
     renderView();
@@ -98,12 +114,39 @@ describe('SettingsView, Google Drive section', () => {
   });
 
   it('falls back to the sign-in button when Google wants to see the user again', async () => {
+    markSilentRestorePending();
     drive.wasConnected.mockReturnValue(true);
     drive.restoreSession.mockResolvedValue(false);
     renderView();
 
     await waitFor(() => expect(signInButton()).toBeInTheDocument());
     expect(screen.queryByRole('button', { name: 'In Google Drive sichern' })).not.toBeInTheDocument();
+  });
+
+  it('consumes the marker on mount, so an independent second mount in the same tab does not restore again', async () => {
+    markSilentRestorePending();
+    drive.wasConnected.mockReturnValue(true);
+    drive.restoreSession.mockResolvedValue(true);
+    const first = renderView();
+    await waitFor(() => expect(drive.restoreSession).toHaveBeenCalledTimes(1));
+    expect(sessionStorage.getItem('pep.drive.silentRestorePending')).toBeNull();
+    first.unmount();
+
+    renderView();
+
+    expect(drive.restoreSession).toHaveBeenCalledTimes(1);
+  });
+
+  it('still consumes the marker when there was no prior Drive connection, without attempting a restore', () => {
+    // A local-file import can happen without ever having connected Drive - finishImport marks
+    // every reload it triggers, regardless. The marker must still be cleared so it cannot later
+    // "arm" an unrelated manual refresh once the user does connect within the same tab.
+    markSilentRestorePending();
+    drive.wasConnected.mockReturnValue(false);
+    renderView();
+
+    expect(drive.restoreSession).not.toHaveBeenCalled();
+    expect(sessionStorage.getItem('pep.drive.silentRestorePending')).toBeNull();
   });
 
   it('lets a lapsed connection be dropped for good, so nothing reaches for Google again', async () => {
@@ -127,6 +170,7 @@ describe('SettingsView, Google Drive section', () => {
   });
 
   it('does not leave the section stuck when the silent renewal throws', async () => {
+    markSilentRestorePending();
     drive.wasConnected.mockReturnValue(true);
     drive.restoreSession.mockRejectedValue(new Error('kaputt'));
     renderView();
@@ -206,6 +250,45 @@ const fakeExportFile: PepExportFile = {
   exportedAt: '2026-09-08T12:00:00.000Z',
   data: { branches: [], employees: [], weeklySchedules: [], absences: [], shiftTemplates: [] },
 };
+
+describe('SettingsView, silent Drive restore marker', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    useNotificationStore.getState().clear();
+    sessionStorage.clear();
+    drive.isConfigured.mockReturnValue(false);
+    setCachedPassword(null);
+    setBackupPasswordConfigured(false);
+  });
+
+  it('finishImport marks the reload it triggers, synchronously, before the reload itself fires', async () => {
+    const user = userEvent.setup();
+    renderView();
+
+    const file = new File([JSON.stringify(fakeExportFile)], 'backup.json', { type: 'application/json' });
+    const fileInput = document.querySelector<HTMLInputElement>('input[type="file"]');
+    if (!fileInput) throw new Error('file input not found');
+    await user.upload(fileInput, file);
+
+    expect(await screen.findByText('Daten importieren?')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Importieren' }));
+
+    await waitFor(() => expect(services.dataExport.importAndReplace).toHaveBeenCalled());
+    expect(sessionStorage.getItem('pep.drive.silentRestorePending')).toBe('1');
+  });
+
+  it('does not mark deleteAllData\'s own, entirely separate reload', async () => {
+    const user = userEvent.setup();
+    renderView();
+
+    await user.click(screen.getByRole('button', { name: 'Alle Daten löschen' }));
+    await user.type(screen.getByLabelText(/Bestätigung/), 'LÖSCHEN');
+    await user.click(screen.getByRole('button', { name: 'Endgültig löschen' }));
+
+    await waitFor(() => expect(services.dataExport.deleteAllData).toHaveBeenCalled());
+    expect(sessionStorage.getItem('pep.drive.silentRestorePending')).toBeNull();
+  });
+});
 
 describe('SettingsView, Backup-Passwort', () => {
   beforeEach(() => {

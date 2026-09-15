@@ -111,6 +111,23 @@ describe('script load failure resets the cached promise so a later call can retr
   });
 });
 
+describe('silent-restore-pending marker', () => {
+  afterEach(() => {
+    sessionStorage.clear();
+  });
+
+  it('is consumed exactly once: the first read after marking returns true, the second returns false', async () => {
+    const { markSilentRestorePending, consumeSilentRestorePending } = await freshModule();
+
+    markSilentRestorePending();
+
+    // React 18 StrictMode double-invokes a lazy useState initializer, so SettingsView's own
+    // read of this marker runs twice on a real mount - only the first may see it as pending.
+    expect(consumeSilentRestorePending()).toBe(true);
+    expect(consumeSilentRestorePending()).toBe(false);
+  });
+});
+
 describe('forgetAccessToken revocation (N9)', () => {
   it('clears the token and calls the real REST revoke endpoint with a real HTTP status', async () => {
     const { requestAccessToken, forgetAccessToken, currentAccessToken } = await freshModule();

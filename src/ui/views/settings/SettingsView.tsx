@@ -57,7 +57,7 @@ import {
   setCachedPassword,
 } from '@infrastructure/backup/backupPasswordSession';
 import { encryptBackup, decryptBackup, WrongPasswordError } from '@infrastructure/export/backupEncryption';
-import { DriveSessionExpiredError } from '@infrastructure/backup/GoogleDriveBackupStorage';
+import { DriveSessionExpiredError, markSilentRestorePending, consumeSilentRestorePending } from '@infrastructure/backup/GoogleDriveBackupStorage';
 import { isEncryptedBackupEnvelope } from '@application/export/encryptedExportFormat';
 import type { EncryptedBackupEnvelope } from '@application/export/encryptedExportFormat';
 
@@ -103,12 +103,19 @@ export function SettingsView() {
   const [drivePickerOpen, setDrivePickerOpen] = useState(false);
   const driveAvailable = services.backupStorage.isConfigured();
   // The token lives in memory only (see infrastructure/backup/googleIdentity.ts), so every reload
-  // starts signed out - including the one this very page triggers after an import. Renewing it
+  // starts signed out - including the one finishImport() triggers after an import. Renewing it
   // silently here is what keeps the user from having to sign in again right after restoring a
-  // backup. Only "this user uses Drive" was remembered, never the token itself.
-  const [driveRestoring, setDriveRestoring] = useState(
-    () => driveAvailable && !services.backupStorage.isSignedIn() && services.backupStorage.wasConnected(),
-  );
+  // backup - but ONLY right after that specific, self-triggered reload, never on an independent
+  // reopening of the app: consumeSilentRestorePending() is read (and cleared) unconditionally,
+  // first, as its own step, not as the last link of the && chain - otherwise a marker left over
+  // from an import that happened without ever being connected to Drive would stay unconsumed and
+  // later "arm" an unrelated manual refresh once the user does connect within the same tab.
+  const [driveRestoring, setDriveRestoring] = useState(() => {
+    const justReloadedForRestore = consumeSilentRestorePending();
+    return (
+      driveAvailable && !services.backupStorage.isSignedIn() && services.backupStorage.wasConnected() && justReloadedForRestore
+    );
+  });
   // Whether the app still remembers this as a Drive user. Kept separately from driveSignedIn so the
   // signed-out fallback can still offer a way out - otherwise someone who connected once and then
   // let the authorisation lapse would have the Google script fetched on every single page load with
@@ -267,6 +274,8 @@ export function SettingsView() {
   const finishImport = async (rawData: unknown) => {
     await services.dataExport.importAndReplace(rawData);
     setReloadingText(t('notify.importCompleteReloading'));
+    // Arms driveRestoring's initializer for the one reload this triggers - see its own comment.
+    markSilentRestorePending();
     setTimeout(() => window.location.reload(), 1200);
   };
 

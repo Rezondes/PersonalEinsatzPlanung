@@ -46,6 +46,42 @@ const REQUEST_TOKEN_TIMEOUT_MS = 30_000;
  * nothing but the boolean. */
 const CONNECTED_FLAG = 'pep.drive.connected';
 
+/** A one-shot marker, set only immediately before the self-triggered `window.location.reload()`
+ * that follows a data import (see SettingsView.tsx's finishImport()), and always consumed (read
+ * then deleted) on the very next mount - never just checked. It exists so a silent Drive
+ * reconnection attempt happens ONLY right after that specific reload, never on an independent
+ * reopening of the app: CONNECTED_FLAG alone answers "has this user ever used Drive", not "did
+ * reopening the app just happen because of an import", and conflating the two was the reported
+ * bug (a silent, unauthorized-looking network request to Google on every plain reopen).
+ *
+ * sessionStorage, not localStorage: it survives the one reload in the same tab but is empty again
+ * in any independently opened tab/window - exactly the "only immediately after MY OWN reload"
+ * scope this needs. localStorage would persist across independent reopenings and reintroduce the
+ * original bug. */
+const SILENT_RESTORE_PENDING_FLAG = 'pep.drive.silentRestorePending';
+
+export function markSilentRestorePending(): void {
+  try {
+    sessionStorage.setItem(SILENT_RESTORE_PENDING_FLAG, '1');
+  } catch {
+    // Private mode or blocked site data: the marker just never arrives, so the next mount behaves
+    // like a normal reopening (no silent restore) instead of throwing.
+  }
+}
+
+/** Reads and unconditionally clears the marker in one step - never just peeked at - so a marker
+ * left over from an import that happened without a prior Drive connection cannot later "arm" an
+ * unrelated, independent manual refresh once the user does connect Drive within the same tab. */
+export function consumeSilentRestorePending(): boolean {
+  try {
+    const pending = sessionStorage.getItem(SILENT_RESTORE_PENDING_FLAG) === '1';
+    sessionStorage.removeItem(SILENT_RESTORE_PENDING_FLAG);
+    return pending;
+  } catch {
+    return false;
+  }
+}
+
 let scriptPromise: Promise<GoogleIdentity> | null = null;
 // Deliberately memory only, never localStorage: a stored token would be readable by any XSS and is
 // good for an hour of Drive access. The price is a fresh authorisation after a page reload.

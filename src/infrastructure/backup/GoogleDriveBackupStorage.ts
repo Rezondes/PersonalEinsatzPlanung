@@ -1,6 +1,7 @@
 import type { BackupStorage, RemoteBackup } from '@application/ports/BackupStorage';
 import { BACKUP_FOLDER_NAME, GOOGLE_CLIENT_ID } from './googleConfig';
 import { clearAccessToken, currentAccessToken, forgetAccessToken, requestAccessToken, wasConnected as hasConnectedBefore } from './googleIdentity';
+export { markSilentRestorePending, consumeSilentRestorePending } from './googleIdentity';
 
 const DRIVE_API = 'https://www.googleapis.com/drive/v3';
 const DRIVE_UPLOAD_API = 'https://www.googleapis.com/upload/drive/v3';

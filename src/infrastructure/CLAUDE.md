@@ -42,11 +42,23 @@ allowed to touch browser APIs.
   - **The access token lives in a module variable, never in `localStorage`.** A stored token is
     readable by any XSS and is good for an hour of Drive access. What IS persisted is a single
     boolean under `pep.drive.connected` ("this user uses Drive"), which is worth nothing to an
-    attacker but lets `restoreSession()` renew the authorisation silently after a reload. Without
-    that, the reload at the end of `SettingsView.performImport` would drop the user back to the
-    sign-in button immediately after they restored a backup - the exact bug this pair fixes.
-    `restoreSession()` is silent-only on purpose and therefore safe to call from an effect;
-    `signIn()` opens a popup and must stay inside a real click, or the browser blocks it.
+    attacker but lets `restoreSession()` renew the authorisation silently. Without it, the reload
+    at the end of `SettingsView.finishImport()` would drop the user back to the sign-in button
+    immediately after they restored a backup.
+    `pep.drive.connected` only answers "has this user ever used Drive", though, not "did the app
+    just reopen because of its own import reload" - a second, one-shot `sessionStorage` marker,
+    `pep.drive.silentRestorePending` (`markSilentRestorePending()`/`consumeSilentRestorePending()`,
+    both here, re-exported from `GoogleDriveBackupStorage.ts`), answers that second question and
+    gates `restoreSession()`'s call site in `SettingsView`. Without this second marker a returning
+    Drive user got a silent, unasked reconnect attempt to Google on every plain reopening of the
+    app, not just the one reload right after an import - a real reported bug, and a direct
+    contradiction of the privacy notice's promise that the app never talks to a server on its own
+    outside a few named cases. `consumeSilentRestorePending()` always deletes what it reads, never
+    just peeks - a marker left over from an import that happened without ever using Drive must
+    still be cleared, or it could later arm an unrelated manual refresh once Drive does get
+    connected in the same tab. `restoreSession()` itself is silent-only on purpose and therefore
+    safe to call from an effect; `signIn()` opens a popup and must stay inside a real click, or the
+    browser blocks it.
   - **Scope is `drive.file`**, the narrowest Drive scope: the app only ever sees files it created
     itself, the rest of the Drive stays invisible to it. Anything wider drags in Google's expensive
     security review. Backups go into a normal, visible folder `Personaleinsatzplanung`, not the

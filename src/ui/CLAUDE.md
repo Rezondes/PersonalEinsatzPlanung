@@ -183,9 +183,21 @@ one host.
 
 `SettingsView`'s Drive section has three states, not two: restoring, connected, not connected. The
 restoring one exists because the access token is deliberately not persisted (see
-`infrastructure/CLAUDE.md`), so every reload - including the one `performImport` triggers right
-after an import - starts signed out and has to renew the authorisation silently on mount. Without
-the third state the user would see "Mit Google anmelden" for a moment and click it for nothing.
+`infrastructure/CLAUDE.md`), so the one reload `finishImport()` triggers right after an import
+starts signed out and has to renew the authorisation silently on mount - without it the user would
+see "Mit Google anmelden" for a moment and click it for nothing right after restoring a backup.
+
+That state is deliberately scoped to ONLY that one, self-triggered reload, never a plain reopening
+of the app - even for a long-time Drive user. `driveRestoring`'s `useState` initializer reads
+`googleIdentity.ts`'s one-shot `sessionStorage` marker via `consumeSilentRestorePending()`
+(imported from `GoogleDriveBackupStorage.ts`, which just re-exports it) as an unconditional first
+step, not the last link of the `&&` chain - it must always be consumed (read then deleted), even
+when `wasConnected()` is false, or a marker from an unrelated local-file import could later arm an
+independent manual refresh. `finishImport()` is the one place that calls
+`markSilentRestorePending()`, right before its own `setTimeout(reload)` - `deleteAllData()`'s
+separate, unrelated reload must never call it. This is what fixed a real reported bug: reopening
+the app used to always try a silent Google reconnect for any returning Drive user, an unasked
+network request the privacy notice explicitly promises never happens outside a few named cases.
 
 Keep `restoreSession()` in the mount effect and `signIn()` in the click handler, never the other way
 round: the silent renewal needs no popup and would be blocked by nothing, while the visible dialog
