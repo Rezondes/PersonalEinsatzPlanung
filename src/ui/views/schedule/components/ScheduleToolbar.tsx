@@ -160,22 +160,22 @@ export function ScheduleToolbar({
     return (
       <Box
         key={key}
-        sx={{
+        sx={(theme) => ({
           display: 'flex',
           alignItems: 'center',
           flexShrink: 0,
           width: vertical ? '100%' : undefined,
           borderRadius: vertical ? 2 : 1.5,
-          border: isActive ? '1px solid #2f5d50' : '1px solid #e0e0dc',
-          backgroundColor: isActive ? '#eef3f1' : 'transparent',
-        }}
+          border: isActive ? `1px solid ${theme.palette.primary.main}` : '1px solid #e0e0dc',
+          backgroundColor: isActive ? theme.palette.accentSurface.subtle : 'transparent',
+        })}
       >
         <Box
           component="button"
           type="button"
           aria-pressed={isActive}
           onClick={() => selectTool(tool)}
-          sx={{
+          sx={(theme) => ({
             display: 'flex',
             flex: vertical ? 1 : undefined,
             minWidth: 0,
@@ -194,8 +194,8 @@ export function ScheduleToolbar({
             borderRadius: vertical ? 2 : 1.5,
             // Otherwise the browser drags the label text instead of the tile.
             userSelect: 'none',
-            '&:focus-visible': { outline: '2px solid #2f5d50', outlineOffset: 2 },
-          }}
+            '&:focus-visible': { outline: `2px solid ${theme.palette.primary.main}`, outlineOffset: 2 },
+          })}
         >
           <Box sx={{ minWidth: 0 }}>
             <Typography variant="body2" fontWeight={500} noWrap>
@@ -205,7 +205,13 @@ export function ScheduleToolbar({
               {toolSummary(tool, t)}
             </Typography>
           </Box>
-          {vertical && isActive && <Chip size="small" label={t('activeChipLabel')} sx={{ bgcolor: '#2f5d50', color: '#fff', flexShrink: 0 }} />}
+          {vertical && isActive && (
+            <Chip
+              size="small"
+              label={t('activeChipLabel')}
+              sx={(theme) => ({ bgcolor: theme.palette.primary.main, color: '#fff', flexShrink: 0 })}
+            />
+          )}
         </Box>
 
         {tool.kind === 'template' && (
@@ -229,16 +235,16 @@ export function ScheduleToolbar({
   // sheet-reopen case) - it sits as a SIBLING of the X/Fertig, never their ancestor.
   const assignBanner = (onOpenSheet?: () => void) => (
     <Box
-      sx={{
+      sx={(theme) => ({
         display: 'flex',
         alignItems: 'center',
         gap: 1,
         width: '100%',
         minHeight: 52,
         px: 1,
-        backgroundColor: '#2f5d50',
+        backgroundColor: theme.palette.primary.main,
         color: '#ffffff',
-      }}
+      })}
     >
       <IconButton aria-label={t('finishAssigningAriaLabel')} onClick={onFinishAssigning} sx={{ color: '#ffffff', ml: -0.5 }}>
         <CloseIcon />
@@ -289,16 +295,16 @@ export function ScheduleToolbar({
   // ausgewählt", even at 1) matching this file's own "{templates.length} Vorlagen" precedent.
   const selectionBanner = (onOpenSheet?: () => void) => (
     <Box
-      sx={{
+      sx={(theme) => ({
         display: 'flex',
         alignItems: 'center',
         gap: 1,
         width: '100%',
         minHeight: 52,
         px: 1,
-        backgroundColor: '#2f5d50',
+        backgroundColor: theme.palette.primary.main,
         color: '#ffffff',
-      }}
+      })}
     >
       <IconButton aria-label={t('finishSelectingAriaLabel')} onClick={onFinishSelecting} sx={{ color: '#ffffff', ml: -0.5 }}>
         <CloseIcon />

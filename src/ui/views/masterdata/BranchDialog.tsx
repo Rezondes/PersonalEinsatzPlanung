@@ -202,8 +202,12 @@ export function BranchDialog({ branch, onClose, onSaved, onError, secondaryActio
       <RequiredLegend />
         <Stack spacing={2} sx={{ mt: 1 }}>
           <Stack direction="row" spacing={2} alignItems="center">
-            <Avatar src={form.logoBase64 ?? undefined} variant="rounded" sx={{ width: 56, height: 56, bgcolor: '#eef3f1' }}>
-              <StoreOutlinedIcon sx={{ color: '#2f5d50' }} />
+            <Avatar
+              src={form.logoBase64 ?? undefined}
+              variant="rounded"
+              sx={(theme) => ({ width: 56, height: 56, bgcolor: theme.palette.accentSurface.subtle })}
+            >
+              <StoreOutlinedIcon sx={(theme) => ({ color: theme.palette.primary.main })} />
             </Avatar>
             <Button variant="text" component="label" size="small" disabled={logoReading}>
               {logoReading ? t('branch.dialog.logoReading') : t('branch.dialog.logoUploadLabel')}

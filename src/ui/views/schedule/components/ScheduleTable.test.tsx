@@ -1,6 +1,8 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render as rtlRender, screen, waitFor } from '@testing-library/react';
+import type { ReactElement } from 'react';
 import userEvent from '@testing-library/user-event';
+import { ThemeProvider } from '@mui/material/styles';
 
 /** Copied from useBreakpoint.test.tsx: jsdom has no real layout engine, so window.matchMedia is
  * mocked to answer as if the viewport were `width` wide. Only needed for the tests below that
@@ -33,7 +35,16 @@ import type { Employee } from '@domain/employee/Employee';
 import type { ValidationResult } from '@domain/validation/ValidationResult';
 import { createWeekView } from '@application/schedule/scheduleAssessment';
 import { buildScheduleRows } from '../scheduleRows';
+import { theme } from '@ui/app/theme';
 import { ScheduleTable } from './ScheduleTable';
+
+// Shadows RTL's own render with a ThemeProvider-wrapped version, so every one of this file's many
+// existing `render(<ScheduleTable ... />)` call sites picks it up with no per-call-site change:
+// ScheduleTable's cell styling now reads the custom theme.palette.accentSurface key, absent on
+// MUI's own default theme.
+function render(ui: ReactElement) {
+  return rtlRender(<ThemeProvider theme={theme}>{ui}</ThemeProvider>);
+}
 
 const branchId = 'b1' as BranchId;
 const m1 = 'm1' as EmployeeId;
@@ -379,7 +390,10 @@ describe('ScheduleTable', () => {
       );
 
       const mondayOfFirstRow = screen.getByRole('button', { name: 'Müller, Anna, Montag, 06:00-14:00 zuweisen' });
-      expect(mondayOfFirstRow).toHaveStyle({ backgroundColor: '#dce9e3', border: '1px solid #2f5d50' });
+      expect(mondayOfFirstRow).toHaveStyle({
+        backgroundColor: theme.palette.accentSurface.strong,
+        border: `1px solid ${theme.palette.primary.main}`,
+      });
     });
   });
 

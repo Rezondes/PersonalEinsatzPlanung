@@ -717,13 +717,13 @@ export function ScheduleView() {
             role="button"
             tabIndex={0}
             aria-label={t('weekRangeAriaLabel', { range: formatCalendarWeekRange(selectedWeek) })}
-            sx={{
+            sx={(theme) => ({
               cursor: 'pointer',
               textDecoration: 'underline',
               textDecorationStyle: 'dotted',
               width: 'fit-content',
-              '&:focus-visible': { outline: '2px solid #2f5d50', outlineOffset: 2 },
-            }}
+              '&:focus-visible': { outline: `2px solid ${theme.palette.primary.main}`, outlineOffset: 2 },
+            })}
           >
             {formatCalendarWeekRange(selectedWeek)}
           </Typography>
@@ -873,7 +873,7 @@ export function ScheduleView() {
                 )}
               />
 
-              <Box sx={{ ...chipSx, backgroundColor: '#eef3f1', color: '#2f5d50' }}>
+              <Box sx={(theme) => ({ ...chipSx, backgroundColor: theme.palette.accentSurface.subtle, color: theme.palette.primary.main })}>
                 <Typography variant="body2" fontWeight={500} noWrap>
                   {t('notYetScheduled', { value: notYetScheduledText })}
                 </Typography>

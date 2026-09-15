@@ -4,6 +4,8 @@ import '../../testStubs/patchDataRouterRequestSignal';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import { createMemoryRouter, RouterProvider } from 'react-router-dom';
+import { ThemeProvider } from '@mui/material/styles';
+import { theme } from './theme';
 import { useBranchesStore } from './store/branchesStore';
 import { useBranchSelectionStore } from './store/branchSelectionStore';
 import { useLocaleStore } from './locale/localeStore';
@@ -48,9 +50,17 @@ function mockViewportWidth(width: number) {
   }) as typeof window.matchMedia;
 }
 
+// ThemeProvider wraps the real app theme: at tablet width this renders the real NavRail (see the
+// mockViewportWidth comment above), whose active-link style reads the custom
+// theme.palette.accentSurface key - absent on MUI's own default theme, so resolving it throws
+// without this.
 function renderAt(path: string) {
   const router = createMemoryRouter(routes, { initialEntries: [path] });
-  render(<RouterProvider router={router} />);
+  render(
+    <ThemeProvider theme={theme}>
+      <RouterProvider router={router} />
+    </ThemeProvider>,
+  );
   return router;
 }
 

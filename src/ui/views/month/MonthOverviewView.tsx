@@ -268,7 +268,7 @@ export function MonthOverviewView() {
                     // every other week cell in the same row.
                     tabIndex={weekIndex === 0 ? 0 : -1}
                     aria-label={t('jumpToWeekAriaLabel', { week: cw.week })}
-                    sx={{ cursor: 'pointer', display: 'inline-block', '&:focus-visible': { outline: '2px solid #2f5d50', outlineOffset: -2 } }}
+                    sx={(theme) => ({ cursor: 'pointer', display: 'inline-block', '&:focus-visible': { outline: `2px solid ${theme.palette.primary.main}`, outlineOffset: -2 } })}
                   >
                     {t('weekPrefix', { week: cw.week })}
                   </Box>
@@ -334,11 +334,11 @@ export function MonthOverviewView() {
                         // cell of each row is a Tab stop, ArrowLeft/ArrowRight reach the rest.
                         tabIndex={weekIndex === 0 ? 0 : -1}
                         aria-label={t('weekCellAriaLabel', { name: fullName(employee), week: cw.week, hoursText })}
-                        sx={{
+                        sx={(theme) => ({
                           position: 'relative',
                           cursor: 'pointer',
-                          '&:focus-visible': { outline: '2px solid #2f5d50', outlineOffset: -2 },
-                        }}
+                          '&:focus-visible': { outline: `2px solid ${theme.palette.primary.main}`, outlineOffset: -2 },
+                        })}
                       >
                         {(hasError || hasWarning) && (
                           <ClickAwayListener onClickAway={() => closeWarning(cellKey)}>

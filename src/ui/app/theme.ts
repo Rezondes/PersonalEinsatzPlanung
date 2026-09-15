@@ -2,6 +2,24 @@ import { createTheme } from '@mui/material/styles';
 import { deDE } from '@mui/material/locale';
 import { SELECTABLE_SELECTOR } from './selectableText';
 
+// The three accent-derived tints used for sticky/active surfaces (nav active row, assign-target
+// cells, etc.). Hand-picked, not a computed lighten() of ACCENT_MAIN - MUI's own lighten() at the
+// default tonalOffset gives a mid-green nowhere near these pale pastels, so they need their own
+// named constants rather than deriving from primary.light/.dark (see accentSurface below).
+const ACCENT_MAIN = '#2f5d50';
+const ACCENT_SURFACE_SUBTLE = '#eef3f1';
+const ACCENT_SURFACE_STRONG = '#dce9e3';
+const ACCENT_SURFACE_PRESSED = '#e0e8e5';
+
+declare module '@mui/material/styles' {
+  interface Palette {
+    accentSurface: { subtle: string; strong: string; pressed: string };
+  }
+  interface PaletteOptions {
+    accentSurface?: { subtle: string; strong: string; pressed: string };
+  }
+}
+
 /**
  * Custom, understated theme instead of MUI defaults: reduced elevation (no shadows), muted
  * neutral palette with one accent color, generous spacing. Goal: familiar Material interaction
@@ -11,7 +29,15 @@ export const theme = createTheme(
   {
     palette: {
       mode: 'light',
-      primary: { main: '#2f5d50' },
+      primary: { main: ACCENT_MAIN },
+      // Pale accent-tinted surfaces (nav active row, assign-target cells, branch icon avatars) -
+      // a distinct key from MUI's own primary.light/.dark, which Dark Mode needs to mean something
+      // else entirely (a lightened foreground tone, not a pale background tint).
+      accentSurface: {
+        subtle: ACCENT_SURFACE_SUBTLE,
+        strong: ACCENT_SURFACE_STRONG,
+        pressed: ACCENT_SURFACE_PRESSED,
+      },
       background: { default: '#f7f7f5', paper: '#ffffff' },
       error: { main: '#b3261e' },
       warning: { main: '#8a5a00' },
@@ -68,7 +94,7 @@ export const theme = createTheme(
           // Prose we deliberately released reads as selectable before the user tries.
           '[data-selectable]': { cursor: 'text' },
           // Replaces the tap highlight we just removed; see NAV_LINK_CLASS in app/nav/navLinkStyle.ts.
-          '.pep-nav-link:active': { backgroundColor: '#e0e8e5' },
+          '.pep-nav-link:active': { backgroundColor: ACCENT_SURFACE_PRESSED },
         },
       },
       MuiPaper: {

@@ -2,6 +2,8 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
+import { ThemeProvider } from '@mui/material/styles';
+import { theme } from '@ui/app/theme';
 import { useNavRailStore } from '@ui/app/store/navRailStore';
 import i18n from '@ui/i18n/i18n';
 import type { NavKey } from '@ui/i18n/resources/de/nav';
@@ -10,11 +12,17 @@ import { NavRail } from './NavRail';
 
 const navLabel = (key: NavKey) => i18n.t(key, { ns: 'nav' });
 
+// ThemeProvider wraps the real app theme (not MUI's own default) - NavRail's active-link style
+// reads the custom theme.palette.accentSurface key, which does not exist on MUI's default theme
+// at all (unlike a standard key like primary.main, which would just silently resolve to MUI's
+// own default blue) - without this, resolving accentSurface.subtle throws.
 function renderRail(initialPath = '/de/schedule') {
   return render(
-    <MemoryRouter initialEntries={[initialPath]}>
-      <NavRail />
-    </MemoryRouter>,
+    <ThemeProvider theme={theme}>
+      <MemoryRouter initialEntries={[initialPath]}>
+        <NavRail />
+      </MemoryRouter>
+    </ThemeProvider>,
   );
 }
 
@@ -58,7 +66,10 @@ describe('NavRail', () => {
     expect(inactiveLink.style.backgroundColor).toBe('');
 
     const activeLink = screen.getByRole('link', { name: navLabel(MAIN_NAV_ITEMS[0].label) });
-    expect(activeLink).toHaveStyle({ backgroundColor: 'rgb(238, 243, 241)' });
+    expect(activeLink).toHaveStyle({
+      backgroundColor: theme.palette.accentSurface.subtle,
+      color: theme.palette.primary.main,
+    });
   });
 
   it('makes the whole header row the toggle control, not just the icon', () => {

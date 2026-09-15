@@ -121,8 +121,12 @@ function BranchCard({ branch, onTap, onLongPress }: { branch: Branch; onTap: () 
           borderRadius: 2,
         }}
       >
-        <Avatar src={branch.logoBase64 ?? undefined} variant="rounded" sx={{ bgcolor: '#eef3f1', flexShrink: 0 }}>
-          <StoreOutlinedIcon sx={{ color: '#2f5d50' }} fontSize="small" />
+        <Avatar
+          src={branch.logoBase64 ?? undefined}
+          variant="rounded"
+          sx={(theme) => ({ bgcolor: theme.palette.accentSurface.subtle, flexShrink: 0 })}
+        >
+          <StoreOutlinedIcon sx={(theme) => ({ color: theme.palette.primary.main })} fontSize="small" />
         </Avatar>
         <Box sx={{ flex: 1, minWidth: 0 }}>
           <Typography variant="body2" fontWeight={500} noWrap>

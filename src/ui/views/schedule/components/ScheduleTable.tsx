@@ -1,6 +1,7 @@
 import { memo, useMemo } from 'react';
 import type { KeyboardEvent } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useTheme } from '@mui/material/styles';
 import Table from '@mui/material/Table';
 import TableBody from '@mui/material/TableBody';
 import TableCell from '@mui/material/TableCell';
@@ -115,6 +116,7 @@ export const ScheduleTable = memo(function ScheduleTable({
 }: ScheduleTableProps) {
   const { t } = useTranslation('schedule');
   const { t: tCommon } = useTranslation();
+  const theme = useTheme();
   const layout = useBreakpoint();
   const emptyCellText = t('emptyCellText');
   // Only 2 fixed, non-interpolated outputs possible - computed once instead of once per locked row.
@@ -284,11 +286,11 @@ export const ScheduleTable = memo(function ScheduleTable({
                   // either, even while assignMode is on.
                   const isTarget = assignMode && droppable && isAssignTarget(view.employeeId, dayView);
                   const background = isTarget
-                    ? '#dce9e3'
+                    ? theme.palette.accentSurface.strong
                     : locked
                     ? '#f0f0ee'
                     : dayView.absence
-                      ? '#eef3f1'
+                      ? theme.palette.accentSurface.subtle
                       : hasError
                         ? '#fbeaea'
                         : hasWarning
@@ -358,14 +360,14 @@ export const ScheduleTable = memo(function ScheduleTable({
                         p: 1,
                         backgroundColor: background,
                         border: isTarget
-                          ? '1px solid #2f5d50'
+                          ? `1px solid ${theme.palette.primary.main}`
                           : hasError
                             ? '1px solid #e5a3a0'
                             : hasWarning
                               ? '1px solid #e6c988'
                               : '1px solid transparent',
                         minHeight: 48,
-                        '&:focus-visible': { outline: '2px solid #2f5d50', outlineOffset: 2 },
+                        '&:focus-visible': { outline: `2px solid ${theme.palette.primary.main}`, outlineOffset: 2 },
                       }}
                     >
                       {selectable && (
@@ -427,7 +429,7 @@ export const ScheduleTable = memo(function ScheduleTable({
                       )}
                       {dayView.absenceCoversWholeDay && dayView.absence ? (
                         <>
-                          <Typography variant="body2" color="#2f5d50" fontWeight={500}>
+                          <Typography variant="body2" color={theme.palette.primary.main} fontWeight={500}>
                             {absenceKindLabel(dayView.absence.type)}
                           </Typography>
                           {dayView.creditedMinutes > 0 && (
@@ -439,7 +441,7 @@ export const ScheduleTable = memo(function ScheduleTable({
                       ) : dayView.entry.type === 'Shift' && dayView.entry.shifts.length > 0 ? (
                         <>
                           {dayView.absence && (
-                            <Typography variant="caption" display="block" color="#2f5d50" fontWeight={500}>
+                            <Typography variant="caption" display="block" color={theme.palette.primary.main} fontWeight={500}>
                               {t('halfDaySuffix', { label: absenceKindLabel(dayView.absence.type) })}
                             </Typography>
                           )}

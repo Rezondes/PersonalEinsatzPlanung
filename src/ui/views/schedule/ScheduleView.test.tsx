@@ -3,6 +3,8 @@ import { render, screen, waitFor, act, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { fireEvent } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
+import { ThemeProvider } from '@mui/material/styles';
+import { theme } from '@ui/app/theme';
 
 import type { BranchId, EmployeeId, ShiftTemplateId } from '@domain/shared/ids';
 import type { Branch } from '@domain/branch/Branch';
@@ -196,22 +198,26 @@ function makeOtherTemplate(id: string, name: string, label: string, hoursPerDay?
 const templateA = makeTemplate('t1', 'Frühschicht', createShift(clockTime('06:00'), clockTime('14:00')));
 const templateOther = makeOtherTemplate('t2', 'Inventur', 'Inventur', 4);
 
+// ThemeProvider wraps the real app theme - ScheduleView/ScheduleToolbar/ScheduleTable's styles now
+// read the custom theme.palette.accentSurface key, absent on MUI's own default theme.
 function scheduleTree() {
   return (
-    <MemoryRouter initialEntries={['/schedule']}>
-      <Routes>
-        <Route
-          path="/schedule"
-          element={
-            <>
-              <ScheduleView />
-              <AppNotifications />
-            </>
-          }
-        />
-        <Route path="/de/print/:scheduleId" element={<div>print-route-landed</div>} />
-      </Routes>
-    </MemoryRouter>
+    <ThemeProvider theme={theme}>
+      <MemoryRouter initialEntries={['/schedule']}>
+        <Routes>
+          <Route
+            path="/schedule"
+            element={
+              <>
+                <ScheduleView />
+                <AppNotifications />
+              </>
+            }
+          />
+          <Route path="/de/print/:scheduleId" element={<div>print-route-landed</div>} />
+        </Routes>
+      </MemoryRouter>
+    </ThemeProvider>
   );
 }
 
@@ -1251,10 +1257,12 @@ describe('ScheduleView', () => {
       await user.click(screen.getByText('Frühschicht').closest('button') as HTMLButtonElement);
 
       expect(cellEl(container, employeeA.id, 'Montag')).toHaveStyle({
-        backgroundColor: '#dce9e3',
-        border: '1px solid #2f5d50',
+        backgroundColor: theme.palette.accentSurface.strong,
+        border: `1px solid ${theme.palette.primary.main}`,
       });
-      expect(cellEl(container, employeeB.id, 'Montag')).not.toHaveStyle({ backgroundColor: '#dce9e3' });
+      expect(cellEl(container, employeeB.id, 'Montag')).not.toHaveStyle({
+        backgroundColor: theme.palette.accentSurface.strong,
+      });
     });
 
     it('drops out of tap-to-assign when the branch changes while a tool is still armed', async () => {

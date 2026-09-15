@@ -2,12 +2,14 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor, within, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
+import { ThemeProvider } from '@mui/material/styles';
 import type { BranchId } from '@domain/shared/ids';
 import type { Branch } from '@domain/branch/Branch';
 import { services } from '@infrastructure/services';
 import { useBranchesStore } from '@ui/app/store/branchesStore';
 import { AppNotifications } from '@ui/app/AppNotifications';
 import { useNotificationStore } from '@ui/app/store/notificationStore';
+import { theme } from '@ui/app/theme';
 import { BranchMasterDataView } from './BranchMasterDataView';
 
 vi.mock('@infrastructure/services', () => ({
@@ -65,12 +67,16 @@ function order(container: HTMLElement, names: string[]): string[] {
   return [...names].sort((a, b) => text.indexOf(a) - text.indexOf(b));
 }
 
+// ThemeProvider wraps the real app theme - the branch card's logo-avatar style reads the custom
+// theme.palette.accentSurface key, absent on MUI's own default theme.
 const renderView = () =>
   render(
-    <MemoryRouter>
-      <BranchMasterDataView />
-      <AppNotifications />
-    </MemoryRouter>,
+    <ThemeProvider theme={theme}>
+      <MemoryRouter>
+        <BranchMasterDataView />
+        <AppNotifications />
+      </MemoryRouter>
+    </ThemeProvider>,
   );
 
 describe('BranchMasterDataView', () => {
@@ -113,6 +119,18 @@ describe('BranchMasterDataView', () => {
     expect(within(table).getByText('München')).toBeInTheDocument();
     expect(within(table).getByText('Aktiv')).toBeInTheDocument();
     expect(within(table).getByText('Inaktiv')).toBeInTheDocument();
+  });
+
+  it('colors the mobile card logo avatar and its placeholder icon from the theme, not a hardcoded literal', () => {
+    // Default (mobile-like) viewport, matching this file's own convention - renders the card list,
+    // where the logo avatar/icon actually live (the desktop table above has no such element).
+    seedBranches([makeBranch()]);
+
+    renderView();
+
+    const avatar = document.querySelector('.MuiAvatar-root');
+    expect(avatar).toHaveStyle({ backgroundColor: theme.palette.accentSurface.subtle });
+    expect(avatar?.querySelector('.MuiSvgIcon-root')).toHaveStyle({ color: theme.palette.primary.main });
   });
 
   it('search narrows the visible branches by name, number or city, and clearing restores them (N26)', async () => {

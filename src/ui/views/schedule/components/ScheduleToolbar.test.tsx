@@ -1,6 +1,8 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, waitFor, within, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { ThemeProvider } from '@mui/material/styles';
+import { theme } from '@ui/app/theme';
 import type { BranchId, ShiftTemplateId } from '@domain/shared/ids';
 import { clockTime } from '@domain/shared/ClockTime';
 import { createShift } from '@domain/schedule/Shift';
@@ -77,7 +79,13 @@ function renderToolbar(overrides: Partial<ToolbarProps> = {}) {
     headerFields: <div>header-fields-probe</div>,
     ...overrides,
   };
-  render(<ScheduleToolbar {...props} />);
+  // ThemeProvider wraps the real app theme - the toolbar's tile styling reads the custom
+  // theme.palette.accentSurface key, absent on MUI's own default theme.
+  render(
+    <ThemeProvider theme={theme}>
+      <ScheduleToolbar {...props} />
+    </ThemeProvider>,
+  );
   return props;
 }
 

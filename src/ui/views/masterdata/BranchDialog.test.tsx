@@ -1,9 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { ThemeProvider } from '@mui/material/styles';
 import type { BranchId } from '@domain/shared/ids';
 import type { Branch } from '@domain/branch/Branch';
 import { services } from '@infrastructure/services';
+import { theme } from '@ui/app/theme';
 import { BranchDialog } from './BranchDialog';
 
 vi.mock('@infrastructure/services', () => ({
@@ -13,12 +15,18 @@ vi.mock('@infrastructure/services', () => ({
 const createMock = vi.mocked(services.branch.create);
 const updateMock = vi.mocked(services.branch.update);
 
+// ThemeProvider wraps the real app theme - the dialog's logo-avatar style reads the custom
+// theme.palette.accentSurface key, absent on MUI's own default theme.
 function renderDialog() {
   const onClose = vi.fn();
   const onSaved = vi.fn();
   const onError = vi.fn();
-  render(<BranchDialog branch={null} onClose={onClose} onSaved={onSaved} onError={onError} />);
-  return { onClose, onSaved, onError };
+  const { container } = render(
+    <ThemeProvider theme={theme}>
+      <BranchDialog branch={null} onClose={onClose} onSaved={onSaved} onError={onError} />
+    </ThemeProvider>,
+  );
+  return { onClose, onSaved, onError, container };
 }
 
 const textbox = (name: string) => screen.getByRole('textbox', { name });
@@ -62,6 +70,20 @@ describe('BranchDialog', () => {
     expect(textbox('Straße (optional)')).not.toBeRequired();
     expect(textbox('Ort (optional)')).not.toBeRequired();
     expect(screen.getByText('Logo hochladen (optional)')).toBeInTheDocument();
+  });
+
+  it('colors the logo avatar and its placeholder icon from the theme, not a hardcoded literal', () => {
+    // document.querySelector, not container.querySelector: ResponsiveDialog renders its content
+    // into a portal attached to document.body, outside the render() result's own container div.
+    renderDialog();
+
+    const avatar = document.querySelector('.MuiAvatar-root');
+    expect(avatar).toHaveStyle({ backgroundColor: theme.palette.accentSurface.subtle });
+    // Scoped to a descendant of the avatar, not any .MuiSvgIcon-root in the document - the dialog
+    // has other icons (e.g. its own close button) with an unrelated default color.
+    expect(avatar?.querySelector('.MuiSvgIcon-root')).toHaveStyle({
+      color: theme.palette.primary.main,
+    });
   });
 
   it('shows both missing fields, focuses Name and saves nothing on an empty form', async () => {

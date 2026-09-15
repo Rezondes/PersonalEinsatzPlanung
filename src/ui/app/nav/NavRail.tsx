@@ -2,6 +2,8 @@ import { NavLink } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import ButtonBase from '@mui/material/ButtonBase';
 import Typography from '@mui/material/Typography';
+import { useTheme } from '@mui/material/styles';
+import type { Theme } from '@mui/material/styles';
 import MenuOpenIcon from '@mui/icons-material/MenuOpen';
 import MenuIcon from '@mui/icons-material/Menu';
 import { useTranslation } from 'react-i18next';
@@ -22,20 +24,26 @@ const COLLAPSED_WIDTH = 72;
  * LaptopNav - that is what gives theme.ts's `.pep-nav-link:active` press-feedback rule effect here
  * too; the values below stay independent since the color/weight/background logic is otherwise
  * identical to navLinkStyle by design, just carried by different layout properties. */
-const railLinkStyle = ({ isActive }: { isActive: boolean }) => ({
-  display: 'flex',
-  alignItems: 'center',
-  textDecoration: 'none',
-  color: isActive ? '#2f5d50' : '#4b4b47',
-  fontWeight: isActive ? 500 : 400,
-  fontSize: 14,
-  borderRadius: 8,
-  // undefined, not 'transparent': an inline background-color - even 'transparent' - always beats
-  // the shared .pep-nav-link:active CSS rule for the same property (see navLinkStyle.ts, which
-  // had the identical issue), which would otherwise silently keep this rail's own tap feedback
-  // from ever showing.
-  backgroundColor: isActive ? '#eef3f1' : undefined,
-});
+// A factory, not a module-level constant: react-router's NavLink `style` prop only ever receives
+// `{ isActive }`, with no theme access of its own, so the accent color has to be closed over from
+// whichever theme is live when the component renders - called once per render from NavRail's own
+// body, where useTheme() is available.
+function makeRailLinkStyle(theme: Theme) {
+  return ({ isActive }: { isActive: boolean }) => ({
+    display: 'flex',
+    alignItems: 'center',
+    textDecoration: 'none',
+    color: isActive ? theme.palette.primary.main : '#4b4b47',
+    fontWeight: isActive ? 500 : 400,
+    fontSize: 14,
+    borderRadius: 8,
+    // undefined, not 'transparent': an inline background-color - even 'transparent' - always beats
+    // the shared .pep-nav-link:active CSS rule for the same property (see navLinkStyle.ts, which
+    // had the identical issue), which would otherwise silently keep this rail's own tap feedback
+    // from ever showing.
+    backgroundColor: isActive ? theme.palette.accentSurface.subtle : undefined,
+  });
+}
 
 /**
  * Collapsible left navigation rail, shown at the tablet breakpoint (768px and up). Mobile gets its
@@ -49,6 +57,8 @@ export function NavRail() {
   const width = collapsed ? COLLAPSED_WIDTH : EXPANDED_WIDTH;
   const locale = useLocale();
   const { t } = useTranslation('nav');
+  const theme = useTheme();
+  const railLinkStyle = makeRailLinkStyle(theme);
 
   return (
     <Box
