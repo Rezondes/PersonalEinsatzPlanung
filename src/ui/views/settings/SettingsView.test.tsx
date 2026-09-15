@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { render, screen, waitFor, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { services } from '@infrastructure/services';
@@ -320,5 +320,50 @@ describe('SettingsView, Alle Daten löschen', () => {
     expect(isBackupPasswordConfigured()).toBe(false);
     expect(getCachedPassword()).toBeNull();
     expect(services.backupStorage.signOut).toHaveBeenCalled();
+  });
+});
+
+describe('SettingsView, App & Speicher (Installations-Hinweis)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    useNotificationStore.getState().clear();
+    // installPrompt.ts's deferredEvent is module-level singleton state - reset via the same real
+    // 'appinstalled' event the app itself listens for, matching InstallPromptBanner.test.tsx.
+    act(() => window.dispatchEvent(new Event('appinstalled')));
+  });
+
+  afterEach(() => {
+    // @ts-expect-error -- undo the per-test iOS simulation; jsdom has no navigator.standalone of its own
+    delete window.navigator.standalone;
+  });
+
+  it('shows a fallback hint when the browser cannot install and is not iOS', () => {
+    renderView();
+
+    expect(screen.getByText(/In diesem Browser ist das nicht möglich/)).toBeInTheDocument();
+    expect(screen.queryByText(/Zum Home-Bildschirm/)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'App installieren' })).not.toBeInTheDocument();
+  });
+
+  it('shows the iOS-specific hint instead when the platform is iOS and cannot install', () => {
+    // isManualInstallPlatform() checks 'standalone' in navigator - a feature-detection check that
+    // is only ever true on WebKit/iOS, so merely defining the property (regardless of its value)
+    // is what simulates "this is iOS" here.
+    Object.defineProperty(window.navigator, 'standalone', { value: false, configurable: true });
+
+    renderView();
+
+    expect(screen.getByText(/Zum Home-Bildschirm/)).toBeInTheDocument();
+    expect(screen.queryByText(/In diesem Browser ist das nicht möglich/)).not.toBeInTheDocument();
+  });
+
+  it('shows the install button and no hint when the browser offers to install', () => {
+    renderView();
+
+    act(() => window.dispatchEvent(new Event('beforeinstallprompt')));
+
+    expect(screen.getByRole('button', { name: 'App installieren' })).toBeInTheDocument();
+    expect(screen.queryByText(/In diesem Browser ist das nicht möglich/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Zum Home-Bildschirm/)).not.toBeInTheDocument();
   });
 });

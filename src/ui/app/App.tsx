@@ -9,6 +9,7 @@ import { theme } from './theme';
 import { router } from './router';
 import { UpdatePrompt } from './UpdatePrompt';
 import { AppNotifications } from './AppNotifications';
+import { InstallPromptBanner } from './InstallPromptBanner';
 
 export function App() {
   // Here and not in AppShell: the print route sits outside the shell, and both of these have to
@@ -21,6 +22,7 @@ export function App() {
       <RouterProvider router={router} />
       <UpdatePrompt />
       <AppNotifications />
+      <InstallPromptBanner />
     </ThemeProvider>
   );
 }

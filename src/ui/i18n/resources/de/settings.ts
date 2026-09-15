@@ -1,5 +1,8 @@
 /** Covers SettingsView.tsx and its two dialogs (DriveBackupDialog.tsx, BackupPasswordDialog.tsx) -
- * kept as one namespace since all three only ever render as part of the Settings feature. */
+ * kept as one namespace since all three only ever render as part of the Settings feature. One
+ * exception: `appStorage.installButton` is also read by InstallPromptBanner.tsx (App.tsx's
+ * proactive install banner), reusing the same label rather than duplicating it under a second
+ * key. */
 const settings = {
   backup: {
     heading: 'Backup & Datenübertragung',
@@ -63,6 +66,7 @@ const settings = {
       'Du kannst die Planung als App auf dem Gerät installieren. Sie startet dann ohne Browserleiste, ist über ein eigenes Symbol erreichbar und funktioniert vollständig ohne Internetverbindung.',
     iosInstallHint:
       ' Auf iPhone und iPad geht das über Safari: unten auf das Teilen-Symbol tippen und „Zum Home-Bildschirm“ wählen.',
+    unsupportedInstallHint: ' In diesem Browser ist das nicht möglich - probiere es mit Chrome oder Edge.',
     installButton: 'App installieren',
     durableStorageLabel: 'Dauerhafter Speicher:',
     durablePersistent: 'Ja. Der Browser bewahrt die Daten dieser App auf.',
