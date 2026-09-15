@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { useNavRailStore } from '@ui/app/store/navRailStore';
 import i18n from '@ui/i18n/i18n';
@@ -58,5 +59,21 @@ describe('NavRail', () => {
 
     const activeLink = screen.getByRole('link', { name: navLabel(MAIN_NAV_ITEMS[0].label) });
     expect(activeLink).toHaveStyle({ backgroundColor: 'rgb(238, 243, 241)' });
+  });
+
+  it('makes the whole header row the toggle control, not just the icon', () => {
+    renderRail();
+
+    const toggleButton = screen.getByRole('button', { name: 'Navigation einklappen' });
+    expect(toggleButton).toHaveStyle({ width: '100%', borderBottom: '1px solid #e0e0dc' });
+  });
+
+  it('calls toggle() when the header row is clicked', async () => {
+    const user = userEvent.setup();
+    renderRail();
+
+    expect(useNavRailStore.getState().collapsed).toBe(false);
+    await user.click(screen.getByRole('button', { name: 'Navigation einklappen' }));
+    expect(useNavRailStore.getState().collapsed).toBe(true);
   });
 });

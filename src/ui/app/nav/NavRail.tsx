@@ -1,6 +1,6 @@
 import { NavLink } from 'react-router-dom';
 import Box from '@mui/material/Box';
-import IconButton from '@mui/material/IconButton';
+import ButtonBase from '@mui/material/ButtonBase';
 import Typography from '@mui/material/Typography';
 import MenuOpenIcon from '@mui/icons-material/MenuOpen';
 import MenuIcon from '@mui/icons-material/Menu';
@@ -64,26 +64,21 @@ export function NavRail() {
         overflow: 'hidden',
       }}
     >
-      <Box
+      <ButtonBase
+        onClick={toggle}
+        aria-label={collapsed ? t('expandNavAriaLabel') : t('collapseNavAriaLabel')}
         sx={{
           display: 'flex',
           alignItems: 'center',
-          gap: 1,
-          height: 56,
-          px: 0,
           justifyContent: 'center',
+          width: '100%',
+          height: 56,
           borderBottom: '1px solid #e0e0dc',
           flexShrink: 0,
         }}
       >
-        <IconButton
-          onClick={toggle}
-          aria-label={collapsed ? t('expandNavAriaLabel') : t('collapseNavAriaLabel')}
-          size="small"
-        >
-          {collapsed ? <MenuIcon /> : <MenuOpenIcon />}
-        </IconButton>
-      </Box>
+        {collapsed ? <MenuIcon fontSize="small" /> : <MenuOpenIcon fontSize="small" />}
+      </ButtonBase>
 
       <Box sx={{ p: 1, display: 'flex', flexDirection: 'column', gap: 0.5, overflowY: 'auto' }}>
         {MAIN_NAV_ITEMS.map((item) => (
