@@ -2,12 +2,21 @@ import type { SxProps, Theme } from '@mui/material/styles';
 
 /**
  * Three sticky-table building blocks, shared by every grid in the app that needs one (list tables
- * here, MonthOverviewView, and eventually ScheduleTable/Phase 5a). A two-tier z-index scheme,
- * matching the one the mockup itself already uses: sticky header row = 1, sticky first column
- * (including the corner, which is both at once) = 2 - the corner only ever visually overlaps
- * zIndex-1 header cells sliding underneath it during horizontal scroll, never another zIndex-2
- * cell (those only ever appear in body rows, never the header row), so one tier above the header
- * is already sufficient; a third tier would be complexity with nothing to resolve.
+ * here, MonthOverviewView, and eventually ScheduleTable/Phase 5a). A three-tier z-index scheme:
+ * sticky header row = 1, sticky first column (body cells) = 2, sticky corner (both at once) = 3.
+ * The corner has to strictly outrank BOTH other tiers, not just the header row: a body row's
+ * sticky-left cell is only sticky horizontally (no `top`), so during a normal vertical scroll it
+ * passes right through the screen position the corner permanently occupies. At equal z-index,
+ * stacking ties resolve by DOM order, and `<tbody>` rows come after `<thead>` - so whichever body
+ * row is momentarily crossing that line would paint OVER the corner instead of under it, making
+ * the corner's own label flicker/disappear mid-scroll and the crossing row's content appear to
+ * bleed into the header. Confirmed live (reproduces on any real scroll gesture whenever a row
+ * boundary happens to cross the sticky header's vertical span - a single programmatic
+ * `scrollTop = X` jump can land on a position where no row happens to be crossing that instant,
+ * which is why it looked scroll-gesture-specific before this was root-caused) by bumping just the
+ * corner's z-index and watching the glitch disappear with no other change. A two-tier scheme
+ * (corner tied with the first column) is what caused this bug in the first place - do not go back
+ * to it.
  *
  * An opaque background is required on all three - a transparent sticky cell lets scrolled-past
  * content bleed through underneath it, a common bug with this technique. The trade-off: MUI's
@@ -45,13 +54,15 @@ export function stickyHeaderRowSx(top: string | number = 0): SxProps<Theme> {
   };
 }
 
-/** The one cell that is both: the first column's own header cell. */
+/** The one cell that is both: the first column's own header cell. zIndex 3, not 2 - see
+ * stickyFirstColumnSx's own comment for why the corner must strictly outrank the sticky first
+ * column's body cells, not just tie with them. */
 export function stickyCornerSx(top: string | number = 0): SxProps<Theme> {
   return {
     position: 'sticky',
     top,
     left: 0,
-    zIndex: 2,
+    zIndex: 3,
     backgroundColor: 'background.paper',
   };
 }
