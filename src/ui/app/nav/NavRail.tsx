@@ -72,7 +72,7 @@ export function NavRail() {
           alignItems: 'center',
           justifyContent: 'center',
           width: '100%',
-          height: 56,
+          height: 'var(--pep-header-height, 64px)',
           borderBottom: '1px solid #e0e0dc',
           flexShrink: 0,
         }}

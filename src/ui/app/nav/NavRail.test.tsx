@@ -76,4 +76,11 @@ describe('NavRail', () => {
     await user.click(screen.getByRole('button', { name: 'Navigation einklappen' }));
     expect(useNavRailStore.getState().collapsed).toBe(true);
   });
+
+  it('declares its header-row height via --pep-header-height, matching AppHeader\'s own default fallback', () => {
+    renderRail();
+
+    const toggleButton = screen.getByRole('button', { name: 'Navigation einklappen' });
+    expect(toggleButton).toHaveStyle({ height: 'var(--pep-header-height, 64px)' });
+  });
 });
