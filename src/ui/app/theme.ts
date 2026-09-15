@@ -3,34 +3,8 @@ import type { Theme } from '@mui/material/styles';
 import { deDE } from '@mui/material/locale';
 import { SELECTABLE_SELECTOR } from './selectableText';
 import type { ThemeMode } from './store/themeModeStore';
-
-// Light-mode accent + its tints (unchanged values from before this file became mode-aware).
-// Hand-picked, not a computed lighten() of ACCENT_MAIN - MUI's own lighten() at the default
-// tonalOffset gives a mid-green nowhere near these pale pastels.
-const ACCENT_MAIN_LIGHT = '#2f5d50';
-const ACCENT_SURFACE_SUBTLE_LIGHT = '#eef3f1';
-const ACCENT_SURFACE_STRONG_LIGHT = '#dce9e3';
-const ACCENT_SURFACE_PRESSED_LIGHT = '#e0e8e5';
-
-// Dark-mode accent: a lightened tone of the same green, not the light-mode value reused verbatim.
-// #2f5d50 as a foreground (text/icon/focus-outline) color measures only ~2.5:1 contrast against a
-// dark page background - below WCAG AA's 4.5:1 for text. Material dark themes conventionally use a
-// lighter primary than their light counterpart for exactly this reason (compare MUI's own default
-// dark primary #90caf9 against its light default #1976d2). This lightened tone and its tints are a
-// first estimate pending a real contrast-tool check (see the plan file) - only the mode-stable
-// ACCENT_FILL below (used for solid-fill-with-white-text spots) is unaffected by this concern.
-const ACCENT_MAIN_DARK = '#8da69f';
-const ACCENT_SURFACE_SUBTLE_DARK = '#1b2a24';
-const ACCENT_SURFACE_STRONG_DARK = '#21382e';
-const ACCENT_SURFACE_PRESSED_DARK = '#294636';
-
-// The one accent tone that stays IDENTICAL in both modes: ScheduleToolbar's assign/selection
-// banners and its active Chip fill this color solidly and lay white text directly on top - their
-// contrast comes from the white text alone, independent of the surrounding page background, so
-// they never want the lightened dark-mode tone. Exposed as palette.primary.dark (otherwise unused
-// by this theme) rather than a new palette key, since MUI already reserves that slot for "a fixed
-// variant of the accent, distinct from the mode-adjusted main".
-const ACCENT_FILL = '#2f5d50';
+import { ACCENT_COLORS } from './theme/accentColors';
+import type { AccentColorKey } from './theme/accentColors';
 
 // theme.ts's own elevation-flattening border color (MuiPaper/MuiAppBar/MuiCard/MuiTableCell) -
 // centralized here (not just left as a repeated literal) because dark mode needs a second value.
@@ -57,6 +31,10 @@ export interface CreateAppThemeOptions {
   mode: ThemeMode;
   /** Only consulted when mode === 'system' - the live OS preference (usePrefersDarkMode). */
   prefersDark: boolean;
+  /** Which of the six curated colors (accentColors.ts) drives primary/accentSurface - defaults to
+   * 'gruen', the only color that existed before the picker, so every call site that predates it
+   * (the static `theme` export below, most existing tests) keeps working unchanged. */
+  accentColor?: AccentColorKey;
 }
 
 function resolvePaletteMode(options: CreateAppThemeOptions): 'light' | 'dark' {
@@ -75,17 +53,16 @@ function resolvePaletteMode(options: CreateAppThemeOptions): 'light' | 'dark' {
 export function createAppTheme(options: CreateAppThemeOptions): Theme {
   const mode = resolvePaletteMode(options);
   const isDark = mode === 'dark';
-  const accentMain = isDark ? ACCENT_MAIN_DARK : ACCENT_MAIN_LIGHT;
-  const accentSurface = isDark
-    ? { subtle: ACCENT_SURFACE_SUBTLE_DARK, strong: ACCENT_SURFACE_STRONG_DARK, pressed: ACCENT_SURFACE_PRESSED_DARK }
-    : { subtle: ACCENT_SURFACE_SUBTLE_LIGHT, strong: ACCENT_SURFACE_STRONG_LIGHT, pressed: ACCENT_SURFACE_PRESSED_LIGHT };
+  const accent = ACCENT_COLORS[options.accentColor ?? 'gruen'];
+  const accentMain = isDark ? accent.mainDark : accent.main;
+  const accentSurface = isDark ? accent.surfaceDark : accent.surfaceLight;
   const divider = isDark ? DIVIDER_DARK : DIVIDER_LIGHT;
 
   return createTheme(
     {
       palette: {
         mode,
-        primary: { main: accentMain, dark: ACCENT_FILL },
+        primary: { main: accentMain, dark: accent.dark },
         accentSurface,
         divider,
         background: isDark ? { default: '#121212', paper: '#1e1e1e' } : { default: '#f7f7f5', paper: '#ffffff' },

@@ -10,6 +10,13 @@ const settings = {
     modeLight: 'Hell',
     modeDark: 'Dunkel',
     modeSystem: 'System',
+    accentLabel: 'Akzentfarbe',
+    accentGruen: 'Grün',
+    accentBlau: 'Blau',
+    accentLila: 'Lila',
+    accentOrange: 'Orange',
+    accentPetrol: 'Petrol',
+    accentSenfgelb: 'Senfgelb',
   },
   backup: {
     heading: 'Backup & Datenübertragung',

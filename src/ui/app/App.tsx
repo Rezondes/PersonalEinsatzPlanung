@@ -7,6 +7,7 @@ import { useSuppressBrowserContextMenu } from '@ui/hooks/useSuppressBrowserConte
 import '@ui/app/installPrompt';
 import { createAppTheme } from './theme';
 import { useThemeModeStore } from './store/themeModeStore';
+import { useAccentColorStore } from './store/accentColorStore';
 import { usePrefersDarkMode } from '@ui/hooks/usePrefersDarkMode';
 import { router } from './router';
 import { UpdatePrompt } from './UpdatePrompt';
@@ -18,8 +19,9 @@ export function App() {
   // hold everywhere. See the two modules for the details.
   useSuppressBrowserContextMenu();
   const mode = useThemeModeStore((s) => s.mode);
+  const accentColor = useAccentColorStore((s) => s.accentColor);
   const prefersDark = usePrefersDarkMode();
-  const theme = createAppTheme({ mode, prefersDark });
+  const theme = createAppTheme({ mode, prefersDark, accentColor });
 
   return (
     <ThemeProvider theme={theme}>

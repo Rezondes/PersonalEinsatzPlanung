@@ -15,6 +15,7 @@ import { encryptBackup } from '@infrastructure/export/backupEncryption';
 import { DriveSessionExpiredError } from '@infrastructure/backup/GoogleDriveBackupStorage';
 import type { PepExportFile } from '@application/export/jsonExportFormat';
 import { useThemeModeStore } from '@ui/app/store/themeModeStore';
+import { useAccentColorStore } from '@ui/app/store/accentColorStore';
 import { SettingsView } from './SettingsView';
 
 vi.mock('@infrastructure/services', () => ({
@@ -330,6 +331,7 @@ describe('SettingsView, Erscheinungsbild', () => {
     useNotificationStore.getState().clear();
     drive.isConfigured.mockReturnValue(false);
     useThemeModeStore.setState({ mode: 'light' });
+    useAccentColorStore.setState({ accentColor: 'gruen' });
   });
 
   it('shows the Hell/Dunkel/System choice with the current store value selected', () => {
@@ -354,6 +356,41 @@ describe('SettingsView, Erscheinungsbild', () => {
     await user.click(screen.getByRole('button', { name: 'Dunkel' }));
 
     expect(useThemeModeStore.getState().mode).toBe('dark');
+  });
+
+  it('shows all six accent-color swatches as radios, each with an accessible name, current selection checked', () => {
+    renderView();
+
+    const gruen = screen.getByRole('radio', { name: 'Grün' });
+    const others = ['Blau', 'Lila', 'Orange', 'Petrol', 'Senfgelb'].map((name) =>
+      screen.getByRole('radio', { name }),
+    );
+
+    expect(gruen).toHaveAttribute('aria-checked', 'true');
+    for (const other of others) {
+      expect(other).toHaveAttribute('aria-checked', 'false');
+    }
+  });
+
+  it('activating the Blau swatch updates the store and moves aria-checked off the previous selection', async () => {
+    const user = userEvent.setup();
+    renderView();
+
+    await user.click(screen.getByRole('radio', { name: 'Blau' }));
+
+    expect(useAccentColorStore.getState().accentColor).toBe('blau');
+    expect(screen.getByRole('radio', { name: 'Blau' })).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByRole('radio', { name: 'Grün' })).toHaveAttribute('aria-checked', 'false');
+  });
+
+  it('ArrowRight on the focused swatch moves focus to the next one', async () => {
+    const user = userEvent.setup();
+    renderView();
+
+    screen.getByRole('radio', { name: 'Grün' }).focus();
+    await user.keyboard('{ArrowRight}');
+
+    expect(screen.getByRole('radio', { name: 'Blau' })).toHaveFocus();
   });
 });
 

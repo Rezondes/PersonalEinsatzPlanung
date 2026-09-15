@@ -10,11 +10,13 @@ import TextField from '@mui/material/TextField';
 import Divider from '@mui/material/Divider';
 import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
+import ButtonBase from '@mui/material/ButtonBase';
 import Link from '@mui/material/Link';
 import DownloadOutlinedIcon from '@mui/icons-material/DownloadOutlined';
 import UploadOutlinedIcon from '@mui/icons-material/UploadOutlined';
 import DeleteForeverOutlinedIcon from '@mui/icons-material/DeleteForeverOutlined';
 import InstallMobileOutlinedIcon from '@mui/icons-material/InstallMobileOutlined';
+import CheckIcon from '@mui/icons-material/Check';
 import CircularProgress from '@mui/material/CircularProgress';
 import Backdrop from '@mui/material/Backdrop';
 import { useTranslation } from 'react-i18next';
@@ -37,6 +39,9 @@ import VpnKeyOutlinedIcon from '@mui/icons-material/VpnKeyOutlined';
 import type { RemoteBackup } from '@application/ports/BackupStorage';
 import { useBreakpoint } from '@ui/hooks/useBreakpoint';
 import { useThemeModeStore } from '@ui/app/store/themeModeStore';
+import { useAccentColorStore } from '@ui/app/store/accentColorStore';
+import { ACCENT_COLORS } from '@ui/app/theme/accentColors';
+import type { AccentColorKey } from '@ui/app/theme/accentColors';
 import { usePageActions } from '@ui/app/PageActionsContext';
 import { ConfirmDialog } from '@ui/components/ConfirmDialog';
 import { ResponsiveDialog } from '@ui/components/ResponsiveDialog';
@@ -62,6 +67,21 @@ import type { EncryptedBackupEnvelope } from '@application/export/encryptedExpor
  * was a deliberate cancel. */
 class PasswordPromptCancelled extends Error {}
 
+// Fixed left-to-right order for the accent-color radiogroup below - also the wrap-around order for
+// its arrow-key navigation, so visual order and keyboard order always agree.
+const ACCENT_COLOR_ORDER: AccentColorKey[] = ['gruen', 'blau', 'lila', 'orange', 'petrol', 'senfgelb'];
+// `as const` (not a `Record<AccentColorKey, string>` annotation) keeps each value its own string
+// literal type instead of widening to `string` - t() only accepts its known literal translation
+// keys, and ACCENT_COLOR_LABEL_KEY[key] must stay one of those, not a generic string.
+const ACCENT_COLOR_LABEL_KEY = {
+  gruen: 'appearance.accentGruen',
+  blau: 'appearance.accentBlau',
+  lila: 'appearance.accentLila',
+  orange: 'appearance.accentOrange',
+  petrol: 'appearance.accentPetrol',
+  senfgelb: 'appearance.accentSenfgelb',
+} as const satisfies Record<AccentColorKey, string>;
+
 export function SettingsView() {
   const layout = useBreakpoint();
   const locale = useLocale();
@@ -70,6 +90,9 @@ export function SettingsView() {
   const { t: tNav } = useTranslation('nav');
   const themeMode = useThemeModeStore((s) => s.mode);
   const setThemeMode = useThemeModeStore((s) => s.setMode);
+  const accentColor = useAccentColorStore((s) => s.accentColor);
+  const setAccentColor = useAccentColorStore((s) => s.setAccentColor);
+  const accentButtonRefs = useRef<Array<HTMLButtonElement | null>>([]);
   usePageActions({ fullBleedPage: true });
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [confirmationText, setConfirmationText] = useState('');
@@ -579,6 +602,58 @@ export function SettingsView() {
             <ToggleButton value="dark">{t('appearance.modeDark')}</ToggleButton>
             <ToggleButton value="system">{t('appearance.modeSystem')}</ToggleButton>
           </ToggleButtonGroup>
+
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 2, mb: 1 }}>
+            {t('appearance.accentLabel')}
+          </Typography>
+          <Box role="radiogroup" aria-label={t('appearance.accentLabel')} sx={{ display: 'flex', gap: 1.5 }}>
+            {ACCENT_COLOR_ORDER.map((key, index) => {
+              const isSelected = accentColor === key;
+              return (
+                <ButtonBase
+                  key={key}
+                  ref={(el: HTMLButtonElement | null) => {
+                    accentButtonRefs.current[index] = el;
+                  }}
+                  role="radio"
+                  aria-checked={isSelected}
+                  aria-label={t(ACCENT_COLOR_LABEL_KEY[key])}
+                  tabIndex={isSelected ? 0 : -1}
+                  onClick={() => setAccentColor(key)}
+                  onKeyDown={(e) => {
+                    const direction =
+                      e.key === 'ArrowRight' || e.key === 'ArrowDown'
+                        ? 1
+                        : e.key === 'ArrowLeft' || e.key === 'ArrowUp'
+                          ? -1
+                          : 0;
+                    if (direction === 0) return;
+                    e.preventDefault();
+                    const currentIndex = ACCENT_COLOR_ORDER.indexOf(accentColor);
+                    const nextIndex =
+                      (currentIndex + direction + ACCENT_COLOR_ORDER.length) % ACCENT_COLOR_ORDER.length;
+                    setAccentColor(ACCENT_COLOR_ORDER[nextIndex]);
+                    accentButtonRefs.current[nextIndex]?.focus();
+                  }}
+                  sx={(swatchTheme) => ({
+                    width: 36,
+                    height: 36,
+                    borderRadius: '50%',
+                    bgcolor: ACCENT_COLORS[key].main,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    '&:focus-visible': {
+                      outline: `2px solid ${swatchTheme.palette.primary.main}`,
+                      outlineOffset: 2,
+                    },
+                  })}
+                >
+                  {isSelected && <CheckIcon sx={{ color: '#fff', fontSize: 20 }} />}
+                </ButtonBase>
+              );
+            })}
+          </Box>
         </Paper>
 
         <Paper sx={{ p: 3, mb: 3 }}>

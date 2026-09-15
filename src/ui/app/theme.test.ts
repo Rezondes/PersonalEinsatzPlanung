@@ -43,4 +43,21 @@ describe('createAppTheme', () => {
     expect(createAppTheme({ mode: 'light', prefersDark: false }).palette.primary.dark).toBe('#2f5d50');
     expect(createAppTheme({ mode: 'dark', prefersDark: false }).palette.primary.dark).toBe('#2f5d50');
   });
+
+  it('defaults to gruen when accentColor is omitted, unchanged from before the color picker existed', () => {
+    const result = createAppTheme({ mode: 'light', prefersDark: false });
+
+    expect(result.palette.primary.main).toBe('#2f5d50');
+  });
+
+  it('resolves a different accentColor into primary/accentSurface, in both light and dark mode', () => {
+    const light = createAppTheme({ mode: 'light', prefersDark: false, accentColor: 'blau' });
+    const dark = createAppTheme({ mode: 'dark', prefersDark: false, accentColor: 'blau' });
+
+    expect(light.palette.primary.main).toBe('#2c5a80');
+    expect(light.palette.primary.dark).toBe('#2c5a80');
+    expect(dark.palette.primary.main).not.toBe('#2c5a80');
+    expect(dark.palette.primary.main).not.toBe(light.palette.primary.main);
+    expect(dark.palette.primary.dark).toBe('#2c5a80');
+  });
 });
