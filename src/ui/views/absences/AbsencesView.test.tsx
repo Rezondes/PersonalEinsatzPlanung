@@ -524,6 +524,43 @@ describe('AbsencesView', () => {
       expect(createMock).not.toHaveBeenCalled();
     });
 
+    it('shows one \'Weitere Aktionen\' kebab in the desktop table row instead of separate Bearbeiten/Löschen icons', async () => {
+      employeeForBranchMock.mockResolvedValue([e1]);
+      absenceForBranchMock.mockResolvedValue([a1]);
+      renderView();
+
+      await screen.findByText('Urlaub');
+      expect(screen.getByRole('button', { name: 'Weitere Aktionen für Bauer, Anna' })).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Abwesenheit von Bauer, Anna bearbeiten' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Abwesenheit von Bauer, Anna löschen' })).not.toBeInTheDocument();
+    });
+
+    it('opens the edit dialog when the desktop table row itself is clicked, not just the kebab', async () => {
+      const user = userEvent.setup();
+      employeeForBranchMock.mockResolvedValue([e1]);
+      absenceForBranchMock.mockResolvedValue([a1]);
+      renderView();
+
+      await screen.findByText('Urlaub');
+      await user.click(screen.getByText('Bauer, Anna'));
+
+      expect(screen.getByRole('dialog')).toBeInTheDocument();
+      expect(screen.getByText('Abwesenheit bearbeiten')).toBeInTheDocument();
+    });
+
+    it('clicking the kebab does not also trigger the row\'s own click-to-edit', async () => {
+      const user = userEvent.setup();
+      employeeForBranchMock.mockResolvedValue([e1]);
+      absenceForBranchMock.mockResolvedValue([a1]);
+      renderView();
+
+      await screen.findByText('Urlaub');
+      await user.click(screen.getByRole('button', { name: 'Weitere Aktionen für Bauer, Anna' }));
+
+      expect(screen.getByRole('button', { name: 'Bearbeiten' })).toBeInTheDocument();
+      expect(screen.queryByText('Abwesenheit bearbeiten')).not.toBeInTheDocument();
+    });
+
     it('opens a delete confirm dialog with the pinned title and text, then deletes and reloads', async () => {
       const user = userEvent.setup();
       employeeForBranchMock.mockResolvedValue([e1]);
@@ -532,9 +569,10 @@ describe('AbsencesView', () => {
       renderView();
 
       await screen.findByText('Urlaub');
-      await user.click(screen.getByRole('button', { name: 'Abwesenheit von Bauer, Anna löschen' }));
+      await user.click(screen.getByRole('button', { name: 'Weitere Aktionen für Bauer, Anna' }));
+      await user.click(screen.getByRole('button', { name: 'Löschen' }));
 
-      const dialog = screen.getByRole('dialog');
+      const dialog = await screen.findByRole('dialog');
       expect(within(dialog).getByText('Abwesenheit löschen?')).toBeInTheDocument();
       expect(within(dialog).getByText('Dieser Eintrag wird unwiderruflich entfernt.')).toBeInTheDocument();
 
@@ -560,8 +598,9 @@ describe('AbsencesView', () => {
       renderView();
 
       await screen.findByText('Urlaub');
-      await user.click(screen.getByRole('button', { name: 'Abwesenheit von Bauer, Anna löschen' }));
-      const dialog = screen.getByRole('dialog');
+      await user.click(screen.getByRole('button', { name: 'Weitere Aktionen für Bauer, Anna' }));
+      await user.click(screen.getByRole('button', { name: 'Löschen' }));
+      const dialog = await screen.findByRole('dialog');
       await user.click(within(dialog).getByRole('button', { name: 'Löschen' }));
 
       expect(within(dialog).getByRole('button', { name: 'Abbrechen' })).toBeDisabled();
@@ -580,9 +619,10 @@ describe('AbsencesView', () => {
       renderView();
 
       await screen.findByText('Urlaub');
-      await user.click(screen.getByRole('button', { name: 'Abwesenheit von Bauer, Anna löschen' }));
+      await user.click(screen.getByRole('button', { name: 'Weitere Aktionen für Bauer, Anna' }));
+      await user.click(screen.getByRole('button', { name: 'Löschen' }));
 
-      const dialog = screen.getByRole('dialog');
+      const dialog = await screen.findByRole('dialog');
       await user.click(within(dialog).getByRole('button', { name: 'Abbrechen' }));
 
       expect(deleteMock).not.toHaveBeenCalled();
@@ -597,8 +637,9 @@ describe('AbsencesView', () => {
       renderView();
 
       await screen.findByText('Urlaub');
-      await user.click(screen.getByRole('button', { name: 'Abwesenheit von Bauer, Anna löschen' }));
-      const dialog = screen.getByRole('dialog');
+      await user.click(screen.getByRole('button', { name: 'Weitere Aktionen für Bauer, Anna' }));
+      await user.click(screen.getByRole('button', { name: 'Löschen' }));
+      const dialog = await screen.findByRole('dialog');
       await user.click(within(dialog).getByRole('button', { name: 'Löschen' }));
 
       expect(await screen.findByText('Abwesenheit konnte nicht gelöscht werden: boom')).toBeInTheDocument();
@@ -624,9 +665,10 @@ describe('AbsencesView', () => {
       renderView();
 
       await screen.findByText('Urlaub');
-      await user.click(screen.getByRole('button', { name: 'Abwesenheit von Bauer, Anna bearbeiten' }));
+      await user.click(screen.getByRole('button', { name: 'Weitere Aktionen für Bauer, Anna' }));
+      await user.click(screen.getByRole('button', { name: 'Bearbeiten' }));
 
-      const dialog = screen.getByRole('dialog');
+      const dialog = await screen.findByRole('dialog');
       expect(within(dialog).getByText('Abwesenheit bearbeiten')).toBeInTheDocument();
       expect(within(dialog).getByLabelText((t) => t.startsWith('Von'))).toHaveValue(a1.from);
       expect(within(dialog).getByLabelText((t) => t.startsWith('Bis'))).toHaveValue(a1.to);
@@ -640,8 +682,9 @@ describe('AbsencesView', () => {
       renderView();
 
       await screen.findByText('Urlaub');
-      await user.click(screen.getByRole('button', { name: 'Abwesenheit von Bauer, Anna bearbeiten' }));
-      const dialog = screen.getByRole('dialog');
+      await user.click(screen.getByRole('button', { name: 'Weitere Aktionen für Bauer, Anna' }));
+      await user.click(screen.getByRole('button', { name: 'Bearbeiten' }));
+      const dialog = await screen.findByRole('dialog');
       await user.click(within(dialog).getByRole('button', { name: 'Speichern' }));
 
       await waitFor(() => expect(updateMock).toHaveBeenCalledWith(expect.objectContaining({ id: a1.id })));
@@ -657,9 +700,10 @@ describe('AbsencesView', () => {
       renderView();
 
       await screen.findByText('Urlaub');
-      await user.click(screen.getByRole('button', { name: 'Abwesenheit von Schulz, Otto bearbeiten' }));
+      await user.click(screen.getByRole('button', { name: 'Weitere Aktionen für Schulz, Otto' }));
+      await user.click(screen.getByRole('button', { name: 'Bearbeiten' }));
 
-      const dialog = screen.getByRole('dialog');
+      const dialog = await screen.findByRole('dialog');
       expect(within(dialog).getByRole('combobox', { name: 'Mitarbeiter' })).toHaveTextContent('Schulz, Otto');
     });
 

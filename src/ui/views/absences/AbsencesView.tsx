@@ -441,7 +441,12 @@ export function AbsencesView() {
                           : ''
                       : '';
                   return (
-                    <TableRow key={a.id} hover>
+                    <TableRow
+                      key={a.id}
+                      hover
+                      onClick={() => setDialog({ absence: a })}
+                      sx={{ cursor: 'pointer' }}
+                    >
                       <TableCell sx={stickyFirstColumnSx}>{employeeName(employee)}</TableCell>
                       <TableCell>
                         <Chip size="small" label={absenceTypeLabel(a) + halfDayText} />
@@ -450,18 +455,13 @@ export function AbsencesView() {
                       <TableCell>{formatISODateGerman(a.to)}</TableCell>
                       <TableCell align="right">
                         <IconButton
-                          size="medium"
-                          onClick={() => setDialog({ absence: a })}
-                          aria-label={t('editAriaLabel', { name: employeeName(employee) })}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSheetAbsence(a);
+                          }}
+                          aria-label={tCommon('otherActionsFor', { name: employeeName(employee) })}
                         >
-                          <EditOutlinedIcon fontSize="medium" />
-                        </IconButton>
-                        <IconButton
-                          size="medium"
-                          onClick={() => setDeleteTarget(a)}
-                          aria-label={t('deleteAriaLabel', { name: employeeName(employee) })}
-                        >
-                          <DeleteOutlineIcon fontSize="medium" />
+                          <MoreVertIcon />
                         </IconButton>
                       </TableCell>
                     </TableRow>
