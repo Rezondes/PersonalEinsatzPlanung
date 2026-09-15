@@ -1,6 +1,27 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+
+/** Copied from useBreakpoint.test.tsx: jsdom has no real layout engine, so window.matchMedia is
+ * mocked to answer as if the viewport were `width` wide. Only needed for the tests below that
+ * specifically exercise hover-vs-touch behavior - every other test in this file relies on jsdom's
+ * unmocked (mobile-like) default, unchanged from before this hook existed. */
+function mockViewportWidth(width: number) {
+  window.matchMedia = ((query: string) => {
+    const match = /min-width:\s*(\d+(?:\.\d+)?)px/.exec(query);
+    const minWidth = match ? Number(match[1]) : 0;
+    return {
+      matches: width >= minWidth,
+      media: query,
+      onchange: null,
+      addListener: () => {},
+      removeListener: () => {},
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      dispatchEvent: () => false,
+    } as unknown as MediaQueryList;
+  }) as typeof window.matchMedia;
+}
 import type { BranchId, EmployeeId, AbsenceId } from '@domain/shared/ids';
 import type { Absence } from '@domain/absence/Absence';
 import { WEEKDAYS, dateForWeekday } from '@domain/shared/CalendarWeek';
@@ -67,6 +88,11 @@ const noSelection = {
 };
 
 describe('ScheduleTable', () => {
+  afterEach(() => {
+    // @ts-expect-error -- undo the per-test stub, jsdom has no matchMedia of its own to restore
+    delete window.matchMedia;
+  });
+
   it('renders one row per employee with their shift times', () => {
     render(<ScheduleTable rows={rowsFor(employees)} weekDays={weekDays} validationResults={[]} onCellClick={() => {}} {...notAssigning} {...noSelection} />);
 
@@ -100,7 +126,8 @@ describe('ScheduleTable', () => {
     expect(screen.getByRole('button', { name: 'Schulz, Anna, Montag, Krankheit bearbeiten' })).toBeInTheDocument();
   });
 
-  it('shows the Soll-deviation tooltip on hover when not touchMode, and hides it again on unhover (N20)', async () => {
+  it('shows the Soll-deviation tooltip on hover from tablet width up, and hides it again on unhover (N20)', async () => {
+    mockViewportWidth(1024);
     const user = userEvent.setup();
     render(
       <ScheduleTable
@@ -108,7 +135,6 @@ describe('ScheduleTable', () => {
         weekDays={weekDays}
         validationResults={[]}
         onCellClick={() => {}}
-               touchMode={false}
         {...notAssigning}
         {...noSelection}
       />,
@@ -122,7 +148,8 @@ describe('ScheduleTable', () => {
     await waitFor(() => expect(screen.queryByText(/Std\. unter Soll/)).not.toBeInTheDocument());
   });
 
-  it('does not show the Soll-deviation tooltip on hover while touchMode - still opens via click (N20)', async () => {
+  it('does not show the Soll-deviation tooltip on hover at mobile width - still opens via click (N20)', async () => {
+    mockViewportWidth(500);
     const user = userEvent.setup();
     render(
       <ScheduleTable
@@ -130,7 +157,6 @@ describe('ScheduleTable', () => {
         weekDays={weekDays}
         validationResults={[]}
         onCellClick={() => {}}
-               touchMode
         {...notAssigning}
         {...noSelection}
       />,
@@ -142,6 +168,28 @@ describe('ScheduleTable', () => {
 
     await user.click(deviationIcon);
     expect(await screen.findByText(/Std\. unter Soll/)).toBeInTheDocument();
+  });
+
+  it('closes an open Soll-deviation tooltip when clicking a different, unrelated cell (click-away)', async () => {
+    mockViewportWidth(500);
+    const user = userEvent.setup();
+    render(
+      <ScheduleTable
+        rows={rowsFor(employees)}
+        weekDays={weekDays}
+        validationResults={[]}
+        onCellClick={() => {}}
+        {...notAssigning}
+        {...noSelection}
+      />,
+    );
+
+    const deviationIcon = screen.getAllByRole('button', { name: 'Abweichung von Soll anzeigen' })[0];
+    await user.click(deviationIcon);
+    expect(await screen.findByText(/Std\. unter Soll/)).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Schulz, Anna, Dienstag, frei bearbeiten' }));
+    await waitFor(() => expect(screen.queryByText(/Std\. unter Soll/)).not.toBeInTheDocument());
   });
 
   it('labels a whole-day Illness absence "Krankheit", not the shorter "Krank" this table used to show on its own (M27)', () => {

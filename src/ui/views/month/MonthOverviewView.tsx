@@ -18,6 +18,7 @@ import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 import Chip from '@mui/material/Chip';
 import Tooltip from '@mui/material/Tooltip';
+import ClickAwayListener from '@mui/material/ClickAwayListener';
 import CircularProgress from '@mui/material/CircularProgress';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
@@ -42,6 +43,7 @@ import { useEmployeeList } from '@ui/hooks/useEmployeeList';
 import { useAbsences } from '@ui/hooks/useAbsences';
 import { useAsyncData } from '@ui/hooks/useAsyncData';
 import { useBreakpoint } from '@ui/hooks/useBreakpoint';
+import { useTapTooltip } from '@ui/hooks/useTapTooltip';
 import { useCalendarWeekStore } from '@ui/app/store/calendarWeekStore';
 import { usePageActions } from '@ui/app/PageActionsContext';
 import { NoBranchSelectedAlert } from '@ui/components/NoBranchSelectedAlert';
@@ -75,9 +77,9 @@ export function MonthOverviewView() {
   const navigate = useNavigate();
   const locale = useLocale();
   const setSelectedWeek = useCalendarWeekStore((s) => s.setSelectedWeek);
-  // Controlled (not hover) so a tap works on mobile too, matching ScheduleTable's identical
-  // deviation-warning tooltip pattern; only one employee's warning open at a time.
-  const [warningOpenFor, setWarningOpenFor] = useState<string | null>(null);
+  // Shared controller (see useTapTooltip's own doc comment) - hover from tablet width up, tap
+  // everywhere, only one warning open at a time; matches ScheduleTable's identical pattern.
+  const { toggle: toggleWarning, tooltipProps: warningTooltipProps, close: closeWarning } = useTapTooltip();
 
   // useAsyncData (not a bare useState+useEffect) for the same reason every other selection-scoped
   // load in this app uses it: error reporting, a loading flag, and a guard against a slow response
@@ -339,48 +341,46 @@ export function MonthOverviewView() {
                         }}
                       >
                         {(hasError || hasWarning) && (
-                          <Tooltip
-                            title={
-                              <Stack spacing={0.5}>
-                                {weekResults.map((r, i) => (
-                                  <span key={i}>{r.message}</span>
-                                ))}
-                              </Stack>
-                            }
-                            arrow
-                            open={warningOpenFor === cellKey}
-                            onClose={() => setWarningOpenFor(null)}
-                            disableFocusListener
-                            disableHoverListener
-                            disableTouchListener
-                          >
-                            <Box
-                              component="button"
-                              type="button"
-                              aria-label={t('showHintAriaLabel')}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setWarningOpenFor((prev) => (prev === cellKey ? null : cellKey));
-                              }}
-                              sx={{
-                                position: 'absolute',
-                                top: 2,
-                                right: 2,
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                width: 20,
-                                height: 20,
-                                p: 0,
-                                border: 'none',
-                                background: 'transparent',
-                                cursor: 'pointer',
-                                color: hasError ? '#b3261e' : '#8a6d1f',
-                              }}
+                          <ClickAwayListener onClickAway={() => closeWarning(cellKey)}>
+                            <Tooltip
+                              title={
+                                <Stack spacing={0.5}>
+                                  {weekResults.map((r, i) => (
+                                    <span key={i}>{r.message}</span>
+                                  ))}
+                                </Stack>
+                              }
+                              arrow
+                              {...warningTooltipProps(cellKey)}
                             >
-                              <WarningAmberIcon sx={{ fontSize: 16 }} />
-                            </Box>
-                          </Tooltip>
+                              <Box
+                                component="button"
+                                type="button"
+                                aria-label={t('showHintAriaLabel')}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleWarning(cellKey);
+                                }}
+                                sx={{
+                                  position: 'absolute',
+                                  top: 2,
+                                  right: 2,
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  width: 20,
+                                  height: 20,
+                                  p: 0,
+                                  border: 'none',
+                                  background: 'transparent',
+                                  cursor: 'pointer',
+                                  color: hasError ? '#b3261e' : '#8a6d1f',
+                                }}
+                              >
+                                <WarningAmberIcon sx={{ fontSize: 16 }} />
+                              </Box>
+                            </Tooltip>
+                          </ClickAwayListener>
                         )}
                         {weekValue ? formatHoursGerman(weekValue.totalNetMinutes) : '–'}
                       </Box>
@@ -391,28 +391,26 @@ export function MonthOverviewView() {
                     <Stack direction="row" spacing={0.5} alignItems="center" justifyContent="flex-end">
                       <Typography fontWeight={500}>{formatHoursGerman(totalNetMinutes)}</Typography>
                       {overMonthlyLimit && (
-                        <Tooltip
-                          title={t('monthlyLimitTooltip', {
-                            hours: formatHoursGerman(totalNetMinutes),
-                            limit: monthlyLimit!.toLocaleString('de-DE'),
-                          })}
-                          arrow
-                          open={warningOpenFor === employee.id}
-                          onClose={() => setWarningOpenFor(null)}
-                          disableFocusListener
-                          disableHoverListener
-                          disableTouchListener
-                        >
-                          <Box
-                            component="button"
-                            type="button"
-                            aria-label={t('monthlyLimitAriaLabel')}
-                            onClick={() => setWarningOpenFor((prev) => (prev === employee.id ? null : employee.id))}
-                            sx={{ display: 'flex', alignItems: 'center', p: 0, border: 'none', background: 'transparent', cursor: 'pointer' }}
+                        <ClickAwayListener onClickAway={() => closeWarning(employee.id)}>
+                          <Tooltip
+                            title={t('monthlyLimitTooltip', {
+                              hours: formatHoursGerman(totalNetMinutes),
+                              limit: monthlyLimit!.toLocaleString('de-DE'),
+                            })}
+                            arrow
+                            {...warningTooltipProps(employee.id)}
                           >
-                            <WarningAmberIcon fontSize="small" sx={{ color: '#c8973a' }} />
-                          </Box>
-                        </Tooltip>
+                            <Box
+                              component="button"
+                              type="button"
+                              aria-label={t('monthlyLimitAriaLabel')}
+                              onClick={() => toggleWarning(employee.id)}
+                              sx={{ display: 'flex', alignItems: 'center', p: 0, border: 'none', background: 'transparent', cursor: 'pointer' }}
+                            >
+                              <WarningAmberIcon fontSize="small" sx={{ color: '#c8973a' }} />
+                            </Box>
+                          </Tooltip>
+                        </ClickAwayListener>
                       )}
                     </Stack>
                   </TableCell>

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, within, waitFor, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
@@ -139,7 +139,33 @@ const currentYear = now.getFullYear();
 const currentMonth = now.getMonth() + 1;
 const currentMonthLabel = `${MONTH_NAMES[currentMonth - 1]} ${currentYear}`;
 
+/** Copied from useBreakpoint.test.tsx: jsdom has no real layout engine, so window.matchMedia is
+ * mocked to answer as if the viewport were `width` wide. Only needed for the tests below that
+ * specifically exercise hover-vs-touch behavior - every other test in this file relies on jsdom's
+ * unmocked (mobile-like) default, matching this file's own existing convention. */
+function mockViewportWidth(width: number) {
+  window.matchMedia = ((query: string) => {
+    const match = /min-width:\s*(\d+(?:\.\d+)?)px/.exec(query);
+    const minWidth = match ? Number(match[1]) : 0;
+    return {
+      matches: width >= minWidth,
+      media: query,
+      onchange: null,
+      addListener: () => {},
+      removeListener: () => {},
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      dispatchEvent: () => false,
+    } as unknown as MediaQueryList;
+  }) as typeof window.matchMedia;
+}
+
 describe('MonthOverviewView', () => {
+  afterEach(() => {
+    // @ts-expect-error -- undo the per-test stub, jsdom has no matchMedia of its own to restore
+    delete window.matchMedia;
+  });
+
   beforeEach(() => {
     employeeForBranch.mockReset();
     absenceForBranch.mockReset();
@@ -675,6 +701,115 @@ describe('MonthOverviewView', () => {
       name: `${fullName(employee)}, KW ${weeks[1].week}, 0 Std. bearbeiten`,
     });
     expect(within(cleanCell).queryByRole('button', { name: 'Hinweis anzeigen' })).not.toBeInTheDocument();
+  });
+
+  it('shows the week-cell warning tooltip on hover from tablet width up', async () => {
+    mockViewportWidth(1024);
+    selectBranch();
+    const user = userEvent.setup();
+    const employee = makeEmployee();
+    employeeForBranch.mockResolvedValue([employee]);
+    const weeks = calendarWeeksInMonth(currentYear, currentMonth);
+    const violatingSchedule = withDayEntry(
+      createWeeklySchedule(branch.id, weeks[0], [employee.id]),
+      employee.id,
+      'Montag',
+      { type: 'Shift', shifts: [createShift(clockTime('06:00'), clockTime('20:00'))] }, // 14h, over the 10h daily max
+    );
+    scheduleForBranch.mockResolvedValue([violatingSchedule]);
+
+    renderView();
+    const violatingCell = await screen.findByRole('button', {
+      name: `${fullName(employee)}, KW ${weeks[0].week}, 14 Std. bearbeiten`,
+    });
+    const warningIcon = within(violatingCell).getByRole('button', { name: 'Hinweis anzeigen' });
+
+    await user.hover(warningIcon);
+    expect(await screen.findByText(/überschreitet die gesetzlich zulässige Höchstgrenze/)).toBeInTheDocument();
+
+    await user.unhover(warningIcon);
+    await waitFor(() => expect(screen.queryByText(/überschreitet die gesetzlich zulässige Höchstgrenze/)).not.toBeInTheDocument());
+  });
+
+  it('does nothing on hover at mobile width - tap still opens the warning tooltip', async () => {
+    selectBranch();
+    const user = userEvent.setup();
+    const employee = makeEmployee();
+    employeeForBranch.mockResolvedValue([employee]);
+    const weeks = calendarWeeksInMonth(currentYear, currentMonth);
+    const violatingSchedule = withDayEntry(
+      createWeeklySchedule(branch.id, weeks[0], [employee.id]),
+      employee.id,
+      'Montag',
+      { type: 'Shift', shifts: [createShift(clockTime('06:00'), clockTime('20:00'))] },
+    );
+    scheduleForBranch.mockResolvedValue([violatingSchedule]);
+
+    renderView();
+    const violatingCell = await screen.findByRole('button', {
+      name: `${fullName(employee)}, KW ${weeks[0].week}, 14 Std. bearbeiten`,
+    });
+    const warningIcon = within(violatingCell).getByRole('button', { name: 'Hinweis anzeigen' });
+
+    await user.hover(warningIcon);
+    expect(screen.queryByText(/überschreitet die gesetzlich zulässige Höchstgrenze/)).not.toBeInTheDocument();
+
+    await user.click(warningIcon);
+    expect(await screen.findByText(/überschreitet die gesetzlich zulässige Höchstgrenze/)).toBeInTheDocument();
+  });
+
+  it('a second click on the same warning icon closes the tooltip again', async () => {
+    selectBranch();
+    const user = userEvent.setup();
+    const employee = makeEmployee();
+    employeeForBranch.mockResolvedValue([employee]);
+    const weeks = calendarWeeksInMonth(currentYear, currentMonth);
+    const violatingSchedule = withDayEntry(
+      createWeeklySchedule(branch.id, weeks[0], [employee.id]),
+      employee.id,
+      'Montag',
+      { type: 'Shift', shifts: [createShift(clockTime('06:00'), clockTime('20:00'))] },
+    );
+    scheduleForBranch.mockResolvedValue([violatingSchedule]);
+
+    renderView();
+    const violatingCell = await screen.findByRole('button', {
+      name: `${fullName(employee)}, KW ${weeks[0].week}, 14 Std. bearbeiten`,
+    });
+    const warningIcon = within(violatingCell).getByRole('button', { name: 'Hinweis anzeigen' });
+
+    await user.click(warningIcon);
+    expect(await screen.findByText(/überschreitet die gesetzlich zulässige Höchstgrenze/)).toBeInTheDocument();
+
+    await user.click(warningIcon);
+    await waitFor(() => expect(screen.queryByText(/überschreitet die gesetzlich zulässige Höchstgrenze/)).not.toBeInTheDocument());
+  });
+
+  it('closes the week-cell warning tooltip when clicking a different, unrelated element (click-away)', async () => {
+    selectBranch();
+    const user = userEvent.setup();
+    const employee = makeEmployee();
+    employeeForBranch.mockResolvedValue([employee]);
+    const weeks = calendarWeeksInMonth(currentYear, currentMonth);
+    const violatingSchedule = withDayEntry(
+      createWeeklySchedule(branch.id, weeks[0], [employee.id]),
+      employee.id,
+      'Montag',
+      { type: 'Shift', shifts: [createShift(clockTime('06:00'), clockTime('20:00'))] },
+    );
+    scheduleForBranch.mockResolvedValue([violatingSchedule]);
+
+    renderView();
+    const violatingCell = await screen.findByRole('button', {
+      name: `${fullName(employee)}, KW ${weeks[0].week}, 14 Std. bearbeiten`,
+    });
+    const warningIcon = within(violatingCell).getByRole('button', { name: 'Hinweis anzeigen' });
+
+    await user.click(warningIcon);
+    expect(await screen.findByText(/überschreitet die gesetzlich zulässige Höchstgrenze/)).toBeInTheDocument();
+
+    await user.click(screen.getByText(currentMonthLabel));
+    await waitFor(() => expect(screen.queryByText(/überschreitet die gesetzlich zulässige Höchstgrenze/)).not.toBeInTheDocument());
   });
 
   describe('CSV-Export', () => {

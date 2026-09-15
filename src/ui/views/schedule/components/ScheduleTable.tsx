@@ -1,4 +1,4 @@
-import { memo, useMemo, useState } from 'react';
+import { memo, useMemo } from 'react';
 import type { KeyboardEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import Table from '@mui/material/Table';
@@ -12,6 +12,7 @@ import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
 import Typography from '@mui/material/Typography';
 import Tooltip from '@mui/material/Tooltip';
+import ClickAwayListener from '@mui/material/ClickAwayListener';
 import Stack from '@mui/material/Stack';
 import Checkbox from '@mui/material/Checkbox';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
@@ -33,6 +34,7 @@ import type { ScheduleRow } from '../scheduleRows';
 import { canReceiveEntry, isCellLocked } from '../scheduleRows';
 import { stickyCornerSx, stickyFirstColumnSx, stickyHeaderRowSx } from '@ui/components/stickyFirstColumn';
 import { useBreakpoint } from '@ui/hooks/useBreakpoint';
+import { useTapTooltip } from '@ui/hooks/useTapTooltip';
 
 interface ScheduleTableProps {
   rows: ScheduleRow[];
@@ -60,11 +62,6 @@ interface ScheduleTableProps {
    * happens with a selection once made, same as activeTool for assignMode. */
   selectedCells: Set<string>;
   onToggleCellSelection: (employeeId: EmployeeId, dayView: DayView) => void;
-  /** True on touch breakpoints (tablet/mobile) - the two warning-icon Tooltips below stay
-   * click-to-toggle only there (N20). Optional, defaulting to the safer "no hover" behavior, so
-   * the many existing tests that don't care about hover-vs-touch don't all need updating for a
-   * prop irrelevant to what they verify. */
-  touchMode?: boolean;
 }
 
 const NO_RESULTS: ValidationResult[] = [];
@@ -115,7 +112,6 @@ export const ScheduleTable = memo(function ScheduleTable({
   selectionMode,
   selectedCells,
   onToggleCellSelection,
-  touchMode = true,
 }: ScheduleTableProps) {
   const { t } = useTranslation('schedule');
   const { t: tCommon } = useTranslation();
@@ -124,14 +120,11 @@ export const ScheduleTable = memo(function ScheduleTable({
   // Only 2 fixed, non-interpolated outputs possible - computed once instead of once per locked row.
   const inactiveLabel = tCommon('inactive');
   const notEmployedLabel = t('notEmployedLabel');
-  // Warning/deviation tooltips: one shared key instead of per-icon local state, so opening a new
-  // one always closes whichever was open - matches "tap elsewhere dismisses it". Controlled mode
-  // (open/onClose + the three disable*Listener props) turns MUI Tooltip's default 700ms
-  // enterTouchDelay hover/hold behavior into an explicit tap-to-show/tap-to-hide toggle, while MUI's
-  // own built-in click-away-to-close still applies to an open-controlled Tooltip - no ClickAwayListener needed.
-  const [openTooltipKey, setOpenTooltipKey] = useState<string | null>(null);
-  const toggleTooltip = (key: string) =>
-    setOpenTooltipKey((prev) => (prev === key ? null : key));
+  // Warning/deviation tooltips: shared controller (see useTapTooltip's own doc comment) - one open
+  // key at a time, hover enabled from tablet width up, tap-to-toggle everywhere, and each trigger
+  // below is wrapped in ClickAwayListener since MUI's Tooltip adds no click-away handling of its own
+  // even when controlled.
+  const { toggle: toggleTooltip, tooltipProps, close: closeTooltip } = useTapTooltip();
   // Grouped once per validation run instead of filtering the whole result list for every cell.
   // Week-level results (no date) belong to no cell; ValidationNotices lists them instead.
   const resultsByCell = useMemo(() => {
@@ -244,38 +237,35 @@ export const ScheduleTable = memo(function ScheduleTable({
                       })}
                     </Typography>
                     {differenceMinutes !== 0 && (
-                      <Tooltip
-                        title={t('deviationTooltip', {
-                          sign: differenceMinutes > 0 ? '+' : '',
-                          hours: formatHoursGerman(differenceMinutes),
-                          direction: differenceMinutes > 0 ? t('overTarget') : t('underTarget'),
-                          range: formatHoursRangeGerman(target.min, target.max),
-                        })}
-                        arrow
-                        open={openTooltipKey === `deviation|${view.employeeId}`}
-                        onOpen={() => setOpenTooltipKey(`deviation|${view.employeeId}`)}
-                        onClose={() => setOpenTooltipKey(null)}
-                        disableFocusListener
-                        disableHoverListener={touchMode}
-                        disableTouchListener
-                      >
-                        <Box
-                          component="button"
-                          type="button"
-                          aria-label={t('deviationAriaLabel')}
-                          onClick={() => toggleTooltip(`deviation|${view.employeeId}`)}
-                          sx={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            p: 0,
-                            border: 'none',
-                            background: 'transparent',
-                            cursor: 'pointer',
-                          }}
+                      <ClickAwayListener onClickAway={() => closeTooltip(`deviation|${view.employeeId}`)}>
+                        <Tooltip
+                          title={t('deviationTooltip', {
+                            sign: differenceMinutes > 0 ? '+' : '',
+                            hours: formatHoursGerman(differenceMinutes),
+                            direction: differenceMinutes > 0 ? t('overTarget') : t('underTarget'),
+                            range: formatHoursRangeGerman(target.min, target.max),
+                          })}
+                          arrow
+                          {...tooltipProps(`deviation|${view.employeeId}`)}
                         >
-                          <WarningAmberIcon fontSize="small" sx={{ color: '#c8973a' }} />
-                        </Box>
-                      </Tooltip>
+                          <Box
+                            component="button"
+                            type="button"
+                            aria-label={t('deviationAriaLabel')}
+                            onClick={() => toggleTooltip(`deviation|${view.employeeId}`)}
+                            sx={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              p: 0,
+                              border: 'none',
+                              background: 'transparent',
+                              cursor: 'pointer',
+                            }}
+                          >
+                            <WarningAmberIcon fontSize="small" sx={{ color: '#c8973a' }} />
+                          </Box>
+                        </Tooltip>
+                      </ClickAwayListener>
                     )}
                   </Stack>
                 </TableCell>
@@ -391,52 +381,49 @@ export const ScheduleTable = memo(function ScheduleTable({
                         />
                       )}
                       {matches.length > 0 && (
-                        <Tooltip
-                          title={
-                            <Stack spacing={0.5}>
-                              {matches.map((e, i) => (
-                                <span key={i}>{e.message}</span>
-                              ))}
-                            </Stack>
-                          }
-                          arrow
-                          open={openTooltipKey === warningKey}
-                          onOpen={() => setOpenTooltipKey(warningKey)}
-                          onClose={() => setOpenTooltipKey(null)}
-                          disableFocusListener
-                          disableHoverListener={touchMode}
-                          disableTouchListener
-                        >
-                          {/* A dedicated tap target (not the whole cell, which already opens the
-                              Tageseditor on tap) - stopPropagation keeps the two from competing for
-                              the same tap, matching the row-level deviation icon's own pattern. */}
-                          <Box
-                            component="button"
-                            type="button"
-                            aria-label={t('hintAriaLabel')}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              toggleTooltip(warningKey);
-                            }}
-                            sx={{
-                              position: 'absolute',
-                              top: 2,
-                              right: 2,
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              width: 20,
-                              height: 20,
-                              p: 0,
-                              border: 'none',
-                              background: 'transparent',
-                              cursor: 'pointer',
-                              color: hasError ? '#b3261e' : '#8a6d1f',
-                            }}
+                        <ClickAwayListener onClickAway={() => closeTooltip(warningKey)}>
+                          <Tooltip
+                            title={
+                              <Stack spacing={0.5}>
+                                {matches.map((e, i) => (
+                                  <span key={i}>{e.message}</span>
+                                ))}
+                              </Stack>
+                            }
+                            arrow
+                            {...tooltipProps(warningKey)}
                           >
-                            <WarningAmberIcon sx={{ fontSize: 16 }} />
-                          </Box>
-                        </Tooltip>
+                            {/* A dedicated tap target (not the whole cell, which already opens the
+                                Tageseditor on tap) - stopPropagation keeps the two from competing for
+                                the same tap, matching the row-level deviation icon's own pattern. */}
+                            <Box
+                              component="button"
+                              type="button"
+                              aria-label={t('hintAriaLabel')}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleTooltip(warningKey);
+                              }}
+                              sx={{
+                                position: 'absolute',
+                                top: 2,
+                                right: 2,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                width: 20,
+                                height: 20,
+                                p: 0,
+                                border: 'none',
+                                background: 'transparent',
+                                cursor: 'pointer',
+                                color: hasError ? '#b3261e' : '#8a6d1f',
+                              }}
+                            >
+                              <WarningAmberIcon sx={{ fontSize: 16 }} />
+                            </Box>
+                          </Tooltip>
+                        </ClickAwayListener>
                       )}
                       {dayView.absenceCoversWholeDay && dayView.absence ? (
                         <>
