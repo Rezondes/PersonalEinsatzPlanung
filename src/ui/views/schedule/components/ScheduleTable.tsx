@@ -285,13 +285,11 @@ export const ScheduleTable = memo(function ScheduleTable({
                   // below) - a cell that cannot receive an entry never shows the target highlight
                   // either, even while assignMode is on.
                   const isTarget = assignMode && droppable && isAssignTarget(view.employeeId, dayView);
-                  // hasError/hasWarning keep their light-mode-only literals for now (a known, narrow
-                  // dark-mode gap): they only ever show on an actual ArbZG violation/deviation, and
-                  // giving them their own dark-mode-safe tones needs the same real contrast-tool
-                  // pass as the accent colors got, not a guessed hex value. locked/the plain default
-                  // are the common-path cells (most of the table, every day), so those get a real
-                  // dark-mode pair now; theme.palette.background.default is an exact match for the
-                  // pre-existing light-mode default literal, so light mode is pixel-identical.
+                  // locked/the plain default are the common-path cells (most of the table, every
+                  // day); theme.palette.background.default is an exact match for the pre-existing
+                  // light-mode default literal, so light mode is pixel-identical. hasError/hasWarning
+                  // route through theme.palette.errorSurface/warningSurface, which carry their own
+                  // dark-mode tints (see theme.ts).
                   const background = isTarget
                     ? theme.palette.accentSurface.strong
                     : locked
@@ -301,9 +299,9 @@ export const ScheduleTable = memo(function ScheduleTable({
                     : dayView.absence
                       ? theme.palette.accentSurface.subtle
                       : hasError
-                        ? '#fbeaea'
+                        ? theme.palette.errorSurface.subtle
                         : hasWarning
-                          ? '#fdf3e0'
+                          ? theme.palette.warningSurface.subtle
                           : theme.palette.background.default;
                   const breakMinutes =
                     dayView.entry.type === 'Shift'
@@ -371,9 +369,9 @@ export const ScheduleTable = memo(function ScheduleTable({
                         border: isTarget
                           ? `1px solid ${theme.palette.primary.main}`
                           : hasError
-                            ? '1px solid #e5a3a0'
+                            ? `1px solid ${theme.palette.errorSurface.border}`
                             : hasWarning
-                              ? '1px solid #e6c988'
+                              ? `1px solid ${theme.palette.warningSurface.border}`
                               : '1px solid transparent',
                         minHeight: 48,
                         '&:focus-visible': { outline: `2px solid ${theme.palette.primary.main}`, outlineOffset: 2 },
@@ -428,7 +426,7 @@ export const ScheduleTable = memo(function ScheduleTable({
                                 border: 'none',
                                 background: 'transparent',
                                 cursor: 'pointer',
-                                color: hasError ? '#b3261e' : '#8a6d1f',
+                                color: hasError ? theme.palette.error.main : theme.palette.warning.main,
                               }}
                             >
                               <WarningAmberIcon sx={{ fontSize: 16 }} />

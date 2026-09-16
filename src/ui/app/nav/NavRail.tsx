@@ -120,7 +120,7 @@ export function NavRail() {
 
       <Box sx={{ flex: 1 }} />
 
-      <Box sx={{ p: 1, borderTop: '1px solid #ececeb', display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+      <Box sx={{ p: 1, borderTop: `1px solid ${theme.palette.divider}`, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
         {FOOTER_NAV_ITEMS.map((item) => (
           <NavLink
             key={item.path}
@@ -141,7 +141,7 @@ export function NavRail() {
                 justifyContent: collapsed ? 'center' : 'flex-start',
               }}
             >
-              <item.icon fontSize="small" sx={{ flexShrink: 0, color: 'rgba(0,0,0,0.54)' }} />
+              <item.icon fontSize="small" sx={{ flexShrink: 0 }} />
               {!collapsed && <Typography noWrap>{t(item.label)}</Typography>}
             </Box>
           </NavLink>

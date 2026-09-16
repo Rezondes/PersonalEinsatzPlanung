@@ -34,7 +34,8 @@ export function BottomTabBar() {
         right: 0,
         bottom: 0,
         zIndex: (theme) => theme.zIndex.appBar,
-        borderTop: '1px solid #e0e0dc',
+        borderTop: '1px solid',
+        borderColor: 'divider',
         borderRadius: 0,
         pb: 'env(safe-area-inset-bottom, 0px)',
       }}

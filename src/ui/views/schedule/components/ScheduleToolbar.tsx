@@ -166,7 +166,7 @@ export function ScheduleToolbar({
           flexShrink: 0,
           width: vertical ? '100%' : undefined,
           borderRadius: vertical ? 2 : 1.5,
-          border: isActive ? `1px solid ${theme.palette.primary.main}` : '1px solid #e0e0dc',
+          border: isActive ? `1px solid ${theme.palette.primary.main}` : `1px solid ${theme.palette.divider}`,
           backgroundColor: isActive ? theme.palette.accentSurface.subtle : 'transparent',
         })}
       >
@@ -442,7 +442,7 @@ export function ScheduleToolbar({
               cursor: 'pointer',
             }}
           >
-            <Box sx={{ width: 36, height: 4, borderRadius: 1, backgroundColor: '#cfcfc9', flexShrink: 0 }} />
+            <Box sx={{ width: 36, height: 4, borderRadius: 1, backgroundColor: 'divider', flexShrink: 0 }} />
             <Typography variant="body2" fontWeight={500} sx={{ flex: 1 }}>
               {tCommon('secondaryActions')}
             </Typography>
@@ -469,7 +469,7 @@ export function ScheduleToolbar({
             device's own bottom safe-area inset, not MOBILE_TAB_BAR_HEIGHT (that's for content that
             must clear the tab bar's height, which an overlay drawn on top of it doesn't). */}
         <Box sx={{ display: 'flex', justifyContent: 'center', pt: 1, pb: 1, flexShrink: 0 }}>
-          <Box sx={{ width: 36, height: 4, borderRadius: 1, backgroundColor: '#cfcfc9' }} />
+          <Box sx={{ width: 36, height: 4, borderRadius: 1, backgroundColor: 'divider' }} />
         </Box>
         <Box sx={{ overflowY: 'auto', flex: 1, pb: 'calc(16px + env(safe-area-inset-bottom, 0px))' }}>
           <Typography variant="subtitle1" fontWeight={500} sx={{ px: 2, pb: 1 }}>

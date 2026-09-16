@@ -78,7 +78,7 @@ export function ShiftListEditor({ drafts, onChange, fieldProps }: ShiftListEdito
         const parsed = parseShiftDraft(shift);
         const netText = parsed ? formatHoursGerman(shiftNetMinutes(parsed)) : '–';
         return (
-          <Stack key={shift.id} spacing={1.5} sx={{ p: 2, border: '1px solid #e0e0dc', borderRadius: 2 }}>
+          <Stack key={shift.id} spacing={1.5} sx={{ p: 2, border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>
             <Stack direction="row" justifyContent="space-between" alignItems="center">
               <Typography variant="subtitle2">
                 {t('shiftHeading', { number: index + 1, hours: netText })}

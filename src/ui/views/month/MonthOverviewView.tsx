@@ -361,7 +361,7 @@ export function MonthOverviewView() {
                                   e.stopPropagation();
                                   toggleWarning(cellKey);
                                 }}
-                                sx={{
+                                sx={(theme) => ({
                                   position: 'absolute',
                                   top: 2,
                                   right: 2,
@@ -374,8 +374,8 @@ export function MonthOverviewView() {
                                   border: 'none',
                                   background: 'transparent',
                                   cursor: 'pointer',
-                                  color: hasError ? '#b3261e' : '#8a6d1f',
-                                }}
+                                  color: hasError ? theme.palette.error.main : theme.palette.warning.main,
+                                })}
                               >
                                 <WarningAmberIcon sx={{ fontSize: 16 }} />
                               </Box>

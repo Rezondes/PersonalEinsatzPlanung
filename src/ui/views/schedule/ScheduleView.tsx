@@ -852,17 +852,17 @@ export function ScheduleView() {
                     onClick={onClick}
                     aria-expanded={expanded}
                     aria-haspopup="dialog"
-                    sx={{
+                    sx={(theme) => ({
                       ...chipSx,
-                      backgroundColor: '#fbeaea',
-                      borderColor: '#e5a3a0',
-                      color: '#b3261e',
+                      backgroundColor: theme.palette.errorSurface.subtle,
+                      borderColor: theme.palette.errorSurface.border,
+                      color: theme.palette.error.main,
                       font: 'inherit',
                       cursor: 'pointer',
                       display: 'flex',
                       alignItems: 'center',
                       gap: 0.5,
-                    }}
+                    })}
                   >
                     <WarningAmberIcon fontSize="small" />
                     <Typography variant="body2" fontWeight={500} noWrap>

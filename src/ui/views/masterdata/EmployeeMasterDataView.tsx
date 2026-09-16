@@ -242,7 +242,7 @@ function EmployeeCard({
             </Typography>
           )}
         </Box>
-        <ChevronRightIcon sx={{ color: 'rgba(0,0,0,0.38)', flexShrink: 0, mt: 0.5 }} />
+        <ChevronRightIcon sx={{ color: 'text.disabled', flexShrink: 0, mt: 0.5 }} />
       </ButtonBase>
       <IconButton
         onClick={onLongPress}

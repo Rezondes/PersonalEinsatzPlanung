@@ -137,7 +137,7 @@ function BranchCard({ branch, onTap, onLongPress }: { branch: Branch; onTap: () 
           </Typography>
         </Box>
         <Chip size="small" label={branch.active ? t('active') : t('inactive')} color={branch.active ? 'success' : 'default'} sx={{ flexShrink: 0 }} />
-        <ChevronRightIcon sx={{ color: 'rgba(0,0,0,0.38)', flexShrink: 0 }} />
+        <ChevronRightIcon sx={{ color: 'text.disabled', flexShrink: 0 }} />
       </ButtonBase>
       <IconButton onClick={onLongPress} aria-label={t('otherActionsFor', { name: branch.name })} sx={{ flexShrink: 0 }}>
         <MoreVertIcon />

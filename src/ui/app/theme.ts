@@ -8,22 +8,51 @@ import type { AccentColorKey } from './theme/accentColors';
 
 // theme.ts's own elevation-flattening border color (MuiPaper/MuiAppBar/MuiCard/MuiTableCell) -
 // centralized here (not just left as a repeated literal) because dark mode needs a second value.
-// NavRail.tsx and AppHeader.tsx also consume this via theme.palette.divider/background.paper now -
-// both are always-visible primary chrome, so they needed the dark-mode treatment immediately rather
-// than as a follow-up. Other files hardcoding this same light-mode literal for an unrelated
-// "inactive/off" border semantic on individual controls (ScheduleToolbar, MorePage,
-// ShiftListEditor, BottomTabBar) are deliberately left untouched for now - a known, accepted
-// limitation: those borders may look slightly off in dark mode until a follow-up gives them their
-// own dark-mode treatment.
+// Every consumer in src/ui/ now reads this via theme.palette.divider (or the 'divider' palette-path
+// string) rather than hardcoding the literal - a full audit swept the remaining stragglers
+// (NavRail, AppHeader, ScheduleToolbar, MorePage, ShiftListEditor, BottomTabBar,
+// RowActionSheet's #cfcfc9 drag-handle) into this one source of truth.
 const DIVIDER_LIGHT = '#e0e0dc';
 const DIVIDER_DARK = '#3a3a38';
+
+// error/warning/success: same "needs a lighter foreground in dark mode" issue the accent green
+// had (the light-mode values measure only ~2.6-2.9:1 against #121212/#1e1e1e as plain text/icon
+// color - MUI's own Alert and contained-Button compute their own mode-safe colors from `.main`
+// automatically and never needed this, but every other usage - Typography color="error", an
+// outlined Button/Chip, a raw sx={{ color: 'error.main' }} - reads `.main` verbatim). Same
+// hue-preserving lightening recipe as accentColors.ts's mainDark (S 13%, L 63%), verified against
+// both dark backgrounds to clear 4.5:1 with margin (5.9-7.8:1 measured).
+const ERROR_MAIN_LIGHT = '#b3261e';
+const ERROR_MAIN_DARK = '#ad9694';
+const WARNING_MAIN_LIGHT = '#8a5a00';
+const WARNING_MAIN_DARK = '#ada494';
+const SUCCESS_MAIN_LIGHT = '#2f6b3f';
+const SUCCESS_MAIN_DARK = '#94ad9b';
+
+// Surface tints for the ArbZG-violation cell/chip highlights (ScheduleTable.tsx, ScheduleView.tsx,
+// SettingsView.tsx's danger-zone border) - previously light-mode-only literals scattered across
+// those files with no dark counterpart. Light values are the exact literals already shipped
+// (unchanged); dark values use the same hue, a background tint matching accentSurfaceDark.subtle's
+// recipe, and a lighter/more-saturated border so it still reads against that dark background.
+const ERROR_SURFACE_SUBTLE_LIGHT = '#fbeaea';
+const ERROR_SURFACE_BORDER_LIGHT = '#e5a3a0';
+const ERROR_SURFACE_SUBTLE_DARK = '#2c1c1c';
+const ERROR_SURFACE_BORDER_DARK = '#985552';
+const WARNING_SURFACE_SUBTLE_LIGHT = '#fdf3e0';
+const WARNING_SURFACE_BORDER_LIGHT = '#e6c988';
+const WARNING_SURFACE_SUBTLE_DARK = '#2c261c';
+const WARNING_SURFACE_BORDER_DARK = '#988352';
 
 declare module '@mui/material/styles' {
   interface Palette {
     accentSurface: { subtle: string; strong: string; pressed: string };
+    errorSurface: { subtle: string; border: string };
+    warningSurface: { subtle: string; border: string };
   }
   interface PaletteOptions {
     accentSurface?: { subtle: string; strong: string; pressed: string };
+    errorSurface?: { subtle: string; border: string };
+    warningSurface?: { subtle: string; border: string };
   }
 }
 
@@ -57,6 +86,15 @@ export function createAppTheme(options: CreateAppThemeOptions): Theme {
   const accentMain = isDark ? accent.mainDark : accent.main;
   const accentSurface = isDark ? accent.surfaceDark : accent.surfaceLight;
   const divider = isDark ? DIVIDER_DARK : DIVIDER_LIGHT;
+  const errorMain = isDark ? ERROR_MAIN_DARK : ERROR_MAIN_LIGHT;
+  const warningMain = isDark ? WARNING_MAIN_DARK : WARNING_MAIN_LIGHT;
+  const successMain = isDark ? SUCCESS_MAIN_DARK : SUCCESS_MAIN_LIGHT;
+  const errorSurface = isDark
+    ? { subtle: ERROR_SURFACE_SUBTLE_DARK, border: ERROR_SURFACE_BORDER_DARK }
+    : { subtle: ERROR_SURFACE_SUBTLE_LIGHT, border: ERROR_SURFACE_BORDER_LIGHT };
+  const warningSurface = isDark
+    ? { subtle: WARNING_SURFACE_SUBTLE_DARK, border: WARNING_SURFACE_BORDER_DARK }
+    : { subtle: WARNING_SURFACE_SUBTLE_LIGHT, border: WARNING_SURFACE_BORDER_LIGHT };
 
   return createTheme(
     {
@@ -64,11 +102,13 @@ export function createAppTheme(options: CreateAppThemeOptions): Theme {
         mode,
         primary: { main: accentMain, dark: accent.dark },
         accentSurface,
+        errorSurface,
+        warningSurface,
         divider,
         background: isDark ? { default: '#121212', paper: '#1e1e1e' } : { default: '#f7f7f5', paper: '#ffffff' },
-        error: { main: '#b3261e' },
-        warning: { main: '#8a5a00' },
-        success: { main: '#2f6b3f' },
+        error: { main: errorMain },
+        warning: { main: warningMain },
+        success: { main: successMain },
       },
       // `breakpoints.up('sm')` is the one threshold `hooks/useBreakpoint.ts` reads (mobile below it,
       // tablet at and above) - kept here instead of a raw pixel value scattered through the app.

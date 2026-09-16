@@ -52,14 +52,21 @@ export function MorePage() {
         {t('more')}
       </Typography>
       <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
-        <List sx={{ bgcolor: 'background.paper', border: '1px solid #e0e0dc', borderRadius: 2, overflow: 'hidden' }}>
+        <List
+          sx={(theme) => ({
+            bgcolor: 'background.paper',
+            border: `1px solid ${theme.palette.divider}`,
+            borderRadius: 2,
+            overflow: 'hidden',
+          })}
+        >
           {entries.map((item) => (
             <ListItemButton key={item.path} onClick={() => navigate(buildLocalizedPath(locale, item.path))} divider>
               <ListItemIcon>
                 <item.icon />
               </ListItemIcon>
               <ListItemText primary={t(item.label)} />
-              <ChevronRightIcon sx={{ color: 'rgba(0,0,0,0.38)' }} />
+              <ChevronRightIcon sx={{ color: 'text.disabled' }} />
             </ListItemButton>
           ))}
         </List>

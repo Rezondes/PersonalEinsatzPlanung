@@ -2,6 +2,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
+import { ThemeProvider } from '@mui/material/styles';
+import { theme } from '@ui/app/theme';
 import { services } from '@infrastructure/services';
 import { AppNotifications } from '@ui/app/AppNotifications';
 import { useNotificationStore } from '@ui/app/store/notificationStore';
@@ -47,10 +49,12 @@ const drive = vi.mocked(services.backupStorage);
 // an app whose messages go nowhere.
 const renderView = () =>
   render(
-    <MemoryRouter>
-      <SettingsView />
-      <AppNotifications />
-    </MemoryRouter>,
+    <ThemeProvider theme={theme}>
+      <MemoryRouter>
+        <SettingsView />
+        <AppNotifications />
+      </MemoryRouter>
+    </ThemeProvider>,
   );
 
 const signInButton = () => screen.queryByRole('button', { name: 'Mit Google anmelden' });

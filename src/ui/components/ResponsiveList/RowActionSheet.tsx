@@ -58,7 +58,7 @@ export function RowActionSheet({ open, onClose, title, subtitle, actions }: RowA
       }}
     >
       <Box sx={{ display: 'flex', justifyContent: 'center', pt: 1, pb: 0.5 }}>
-        <Box sx={{ width: 36, height: 4, borderRadius: 2, bgcolor: '#cfcfc9' }} />
+        <Box sx={{ width: 36, height: 4, borderRadius: 2, bgcolor: 'divider' }} />
       </Box>
       <Box sx={{ px: 2.5, pb: 1 }}>
         <Typography variant="subtitle1" fontWeight={500} noWrap>

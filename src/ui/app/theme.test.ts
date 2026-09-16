@@ -60,4 +60,36 @@ describe('createAppTheme', () => {
     expect(dark.palette.primary.main).not.toBe(light.palette.primary.main);
     expect(dark.palette.primary.dark).toBe('#2c5a80');
   });
+
+  it('keeps error/warning/success at their existing light-mode values in light mode', () => {
+    const result = createAppTheme({ mode: 'light', prefersDark: false });
+
+    expect(result.palette.error.main).toBe('#b3261e');
+    expect(result.palette.warning.main).toBe('#8a5a00');
+    expect(result.palette.success.main).toBe('#2f6b3f');
+  });
+
+  it('lightens error/warning/success in dark mode, not the light-mode values reused verbatim', () => {
+    const light = createAppTheme({ mode: 'light', prefersDark: false });
+    const dark = createAppTheme({ mode: 'dark', prefersDark: false });
+
+    expect(dark.palette.error.main).not.toBe(light.palette.error.main);
+    expect(dark.palette.warning.main).not.toBe(light.palette.warning.main);
+    expect(dark.palette.success.main).not.toBe(light.palette.success.main);
+  });
+
+  it('exposes errorSurface/warningSurface tints matching the existing shipped light-mode literals', () => {
+    const result = createAppTheme({ mode: 'light', prefersDark: false });
+
+    expect(result.palette.errorSurface).toEqual({ subtle: '#fbeaea', border: '#e5a3a0' });
+    expect(result.palette.warningSurface).toEqual({ subtle: '#fdf3e0', border: '#e6c988' });
+  });
+
+  it('gives errorSurface/warningSurface their own dark-mode tints, not the light-mode ones reused verbatim', () => {
+    const light = createAppTheme({ mode: 'light', prefersDark: false });
+    const dark = createAppTheme({ mode: 'dark', prefersDark: false });
+
+    expect(dark.palette.errorSurface).not.toEqual(light.palette.errorSurface);
+    expect(dark.palette.warningSurface).not.toEqual(light.palette.warningSurface);
+  });
 });

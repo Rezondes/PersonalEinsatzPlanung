@@ -745,7 +745,7 @@ export function SettingsView() {
           </Typography>
         </Paper>
 
-        <Paper sx={{ p: 3, borderColor: '#e5a3a0' }}>
+        <Paper sx={(theme) => ({ p: 3, borderColor: theme.palette.errorSurface.border })}>
           <Typography variant="subtitle1" fontWeight={500} sx={{ mb: 1 }}>
             {t('dangerZone.heading')}
           </Typography>
