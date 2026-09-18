@@ -438,6 +438,11 @@ export function ScheduleToolbar({
               border: 'none',
               background: 'transparent',
               font: 'inherit',
+              // A native <button> has its own non-theme-aware default text color (renderTile's
+              // button above guards against the same trap) - without this, the label Typography
+              // below (which sets no color of its own) inherits the browser's default instead of
+              // the app's text color, rendering as unreadable black-on-dark in dark mode.
+              color: 'inherit',
               textAlign: 'left',
               cursor: 'pointer',
             }}

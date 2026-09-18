@@ -15,6 +15,12 @@ import type { AccentColorKey } from './theme/accentColors';
 const DIVIDER_LIGHT = '#e0e0dc';
 const DIVIDER_DARK = '#3a3a38';
 
+// ScheduleTable.tsx's locked-cell (outside an employee's employment period) background - the exact
+// literals already shipped in light mode; dark value keeps the same "barely-there" relationship to
+// background.default that the light value has to its own light background.default.
+const LOCKED_SURFACE_LIGHT = '#f0f0ee';
+const LOCKED_SURFACE_DARK = '#1c1c1a';
+
 // error/warning/success: same "needs a lighter foreground in dark mode" issue the accent green
 // had (the light-mode values measure only ~2.6-2.9:1 against #121212/#1e1e1e as plain text/icon
 // color - MUI's own Alert and contained-Button compute their own mode-safe colors from `.main`
@@ -48,11 +54,13 @@ declare module '@mui/material/styles' {
     accentSurface: { subtle: string; strong: string; pressed: string };
     errorSurface: { subtle: string; border: string };
     warningSurface: { subtle: string; border: string };
+    lockedSurface: string;
   }
   interface PaletteOptions {
     accentSurface?: { subtle: string; strong: string; pressed: string };
     errorSurface?: { subtle: string; border: string };
     warningSurface?: { subtle: string; border: string };
+    lockedSurface?: string;
   }
 }
 
@@ -95,6 +103,19 @@ export function createAppTheme(options: CreateAppThemeOptions): Theme {
   const warningSurface = isDark
     ? { subtle: WARNING_SURFACE_SUBTLE_DARK, border: WARNING_SURFACE_BORDER_DARK }
     : { subtle: WARNING_SURFACE_SUBTLE_LIGHT, border: WARNING_SURFACE_BORDER_LIGHT };
+  const lockedSurface = isDark ? LOCKED_SURFACE_DARK : LOCKED_SURFACE_LIGHT;
+  // A filled Alert paints its background from `.dark` in dark mode (MUI's Alert.js: `mode === 'dark'
+  // ? palette[color].dark : palette[color].main`), auto-derived as darken(main, 0.3) when unset. In
+  // dark mode `.main` is deliberately the lightened text/icon tone from the comment above, so that
+  // auto-derivation produces a muddy background. Pin `.dark` to the light-mode tone (already proven
+  // to pair with white text there) for dark mode only - same "solid fill that must NOT follow the
+  // mode-adjusted lighten-for-dark-mode logic" contract as accent.dark. This does NOT fix the
+  // Alert's text color: Alert.js always recomputes it as getContrastText(palette[color].main)
+  // regardless of mode or an explicit contrastText, so a `contrastText` field here would be silently
+  // ignored by Alert - the components.MuiAlert override below covers the text side instead.
+  const errorDarkFill = isDark ? { dark: ERROR_MAIN_LIGHT } : {};
+  const warningDarkFill = isDark ? { dark: WARNING_MAIN_LIGHT } : {};
+  const successDarkFill = isDark ? { dark: SUCCESS_MAIN_LIGHT } : {};
 
   return createTheme(
     {
@@ -104,11 +125,12 @@ export function createAppTheme(options: CreateAppThemeOptions): Theme {
         accentSurface,
         errorSurface,
         warningSurface,
+        lockedSurface,
         divider,
         background: isDark ? { default: '#121212', paper: '#1e1e1e' } : { default: '#f7f7f5', paper: '#ffffff' },
-        error: { main: errorMain },
-        warning: { main: warningMain },
-        success: { main: successMain },
+        error: { main: errorMain, ...errorDarkFill },
+        warning: { main: warningMain, ...warningDarkFill },
+        success: { main: successMain, ...successDarkFill },
       },
       // `breakpoints.up('sm')` is the one threshold `hooks/useBreakpoint.ts` reads (mobile below it,
       // tablet at and above) - kept here instead of a raw pixel value scattered through the app.
@@ -189,6 +211,19 @@ export function createAppTheme(options: CreateAppThemeOptions): Theme {
             root: { minWidth: 44, minHeight: 44 },
           },
         },
+        // Companion to errorDarkFill/warningDarkFill/successDarkFill above: a filled Alert's text
+        // color is always getContrastText(palette[color].main), which in dark mode picks black
+        // because `.main` is the lightened text/icon tone, not the saturated `.dark` background the
+        // Alert actually paints - fix the text side directly since the palette can't express it.
+        ...(isDark && {
+          MuiAlert: {
+            styleOverrides: {
+              filledError: { color: '#ffffff' },
+              filledWarning: { color: '#ffffff' },
+              filledSuccess: { color: '#ffffff' },
+            },
+          },
+        }),
       },
     },
     deDE,

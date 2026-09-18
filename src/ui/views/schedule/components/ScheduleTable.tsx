@@ -264,7 +264,7 @@ export const ScheduleTable = memo(function ScheduleTable({
                               cursor: 'pointer',
                             }}
                           >
-                            <WarningAmberIcon fontSize="small" sx={{ color: '#c8973a' }} />
+                            <WarningAmberIcon fontSize="small" sx={{ color: 'warning.main' }} />
                           </Box>
                         </Tooltip>
                       </ClickAwayListener>
@@ -293,9 +293,7 @@ export const ScheduleTable = memo(function ScheduleTable({
                   const background = isTarget
                     ? theme.palette.accentSurface.strong
                     : locked
-                    ? theme.palette.mode === 'dark'
-                      ? '#1c1c1a'
-                      : '#f0f0ee'
+                    ? theme.palette.lockedSurface
                     : dayView.absence
                       ? theme.palette.accentSurface.subtle
                       : hasError

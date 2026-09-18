@@ -615,7 +615,11 @@ export function SettingsView() {
           <Typography variant="body2" color="text.secondary" sx={{ mt: 2, mb: 1 }}>
             {t('appearance.accentLabel')}
           </Typography>
-          <Box role="radiogroup" aria-label={t('appearance.accentLabel')} sx={{ display: 'flex', gap: 1.5 }}>
+          <Box
+            role="radiogroup"
+            aria-label={t('appearance.accentLabel')}
+            sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, rowGap: 1.5 }}
+          >
             {ACCENT_COLOR_ORDER.map((key, index) => {
               const isSelected = accentColor === key;
               return (
@@ -648,7 +652,7 @@ export function SettingsView() {
                     width: 36,
                     height: 36,
                     borderRadius: '50%',
-                    bgcolor: ACCENT_COLORS[key].main,
+                    bgcolor: ACCENT_COLORS[key].dark,
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',

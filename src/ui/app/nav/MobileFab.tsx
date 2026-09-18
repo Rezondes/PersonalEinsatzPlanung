@@ -23,6 +23,13 @@ export function MobileFab() {
         right: 16,
         bottom: mobileSafeBottom(16),
         zIndex: (theme) => theme.zIndex.appBar,
+        // MUI's own Fab hover darkens toward primary.dark, which theme.ts pins to the mode-stable
+        // accent.dark (meant for solid-fill-plus-white-text spots, see accentColors.ts) rather than
+        // a mode-adjusted shade - in dark mode that darkens the background while the resting
+        // auto-contrastText (computed from the lighter primary.main) stays put, dropping contrast
+        // on hover. Real touch taps are unaffected (MUI already resets this under
+        // @media (hover:none)); this only fixes mouse/trackpad hover.
+        '&:hover': { backgroundColor: 'primary.main' },
       }}
     >
       <fab.icon sx={{ mr: 1 }} />

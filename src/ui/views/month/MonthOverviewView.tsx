@@ -407,7 +407,7 @@ export function MonthOverviewView() {
                               onClick={() => toggleWarning(employee.id)}
                               sx={{ display: 'flex', alignItems: 'center', p: 0, border: 'none', background: 'transparent', cursor: 'pointer' }}
                             >
-                              <WarningAmberIcon fontSize="small" sx={{ color: '#c8973a' }} />
+                              <WarningAmberIcon fontSize="small" sx={{ color: 'warning.main' }} />
                             </Box>
                           </Tooltip>
                         </ClickAwayListener>
