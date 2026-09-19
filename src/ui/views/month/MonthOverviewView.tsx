@@ -1,5 +1,4 @@
 import { useMemo, useState } from 'react';
-import type { KeyboardEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
@@ -8,6 +7,7 @@ import Stack from '@mui/material/Stack';
 import IconButton from '@mui/material/IconButton';
 import Button from '@mui/material/Button';
 import TextField from '@mui/material/TextField';
+import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 import Paper from '@mui/material/Paper';
 import Table from '@mui/material/Table';
@@ -23,6 +23,7 @@ import CircularProgress from '@mui/material/CircularProgress';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
+import MoreVertIcon from '@mui/icons-material/MoreVert';
 import FileDownloadOutlinedIcon from '@mui/icons-material/FileDownloadOutlined';
 import type { WeeklySchedule } from '@domain/schedule/WeeklySchedule';
 import type { CalendarWeek } from '@domain/shared/CalendarWeek';
@@ -51,18 +52,6 @@ import { stickyCornerSx, stickyFirstColumnSx, stickyHeaderRowSx } from '@ui/comp
 import { useLocale } from '@ui/app/locale/useLocale';
 import { buildLocalizedPath } from '@ui/app/locale/locale';
 
-/** Moves focus to the previous/next week cell within the SAME row (header or data), so arrow keys
- * still reach every column once only the first cell of each row is a Tab stop (see the tabIndex
- * comment below) - a week cell is the only thing in a row carrying role="button", found via the
- * same closest()-based DOM lookup ScheduleView's context-menu handler already uses for a similar
- * "find the relevant cell" problem. */
-function focusAdjacentWeekCell(e: KeyboardEvent<HTMLElement>, direction: 1 | -1) {
-  const row = e.currentTarget.closest('tr');
-  const weekCells = Array.from(row?.querySelectorAll<HTMLElement>('[role="button"]') ?? []);
-  const index = weekCells.indexOf(e.currentTarget);
-  weekCells[index + direction]?.focus();
-}
-
 export function MonthOverviewView() {
   const { t } = useTranslation('month');
   const { t: tCommon } = useTranslation();
@@ -81,6 +70,10 @@ export function MonthOverviewView() {
   // Shared controller (see useTapTooltip's own doc comment) - hover from tablet width up, tap
   // everywhere, only one warning open at a time; matches ScheduleTable's identical pattern.
   const { toggle: toggleWarning, tooltipProps: warningTooltipProps, close: closeWarning } = useTapTooltip();
+  // One shared Menu (see ScheduleToolbar.tsx's identical templateMenu pattern) rather than one per
+  // week column - only ever one open at a time, closing the previous when a different week's
+  // actions button is clicked.
+  const [weekMenu, setWeekMenu] = useState<{ cw: CalendarWeek; anchor: HTMLElement } | null>(null);
 
   // useAsyncData (not a bare useState+useEffect) for the same reason every other selection-scoped
   // load in this app uses it: error reporting, a loading flag, and a guard against a slow response
@@ -158,6 +151,21 @@ export function MonthOverviewView() {
     setSelectedWeek(cw);
     navigate(buildLocalizedPath(locale, '/schedule'));
   };
+
+  const weekActionsMenu = (
+    <Menu open={!!weekMenu} anchorEl={weekMenu?.anchor ?? null} onClose={() => setWeekMenu(null)}>
+      {weekMenu && (
+        <MenuItem
+          onClick={() => {
+            jumpToWeek(weekMenu.cw);
+            setWeekMenu(null);
+          }}
+        >
+          {t('jumpToWeekAriaLabel', { week: weekMenu.cw.week })}
+        </MenuItem>
+      )}
+    </Menu>
+  );
 
   return (
     <Box
@@ -249,33 +257,21 @@ export function MonthOverviewView() {
               <TableCell align="right" sx={stickyHeaderRowSx()}>
                 {t('columnTargetWeekly')}
               </TableCell>
-              {allWeeks.map((cw, weekIndex) => (
+              {allWeeks.map((cw) => (
                 <TableCell key={`${cw.year}-${cw.week}`} align="center" sx={stickyHeaderRowSx()}>
-                  {/* Interactive role/aria-label live on this inner Box, not the <th> itself
-                      (N23) - matches ScheduleTable.tsx's own correct pattern. */}
-                  <Box
-                    onClick={() => jumpToWeek(cw)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        jumpToWeek(cw);
-                      } else if (e.key === 'ArrowRight') {
-                        focusAdjacentWeekCell(e, 1);
-                      } else if (e.key === 'ArrowLeft') {
-                        focusAdjacentWeekCell(e, -1);
-                      }
-                    }}
-                    role="button"
-                    // Only the first week cell of a row is a Tab stop - with one row per employee
-                    // this used to add a tab stop per week per employee (75+ on a full month), a
-                    // keyboard trap rather than a shortcut. ArrowLeft/ArrowRight above still reach
-                    // every other week cell in the same row.
-                    tabIndex={weekIndex === 0 ? 0 : -1}
-                    aria-label={t('jumpToWeekAriaLabel', { week: cw.week })}
-                    sx={(theme) => ({ cursor: 'pointer', display: 'inline-block', '&:focus-visible': { outline: `2px solid ${theme.palette.primary.main}`, outlineOffset: -2 } })}
-                  >
+                  {/* The actions button lives on this inner element, not the <th> itself (N23) -
+                      matches ScheduleTable.tsx's own correct pattern. A real IconButton needs no
+                      manual tabIndex/keyboard handling, unlike the role="button" Box it replaces. */}
+                  <Stack direction="row" spacing={0} alignItems="center" justifyContent="center">
                     {t('weekPrefix', { week: cw.week })}
-                  </Box>
+                    <IconButton
+                      size="small"
+                      aria-label={t('weekActionsAriaLabel', { week: cw.week })}
+                      onClick={(e) => setWeekMenu({ cw, anchor: e.currentTarget })}
+                    >
+                      <MoreVertIcon fontSize="small" />
+                    </IconButton>
+                  </Stack>
                 </TableCell>
               ))}
               <TableCell align="right" sx={stickyHeaderRowSx()}>
@@ -322,7 +318,7 @@ export function MonthOverviewView() {
                       targetWeeklyHoursRange(employee.employmentType).max * 60,
                     )}
                   </TableCell>
-                  {allWeeks.map((cw, weekIndex) => {
+                  {allWeeks.map((cw) => {
                     const weekValue = row?.weeks.find(
                       (w) => w.calendarWeek.year === cw.year && w.calendarWeek.week === cw.week,
                     );
@@ -330,36 +326,12 @@ export function MonthOverviewView() {
                     const weekResults = weekValidation.get(cellKey) ?? [];
                     const hasError = weekResults.some((r) => r.severity === 'error');
                     const hasWarning = weekResults.some((r) => r.severity === 'warning');
-                    const hoursText = weekValue ? t('hoursValue', { hours: formatHoursGerman(weekValue.totalNetMinutes) }) : t('noEntries');
                     return (
                       <TableCell key={`${cw.year}-${cw.week}`} align="center">
-                      {/* Interactive role/aria-label live on this inner Box, not the <td> itself
-                          (N23) - matches ScheduleTable.tsx's own correct pattern. position:relative
-                          moves here too, so the absolutely-positioned warning icon below (now a
-                          descendant, not a TableCell-level sibling) still anchors correctly. */}
-                      <Box
-                        onClick={() => jumpToWeek(cw)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' || e.key === ' ') {
-                            e.preventDefault();
-                            jumpToWeek(cw);
-                          } else if (e.key === 'ArrowRight') {
-                            focusAdjacentWeekCell(e, 1);
-                          } else if (e.key === 'ArrowLeft') {
-                            focusAdjacentWeekCell(e, -1);
-                          }
-                        }}
-                        role="button"
-                        // See the matching comment on the header cell above - only the first week
-                        // cell of each row is a Tab stop, ArrowLeft/ArrowRight reach the rest.
-                        tabIndex={weekIndex === 0 ? 0 : -1}
-                        aria-label={t('weekCellAriaLabel', { name: fullName(employee), week: cw.week, hoursText })}
-                        sx={(theme) => ({
-                          position: 'relative',
-                          cursor: 'pointer',
-                          '&:focus-visible': { outline: `2px solid ${theme.palette.primary.main}`, outlineOffset: -2 },
-                        })}
-                      >
+                      {/* Purely informational now - a week is only ever opened via the header's
+                          actions menu (Package 5). position:relative stays so the absolutely
+                          positioned warning icon below still anchors correctly. */}
+                      <Box sx={{ position: 'relative' }}>
                         {(hasError || hasWarning) && (
                           <ClickAwayListener onClickAway={() => closeWarning(cellKey)}>
                             <Tooltip
@@ -422,6 +394,7 @@ export function MonthOverviewView() {
             })}
           </TableBody>
         </Table>
+        {weekActionsMenu}
       </TableContainer>
       )}
     </Box>

@@ -164,6 +164,20 @@ function mockViewportWidth(width: number) {
   }) as typeof window.matchMedia;
 }
 
+/** Week data cells lost their own aria-label/role=button in Package 5 (only the header's actions
+ * menu navigates now) - locate one by its fixed position in the row instead: name(0), Soll/Woche(1),
+ * one cell per week in month order(2..), Gesamt(last). */
+function weekCellInRow(row: HTMLElement, weekIndexInMonth: number): HTMLElement {
+  return within(row).getAllByRole('cell')[2 + weekIndexInMonth];
+}
+
+/** Opens a week's header actions menu and clicks its one "jump to week" item - the Package 5
+ * replacement for directly clicking the (now removed) header role=button. */
+async function jumpViaWeekMenu(user: ReturnType<typeof userEvent.setup>, week: number) {
+  await user.click(screen.getByRole('button', { name: `Aktionen für Kalenderwoche ${week}` }));
+  await user.click(await screen.findByRole('menuitem', { name: `Zu Kalenderwoche ${week} springen` }));
+}
+
 describe('MonthOverviewView', () => {
   afterEach(() => {
     // @ts-expect-error -- undo the per-test stub, jsdom has no matchMedia of its own to restore
@@ -251,8 +265,7 @@ describe('MonthOverviewView', () => {
     await act(async () => {
       useBranchSelectionStore.setState({ selectedBranchId: branchB.id });
     });
-    const cellName = `${fullName(employee)}, KW ${week1.week}, 8 Std. bearbeiten`;
-    await waitFor(() => expect(screen.getByRole('button', { name: cellName })).toHaveTextContent('8'));
+    await waitFor(() => expect(weekCellInRow(screen.getByText(fullName(employee)).closest('tr')!, 0)).toHaveTextContent('8'));
 
     // Branch A's slow response finally arrives AFTER branch B's data is already showing - it must
     // not silently overwrite the table with branch A's (empty) schedule. Re-querying fresh below
@@ -265,7 +278,7 @@ describe('MonthOverviewView', () => {
       await slowForBranchA.promise;
     });
 
-    expect(screen.getByRole('button', { name: cellName })).toHaveTextContent('8');
+    expect(weekCellInRow(screen.getByText(fullName(employee)).closest('tr')!, 0)).toHaveTextContent('8');
   });
 
   it('renders the current month/year and one row per employee with no schedule data loaded', async () => {
@@ -306,15 +319,11 @@ describe('MonthOverviewView', () => {
 
     renderView();
 
-    const assignedCell = await screen.findByRole('button', {
-      name: `${fullName(assigned)}, KW ${week1.week}, 0 Std. bearbeiten`,
-    });
-    expect(assignedCell).toHaveTextContent('0');
+    const assignedRow = (await screen.findByText(fullName(assigned))).closest('tr')!;
+    expect(weekCellInRow(assignedRow, 0)).toHaveTextContent('0');
 
-    const unassignedCell = screen.getByRole('button', {
-      name: `${fullName(unassigned)}, KW ${week1.week}, keine Einträge bearbeiten`,
-    });
-    expect(unassignedCell).toHaveTextContent('–');
+    const unassignedRow = screen.getByText(fullName(unassigned)).closest('tr')!;
+    expect(weekCellInRow(unassignedRow, 0)).toHaveTextContent('–');
   });
 
   it('advances the month, wrapping December of this year into January of the next', async () => {
@@ -388,7 +397,7 @@ describe('MonthOverviewView', () => {
 
     expect(screen.getByRole('combobox', { name: 'Jahr' })).toHaveTextContent(String(currentYear + 1));
     await waitFor(() =>
-      expect(screen.getByRole('button', { name: `Zu Kalenderwoche ${weeksNextYear[0].week} springen` })).toBeInTheDocument(),
+      expect(screen.getByRole('button', { name: `Aktionen für Kalenderwoche ${weeksNextYear[0].week}` })).toBeInTheDocument(),
     );
   });
 
@@ -409,7 +418,7 @@ describe('MonthOverviewView', () => {
     // The year field is untouched by a month-only jump.
     expect(screen.getByRole('combobox', { name: 'Jahr' })).toHaveTextContent(String(currentYear));
     await waitFor(() =>
-      expect(screen.getByRole('button', { name: `Zu Kalenderwoche ${marchWeeks[0].week} springen` })).toBeInTheDocument(),
+      expect(screen.getByRole('button', { name: `Aktionen für Kalenderwoche ${marchWeeks[0].week}` })).toBeInTheDocument(),
     );
   });
 
@@ -429,14 +438,14 @@ describe('MonthOverviewView', () => {
     await user.click(screen.getByRole('combobox', { name: 'Jahr' }));
     await user.click(screen.getByRole('option', { name: String(targetYear) }));
 
-    const header = await screen.findByRole('button', { name: `Zu Kalenderwoche ${week1.week} springen` });
-    await user.click(header);
+    await screen.findByRole('button', { name: `Aktionen für Kalenderwoche ${week1.week}` });
+    await jumpViaWeekMenu(user, week1.week);
 
     await waitFor(() => expect(screen.getByText('schedule-route-landed')).toBeInTheDocument());
     expect(useCalendarWeekStore.getState().selectedWeek).toEqual(week1);
   });
 
-  it('jumps to the schedule and selects the clicked calendar week', async () => {
+  it('öffnet die Kalenderwoche über das Aktionsmenü der Wochenspalte', async () => {
     selectBranch();
     const employee = makeEmployee();
     employeeForBranch.mockResolvedValue([employee]);
@@ -447,14 +456,31 @@ describe('MonthOverviewView', () => {
     const user = userEvent.setup();
     renderView();
 
-    const header = await screen.findByRole('button', { name: `Zu Kalenderwoche ${week1.week} springen` });
-    await user.click(header);
+    await screen.findByRole('button', { name: `Aktionen für Kalenderwoche ${week1.week}` });
+    await jumpViaWeekMenu(user, week1.week);
 
     await waitFor(() => expect(screen.getByText('schedule-route-landed')).toBeInTheDocument());
     expect(useCalendarWeekStore.getState().selectedWeek).toEqual(week1);
   });
 
-  it('puts the interactive role/aria-label on an inner element, not the <td> itself, for both the week header and a data cell (N23)', async () => {
+  it('Wochen-Datenzellen sind nicht mehr interaktiv - nur die Kopfzeile bietet das Aktionsmenü', async () => {
+    selectBranch();
+    const employee = makeEmployee();
+    employeeForBranch.mockResolvedValue([employee]);
+    const weeks = calendarWeeksInMonth(currentYear, currentMonth);
+    const week1 = weeks[0];
+    const schedule = createWeeklySchedule(branch.id, week1, [employee.id]);
+    scheduleForBranch.mockResolvedValue([schedule]);
+    renderView();
+
+    const row = (await screen.findByText(fullName(employee))).closest('tr')!;
+    expect(within(row).queryByRole('button', { name: /KW \d+.*bearbeiten/ })).not.toBeInTheDocument();
+    const dataCell = weekCellInRow(row, 0);
+    expect(dataCell).not.toHaveAttribute('role', 'button');
+    expect(dataCell).not.toHaveAttribute('tabindex');
+  });
+
+  it('puts the actions button on an inner element, not the <th> itself, for the week header (N23)', async () => {
     selectBranch();
     const employee = makeEmployee();
     employeeForBranch.mockResolvedValue([employee]);
@@ -463,16 +489,12 @@ describe('MonthOverviewView', () => {
     scheduleForBranch.mockResolvedValue([createWeeklySchedule(branch.id, week1, [employee.id])]);
     renderView();
 
-    const header = await screen.findByRole('button', { name: `Zu Kalenderwoche ${week1.week} springen` });
+    const header = await screen.findByRole('button', { name: `Aktionen für Kalenderwoche ${week1.week}` });
     expect(header.tagName).not.toBe('TH');
     expect(header.closest('th')).not.toBeNull();
-
-    const dataCell = screen.getByRole('button', { name: `${fullName(employee)}, KW ${week1.week}, 0 Std. bearbeiten` });
-    expect(dataCell.tagName).not.toBe('TD');
-    expect(dataCell.closest('td')).not.toBeNull();
   });
 
-  it('also jumps to the schedule on Enter when the week header is focused', async () => {
+  it('also jumps to the schedule on Enter when the week header\'s actions button is focused', async () => {
     selectBranch();
     const employee = makeEmployee();
     employeeForBranch.mockResolvedValue([employee]);
@@ -483,8 +505,14 @@ describe('MonthOverviewView', () => {
     const user = userEvent.setup();
     renderView();
 
-    const header = await screen.findByRole('button', { name: `Zu Kalenderwoche ${week1.week} springen` });
-    header.focus();
+    const header = await screen.findByRole('button', { name: `Aktionen für Kalenderwoche ${week1.week}` });
+    // Wrapped in act(): ButtonBase's own focus-visible detection updates state on a raw DOM
+    // .focus() call, outside userEvent's act() wrapping otherwise.
+    act(() => header.focus());
+    await user.keyboard('{Enter}');
+    // MUI's Menu focuses its item asynchronously (Popper/transition timing) - wait for it to
+    // actually land before the second Enter, or that keypress can race the focus-trap effect.
+    await screen.findByRole('menuitem', { name: `Zu Kalenderwoche ${week1.week} springen` });
     await user.keyboard('{Enter}');
 
     await waitFor(() => expect(screen.getByText('schedule-route-landed')).toBeInTheDocument());
@@ -497,16 +525,14 @@ describe('MonthOverviewView', () => {
     employeeForBranch.mockResolvedValue([employee]);
     const weeks = calendarWeeksInMonth(currentYear, currentMonth);
     expect(weeks.length).toBeGreaterThan(1);
-    const [week1, week2] = weeks;
+    const [week1] = weeks;
     const schedule = createWeeklySchedule(branch.id, week1, [employee.id]);
     scheduleForBranch.mockResolvedValue([schedule]);
 
     renderView();
 
-    const week2Cell = await screen.findByRole('button', {
-      name: `${fullName(employee)}, KW ${week2.week}, 0 Std. bearbeiten`,
-    });
-    expect(week2Cell).toHaveTextContent('0');
+    const row = (await screen.findByText(fullName(employee))).closest('tr')!;
+    expect(weekCellInRow(row, 1)).toHaveTextContent('0');
   });
 
   it('dims an inactive employee\'s row and marks it with an "Inaktiv" chip, matching the Stammdaten convention, as long as they still carry hours this month (N26)', async () => {
@@ -535,70 +561,6 @@ describe('MonthOverviewView', () => {
 
     await screen.findByRole('table');
     expect(screen.queryByText(fullName(inactive))).not.toBeInTheDocument();
-  });
-
-  it('gives only the first week cell of each row a tab stop, not every individual cell', async () => {
-    selectBranch();
-    const employee = makeEmployee();
-    employeeForBranch.mockResolvedValue([employee]);
-    const weeks = calendarWeeksInMonth(currentYear, currentMonth);
-    expect(weeks.length).toBeGreaterThan(1);
-    const schedule = createWeeklySchedule(branch.id, weeks[0], [employee.id]);
-    scheduleForBranch.mockResolvedValue([schedule]);
-
-    renderView();
-    await screen.findByText(fullName(employee));
-
-    const row = screen.getByText(fullName(employee)).closest('tr')!;
-    const weekButtons = within(row).getAllByRole('button');
-    expect(weekButtons).toHaveLength(weeks.length);
-    expect(weekButtons[0].tabIndex).toBe(0);
-    for (const button of weekButtons.slice(1)) {
-      expect(button.tabIndex).toBe(-1);
-    }
-  });
-
-  it('moves focus between a row\'s week cells with ArrowRight/ArrowLeft', async () => {
-    selectBranch();
-    const employee = makeEmployee();
-    employeeForBranch.mockResolvedValue([employee]);
-    const weeks = calendarWeeksInMonth(currentYear, currentMonth);
-    const schedule = createWeeklySchedule(branch.id, weeks[0], [employee.id]);
-    scheduleForBranch.mockResolvedValue([schedule]);
-    const user = userEvent.setup();
-
-    renderView();
-    await screen.findByText(fullName(employee));
-
-    const row = screen.getByText(fullName(employee)).closest('tr')!;
-    const weekButtons = within(row).getAllByRole('button');
-    weekButtons[0].focus();
-    expect(weekButtons[0]).toHaveFocus();
-
-    await user.keyboard('{ArrowRight}');
-    expect(weekButtons[1]).toHaveFocus();
-
-    await user.keyboard('{ArrowLeft}');
-    expect(weekButtons[0]).toHaveFocus();
-  });
-
-  it('also jumps to the schedule on Enter when a data cell within a row is focused', async () => {
-    selectBranch();
-    const employee = makeEmployee();
-    employeeForBranch.mockResolvedValue([employee]);
-    const weeks = calendarWeeksInMonth(currentYear, currentMonth);
-    const week1 = weeks[0];
-    const schedule = createWeeklySchedule(branch.id, week1, [employee.id]);
-    scheduleForBranch.mockResolvedValue([schedule]);
-    const user = userEvent.setup();
-    renderView();
-
-    const cell = await screen.findByRole('button', { name: `${fullName(employee)}, KW ${week1.week}, 0 Std. bearbeiten` });
-    cell.focus();
-    await user.keyboard('{Enter}');
-
-    await waitFor(() => expect(screen.getByText('schedule-route-landed')).toBeInTheDocument());
-    expect(useCalendarWeekStore.getState().selectedWeek).toEqual(week1);
   });
 
   it('shows a warning icon and tooltip next to Gesamt Monat when a Minijob employee exceeds their monthly-hours cap', async () => {
@@ -734,9 +696,8 @@ describe('MonthOverviewView', () => {
 
     expect(screen.getByText(/Ruhezeit/)).toBeInTheDocument();
 
-    const violatingCell = await screen.findByRole('button', {
-      name: `${fullName(employee)}, KW ${weeks[0].week}, 14 Std. bearbeiten`,
-    });
+    const violatingRow = (await screen.findByText(fullName(employee))).closest('tr')!;
+    const violatingCell = weekCellInRow(violatingRow, 0);
     const warningIcon = within(violatingCell).getByRole('button', { name: 'Hinweis anzeigen' });
     await user.click(warningIcon);
 
@@ -746,9 +707,7 @@ describe('MonthOverviewView', () => {
     // Clicking the icon must not also trigger the cell's own "jump to week" navigation.
     expect(screen.queryByText('schedule-route-landed')).not.toBeInTheDocument();
 
-    const cleanCell = screen.getByRole('button', {
-      name: `${fullName(employee)}, KW ${weeks[1].week}, 0 Std. bearbeiten`,
-    });
+    const cleanCell = weekCellInRow(violatingRow, 1);
     expect(within(cleanCell).queryByRole('button', { name: 'Hinweis anzeigen' })).not.toBeInTheDocument();
   });
 
@@ -766,9 +725,8 @@ describe('MonthOverviewView', () => {
     scheduleForBranch.mockResolvedValue([violatingSchedule]);
 
     renderView();
-    const violatingCell = await screen.findByRole('button', {
-      name: `${fullName(employee)}, KW ${weeks[0].week}, 14 Std. bearbeiten`,
-    });
+    const violatingRow = (await screen.findByText(fullName(employee))).closest('tr')!;
+    const violatingCell = weekCellInRow(violatingRow, 0);
     const warningIcon = within(violatingCell).getByRole('button', { name: 'Hinweis anzeigen' });
     expect(warningIcon).toHaveStyle({ minWidth: '44px', minHeight: '44px' });
   });
@@ -789,9 +747,8 @@ describe('MonthOverviewView', () => {
     scheduleForBranch.mockResolvedValue([violatingSchedule]);
 
     renderView();
-    const violatingCell = await screen.findByRole('button', {
-      name: `${fullName(employee)}, KW ${weeks[0].week}, 14 Std. bearbeiten`,
-    });
+    const violatingRow = (await screen.findByText(fullName(employee))).closest('tr')!;
+    const violatingCell = weekCellInRow(violatingRow, 0);
     const warningIcon = within(violatingCell).getByRole('button', { name: 'Hinweis anzeigen' });
 
     await user.hover(warningIcon);
@@ -816,9 +773,8 @@ describe('MonthOverviewView', () => {
     scheduleForBranch.mockResolvedValue([violatingSchedule]);
 
     renderView();
-    const violatingCell = await screen.findByRole('button', {
-      name: `${fullName(employee)}, KW ${weeks[0].week}, 14 Std. bearbeiten`,
-    });
+    const violatingRow = (await screen.findByText(fullName(employee))).closest('tr')!;
+    const violatingCell = weekCellInRow(violatingRow, 0);
     const warningIcon = within(violatingCell).getByRole('button', { name: 'Hinweis anzeigen' });
 
     await user.hover(warningIcon);
@@ -843,9 +799,8 @@ describe('MonthOverviewView', () => {
     scheduleForBranch.mockResolvedValue([violatingSchedule]);
 
     renderView();
-    const violatingCell = await screen.findByRole('button', {
-      name: `${fullName(employee)}, KW ${weeks[0].week}, 14 Std. bearbeiten`,
-    });
+    const violatingRow = (await screen.findByText(fullName(employee))).closest('tr')!;
+    const violatingCell = weekCellInRow(violatingRow, 0);
     const warningIcon = within(violatingCell).getByRole('button', { name: 'Hinweis anzeigen' });
 
     await user.click(warningIcon);
@@ -870,9 +825,8 @@ describe('MonthOverviewView', () => {
     scheduleForBranch.mockResolvedValue([violatingSchedule]);
 
     renderView();
-    const violatingCell = await screen.findByRole('button', {
-      name: `${fullName(employee)}, KW ${weeks[0].week}, 14 Std. bearbeiten`,
-    });
+    const violatingRow = (await screen.findByText(fullName(employee))).closest('tr')!;
+    const violatingCell = weekCellInRow(violatingRow, 0);
     const warningIcon = within(violatingCell).getByRole('button', { name: 'Hinweis anzeigen' });
 
     await user.click(warningIcon);
