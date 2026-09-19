@@ -78,9 +78,19 @@ export function ValidationNotices({ results, employeeList, renderTrigger }: Vali
         transformOrigin={{ vertical: 'top', horizontal: 'left' }}
         slotProps={{ paper: { sx: { p: 1.5, width: 480, maxWidth: '90vw', maxHeight: 360 } } }}
       >
-        <Stack spacing={1}>
+        {/* role="status" on the region plus at most one role="alert" inside it (P17): MUI's Alert
+            defaults to role="alert" unconditionally (a destructuring default, so passing
+            role={undefined} would NOT override it - confirmed via a throwaway probe against MUI's
+            own source before writing this). With several results open at once, N simultaneous
+            role="alert" elements each interrupt a screen reader independently instead of reading
+            as one coherent list - only the very first message (an error if any exist, otherwise
+            the first warning) keeps role="alert"; every other one gets role="presentation",
+            which drops its own role from the accessibility tree while leaving its text (screen
+            reader still reads it as part of the role="status" region) and visual rendering
+            untouched. */}
+        <Stack spacing={1} role="status">
           {errors.map((e, i) => (
-            <Alert severity="error" key={`f-${i}`}>
+            <Alert severity="error" key={`f-${i}`} role={i === 0 ? 'alert' : 'presentation'}>
               <AlertTitle>
                 {employeeName(e.employeeId, employeeList)}
                 {e.date ? ` · ${formatISODateGerman(e.date)}` : ''}
@@ -89,7 +99,7 @@ export function ValidationNotices({ results, employeeList, renderTrigger }: Vali
             </Alert>
           ))}
           {warnings.map((e, i) => (
-            <Alert severity="warning" key={`w-${i}`}>
+            <Alert severity="warning" key={`w-${i}`} role={errors.length === 0 && i === 0 ? 'alert' : 'presentation'}>
               <AlertTitle>
                 {employeeName(e.employeeId, employeeList)}
                 {e.date ? ` · ${formatISODateGerman(e.date)}` : ''}

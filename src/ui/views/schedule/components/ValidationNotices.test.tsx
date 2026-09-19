@@ -73,19 +73,17 @@ describe('ValidationNotices', () => {
 
     await user.click(button);
 
-    const alerts = await screen.findAllByRole('alert');
-    expect(alerts).toHaveLength(2);
+    // Exactly one role="alert" now exists (P17) - findByRole itself would throw on more than one
+    // match, so this also doubles as the "only one alert interrupts" regression check.
+    const errorAlert = await screen.findByRole('alert');
+    expect(errorAlert.className).toContain('MuiAlert-standardError');
+    const warningAlert = document.querySelector('.MuiAlert-standardWarning')!;
 
-    const errorAlert = alerts.find((a) => a.className.includes('MuiAlert-standardError'));
-    const warningAlert = alerts.find((a) => a.className.includes('MuiAlert-standardWarning'));
-    expect(errorAlert).toBeDefined();
-    expect(warningAlert).toBeDefined();
-
-    const errorTitle = errorAlert!.querySelector('.MuiAlertTitle-root')!;
+    const errorTitle = errorAlert.querySelector('.MuiAlertTitle-root')!;
     expect(errorTitle.textContent).toBe('Muster, Erika · 07.09.2026');
     expect(errorAlert).toHaveTextContent('Schicht überschneidet sich.');
 
-    const warningTitle = warningAlert!.querySelector('.MuiAlertTitle-root')!;
+    const warningTitle = warningAlert.querySelector('.MuiAlertTitle-root')!;
     expect(warningTitle.textContent).toBe('Beispiel, Hans · 08.09.2026');
     expect(warningAlert).toHaveTextContent('Pause fehlt.');
 
@@ -157,8 +155,8 @@ describe('ValidationNotices', () => {
 
     await user.click(screen.getByTestId('custom-trigger'));
 
-    const alerts = await screen.findAllByRole('alert');
-    expect(alerts).toHaveLength(2);
+    await screen.findByRole('alert');
+    expect(document.querySelectorAll('.MuiAlert-root')).toHaveLength(2);
     expect(screen.getByText('Fehler A.')).toBeInTheDocument();
     expect(screen.getByText('Warnung B.')).toBeInTheDocument();
   });
@@ -207,5 +205,42 @@ describe('ValidationNotices', () => {
 
     await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument());
     expect(button).toHaveTextContent('1 Fehler, 0 Warnung(en) anzeigen');
+  });
+
+  it('höchstens eine Meldung ist gleichzeitig role=alert', async () => {
+    const user = userEvent.setup();
+    const results: ValidationResult[] = [
+      { rule: 'r1', severity: 'error', message: 'Fehler 1.', employeeId: employee1.id },
+      { rule: 'r2', severity: 'error', message: 'Fehler 2.', employeeId: employee1.id },
+      { rule: 'r3', severity: 'error', message: 'Fehler 3.', employeeId: employee1.id },
+      { rule: 'r4', severity: 'warning', message: 'Warnung 1.', employeeId: employee2.id },
+      { rule: 'r5', severity: 'warning', message: 'Warnung 2.', employeeId: employee2.id },
+    ];
+    render(<ValidationNotices results={results} employeeList={employeeList} />);
+
+    await user.click(triggerButton());
+
+    await screen.findByRole('alert');
+    expect(screen.getAllByRole('alert')).toHaveLength(1);
+    expect(document.querySelectorAll('.MuiAlert-root')).toHaveLength(5);
+  });
+
+  it('alle Meldungstexte bleiben auffindbar', async () => {
+    const user = userEvent.setup();
+    const results: ValidationResult[] = [
+      { rule: 'r1', severity: 'error', message: 'Fehler 1.', employeeId: employee1.id },
+      { rule: 'r2', severity: 'error', message: 'Fehler 2.', employeeId: employee1.id },
+      { rule: 'r3', severity: 'error', message: 'Fehler 3.', employeeId: employee1.id },
+      { rule: 'r4', severity: 'warning', message: 'Warnung 1.', employeeId: employee2.id },
+      { rule: 'r5', severity: 'warning', message: 'Warnung 2.', employeeId: employee2.id },
+    ];
+    render(<ValidationNotices results={results} employeeList={employeeList} />);
+
+    await user.click(triggerButton());
+    await screen.findByRole('alert');
+
+    for (const text of ['Fehler 1.', 'Fehler 2.', 'Fehler 3.', 'Warnung 1.', 'Warnung 2.']) {
+      expect(screen.getByText(text)).toBeInTheDocument();
+    }
   });
 });
