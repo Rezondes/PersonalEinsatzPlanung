@@ -60,4 +60,14 @@ describe('AppHeader', () => {
 
     expect(screen.getByRole('combobox', { name: 'Filiale auswählen' })).toBeInTheDocument();
   });
+
+  it('zeigt kein Logo mehr im Header', () => {
+    const branch = makeBranch();
+    useBranchesStore.setState({ branches: [branch], loading: false, loaded: true });
+    useBranchSelectionStore.setState({ selectedBranchId: branch.id });
+
+    const { container } = render(<AppHeader />);
+
+    expect(container.querySelector('img')).toBeNull();
+  });
 });

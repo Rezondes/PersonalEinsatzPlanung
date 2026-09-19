@@ -2,7 +2,6 @@ import type { Ref } from 'react';
 import AppBar from '@mui/material/AppBar';
 import Toolbar from '@mui/material/Toolbar';
 import Typography from '@mui/material/Typography';
-import Box from '@mui/material/Box';
 import Select from '@mui/material/Select';
 import MenuItem from '@mui/material/MenuItem';
 import { useTranslation } from 'react-i18next';
@@ -17,7 +16,7 @@ interface AppHeaderProps {
 }
 
 /**
- * Logo + Filiale switcher, extracted verbatim from AppShell.tsx's previous inline JSX so every
+ * Filiale switcher, extracted verbatim from AppShell.tsx's previous inline JSX so every
  * breakpoint reuses the same instance instead of copies of the Filiale-select logic.
  */
 export function AppHeader({ headerRef }: AppHeaderProps) {
@@ -43,10 +42,6 @@ export function AppHeader({ headerRef }: AppHeaderProps) {
   return (
     <AppBar ref={headerRef} position="sticky" color="transparent" sx={{ top: 0, backgroundColor: 'background.paper' }}>
       <Toolbar sx={{ gap: isMobile ? 1.5 : 3, flexWrap: isMobile ? 'nowrap' : 'wrap', py: 1 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0 }}>
-          <Box component="img" src={`${import.meta.env.BASE_URL}favicon.svg`} alt="" sx={{ width: 24, height: 24 }} />
-        </Box>
-
         {activeBranches.length > 0 && (
           <Select
             size="small"
