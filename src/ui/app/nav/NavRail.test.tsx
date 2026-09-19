@@ -82,7 +82,17 @@ describe('NavRail', () => {
     renderRail();
 
     const toggleButton = screen.getByRole('button', { name: 'Navigation einklappen' });
-    expect(toggleButton).toHaveStyle({ width: '100%', borderBottom: `1px solid ${theme.palette.divider}` });
+    expect(toggleButton).toHaveStyle({ width: '100%' });
+  });
+
+  it('has no bottom border of its own - the app-wide AppBar border is the only Header/Sidebar divider', () => {
+    renderRail();
+
+    const toggleButton = screen.getByRole('button', { name: 'Navigation einklappen' });
+    // A negated toHaveStyle({ borderBottom: ... }) is unreliable for shorthand properties in this
+    // jest-dom/jsdom combination (see P9's border-style lesson) - asserting the resolved longhand
+    // value directly avoids that.
+    expect(getComputedStyle(toggleButton).borderBottomWidth).toBe('0px');
   });
 
   it('calls toggle() when the header row is clicked', async () => {

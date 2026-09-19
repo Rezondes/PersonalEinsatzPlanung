@@ -83,7 +83,6 @@ export function NavRail() {
           justifyContent: 'center',
           width: '100%',
           height: 'var(--pep-header-height, 64px)',
-          borderBottom: `1px solid ${theme.palette.divider}`,
           flexShrink: 0,
         }}
       >
