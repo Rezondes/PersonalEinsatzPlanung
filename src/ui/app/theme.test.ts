@@ -92,4 +92,20 @@ describe('createAppTheme', () => {
     expect(dark.palette.errorSurface).not.toEqual(light.palette.errorSurface);
     expect(dark.palette.warningSurface).not.toEqual(light.palette.warningSurface);
   });
+
+  it('gibt im Light Mode eine MuiButtonBase-Fokus-Regel mit der hellen Akzentfarbe zurück', () => {
+    const result = createAppTheme({ mode: 'light', prefersDark: false });
+
+    expect(result.components?.MuiButtonBase?.styleOverrides?.root).toMatchObject({
+      '&:focus-visible': { outline: '2px solid #2f5d50', outlineOffset: 2 },
+    });
+  });
+
+  it('gibt im Dark Mode dieselbe Regel mit der dunklen Akzentfarbe zurück', () => {
+    const result = createAppTheme({ mode: 'dark', prefersDark: false });
+
+    expect(result.components?.MuiButtonBase?.styleOverrides?.root).toMatchObject({
+      '&:focus-visible': { outline: '2px solid #8da69f', outlineOffset: 2 },
+    });
+  });
 });

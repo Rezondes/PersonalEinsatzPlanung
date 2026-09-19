@@ -211,6 +211,16 @@ export function createAppTheme(options: CreateAppThemeOptions): Theme {
             root: { minWidth: 44, minHeight: 44 },
           },
         },
+        // Common base of IconButton/Button/Fab/ToggleButton/ListItemButton/BottomNavigationAction -
+        // one rule here covers every keyboard focus ring app-wide, instead of relying on each of the
+        // ~9 hand-rolled '&:focus-visible' overrides already scattered across the views.
+        MuiButtonBase: {
+          styleOverrides: {
+            root: {
+              '&:focus-visible': { outline: `2px solid ${accentMain}`, outlineOffset: 2 },
+            },
+          },
+        },
         // Companion to errorDarkFill/warningDarkFill/successDarkFill above: a filled Alert's text
         // color is always getContrastText(palette[color].main), which in dark mode picks black
         // because `.main` is the lightened text/icon tone, not the saturated `.dark` background the
