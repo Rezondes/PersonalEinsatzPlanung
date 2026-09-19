@@ -18,6 +18,10 @@ import DeleteForeverOutlinedIcon from '@mui/icons-material/DeleteForeverOutlined
 import InstallMobileOutlinedIcon from '@mui/icons-material/InstallMobileOutlined';
 import CheckIcon from '@mui/icons-material/Check';
 import CircularProgress from '@mui/material/CircularProgress';
+import Dialog from '@mui/material/Dialog';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogContent from '@mui/material/DialogContent';
+import DialogActions from '@mui/material/DialogActions';
 import Backdrop from '@mui/material/Backdrop';
 import { useTranslation } from 'react-i18next';
 import { services } from '@infrastructure/services';
@@ -60,6 +64,7 @@ import { encryptBackup, decryptBackup, WrongPasswordError } from '@infrastructur
 import { DriveSessionExpiredError, markSilentRestorePending, consumeSilentRestorePending } from '@infrastructure/backup/GoogleDriveBackupStorage';
 import { isEncryptedBackupEnvelope } from '@application/export/encryptedExportFormat';
 import type { EncryptedBackupEnvelope } from '@application/export/encryptedExportFormat';
+import type { PepExportFile } from '@application/export/jsonExportFormat';
 
 /** Signals that the user cancelled an obligatory password prompt (backup encryption configured but
  * not cached this session) rather than a real export failure - thrown by getOrPromptPassword so
@@ -127,6 +132,9 @@ export function SettingsView() {
   const [usage, setUsage] = useState<StorageUsage | null>(null);
   const [installed] = useState(() => isStandalone());
   const [exporting, setExporting] = useState(false);
+  // Set by openBackupPreview (already-fetched data, so confirmBackupExport never re-fetches),
+  // cleared once confirmBackupExport closes the dialog or the user cancels.
+  const [backupPreview, setBackupPreview] = useState<PepExportFile | null>(null);
   const [importing, setImporting] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [askingStorage, setAskingStorage] = useState(false);
@@ -377,11 +385,33 @@ export function SettingsView() {
   };
 
 
-  const exportData = async () => {
+  /** Fetches the data once so the preview dialog shows exactly what confirmBackupExport below will
+   * hand to downloadFile - never re-fetched, so nothing can change between preview and download. */
+  const openBackupPreview = async () => {
+    setExporting(true);
+    try {
+      const file = await services.dataExport.export();
+      setBackupPreview(file);
+    } catch (error) {
+      notify.report(error, t('notify.exportFailed'));
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  /** The password prompt, encryption and actual download - unchanged from the pre-preview
+   * exportData, just moved behind the preview dialog's own "Herunterladen" button (AC4). Closes the
+   * preview first (not after): getOrPromptPassword can pop up BackupPasswordDialog, and stacking two
+   * MUI dialogs risks the same focus-trap race ResponsiveDialog's secondaryActions comment (N24)
+   * warns about, so only one is ever open at a time - `exporting` covers the gap on the button
+   * underneath. */
+  const confirmBackupExport = async () => {
+    if (!backupPreview) return;
+    const file = backupPreview;
+    setBackupPreview(null);
     setExporting(true);
     try {
       const password = await getOrPromptPassword();
-      const file = await services.dataExport.export();
       const content = password !== null ? await encryptBackup(file, password) : file;
       downloadFile(backupFilename(), content);
       notify.success(t('notify.localBackupSaved'));
@@ -483,7 +513,7 @@ export function SettingsView() {
             <Button
               variant="outlined"
               startIcon={exporting ? <CircularProgress size={16} color="inherit" /> : <DownloadOutlinedIcon />}
-              onClick={exportData}
+              onClick={openBackupPreview}
               disabled={exporting}
             >
               {exporting ? t('backup.exporting') : t('backup.exportButton')}
@@ -879,6 +909,39 @@ export function SettingsView() {
         onConfirm={performImport}
         onCancel={closeImportDialog}
       />
+
+      <Dialog open={!!backupPreview} onClose={() => setBackupPreview(null)} maxWidth="xs" fullWidth>
+        <DialogTitle>{t('backup.previewTitle')}</DialogTitle>
+        <DialogContent>
+          <Stack spacing={1}>
+            {backupPreview &&
+              (
+                [
+                  [t('backup.previewEmployees'), backupPreview.data.employees.length],
+                  [t('backup.previewBranches'), backupPreview.data.branches.length],
+                  [t('backup.previewSchedules'), backupPreview.data.weeklySchedules.length],
+                  [t('backup.previewAbsences'), backupPreview.data.absences.length],
+                  [t('backup.previewTemplates'), backupPreview.data.shiftTemplates.length],
+                ] as const
+              ).map(([label, count]) => (
+                <Stack key={label} direction="row" justifyContent="space-between">
+                  <Typography variant="body2" color="text.secondary">
+                    {label}
+                  </Typography>
+                  <Typography variant="body2" fontWeight={500}>
+                    {count.toLocaleString('de-DE')}
+                  </Typography>
+                </Stack>
+              ))}
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setBackupPreview(null)}>{tCommon('cancel')}</Button>
+          <Button variant="contained" onClick={confirmBackupExport}>
+            {t('backup.downloadButton')}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* modal + 1, not drawer + 1: a standalone Backdrop has no z-index of its own and would
           otherwise sit behind the dialog that just closed, while its exit transition still runs. */}

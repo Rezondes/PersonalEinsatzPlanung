@@ -20,6 +20,10 @@ import Chip from '@mui/material/Chip';
 import Tooltip from '@mui/material/Tooltip';
 import ClickAwayListener from '@mui/material/ClickAwayListener';
 import CircularProgress from '@mui/material/CircularProgress';
+import Dialog from '@mui/material/Dialog';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogContent from '@mui/material/DialogContent';
+import DialogActions from '@mui/material/DialogActions';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
@@ -80,6 +84,9 @@ export function MonthOverviewView() {
   // week column - only ever one open at a time, closing the previous when a different week's
   // actions button is clicked.
   const [weekMenu, setWeekMenu] = useState<{ cw: CalendarWeek; anchor: HTMLElement } | null>(null);
+  // Set by exportCsv, cleared by confirmCsvExport/onClose - holds the already-built CSV so the
+  // preview dialog shows exactly the bytes confirmCsvExport will hand to downloadTextFile.
+  const [csvPreview, setCsvPreview] = useState<{ filename: string; csv: string } | null>(null);
 
   // useAsyncData (not a bare useState+useEffect) for the same reason every other selection-scoped
   // load in this app uses it: error reporting, a loading flag, and a guard against a slow response
@@ -147,7 +154,17 @@ export function MonthOverviewView() {
     try {
       const filename = `monatsuebersicht-${year}-${String(month).padStart(2, '0')}.csv`;
       const csv = buildMonthCsv(rows, visibleEmployees, allWeeks);
-      downloadTextFile(filename, csv, 'text/csv;charset=utf-8');
+      setCsvPreview({ filename, csv });
+    } catch (e) {
+      notify.report(e, t('exportError'));
+    }
+  };
+
+  const confirmCsvExport = () => {
+    if (!csvPreview) return;
+    try {
+      downloadTextFile(csvPreview.filename, csvPreview.csv, 'text/csv;charset=utf-8');
+      setCsvPreview(null);
     } catch (e) {
       notify.report(e, t('exportError'));
     }
@@ -404,6 +421,35 @@ export function MonthOverviewView() {
         {weekActionsMenu}
       </TableContainer>
       )}
+
+      <Dialog open={!!csvPreview} onClose={() => setCsvPreview(null)} maxWidth="md" fullWidth>
+        <DialogTitle>{t('exportPreviewTitle')}</DialogTitle>
+        <DialogContent>
+          {/* The exact bytes confirmCsvExport will download - a raw preformatted dump rather than a
+              re-parsed table, so the preview can never visually diverge from the actual file. */}
+          <Box
+            component="pre"
+            sx={{
+              m: 0,
+              p: 2,
+              bgcolor: 'action.hover',
+              borderRadius: 1,
+              overflow: 'auto',
+              maxHeight: '60vh',
+              fontFamily: 'monospace',
+              fontSize: 13,
+            }}
+          >
+            {csvPreview?.csv}
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setCsvPreview(null)}>{tCommon('cancel')}</Button>
+          <Button variant="contained" onClick={confirmCsvExport}>
+            {t('downloadButton')}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

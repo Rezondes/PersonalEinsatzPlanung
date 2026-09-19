@@ -853,7 +853,7 @@ describe('MonthOverviewView', () => {
   });
 
   describe('CSV-Export', () => {
-    it('calls downloadTextFile with a filename including year and month, and the built CSV as text/csv', async () => {
+    it('opens a preview instead of downloading immediately, showing the CSV that will be downloaded', async () => {
       selectBranch();
       const employee = makeEmployee();
       employeeForBranch.mockResolvedValue([employee]);
@@ -865,6 +865,26 @@ describe('MonthOverviewView', () => {
 
       await user.click(screen.getByRole('button', { name: 'Exportieren' }));
 
+      expect(downloadTextFileMock).not.toHaveBeenCalled();
+      const dialog = await screen.findByRole('dialog', { name: 'Vorschau des CSV-Exports' });
+      expect(within(dialog).getByText(/Mitarbeiter;Soll-Woche/)).toBeInTheDocument();
+      expect(within(dialog).getByText(new RegExp(fullName(employee)))).toBeInTheDocument();
+    });
+
+    it('downloads with the built filename/content/mimeType only after confirming in the preview dialog', async () => {
+      selectBranch();
+      const employee = makeEmployee();
+      employeeForBranch.mockResolvedValue([employee]);
+      const weeks = calendarWeeksInMonth(currentYear, currentMonth);
+      scheduleForBranch.mockResolvedValue([createWeeklySchedule(branch.id, weeks[0], [employee.id])]);
+      const user = userEvent.setup();
+      renderView();
+      await screen.findByText(currentMonthLabel);
+
+      await user.click(screen.getByRole('button', { name: 'Exportieren' }));
+      await screen.findByRole('dialog', { name: 'Vorschau des CSV-Exports' });
+      await user.click(screen.getByRole('button', { name: 'Herunterladen' }));
+
       const monthPadded = String(currentMonth).padStart(2, '0');
       expect(downloadTextFileMock).toHaveBeenCalledTimes(1);
       const [filename, content, mimeType] = downloadTextFileMock.mock.calls[0];
@@ -872,6 +892,25 @@ describe('MonthOverviewView', () => {
       expect(content).toContain('Mitarbeiter;Soll-Woche');
       expect(content).toContain(fullName(employee));
       expect(mimeType).toContain('text/csv');
+      // MUI's Dialog keeps the element mounted through its exit transition - waitFor, not a bare
+      // assertion right after the click, same pattern used elsewhere for closing MUI dialogs.
+      await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Vorschau des CSV-Exports' })).not.toBeInTheDocument());
+    });
+
+    it('closes without downloading when Abbrechen is clicked', async () => {
+      selectBranch();
+      employeeForBranch.mockResolvedValue([]);
+      scheduleForBranch.mockResolvedValue([]);
+      const user = userEvent.setup();
+      renderView();
+      await screen.findByText(currentMonthLabel);
+
+      await user.click(screen.getByRole('button', { name: 'Exportieren' }));
+      await screen.findByRole('dialog', { name: 'Vorschau des CSV-Exports' });
+      await user.click(screen.getByRole('button', { name: 'Abbrechen' }));
+
+      await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Vorschau des CSV-Exports' })).not.toBeInTheDocument());
+      expect(downloadTextFileMock).not.toHaveBeenCalled();
     });
 
     it('shows an error notification instead of throwing when the download itself fails', async () => {
@@ -886,6 +925,8 @@ describe('MonthOverviewView', () => {
       await screen.findByText(currentMonthLabel);
 
       await user.click(screen.getByRole('button', { name: 'Exportieren' }));
+      await screen.findByRole('dialog', { name: 'Vorschau des CSV-Exports' });
+      await user.click(screen.getByRole('button', { name: 'Herunterladen' }));
 
       expect(await screen.findByText(/Die Monatsübersicht konnte nicht exportiert werden/)).toBeInTheDocument();
     });

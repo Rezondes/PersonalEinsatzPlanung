@@ -14,10 +14,20 @@ import {
   isBackupPasswordConfigured,
 } from '@infrastructure/backup/backupPasswordSession';
 import { encryptBackup } from '@infrastructure/export/backupEncryption';
+// Kept partial (importOriginal), not a full replacement like MonthOverviewView.test.tsx's own
+// fileAccess mock: SettingsView also calls backupFilename/readDataFile for real (the existing
+// import-flow tests upload real Files and expect FileReader to actually run) - only downloadFile
+// itself needs to be a controllable spy, so a preview-confirmed export can be asserted without a
+// real Blob/anchor-click download, and so a download failure can be injected for the error test.
+vi.mock('@infrastructure/export/fileAccess', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@infrastructure/export/fileAccess')>();
+  return { ...actual, downloadFile: vi.fn() };
+});
 import { DriveSessionExpiredError, markSilentRestorePending } from '@infrastructure/backup/GoogleDriveBackupStorage';
 import type { PepExportFile } from '@application/export/jsonExportFormat';
 import { useThemeModeStore } from '@ui/app/store/themeModeStore';
 import { useAccentColorStore } from '@ui/app/store/accentColorStore';
+import { downloadFile } from '@infrastructure/export/fileAccess';
 import { SettingsView } from './SettingsView';
 
 vi.mock('@infrastructure/services', () => ({
@@ -35,7 +45,11 @@ vi.mock('@infrastructure/services', () => ({
       delete: vi.fn(async () => undefined),
     },
     dataExport: {
-      export: vi.fn(async () => ({ formatVersion: 4 })),
+      export: vi.fn(async () => ({
+        formatVersion: 5,
+        exportedAt: '2026-01-01T00:00:00.000Z',
+        data: { branches: [], employees: [], weeklySchedules: [], absences: [], shiftTemplates: [] },
+      })),
       importAndReplace: vi.fn(async () => undefined),
       deleteAllData: vi.fn(),
     },
@@ -43,6 +57,8 @@ vi.mock('@infrastructure/services', () => ({
 }));
 
 const drive = vi.mocked(services.backupStorage);
+const downloadFileMock = vi.mocked(downloadFile);
+const dataExportExport = vi.mocked(services.dataExport.export);
 
 // AppNotifications comes along because feedback no longer lives in this view's own tree - it is
 // mounted once in App.tsx so it also reaches the print route. Rendering the view alone would test
@@ -349,12 +365,13 @@ describe('SettingsView, Backup-Passwort', () => {
     renderView();
 
     await user.click(screen.getByRole('button', { name: 'Daten exportieren' }));
+    await user.click(await screen.findByRole('button', { name: 'Herunterladen' }));
     await user.type(await screen.findByLabelText(/^Passwort\s*\*?$/), 'meinPasswort');
     await user.type(screen.getByLabelText(/^Passwort bestätigen/), 'anderesPasswort');
     await user.click(screen.getByRole('button', { name: 'Bestätigen' }));
 
     expect(await screen.findByText('Passwörter stimmen nicht überein.')).toBeInTheDocument();
-    expect(services.dataExport.export).not.toHaveBeenCalled();
+    expect(screen.queryByText('Backup wurde heruntergeladen.')).not.toBeInTheDocument();
   });
 
   it('offers a way to remove an already-configured password, clearing both the flag and the cached value', async () => {
@@ -374,6 +391,86 @@ describe('SettingsView, Backup-Passwort', () => {
     renderView();
 
     expect(screen.queryByRole('button', { name: 'Passwort entfernen' })).not.toBeInTheDocument();
+  });
+});
+
+describe('SettingsView, Datensicherungs-Vorschau', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    useNotificationStore.getState().clear();
+    drive.isConfigured.mockReturnValue(false);
+    setCachedPassword(null);
+    setBackupPasswordConfigured(false);
+    dataExportExport.mockResolvedValue({
+      formatVersion: 5,
+      exportedAt: '2026-01-01T00:00:00.000Z',
+      data: {
+        branches: [{}] as never,
+        employees: [{}, {}] as never,
+        weeklySchedules: [{}, {}, {}] as never,
+        absences: [] as never,
+        shiftTemplates: [{}] as never,
+      },
+    });
+  });
+
+  it('opens a summary preview instead of downloading immediately', async () => {
+    const user = userEvent.setup();
+    renderView();
+
+    await user.click(screen.getByRole('button', { name: 'Daten exportieren' }));
+
+    expect(downloadFileMock).not.toHaveBeenCalled();
+    const dialog = await screen.findByRole('dialog', { name: 'Vorschau der Datensicherung' });
+    expect(within(dialog).getByText('Mitarbeiter')).toBeInTheDocument();
+    expect(within(dialog).getByText('2')).toBeInTheDocument();
+    expect(within(dialog).getByText('Wochenpläne')).toBeInTheDocument();
+    expect(within(dialog).getByText('3')).toBeInTheDocument();
+    expect(within(dialog).getByText('Abwesenheiten')).toBeInTheDocument();
+    expect(within(dialog).getByText('0')).toBeInTheDocument();
+  });
+
+  it('downloads the already-fetched data only after Herunterladen is confirmed (no password configured)', async () => {
+    const user = userEvent.setup();
+    renderView();
+
+    await user.click(screen.getByRole('button', { name: 'Daten exportieren' }));
+    await screen.findByRole('dialog', { name: 'Vorschau der Datensicherung' });
+    await user.click(screen.getByRole('button', { name: 'Herunterladen' }));
+
+    await waitFor(() => expect(downloadFileMock).toHaveBeenCalledTimes(1));
+    const [, content] = downloadFileMock.mock.calls[0];
+    expect(content).toEqual(expect.objectContaining({ formatVersion: 5 }));
+    expect(await screen.findByText('Backup wurde heruntergeladen.')).toBeInTheDocument();
+    // MUI's Dialog keeps the element mounted through its exit transition - waitFor, not a bare
+    // assertion right after the click.
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Vorschau der Datensicherung' })).not.toBeInTheDocument());
+  });
+
+  it('closes without downloading when Abbrechen is clicked', async () => {
+    const user = userEvent.setup();
+    renderView();
+
+    await user.click(screen.getByRole('button', { name: 'Daten exportieren' }));
+    await screen.findByRole('dialog', { name: 'Vorschau der Datensicherung' });
+    await user.click(screen.getByRole('button', { name: 'Abbrechen' }));
+
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Vorschau der Datensicherung' })).not.toBeInTheDocument());
+    expect(downloadFileMock).not.toHaveBeenCalled();
+  });
+
+  it('reports an error instead of throwing when the download itself fails after confirming', async () => {
+    downloadFileMock.mockImplementationOnce(() => {
+      throw new Error('Download blockiert');
+    });
+    const user = userEvent.setup();
+    renderView();
+
+    await user.click(screen.getByRole('button', { name: 'Daten exportieren' }));
+    await screen.findByRole('dialog', { name: 'Vorschau der Datensicherung' });
+    await user.click(screen.getByRole('button', { name: 'Herunterladen' }));
+
+    expect(await screen.findByText(/Der Export ist fehlgeschlagen/)).toBeInTheDocument();
   });
 });
 

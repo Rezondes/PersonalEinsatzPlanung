@@ -21,6 +21,8 @@ const month = {
   monthlyLimitTooltip: '{{hours}} Std. diesen Monat, Grenze {{limit}} Std./Monat',
   monthlyLimitAriaLabel: 'Monatsgrenze überschritten anzeigen',
   exportError: 'Die Monatsübersicht konnte nicht exportiert werden',
+  exportPreviewTitle: 'Vorschau des CSV-Exports',
+  downloadButton: 'Herunterladen',
 } as const;
 
 export default month;

@@ -25,6 +25,13 @@ const settings = {
     exporting: 'Export wird erstellt…',
     exportButton: 'Daten exportieren',
     importButton: 'Daten importieren',
+    previewTitle: 'Vorschau der Datensicherung',
+    previewEmployees: 'Mitarbeiter',
+    previewBranches: 'Filialen',
+    previewSchedules: 'Wochenpläne',
+    previewAbsences: 'Abwesenheiten',
+    previewTemplates: 'Schichtvorlagen',
+    downloadButton: 'Herunterladen',
   },
   drive: {
     heading: 'Google Drive',
