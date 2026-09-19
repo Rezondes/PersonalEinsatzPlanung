@@ -208,6 +208,19 @@ describe('MonthOverviewView', () => {
     await waitFor(() => expect(screen.getByRole('table')).toBeInTheDocument());
   });
 
+  it('zeigt einen Hinweistext, wenn keine Mitarbeiter zum Anzeigen vorhanden sind', async () => {
+    selectBranch();
+    employeeForBranch.mockResolvedValue([]);
+    scheduleForBranch.mockResolvedValue([]);
+
+    renderView();
+
+    await waitFor(() => expect(screen.getByRole('table')).toBeInTheDocument());
+    expect(screen.getByText('Noch kein Mitarbeiter für diese Filiale angelegt.')).toBeInTheDocument();
+    // Only the header row - no employee data row.
+    expect(screen.getAllByRole('row')).toHaveLength(2);
+  });
+
   it('reports an error via the shared notification store when loading schedules fails', async () => {
     selectBranch();
     employeeForBranch.mockResolvedValue([]);

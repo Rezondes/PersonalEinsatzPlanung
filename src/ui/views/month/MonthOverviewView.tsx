@@ -284,6 +284,15 @@ export function MonthOverviewView() {
             </TableRow>
           </TableHead>
           <TableBody>
+            {visibleEmployees.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={3 + allWeeks.length}>
+                  <Typography color="text.secondary" sx={{ py: 2 }}>
+                    {t('emptyNoEmployees')}
+                  </Typography>
+                </TableCell>
+              </TableRow>
+            )}
             {visibleEmployees.map((employee) => {
               const row = rows.find((r) => r.employeeId === employee.id);
               const totalNetMinutes = row?.totalNetMinutes ?? 0;

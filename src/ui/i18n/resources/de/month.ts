@@ -14,6 +14,7 @@ const month = {
   weekPrefix: 'KW {{week}}',
   jumpToWeekAriaLabel: 'Zu Kalenderwoche {{week}} springen',
   noEntries: 'keine Einträge',
+  emptyNoEmployees: 'Noch kein Mitarbeiter für diese Filiale angelegt.',
   hoursValue: '{{hours}} Std.',
   weekCellAriaLabel: '{{name}}, KW {{week}}, {{hoursText}} bearbeiten',
   showHintAriaLabel: 'Hinweis anzeigen',
