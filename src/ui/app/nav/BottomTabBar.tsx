@@ -27,6 +27,7 @@ export function BottomTabBar() {
 
   return (
     <Paper
+      component="nav"
       elevation={0}
       sx={{
         position: 'fixed',

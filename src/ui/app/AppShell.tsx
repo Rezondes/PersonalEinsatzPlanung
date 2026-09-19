@@ -92,12 +92,31 @@ function AppShellLayout() {
     // page scroll - the same bug this fix removes, just reintroduced at the unit level. dvh is
     // supported by every browser this app targets, so there is no real fallback need here.
     <Box ref={rootRef} sx={{ height: '100dvh', backgroundColor: 'background.default', display: 'flex' }}>
+      <Box
+        component="a"
+        href="#main-content"
+        sx={{
+          position: 'absolute',
+          left: -9999,
+          top: 0,
+          zIndex: 2000,
+          p: 1.5,
+          bgcolor: 'background.paper',
+          color: 'text.primary',
+          '&:focus': { left: 8, top: 8 },
+        }}
+      >
+        {t('skipToContent')}
+      </Box>
+
       {showRail && <NavRail />}
 
       <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
         <AppHeader headerRef={headerRef} />
 
         <Container
+          component="main"
+          id="main-content"
           maxWidth={fullBleed ? false : 'xl'}
           disableGutters={fullBleed}
           sx={

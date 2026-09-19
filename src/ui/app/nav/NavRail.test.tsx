@@ -38,6 +38,12 @@ describe('NavRail', () => {
     expect(screen.getByRole('link', { name: navLabel(MAIN_NAV_ITEMS[1].label) })).not.toHaveAttribute('aria-current');
   });
 
+  it('ist bereits ein nav-Landmark', () => {
+    renderRail();
+
+    expect(screen.getByRole('navigation')).toBeInTheDocument();
+  });
+
   it('gives every collapsed nav link an aria-label matching its full label, alongside the existing title', () => {
     useNavRailStore.setState({ collapsed: true });
     renderRail('/de/schedule');

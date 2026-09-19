@@ -19,4 +19,14 @@ describe('BottomTabBar', () => {
     expect(screen.getByRole('button', { name: label(BOTTOM_TABS[0]) })).toHaveAttribute('aria-current', 'page');
     expect(screen.getByRole('button', { name: label(BOTTOM_TABS[1]) })).not.toHaveAttribute('aria-current');
   });
+
+  it('ist ein nav-Landmark', () => {
+    render(
+      <MemoryRouter initialEntries={['/de/schedule']}>
+        <BottomTabBar />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByRole('navigation')).toBeInTheDocument();
+  });
 });

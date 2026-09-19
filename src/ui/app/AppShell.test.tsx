@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { render } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { useBranchesStore } from '@ui/app/store/branchesStore';
 import { useBranchSelectionStore } from '@ui/app/store/branchSelectionStore';
@@ -60,5 +60,21 @@ describe('AppShell', () => {
     renderAt('/schedule');
 
     expect(document.title).toBe('Wochenplanung - Personaleinsatzplanung');
+  });
+
+  it('hat ein main-Landmark mit id=main-content', () => {
+    const { container } = renderAt('/schedule');
+
+    expect(container.querySelector('main#main-content')).toBeInTheDocument();
+  });
+
+  it('hat einen Skip-Link als erstes fokussierbares Element', () => {
+    renderAt('/schedule');
+
+    const link = screen.getByRole('link', { name: 'Zum Hauptinhalt springen' });
+    expect(link).toHaveAttribute('href', '#main-content');
+
+    const focusable = Array.from(document.querySelectorAll<HTMLElement>('a[href], button'));
+    expect(focusable[0]).toBe(link);
   });
 });

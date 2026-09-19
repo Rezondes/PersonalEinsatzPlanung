@@ -17,6 +17,7 @@ const nav = {
   more: 'Mehr',
   expandNavAriaLabel: 'Navigation ausklappen',
   collapseNavAriaLabel: 'Navigation einklappen',
+  skipToContent: 'Zum Hauptinhalt springen',
 } as const;
 
 export default nav;
