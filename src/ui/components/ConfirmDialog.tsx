@@ -1,3 +1,4 @@
+import { useId } from 'react';
 import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
@@ -5,6 +6,7 @@ import DialogActions from '@mui/material/DialogActions';
 import DialogContentText from '@mui/material/DialogContentText';
 import Button from '@mui/material/Button';
 import CircularProgress from '@mui/material/CircularProgress';
+import Typography from '@mui/material/Typography';
 import { useTranslation } from 'react-i18next';
 
 interface ConfirmDialogProps {
@@ -36,18 +38,26 @@ export function ConfirmDialog({
 }: ConfirmDialogProps) {
   const { t } = useTranslation();
   const resolvedConfirmText = confirmText ?? t('confirm');
+  const textId = useId();
 
   return (
     // onClose is short-circuited while busy: Escape and a click on the backdrop would otherwise
     // tear the dialog down in the middle of the very action it is reporting on.
-    <Dialog open={open} onClose={busy ? undefined : onCancel} maxWidth="xs" fullWidth>
+    <Dialog open={open} onClose={busy ? undefined : onCancel} maxWidth="xs" fullWidth aria-describedby={textId}>
       <DialogTitle>{title}</DialogTitle>
       <DialogContent>
         {/* Freigegeben, weil hier die ArbZG-Verstoesse des DayEditors und die Warnungen vor
             Import und Loeschung stehen - Text, den man beim Nachfragen kopieren koennen muss. */}
-        <DialogContentText data-selectable>{text}</DialogContentText>
+        <DialogContentText id={textId} data-selectable>
+          {text}
+        </DialogContentText>
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2 }}>
+        {busy && (
+          <Typography role="status" variant="body2" color="text.secondary" sx={{ mr: 'auto' }}>
+            {t('busyStatus')}
+          </Typography>
+        )}
         <Button onClick={onCancel} disabled={busy}>
           {t('cancel')}
         </Button>

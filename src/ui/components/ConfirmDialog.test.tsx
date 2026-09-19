@@ -56,9 +56,27 @@ describe('ConfirmDialog', () => {
     expect(screen.getByRole('button', { name: 'Abbrechen' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Bestätigen' })).toBeDisabled();
     expect(screen.getByRole('progressbar')).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent('Wird ausgeführt');
 
     await user.keyboard('{Escape}');
     expect(onCancel).not.toHaveBeenCalled();
+  });
+
+  it('verknüpft den Dialogtext per aria-describedby', () => {
+    render(
+      <ConfirmDialog
+        open
+        title="t"
+        text="Dies kann nicht rückgängig gemacht werden."
+        onConfirm={vi.fn()}
+        onCancel={vi.fn()}
+      />,
+    );
+
+    const dialog = screen.getByRole('dialog');
+    const describedById = dialog.getAttribute('aria-describedby');
+    expect(describedById).toBeTruthy();
+    expect(document.getElementById(describedById!)).toHaveTextContent('Dies kann nicht rückgängig gemacht werden.');
   });
 
   it('does not render a spinner and keeps both buttons enabled while not busy', () => {

@@ -6,6 +6,7 @@ const common = {
   goToBranches: 'Zu den Filialen',
   confirm: 'Bestätigen',
   cancel: 'Abbrechen',
+  busyStatus: 'Wird ausgeführt …',
   close: 'Schließen',
   delete: 'Löschen',
   save: 'Speichern',
