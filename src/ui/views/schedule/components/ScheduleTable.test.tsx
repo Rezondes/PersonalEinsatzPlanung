@@ -322,6 +322,24 @@ describe('ScheduleTable', () => {
     expect(row).not.toHaveClass('MuiTableRow-hover');
   });
 
+  it('zeigt eine gesperrte (inaktive) Zeile ohne Opacity-Verwaschung', () => {
+    const inactiveEmployee: Employee = { ...employee(m1, 'Alt'), active: false };
+    const scheduleWithInactive = withDayEntry(
+      createWeeklySchedule(branchId, { year: 2026, week: 37 }, [inactiveEmployee.id]),
+      inactiveEmployee.id,
+      'Montag',
+      { type: 'Shift', shifts: [createShift(clockTime('06:00'), clockTime('14:00'))] },
+    );
+    const inactiveWeekView = createWeekView(scheduleWithInactive, [], { employees: [inactiveEmployee] });
+    const rows = buildScheduleRows(inactiveWeekView, [inactiveEmployee], '2026-09-07', '2026-09-13');
+
+    render(<ScheduleTable rows={rows} weekDays={weekDays} validationResults={[]} onCellClick={() => {}} {...notAssigning} {...noSelection} />);
+
+    const row = screen.getByText('Alt, Anna').closest('tr')!;
+    expect(row).not.toHaveStyle({ opacity: '0.55' });
+    expect(row).toHaveStyle({ backgroundColor: theme.palette.inactiveSurface, color: theme.palette.text.secondary });
+  });
+
   describe('assignMode (tap-to-assign)', () => {
     it('taps a free cell via onToolTap instead of onCellClick, labelled "zuweisen"', async () => {
       const user = userEvent.setup();

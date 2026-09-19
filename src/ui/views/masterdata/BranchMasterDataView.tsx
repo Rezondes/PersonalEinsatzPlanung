@@ -100,11 +100,11 @@ function BranchCard({ branch, onTap, onLongPress }: { branch: Branch; onTap: () 
         width: '100%',
         minHeight: 76,
         pr: 0.5,
-        bgcolor: 'background.paper',
+        bgcolor: branch.active ? 'background.paper' : 'inactiveSurface',
+        color: branch.active ? undefined : 'text.secondary',
         border: '1px solid',
         borderColor: 'divider',
         borderRadius: 2,
-        opacity: branch.active ? 1 : 0.55,
       }}
     >
       <ButtonBase
@@ -276,7 +276,11 @@ export function BranchMasterDataView() {
                       key={b.id}
                       hover
                       onClick={() => setDialog({ branch: b })}
-                      sx={{ opacity: b.active ? 1 : 0.55, cursor: 'pointer' }}
+                      sx={{
+                        cursor: 'pointer',
+                        bgcolor: b.active ? undefined : 'inactiveSurface',
+                        color: b.active ? undefined : 'text.secondary',
+                      }}
                     >
                       <TableCell sx={stickyFirstColumnSx}>
                         {b.name}

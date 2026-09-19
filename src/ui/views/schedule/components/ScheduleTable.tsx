@@ -218,7 +218,14 @@ export const ScheduleTable = memo(function ScheduleTable({
             const differenceMinutes = deviationFromTarget(view.totalNetMinutes, target);
 
             return (
-              <TableRow key={view.employeeId} hover={row.editable} sx={{ opacity: row.editable ? 1 : 0.55 }}>
+              <TableRow
+                key={view.employeeId}
+                hover={row.editable}
+                sx={{
+                  bgcolor: row.editable ? undefined : 'inactiveSurface',
+                  color: row.editable ? undefined : 'text.secondary',
+                }}
+              >
                 <TableCell sx={stickyFirstColumnSx}>
                   <Stack direction="row" spacing={0.5} alignItems="center">
                     <Typography variant="body2" fontWeight={500}>

@@ -121,6 +121,19 @@ describe('BranchMasterDataView', () => {
     expect(within(table).getByText('Inaktiv')).toBeInTheDocument();
   });
 
+  it('zeigt die inaktive Filiale Süd ohne Opacity-Verwaschung', () => {
+    mockViewportWidth(1100);
+    const active = makeBranch({ id: 'branch-1' as BranchId, name: 'Filiale Nord', branchNumber: '001' });
+    const inactive = makeBranch({ id: 'branch-2' as BranchId, name: 'Filiale Süd', branchNumber: '002', active: false });
+    seedBranches([active, inactive]);
+
+    renderView();
+
+    const row = screen.getByText('Filiale Süd').closest('tr')!;
+    expect(row).not.toHaveStyle({ opacity: '0.55' });
+    expect(row).toHaveStyle({ backgroundColor: theme.palette.inactiveSurface, color: theme.palette.text.secondary });
+  });
+
   it('colors the mobile card logo avatar and its placeholder icon from the theme, not a hardcoded literal', () => {
     // Default (mobile-like) viewport, matching this file's own convention - renders the card list,
     // where the logo avatar/icon actually live (the desktop table above has no such element).

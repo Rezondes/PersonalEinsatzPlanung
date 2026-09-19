@@ -24,6 +24,13 @@ const DIVIDER_DARK = '#6a6a66';
 const LOCKED_SURFACE_LIGHT = '#f0f0ee';
 const LOCKED_SURFACE_DARK = '#1c1c1a';
 
+// Background for a row/card marked "inactive" (employee/branch deactivated, or a schedule row
+// outside someone's employment period) - replaces the old opacity: 0.55 dimming, which pushed
+// text.secondary's already-transparent color well under 4.5:1. text.secondary alone clears AA
+// against both of these with margin (5.5:1 light, 8.3:1 dark - measured including its own alpha).
+const INACTIVE_SURFACE_LIGHT = '#efefec';
+const INACTIVE_SURFACE_DARK = '#242422';
+
 // error/warning/success: same "needs a lighter foreground in dark mode" issue the accent green
 // had (the light-mode values measure only ~2.6-2.9:1 against #121212/#1e1e1e as plain text/icon
 // color - MUI's own Alert and contained-Button compute their own mode-safe colors from `.main`
@@ -58,12 +65,14 @@ declare module '@mui/material/styles' {
     errorSurface: { subtle: string; border: string };
     warningSurface: { subtle: string; border: string };
     lockedSurface: string;
+    inactiveSurface: string;
   }
   interface PaletteOptions {
     accentSurface?: { subtle: string; strong: string; pressed: string };
     errorSurface?: { subtle: string; border: string };
     warningSurface?: { subtle: string; border: string };
     lockedSurface?: string;
+    inactiveSurface?: string;
   }
 }
 
@@ -107,6 +116,7 @@ export function createAppTheme(options: CreateAppThemeOptions): Theme {
     ? { subtle: WARNING_SURFACE_SUBTLE_DARK, border: WARNING_SURFACE_BORDER_DARK }
     : { subtle: WARNING_SURFACE_SUBTLE_LIGHT, border: WARNING_SURFACE_BORDER_LIGHT };
   const lockedSurface = isDark ? LOCKED_SURFACE_DARK : LOCKED_SURFACE_LIGHT;
+  const inactiveSurface = isDark ? INACTIVE_SURFACE_DARK : INACTIVE_SURFACE_LIGHT;
   // A filled Alert paints its background from `.dark` in dark mode (MUI's Alert.js: `mode === 'dark'
   // ? palette[color].dark : palette[color].main`), auto-derived as darken(main, 0.3) when unset. In
   // dark mode `.main` is deliberately the lightened text/icon tone from the comment above, so that
@@ -129,6 +139,7 @@ export function createAppTheme(options: CreateAppThemeOptions): Theme {
         errorSurface,
         warningSurface,
         lockedSurface,
+        inactiveSurface,
         divider,
         background: isDark ? { default: '#121212', paper: '#1e1e1e' } : { default: '#f7f7f5', paper: '#ffffff' },
         error: { main: errorMain, ...errorDarkFill },

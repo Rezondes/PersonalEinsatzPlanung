@@ -182,11 +182,11 @@ function EmployeeCard({
         width: '100%',
         minHeight: 76,
         pr: 0.5,
-        bgcolor: 'background.paper',
+        bgcolor: employee.active ? 'background.paper' : 'inactiveSurface',
+        color: employee.active ? undefined : 'text.secondary',
         border: '1px solid',
         borderColor: 'divider',
         borderRadius: 2,
-        opacity: employee.active ? 1 : 0.55,
       }}
     >
       <ButtonBase
@@ -478,7 +478,11 @@ export function EmployeeMasterDataView() {
                       key={emp.id}
                       hover
                       onClick={() => setDialog({ employee: emp })}
-                      sx={{ opacity: emp.active ? 1 : 0.55, cursor: 'pointer' }}
+                      sx={{
+                        cursor: 'pointer',
+                        bgcolor: emp.active ? undefined : 'inactiveSurface',
+                        color: emp.active ? undefined : 'text.secondary',
+                      }}
                     >
                       <TableCell sx={stickyFirstColumnSx}>
                         <Stack direction="row" spacing={0.5} alignItems="center">

@@ -120,4 +120,12 @@ describe('createAppTheme', () => {
 
     expect(result.palette.divider).toBe('#6a6a66');
   });
+
+  it('inactiveSurface hat einen eigenen Hex-Wert pro Modus', () => {
+    const light = createAppTheme({ mode: 'light', prefersDark: false });
+    const dark = createAppTheme({ mode: 'dark', prefersDark: false });
+
+    expect(light.palette.inactiveSurface).toBe('#efefec');
+    expect(dark.palette.inactiveSurface).toBe('#242422');
+  });
 });

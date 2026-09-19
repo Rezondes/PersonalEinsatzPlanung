@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor, within, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
+import { ThemeProvider } from '@mui/material/styles';
 import type { AbsenceId, BranchId, EmployeeId } from '@domain/shared/ids';
 import type { Branch } from '@domain/branch/Branch';
 import type { Employee } from '@domain/employee/Employee';
@@ -10,6 +11,7 @@ import { useBranchesStore } from '@ui/app/store/branchesStore';
 import { useBranchSelectionStore } from '@ui/app/store/branchSelectionStore';
 import { AppNotifications } from '@ui/app/AppNotifications';
 import { useNotificationStore } from '@ui/app/store/notificationStore';
+import { theme } from '@ui/app/theme';
 import { EmployeeMasterDataView } from './EmployeeMasterDataView';
 
 vi.mock('@infrastructure/services', () => ({
@@ -127,10 +129,12 @@ const employees = [anna, ben, cara, david, mika];
 
 function renderView() {
   return render(
-    <MemoryRouter>
-      <EmployeeMasterDataView />
-      <AppNotifications />
-    </MemoryRouter>,
+    <ThemeProvider theme={theme}>
+      <MemoryRouter>
+        <EmployeeMasterDataView />
+        <AppNotifications />
+      </MemoryRouter>
+    </ThemeProvider>,
   );
 }
 
@@ -216,6 +220,16 @@ describe('EmployeeMasterDataView', () => {
     }
 
     expect(screen.getByTitle('Minderjährig — Jugendarbeitsschutz beachten')).toBeInTheDocument();
+  });
+
+  it('zeigt den inaktiven Mitarbeiter david ohne Opacity-Verwaschung', async () => {
+    renderView();
+
+    const nameCell = await screen.findByText('Engel, David');
+    const row = nameCell.closest('tr')!;
+
+    expect(row).not.toHaveStyle({ opacity: '0.55' });
+    expect(row).toHaveStyle({ backgroundColor: theme.palette.inactiveSurface, color: theme.palette.text.secondary });
   });
 
   it('shows a Resturlaub column reflecting taken vacation days for the current year, full entitlement when none were taken', async () => {

@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, within, waitFor, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
+import { ThemeProvider } from '@mui/material/styles';
 import type { BranchId, EmployeeId } from '@domain/shared/ids';
 import type { Branch } from '@domain/branch/Branch';
 import type { Employee } from '@domain/employee/Employee';
@@ -21,6 +22,7 @@ import { useBranchSelectionStore } from '@ui/app/store/branchSelectionStore';
 import { useCalendarWeekStore } from '@ui/app/store/calendarWeekStore';
 import { AppNotifications } from '@ui/app/AppNotifications';
 import { useNotificationStore } from '@ui/app/store/notificationStore';
+import { theme } from '@ui/app/theme';
 import { MonthOverviewView } from './MonthOverviewView';
 
 vi.mock('@infrastructure/services', () => ({
@@ -118,20 +120,22 @@ function selectBranch() {
 
 const renderView = () =>
   render(
-    <MemoryRouter initialEntries={['/month']}>
-      <Routes>
-        <Route
-          path="/month"
-          element={
-            <>
-              <MonthOverviewView />
-              <AppNotifications />
-            </>
-          }
-        />
-        <Route path="/de/schedule" element={<div>schedule-route-landed</div>} />
-      </Routes>
-    </MemoryRouter>,
+    <ThemeProvider theme={theme}>
+      <MemoryRouter initialEntries={['/month']}>
+        <Routes>
+          <Route
+            path="/month"
+            element={
+              <>
+                <MonthOverviewView />
+                <AppNotifications />
+              </>
+            }
+          />
+          <Route path="/de/schedule" element={<div>schedule-route-landed</div>} />
+        </Routes>
+      </MemoryRouter>
+    </ThemeProvider>,
   );
 
 const now = new Date();
@@ -497,7 +501,8 @@ describe('MonthOverviewView', () => {
     const nameCell = await screen.findByText(fullName(inactive));
     const row = nameCell.closest('tr')!;
     expect(within(row).getByText('Inaktiv')).toBeInTheDocument();
-    expect(row).toHaveStyle({ opacity: '0.55' });
+    expect(row).not.toHaveStyle({ opacity: '0.55' });
+    expect(row).toHaveStyle({ backgroundColor: theme.palette.inactiveSurface, color: theme.palette.text.secondary });
   });
 
   it('drops an inactive employee from the month overview entirely once they carry no hours this month at all (N26)', async () => {

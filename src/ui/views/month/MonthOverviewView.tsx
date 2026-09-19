@@ -289,7 +289,14 @@ export function MonthOverviewView() {
               const monthlyLimit = employee.employmentType.type === 'Minijob' ? employee.employmentType.maxMonthlyHours : undefined;
               const overMonthlyLimit = monthlyLimit != null && totalNetMinutes > monthlyLimit * 60;
               return (
-                <TableRow key={employee.id} hover sx={{ opacity: employee.active ? 1 : 0.55 }}>
+                <TableRow
+                  key={employee.id}
+                  hover
+                  sx={{
+                    bgcolor: employee.active ? undefined : 'inactiveSurface',
+                    color: employee.active ? undefined : 'text.secondary',
+                  }}
+                >
                   <TableCell sx={stickyFirstColumnSx}>
                     <Stack direction="row" spacing={0.5} alignItems="center">
                       {fullName(employee)}
