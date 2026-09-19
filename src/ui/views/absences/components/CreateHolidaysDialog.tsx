@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
@@ -40,6 +40,7 @@ export function CreateHolidaysDialog({ onClose, branch, employees, absences, onA
   const currentYear = new Date().getFullYear();
   const [year, setYear] = useState(currentYear);
   const [applying, setApplying] = useState(false);
+  const noEmployeesHintId = useId();
 
   const apply = async () => {
     setApplying(true);
@@ -66,7 +67,12 @@ export function CreateHolidaysDialog({ onClose, branch, employees, absences, onA
           <Button onClick={onClose} disabled={applying}>
             {tCommon('cancel')}
           </Button>
-          <Button variant="contained" onClick={apply} disabled={applying || employees.length === 0}>
+          <Button
+            variant="contained"
+            onClick={apply}
+            disabled={applying || employees.length === 0}
+            aria-describedby={employees.length === 0 ? noEmployeesHintId : undefined}
+          >
             {t('createHolidaysDialog.createButton')}
           </Button>
         </>
@@ -84,7 +90,7 @@ export function CreateHolidaysDialog({ onClose, branch, employees, absences, onA
           ))}
         </TextField>
         {employees.length === 0 && (
-          <Typography variant="body2" color="text.secondary">
+          <Typography id={noEmployeesHintId} variant="body2" color="text.secondary">
             {t('createHolidaysDialog.noActiveEmployees')}
           </Typography>
         )}

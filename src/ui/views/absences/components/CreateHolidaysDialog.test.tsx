@@ -135,7 +135,16 @@ describe('CreateHolidaysDialog', () => {
   it('disables "Anlegen" and shows a hint when there are no employees to create holidays for', () => {
     renderDialog({ employees: [] });
 
-    expect(screen.getByRole('button', { name: 'Anlegen' })).toBeDisabled();
-    expect(screen.getByText('Keine aktiven Mitarbeiter für diese Filiale.')).toBeInTheDocument();
+    const button = screen.getByRole('button', { name: 'Anlegen' });
+    const hint = screen.getByText('Keine aktiven Mitarbeiter für diese Filiale.');
+    expect(button).toBeDisabled();
+    expect(hint).toBeInTheDocument();
+    expect(button).toHaveAttribute('aria-describedby', hint.id);
+  });
+
+  it('does not leave a dangling aria-describedby when employees are present', () => {
+    renderDialog();
+
+    expect(screen.getByRole('button', { name: 'Anlegen' })).not.toHaveAttribute('aria-describedby');
   });
 });
