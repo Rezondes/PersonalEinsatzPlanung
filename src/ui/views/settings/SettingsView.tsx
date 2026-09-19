@@ -606,6 +606,7 @@ export function SettingsView() {
             onChange={(_, value) => value && setThemeMode(value)}
             size="small"
             aria-label={t('appearance.modeLabel')}
+            sx={{ '& .MuiToggleButton-root': { minHeight: 44 } }}
           >
             <ToggleButton value="light">{t('appearance.modeLight')}</ToggleButton>
             <ToggleButton value="dark">{t('appearance.modeDark')}</ToggleButton>

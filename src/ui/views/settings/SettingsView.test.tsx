@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, waitFor, act } from '@testing-library/react';
+import { render, screen, waitFor, act, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { ThemeProvider } from '@mui/material/styles';
@@ -434,6 +434,15 @@ describe('SettingsView, Erscheinungsbild', () => {
     expect(system).toBeInTheDocument();
     expect(dark).toHaveAttribute('aria-pressed', 'true');
     expect(light).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  it('der Hell/Dunkel/System-Umschalter erreicht 44px Höhe', () => {
+    renderView();
+
+    const group = screen.getByRole('group', { name: 'Design' });
+    for (const button of within(group).getAllByRole('button')) {
+      expect(button).toHaveStyle({ minHeight: '44px' });
+    }
   });
 
   it('updates the store when the user picks Dunkel', async () => {
