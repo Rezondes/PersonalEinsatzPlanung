@@ -316,6 +316,13 @@ describe('ScheduleView', () => {
       expect(scheduleGetOrCreate).not.toHaveBeenCalled();
     });
 
+    it('zeigt eine h1-Überschrift mit dem Seitentitel', async () => {
+      renderScheduleView();
+      await act(async () => {});
+
+      expect(screen.getByRole('heading', { level: 1, name: 'Wochenplanung' })).toBeInTheDocument();
+    });
+
     it('shows one loading overlay covering the whole multi-hook fetch window, then hides it once everything has resolved', async () => {
       let resolveSchedule!: (s: WeeklySchedule) => void;
       let resolveEmployees!: (e: Employee[]) => void;

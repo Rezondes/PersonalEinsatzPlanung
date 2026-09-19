@@ -258,6 +258,7 @@ function EmployeeCard({
 export function EmployeeMasterDataView() {
   const { t } = useTranslation('masterdata');
   const { t: tCommon } = useTranslation();
+  const { t: tNav } = useTranslation('nav');
   const layout = useBreakpoint();
   const { branch } = useSelectedBranch();
   const { employeeList, loading, reload } = useEmployeeList(branch?.id ?? null);
@@ -341,6 +342,9 @@ export function EmployeeMasterDataView() {
         py: layout === 'mobile' ? 1.5 : 3,
       }}
     >
+      <Typography variant="h5" component="h1" fontWeight={500} sx={{ mb: 1 }}>
+        {tNav('employees')}
+      </Typography>
       <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
         {/* Hidden on mobile: MobileFab (registered above via usePageActions) is the primary
             action there, matching the mockup's mobile Mitarbeiter screen (FAB only, no inline

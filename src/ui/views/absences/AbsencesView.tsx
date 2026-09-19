@@ -141,6 +141,7 @@ export function AbsencesView() {
   const layout = useBreakpoint();
   const { t } = useTranslation('absences');
   const { t: tCommon } = useTranslation();
+  const { t: tNav } = useTranslation('nav');
   const { branch } = useSelectedBranch();
   const { employeeList } = useEmployeeList(branch?.id ?? null);
   const activeEmployees = employeeList.filter((emp) => emp.active);
@@ -266,6 +267,9 @@ export function AbsencesView() {
         py: layout === 'mobile' ? 1.5 : 3,
       }}
     >
+      <Typography variant="h5" component="h1" fontWeight={500} sx={{ mb: 1 }}>
+        {tNav('absences')}
+      </Typography>
       <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
         {/* Hidden on mobile: MobileFab (registered above via usePageActions, label "Erfassen"
             matching the mockup) is the primary action there. */}

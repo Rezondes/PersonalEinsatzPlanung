@@ -121,6 +121,12 @@ describe('BranchMasterDataView', () => {
     expect(within(table).getByText('Inaktiv')).toBeInTheDocument();
   });
 
+  it('zeigt eine h1-Überschrift mit dem Seitentitel', () => {
+    renderView();
+
+    expect(screen.getByRole('heading', { level: 1, name: 'Filialen' })).toBeInTheDocument();
+  });
+
   it('zeigt die inaktive Filiale Süd ohne Opacity-Verwaschung', () => {
     mockViewportWidth(1100);
     const active = makeBranch({ id: 'branch-1' as BranchId, name: 'Filiale Nord', branchNumber: '001' });

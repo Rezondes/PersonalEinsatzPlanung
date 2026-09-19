@@ -274,6 +274,13 @@ describe('MonthOverviewView', () => {
     expect(cells[cells.length - 1]).toHaveTextContent('0');
   });
 
+  it('zeigt eine h1-Überschrift mit dem Seitentitel', async () => {
+    selectBranch();
+    renderView();
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'Monatsübersicht' })).toBeInTheDocument();
+  });
+
   it('shows a dash for an employee not part of the loaded schedule, and the actual total for one who is', async () => {
     selectBranch();
     const assigned = makeEmployee({ id: 'e1' as EmployeeId, lastName: 'Assigned' });

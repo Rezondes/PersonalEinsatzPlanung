@@ -66,6 +66,7 @@ function focusAdjacentWeekCell(e: KeyboardEvent<HTMLElement>, direction: 1 | -1)
 export function MonthOverviewView() {
   const { t } = useTranslation('month');
   const { t: tCommon } = useTranslation();
+  const { t: tNav } = useTranslation('nav');
   const { branch } = useSelectedBranch();
   const { employeeList } = useEmployeeList(branch?.id ?? null);
   const { absences } = useAbsences(employeeList.map((emp) => emp.id));
@@ -170,6 +171,9 @@ export function MonthOverviewView() {
         py: layout === 'mobile' ? 1.5 : 3,
       }}
     >
+      <Typography variant="h5" component="h1" fontWeight={500} sx={{ mb: 1 }}>
+        {tNav('month')}
+      </Typography>
       <Stack direction="row" flexWrap="wrap" justifyContent="space-between" alignItems="center" gap={1} sx={{ mb: 1 }}>
         <Stack direction="row" flexWrap="wrap" alignItems="center" gap={1}>
           <Stack direction="row" alignItems="center" gap={1}>

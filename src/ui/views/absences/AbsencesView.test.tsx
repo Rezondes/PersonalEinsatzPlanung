@@ -161,6 +161,12 @@ describe('AbsencesView', () => {
       useBranchSelectionStore.setState({ selectedBranchId: b1 });
     });
 
+    it('zeigt eine h1-Überschrift mit dem Seitentitel', async () => {
+      renderView();
+
+      expect(await screen.findByRole('heading', { level: 1, name: 'Abwesenheiten' })).toBeInTheDocument();
+    });
+
     it('shows the empty-state message when there are no absences at all', async () => {
       employeeForBranchMock.mockResolvedValue([e1]);
       absenceForBranchMock.mockResolvedValue([]);

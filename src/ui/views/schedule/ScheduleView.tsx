@@ -86,6 +86,7 @@ import { buildLocalizedPath } from '@ui/app/locale/locale';
 export function ScheduleView() {
   const { t } = useTranslation('schedule');
   const { t: tCommon } = useTranslation();
+  const { t: tNav } = useTranslation('nav');
   const { branch } = useSelectedBranch();
   const { employeeList, loading: employeeListLoading } = useEmployeeList(branch?.id ?? null);
   const selectedWeek = useCalendarWeekStore((s) => s.selectedWeek);
@@ -700,6 +701,9 @@ export function ScheduleView() {
         pb: layout === 'mobile' ? 0 : 3,
       }}
     >
+      <Typography variant="h5" component="h1" fontWeight={500} sx={{ mb: 1 }}>
+        {tNav('schedule')}
+      </Typography>
       <Stack direction="row" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={2} sx={{ mb: 2 }}>
         <Box>
           {/* Branch name intentionally not repeated here - it's already shown in the header's

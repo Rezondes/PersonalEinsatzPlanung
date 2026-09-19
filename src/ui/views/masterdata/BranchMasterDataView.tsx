@@ -149,6 +149,7 @@ function BranchCard({ branch, onTap, onLongPress }: { branch: Branch; onTap: () 
 export function BranchMasterDataView() {
   const { t } = useTranslation('masterdata');
   const { t: tCommon } = useTranslation();
+  const { t: tNav } = useTranslation('nav');
   const layout = useBreakpoint();
   const { branches, loading, reload } = useBranchList();
   // null = closed; { branch: null } = "Neue Filiale"; { branch } = edit. Mounted only while open.
@@ -190,6 +191,9 @@ export function BranchMasterDataView() {
         py: layout === 'mobile' ? 1.5 : 3,
       }}
     >
+      <Typography variant="h5" component="h1" fontWeight={500} sx={{ mb: 1 }}>
+        {tNav('branches')}
+      </Typography>
       <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
         {/* Hidden on mobile: MobileFab (registered above via usePageActions) is the primary
             action there, same pattern as EmployeeMasterDataView/AbsencesView. */}

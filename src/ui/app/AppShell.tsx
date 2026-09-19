@@ -33,9 +33,9 @@ function AppShellLayout() {
   const { fullBleedPage } = usePageActionsValue();
   const rootRef = useRef<HTMLDivElement>(null);
   const headerRef = useRef<HTMLElement>(null);
-  // The one place this is called - no individual view needs to set its own title. Deliberately not
-  // a visible on-page heading (see ui/CLAUDE.md on why those were removed); this only reaches the
-  // browser tab and assistive tech.
+  // The one place this is called - no individual view needs to set its own title. Sets the
+  // document/browser-tab title only; each view separately renders its own visible <h1> (see
+  // routeMeta.ts's ROUTE_TITLES, reused for both).
   const location = useLocation();
   const locale = useLocale();
   const { t } = useTranslation('nav');

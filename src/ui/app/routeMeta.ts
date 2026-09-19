@@ -7,10 +7,9 @@ import type { NavKey } from '@ui/i18n/resources/de/nav';
  * objects, since react-router's route config has no first-class "title" field to hang this off.
  * Reuses the `nav` namespace's own keys rather than a separate set of strings - these are the exact
  * same 10 destinations navItems.ts already names, so a second copy would just be one more place a
- * rename could silently drift out of sync.
- *
- * Deliberately does not reintroduce a visible on-page heading - those were removed on purpose (see
- * ui/CLAUDE.md). This only ever reaches the browser tab and assistive tech.
+ * rename could silently drift out of sync. The same keys are reused a second time by each of the 5
+ * main views for their own visible <h1> heading - this module only ever reaches the browser tab
+ * and assistive tech (document.title), not the page body.
  */
 const ROUTE_TITLES: Record<string, NavKey> = {
   '/schedule': 'schedule',
