@@ -76,7 +76,7 @@ describe('NavRail', () => {
     renderRail();
 
     const toggleButton = screen.getByRole('button', { name: 'Navigation einklappen' });
-    expect(toggleButton).toHaveStyle({ width: '100%', borderBottom: '1px solid #e0e0dc' });
+    expect(toggleButton).toHaveStyle({ width: '100%', borderBottom: `1px solid ${theme.palette.divider}` });
   });
 
   it('calls toggle() when the header row is clicked', async () => {

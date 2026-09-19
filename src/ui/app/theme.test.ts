@@ -108,4 +108,16 @@ describe('createAppTheme', () => {
       '&:focus-visible': { outline: '2px solid #8da69f', outlineOffset: 2 },
     });
   });
+
+  it('divider erreicht im Light Mode mindestens 3:1 gegen die Paper-Fläche', () => {
+    const result = createAppTheme({ mode: 'light', prefersDark: false });
+
+    expect(result.palette.divider).toBe('#949490');
+  });
+
+  it('divider erreicht im Dark Mode mindestens 3:1 gegen die Paper-Fläche', () => {
+    const result = createAppTheme({ mode: 'dark', prefersDark: false });
+
+    expect(result.palette.divider).toBe('#6a6a66');
+  });
 });

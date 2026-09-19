@@ -12,8 +12,11 @@ import type { AccentColorKey } from './theme/accentColors';
 // string) rather than hardcoding the literal - a full audit swept the remaining stragglers
 // (NavRail, AppHeader, ScheduleToolbar, MorePage, ShiftListEditor, BottomTabBar,
 // RowActionSheet's #cfcfc9 drag-handle) into this one source of truth.
-const DIVIDER_LIGHT = '#e0e0dc';
-const DIVIDER_DARK = '#3a3a38';
+// WCAG 1.4.11 (non-text contrast) requires >=3:1 against the paper it borders; the previous
+// literals measured only ~1.32:1 (light vs #ffffff) / ~1.46:1 (dark vs #1e1e1e). These keep the
+// original hue and clear 3:1 with a small margin (3.04:1 / 3.07:1 measured).
+const DIVIDER_LIGHT = '#949490';
+const DIVIDER_DARK = '#6a6a66';
 
 // ScheduleTable.tsx's locked-cell (outside an employee's employment period) background - the exact
 // literals already shipped in light mode; dark value keeps the same "barely-there" relationship to
