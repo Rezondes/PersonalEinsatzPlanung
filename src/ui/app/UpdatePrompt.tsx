@@ -2,10 +2,15 @@ import { useEffect, useRef } from 'react';
 import Snackbar from '@mui/material/Snackbar';
 import Alert from '@mui/material/Alert';
 import Button from '@mui/material/Button';
+import Stack from '@mui/material/Stack';
 import { useRegisterSW } from 'virtual:pwa-register/react';
 import { useTranslation } from 'react-i18next';
 import { useBreakpoint } from '@ui/hooks/useBreakpoint';
 import { mobileSafeBottom } from './nav/mobileChromeOffset';
+import { APP_VERSION } from './buildInfo';
+import { router } from './router';
+import { useLocaleStore } from './locale/localeStore';
+import { buildLocalizedPath } from './locale/locale';
 
 /** Once an hour. Often enough that a fix reaches the shops the same day, rare enough to be free. */
 const UPDATE_CHECK_INTERVAL_MS = 60 * 60 * 1000;
@@ -69,11 +74,28 @@ export function UpdatePrompt() {
       <Alert
         severity="info"
         variant="filled"
-        // Both buttons live in `action`, and there is no onClose: MUI renders its own close icon
-        // only when `action` is empty, so an onClose next to an action is silently dead. Two
-        // labelled buttons beat an X anyway for people who do not read icons.
+        // flexWrap so a narrow phone drops the action buttons to their own line below the message
+        // instead of forcing all three into MUI Alert's default nowrap row (see AlertAction/Alert
+        // root in node_modules/@mui/material/Alert/Alert.js - neither sets flexWrap on its own). A
+        // no-op at widths where everything already fits on one line.
+        sx={{ flexWrap: 'wrap', rowGap: 0.5 }}
+        // All three buttons live in `action`, and there is no onClose: MUI renders its own close
+        // icon only when `action` is empty, so an onClose next to an action is silently dead.
+        // Labelled buttons beat an X anyway for people who do not read icons.
         action={
-          <>
+          <Stack direction="row" flexWrap="wrap" justifyContent="flex-end" gap={0.5}>
+            <Button
+              color="inherit"
+              size="small"
+              // Neither closes the banner nor triggers the update - just a way to see what's new
+              // before deciding, so it must not touch needRefresh/updateServiceWorker at all.
+              onClick={() => {
+                const locale = useLocaleStore.getState().locale;
+                router.navigate(buildLocalizedPath(locale, '/changelog'));
+              }}
+            >
+              {t('viewChanges')}
+            </Button>
             <Button
               color="inherit"
               size="small"
@@ -89,10 +111,10 @@ export function UpdatePrompt() {
             <Button color="inherit" size="small" onClick={() => void updateServiceWorker(true)}>
               {t('updateNow')}
             </Button>
-          </>
+          </Stack>
         }
       >
-        {t('updateAvailable')}
+        {t('updateAvailable', { version: APP_VERSION })}
       </Alert>
     </Snackbar>
   );

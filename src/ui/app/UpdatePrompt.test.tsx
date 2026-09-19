@@ -4,13 +4,22 @@ import userEvent from '@testing-library/user-event';
 import { ThemeProvider } from '@mui/material/styles';
 import { useRegisterSW } from 'virtual:pwa-register/react';
 import { theme } from './theme';
+import { APP_VERSION } from './buildInfo';
+import { router } from './router';
 import { UpdatePrompt } from './UpdatePrompt';
 
 // The real module only exists while vite-plugin-pwa runs; vitest.config.ts aliases it to a stub.
 // Here it is replaced outright, so the "an update is waiting" state can be produced at all.
 vi.mock('virtual:pwa-register/react', () => ({ useRegisterSW: vi.fn() }));
 
+// UpdatePrompt is mounted as a SIBLING of <RouterProvider> in App.tsx, not inside it (the print
+// route lives outside the shell and would otherwise unmount a pending update) - so it navigates via
+// the app's own router singleton's imperative .navigate(), not useNavigate(), and this test has no
+// Router ancestor to give it either. Mocked the same way @infrastructure/services is elsewhere.
+vi.mock('./router', () => ({ router: { navigate: vi.fn() } }));
+
 const useRegisterSWMock = vi.mocked(useRegisterSW);
+const routerNavigate = vi.mocked(router.navigate);
 const updateServiceWorker = vi.fn(async () => {});
 const setNeedRefresh = vi.fn();
 
@@ -51,14 +60,25 @@ describe('UpdatePrompt', () => {
     withUpdate(false);
     renderPrompt();
 
-    expect(screen.queryByText(/neue Version/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/ist verfügbar/i)).not.toBeInTheDocument();
   });
 
-  it('announces a waiting version in German', () => {
+  it('announces the currently running version in German', () => {
     withUpdate(true);
     renderPrompt();
 
-    expect(screen.getByText('Eine neue Version ist verfügbar.')).toBeInTheDocument();
+    expect(screen.getByText(`Version ${APP_VERSION} ist verfügbar.`)).toBeInTheDocument();
+  });
+
+  it('"Änderungen ansehen" navigates to /changelog without dismissing the banner or updating', async () => {
+    withUpdate(true);
+    renderPrompt();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Änderungen ansehen' }));
+
+    expect(routerNavigate).toHaveBeenCalledWith('/de/changelog');
+    expect(setNeedRefresh).not.toHaveBeenCalled();
+    expect(updateServiceWorker).not.toHaveBeenCalled();
   });
 
   it('reloads only when the user asks for it', async () => {
@@ -93,7 +113,7 @@ describe('UpdatePrompt', () => {
     withUpdate(true, '/sw.js');
     renderPrompt();
 
-    expect(screen.queryByText(/neue Version/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/ist verfügbar/i)).not.toBeInTheDocument();
   });
 
   it('shows an actually different update right away even after a previous dismissal, once remounted', async () => {
@@ -106,6 +126,6 @@ describe('UpdatePrompt', () => {
     withUpdate(true, '/sw.js?v=2');
     renderPrompt();
 
-    expect(screen.getByText('Eine neue Version ist verfügbar.')).toBeInTheDocument();
+    expect(screen.getByText(`Version ${APP_VERSION} ist verfügbar.`)).toBeInTheDocument();
   });
 });
