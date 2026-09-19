@@ -22,6 +22,21 @@ export function App() {
   const mode = useThemeModeStore((s) => s.mode);
   const accentColor = useAccentColorStore((s) => s.accentColor);
   const prefersDark = usePrefersDarkMode();
+  // KNOWN ISSUE (diagnosed, not yet fixed - see the a11y plan's P12 spike): a variant="outlined"
+  // Button's border does not visually update after a live mode switch here (Settings -> Hell/
+  // Dunkel/System), staying stuck at the old color for several seconds until something forces a
+  // style recalc (moving the mouse over it fixes it instantly; reloading the page also fixes it).
+  // Confirmed NOT a stale-closure/memoization bug: this factory really does run fresh on every
+  // render with the new mode (verified via DevTools), and the freshly-injected emotion stylesheet
+  // rule for the button's own (also freshly-assigned) class correctly contains the NEW color.
+  // MUI's outlined Button applies its border via `border-color: var(--variant-outlinedBorder)`,
+  // a CSS custom property - unlike a direct value (background-color, color), which updates
+  // instantly on the same switch. The browser appears to keep using the OLD resolved value for a
+  // var()-fed property until a pseudo-class state change (:hover) forces a full style
+  // recalculation; a synthetic dispatchEvent('mouseover') does not trigger it, only a real pointer
+  // event does. Root cause is a browser/emotion style-invalidation timing interaction around
+  // dynamically-injected CSS custom properties, not something wrong in this call site itself - no
+  // fix attempted here yet.
   const theme = createAppTheme({ mode, prefersDark, accentColor });
 
   // index.html's static <meta name="theme-color"> only covers the initial paint (it was picked to
