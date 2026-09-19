@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useId, useRef } from 'react';
 import type { ReactNode } from 'react';
 import SwipeableDrawer from '@mui/material/SwipeableDrawer';
 import Box from '@mui/material/Box';
@@ -28,6 +28,7 @@ interface RowActionSheetProps {
  */
 export function RowActionSheet({ open, onClose, title, subtitle, actions }: RowActionSheetProps) {
   const { t } = useTranslation();
+  const titleId = useId();
   useDismissOnBack(open, onClose);
   // Holds the chosen action until the sheet has actually finished closing (onExited) - firing it
   // in the same handler as onClose (this typically opens a ConfirmDialog) would build that
@@ -49,6 +50,7 @@ export function RowActionSheet({ open, onClose, title, subtitle, actions }: RowA
       onClose={onClose}
       onOpen={() => {}}
       disableSwipeToOpen
+      aria-labelledby={titleId}
       SlideProps={{
         onExited: () => {
           const pending = pendingActionRef.current;
@@ -61,7 +63,7 @@ export function RowActionSheet({ open, onClose, title, subtitle, actions }: RowA
         <Box sx={{ width: 36, height: 4, borderRadius: 2, bgcolor: 'divider' }} />
       </Box>
       <Box sx={{ px: 2.5, pb: 1 }}>
-        <Typography variant="subtitle1" fontWeight={500} noWrap>
+        <Typography id={titleId} variant="subtitle1" fontWeight={500} noWrap>
           {title}
         </Typography>
         {subtitle && (

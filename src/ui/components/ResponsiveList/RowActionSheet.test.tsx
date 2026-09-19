@@ -84,4 +84,12 @@ describe('RowActionSheet', () => {
 
     expect(screen.getByRole('button', { name: /Bearbeiten/ })).toBeDisabled();
   });
+
+  it('hat einen zugänglichen Namen gleich dem sichtbaren Titel', () => {
+    render(<RowActionSheet open onClose={vi.fn()} title="Bauer, Anna" actions={[editAction()]} />);
+
+    const titleText = screen.getByText('Bauer, Anna');
+    const drawer = document.querySelector('.MuiDrawer-root')!;
+    expect(drawer.getAttribute('aria-labelledby')).toBe(titleText.id);
+  });
 });
