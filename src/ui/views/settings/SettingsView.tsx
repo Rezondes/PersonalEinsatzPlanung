@@ -649,10 +649,9 @@ export function SettingsView() {
                     accentButtonRefs.current[nextIndex]?.focus();
                   }}
                   sx={(swatchTheme) => ({
-                    width: 36,
-                    height: 36,
+                    minWidth: 44,
+                    minHeight: 44,
                     borderRadius: '50%',
-                    bgcolor: ACCENT_COLORS[key].dark,
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -662,7 +661,25 @@ export function SettingsView() {
                     },
                   })}
                 >
-                  {isSelected && <CheckIcon sx={{ color: '#fff', fontSize: 20 }} />}
+                  {/* The visible 36px swatch, separate from the 44px ButtonBase hit target above:
+                      ButtonBaseRoot hardcodes `border: 0` in its own root style (see MUI source),
+                      which a border/borderColor added to the ButtonBase's own sx cannot win against
+                      in jsdom's cascade - a plain Box has no such reset. */}
+                  <Box
+                    sx={{
+                      width: 36,
+                      height: 36,
+                      borderRadius: '50%',
+                      border: '1px solid',
+                      borderColor: 'text.disabled',
+                      bgcolor: ACCENT_COLORS[key].dark,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    {isSelected && <CheckIcon sx={{ color: '#fff', fontSize: 20 }} />}
+                  </Box>
                 </ButtonBase>
               );
             })}

@@ -479,6 +479,25 @@ describe('SettingsView, Erscheinungsbild', () => {
 
     expect(screen.getByRole('radio', { name: 'Blau' })).toHaveFocus();
   });
+
+  it('jedes Akzentfarb-Swatch hat eine 44x44-Trefffläche', () => {
+    renderView();
+
+    for (const radio of screen.getAllByRole('radio')) {
+      expect(radio).toHaveStyle({ minWidth: '44px', minHeight: '44px' });
+    }
+  });
+
+  it('jedes Swatch hat einen sichtbaren Rand', () => {
+    renderView();
+
+    // The border sits on the visible 36px swatch (radio's first child), not the 44px ButtonBase
+    // itself - ButtonBaseRoot's own hardcoded `border: 0` would always win against a border set on
+    // the ButtonBase's own sx.
+    for (const radio of screen.getAllByRole('radio')) {
+      expect(radio.firstElementChild).toHaveStyle({ borderStyle: 'solid' });
+    }
+  });
 });
 
 describe('SettingsView, App & Speicher (Installations-Hinweis)', () => {
