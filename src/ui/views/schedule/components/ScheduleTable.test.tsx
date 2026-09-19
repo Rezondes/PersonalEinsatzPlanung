@@ -113,6 +113,25 @@ describe('ScheduleTable', () => {
     expect(screen.getAllByText('frei')).toHaveLength(13);
   });
 
+  it('die Wochentag-Kopfzellen sind bereits korrekte scope=col th-Elemente', () => {
+    const { container } = render(
+      <ScheduleTable rows={rowsFor(employees)} weekDays={weekDays} validationResults={[]} onCellClick={() => {}} {...notAssigning} {...noSelection} />,
+    );
+
+    // weekDays.length weekday headers plus the "Mitarbeiter" corner header cell - both are already
+    // correct th[scope="col"] via MUI's own TableCell auto-derivation, with no fix needed for either.
+    expect(container.querySelectorAll('thead th[scope="col"]')).toHaveLength(weekDays.length + 1);
+  });
+
+  it('die Mitarbeiterzelle ist ein echter Zeilenkopf', () => {
+    render(<ScheduleTable rows={rowsFor(employees)} weekDays={weekDays} validationResults={[]} onCellClick={() => {}} {...notAssigning} {...noSelection} />);
+
+    const rowHeaders = screen.getAllByRole('rowheader');
+    expect(rowHeaders.map((el) => el.textContent)).toEqual(
+      expect.arrayContaining([expect.stringContaining('Müller, Anna')]),
+    );
+  });
+
   it('names the employee, day and current content in a cell\'s aria-label, not just the day (H6)', () => {
     render(<ScheduleTable rows={rowsFor(employees)} weekDays={weekDays} validationResults={[]} onCellClick={() => {}} {...notAssigning} {...noSelection} />);
 

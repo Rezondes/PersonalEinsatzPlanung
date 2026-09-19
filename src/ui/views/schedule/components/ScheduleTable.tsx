@@ -226,7 +226,7 @@ export const ScheduleTable = memo(function ScheduleTable({
                   color: row.editable ? undefined : 'text.secondary',
                 }}
               >
-                <TableCell sx={stickyFirstColumnSx}>
+                <TableCell component="th" scope="row" sx={stickyFirstColumnSx}>
                   <Stack direction="row" spacing={0.5} alignItems="center">
                     <Typography variant="body2" fontWeight={500}>
                       {fullName(employee)}
