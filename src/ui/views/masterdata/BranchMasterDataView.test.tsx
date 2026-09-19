@@ -186,6 +186,45 @@ describe('BranchMasterDataView', () => {
     expect(screen.getByText('Filiale Süd')).toBeInTheDocument();
   });
 
+  it('filters branches by status (Alle/Aktiv/Inaktiv)', async () => {
+    mockViewportWidth(1100);
+    const user = userEvent.setup();
+    const active = makeBranch({ id: 'branch-1' as BranchId, name: 'Filiale Nord', active: true });
+    const inactive = makeBranch({ id: 'branch-2' as BranchId, name: 'Filiale Süd', active: false });
+    seedBranches([active, inactive]);
+    renderView();
+
+    expect(screen.getByRole('combobox', { name: 'Status' })).toBeInTheDocument();
+
+    await user.click(screen.getByRole('combobox', { name: 'Status' }));
+    await user.click(screen.getByRole('option', { name: 'Aktiv' }));
+    expect(screen.getByText('Filiale Nord')).toBeInTheDocument();
+    expect(screen.queryByText('Filiale Süd')).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('combobox', { name: 'Status' }));
+    await user.click(screen.getByRole('option', { name: 'Inaktiv' }));
+    expect(screen.queryByText('Filiale Nord')).not.toBeInTheDocument();
+    expect(screen.getByText('Filiale Süd')).toBeInTheDocument();
+  });
+
+  it('combines the status filter and search (AND), matching only the branch that satisfies both', async () => {
+    mockViewportWidth(1100);
+    const user = userEvent.setup();
+    const nord = makeBranch({ id: 'branch-1' as BranchId, name: 'Filiale Nord', active: true });
+    const west = makeBranch({ id: 'branch-2' as BranchId, name: 'Filiale West', active: true });
+    const sued = makeBranch({ id: 'branch-3' as BranchId, name: 'Filiale Süd', active: false });
+    seedBranches([nord, west, sued]);
+    renderView();
+
+    await user.click(screen.getByRole('combobox', { name: 'Status' }));
+    await user.click(screen.getByRole('option', { name: 'Aktiv' }));
+    await user.type(screen.getByLabelText('Filiale suchen'), 'Nord');
+
+    expect(screen.getByText('Filiale Nord')).toBeInTheDocument();
+    expect(screen.queryByText('Filiale West')).not.toBeInTheDocument();
+    expect(screen.queryByText('Filiale Süd')).not.toBeInTheDocument();
+  });
+
   it('hebt die fixierte Namens-Zelle beim Hover der Zeile mit hervor', async () => {
     mockViewportWidth(1100);
     const nord = makeBranch({ id: 'branch-1' as BranchId, name: 'Filiale Nord', branchNumber: '001' });

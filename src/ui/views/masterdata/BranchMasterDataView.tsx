@@ -17,6 +17,7 @@ import IconButton from '@mui/material/IconButton';
 import Chip from '@mui/material/Chip';
 import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
+import MenuItem from '@mui/material/MenuItem';
 import InputAdornment from '@mui/material/InputAdornment';
 import AddIcon from '@mui/icons-material/Add';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
@@ -52,6 +53,7 @@ import { usePageActions } from '@ui/app/PageActionsContext';
 const COLUMN_COUNT = 4;
 
 type SortKey = 'name' | 'city' | 'status';
+type StatusFilter = 'all' | 'active' | 'inactive';
 
 /** German collation, like EmployeeMasterDataView's own compareText - a plain "a < b" would sort
  * umlauts wrongly. */
@@ -170,6 +172,8 @@ export function BranchMasterDataView() {
   } = useActivationToggle(services.branch, reload, t('branch.entityLabel'));
   const [sheetBranch, setSheetBranch] = useState<Branch | null>(null);
   const [search, setSearch] = useState('');
+  // Defaults to "Alle": opening the view must never hide records the user expects.
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const { headProps, sortRows } = useTableSort<SortKey>('name');
 
   usePageActions({
@@ -180,11 +184,13 @@ export function BranchMasterDataView() {
   const visibleBranches = useMemo(() => {
     const term = search.trim().toLowerCase();
     const filtered = branches.filter((b) => {
+      if (statusFilter === 'active' && !b.active) return false;
+      if (statusFilter === 'inactive' && b.active) return false;
       if (!term) return true;
       return `${b.name} ${b.branchNumber} ${b.address.city}`.toLowerCase().includes(term);
     });
     return sortRows(filtered, COMPARATORS);
-  }, [branches, search, sortRows]);
+  }, [branches, search, statusFilter, sortRows]);
 
   return (
     <Box
@@ -215,24 +221,38 @@ export function BranchMasterDataView() {
       </Stack>
 
       <Paper sx={{ p: 2, mb: 2 }}>
-        <TextField
-          size="small"
-          placeholder={t('branch.searchPlaceholder')}
-          // A top-level aria-label prop lands on TextField's outer wrapper, not the native input
-          // getByLabelText/screen readers need - inputProps forwards down to that inner element
-          // (same fix as AppHeader.tsx's Filiale Select, see its comment there).
-          inputProps={{ 'aria-label': t('branch.searchAriaLabel') }}
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          sx={{ width: 260 }}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <SearchOutlinedIcon fontSize="small" />
-              </InputAdornment>
-            ),
-          }}
-        />
+        <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap alignItems="center">
+          <TextField
+            size="small"
+            placeholder={t('branch.searchPlaceholder')}
+            // A top-level aria-label prop lands on TextField's outer wrapper, not the native input
+            // getByLabelText/screen readers need - inputProps forwards down to that inner element
+            // (same fix as AppHeader.tsx's Filiale Select, see its comment there).
+            inputProps={{ 'aria-label': t('branch.searchAriaLabel') }}
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            sx={{ width: 260 }}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchOutlinedIcon fontSize="small" />
+                </InputAdornment>
+              ),
+            }}
+          />
+          <TextField
+            select
+            size="small"
+            label={t('branch.columnStatus')}
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
+            sx={{ width: 160 }}
+          >
+            <MenuItem value="all">{t('branch.filterAll')}</MenuItem>
+            <MenuItem value="active">{tCommon('active')}</MenuItem>
+            <MenuItem value="inactive">{tCommon('inactive')}</MenuItem>
+          </TextField>
+        </Stack>
       </Paper>
 
       <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>

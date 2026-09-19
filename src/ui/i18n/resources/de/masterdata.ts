@@ -10,6 +10,7 @@ const masterdata = {
     searchAriaLabel: 'Filiale suchen',
     columnCity: 'Ort',
     columnStatus: 'Status',
+    filterAll: 'Alle',
     emptyNone: 'Noch keine Filiale angelegt.',
     emptyNoMatch: 'Keine Filiale passt zur Suche.',
     deactivateHint: 'Bleibt in Wochenplänen und Abwesenheiten sichtbar',
