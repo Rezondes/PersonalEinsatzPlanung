@@ -34,7 +34,13 @@ import type { DayView } from '@application/schedule/scheduleAssessment';
 import { effectiveTargetMinutesRange } from '@application/schedule/scheduleAssessment';
 import type { ScheduleRow } from '../scheduleRows';
 import { canReceiveEntry, isCellLocked } from '../scheduleRows';
-import { stickyCornerSx, stickyFirstColumnSx, stickyHeaderRowSx } from '@ui/components/stickyFirstColumn';
+import {
+  stickyCornerSx,
+  stickyFirstColumnSx,
+  stickyHeaderRowSx,
+  STICKY_FIRST_COLUMN_CLASS,
+  stickyFirstColumnRowHoverSx,
+} from '@ui/components/stickyFirstColumn';
 import { useBreakpoint } from '@ui/hooks/useBreakpoint';
 import { useTapTooltip } from '@ui/hooks/useTapTooltip';
 
@@ -223,11 +229,16 @@ export const ScheduleTable = memo(function ScheduleTable({
                 key={view.employeeId}
                 hover={row.editable}
                 sx={{
+                  // Only an editable row keeps its native hover tint (see below) - matching that,
+                  // the sticky-cell highlight rule is spread in only for editable rows too, or a
+                  // locked/inactive row's sticky Mitarbeiter cell would light up on hover while the
+                  // rest of the row deliberately does not.
+                  ...(row.editable ? stickyFirstColumnRowHoverSx : {}),
                   bgcolor: row.editable ? undefined : 'inactiveSurface',
                   color: row.editable ? undefined : 'text.secondary',
                 }}
               >
-                <TableCell component="th" scope="row" sx={stickyFirstColumnSx}>
+                <TableCell component="th" scope="row" className={STICKY_FIRST_COLUMN_CLASS} sx={stickyFirstColumnSx}>
                   <Stack direction="row" spacing={0.5} alignItems="center">
                     <Typography variant="body2" fontWeight={500}>
                       {fullName(employee)}

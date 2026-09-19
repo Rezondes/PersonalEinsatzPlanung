@@ -48,7 +48,13 @@ import { useTapTooltip } from '@ui/hooks/useTapTooltip';
 import { useCalendarWeekStore } from '@ui/app/store/calendarWeekStore';
 import { usePageActions } from '@ui/app/PageActionsContext';
 import { NoBranchSelectedAlert } from '@ui/components/NoBranchSelectedAlert';
-import { stickyCornerSx, stickyFirstColumnSx, stickyHeaderRowSx } from '@ui/components/stickyFirstColumn';
+import {
+  stickyCornerSx,
+  stickyFirstColumnSx,
+  stickyHeaderRowSx,
+  STICKY_FIRST_COLUMN_CLASS,
+  stickyFirstColumnRowHoverSx,
+} from '@ui/components/stickyFirstColumn';
 import { useLocale } from '@ui/app/locale/useLocale';
 import { buildLocalizedPath } from '@ui/app/locale/locale';
 
@@ -302,11 +308,12 @@ export function MonthOverviewView() {
                   key={employee.id}
                   hover
                   sx={{
+                    ...stickyFirstColumnRowHoverSx,
                     bgcolor: employee.active ? undefined : 'inactiveSurface',
                     color: employee.active ? undefined : 'text.secondary',
                   }}
                 >
-                  <TableCell sx={stickyFirstColumnSx}>
+                  <TableCell className={STICKY_FIRST_COLUMN_CLASS} sx={stickyFirstColumnSx}>
                     <Stack direction="row" spacing={0.5} alignItems="center">
                       {fullName(employee)}
                       {!employee.active && <Chip size="small" label={tCommon('inactive')} />}

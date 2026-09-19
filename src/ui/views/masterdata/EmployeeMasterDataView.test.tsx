@@ -189,6 +189,18 @@ describe('EmployeeMasterDataView', () => {
     expect(screen.queryByRole('table')).not.toBeInTheDocument();
   });
 
+  it('hebt die fixierte Namens-Zelle beim Hover der Zeile mit hervor', async () => {
+    renderView();
+
+    const nameCell = (await screen.findByText('Bauer, Anna')).closest('td')!;
+    expect(nameCell).toHaveClass('pep-sticky-first-column');
+    const row = nameCell.closest('tr')!;
+    const rowClass = Array.from(row.classList).find((c) => c.startsWith('css-'));
+    // jsdom has no real :hover engine - assert on the injected Emotion stylesheet text instead.
+    const styles = Array.from(document.querySelectorAll('style')).map((s) => s.textContent).join('\n');
+    expect(styles).toContain(`.${rowClass}:hover .pep-sticky-first-column`);
+  });
+
   it('renders every employee with their fields and flags the minor employee', async () => {
     const { container } = renderView();
 

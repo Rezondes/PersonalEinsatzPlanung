@@ -1,6 +1,12 @@
 import { describe, it, expect } from 'vitest';
 import type { SxProps, Theme } from '@mui/material/styles';
-import { stickyFirstColumnSx, stickyHeaderRowSx, stickyCornerSx } from './stickyFirstColumn';
+import {
+  stickyFirstColumnSx,
+  stickyHeaderRowSx,
+  stickyCornerSx,
+  STICKY_FIRST_COLUMN_CLASS,
+  stickyFirstColumnRowHoverSx,
+} from './stickyFirstColumn';
 
 function zIndexOf(sx: SxProps<Theme>): number {
   return (sx as { zIndex: number }).zIndex;
@@ -24,5 +30,13 @@ describe('stickyFirstColumn', () => {
     for (const sx of [stickyFirstColumnSx, stickyHeaderRowSx(), stickyCornerSx()]) {
       expect(sx).toMatchObject({ position: 'sticky', backgroundColor: 'background.paper' });
     }
+  });
+
+  it('exportiert eine stabile Klasse und eine passende Hover-Regel', () => {
+    expect(typeof STICKY_FIRST_COLUMN_CLASS).toBe('string');
+    expect(STICKY_FIRST_COLUMN_CLASS.length).toBeGreaterThan(0);
+
+    const hoverKey = `&:hover .${STICKY_FIRST_COLUMN_CLASS}`;
+    expect(stickyFirstColumnRowHoverSx).toHaveProperty(hoverKey);
   });
 });

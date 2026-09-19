@@ -39,7 +39,13 @@ import { useTableSort } from '@ui/hooks/useTableSort';
 import { useBreakpoint } from '@ui/hooks/useBreakpoint';
 import { ConfirmDialog } from '@ui/components/ConfirmDialog';
 import { NoBranchSelectedAlert } from '@ui/components/NoBranchSelectedAlert';
-import { stickyCornerSx, stickyFirstColumnSx, stickyHeaderRowSx } from '@ui/components/stickyFirstColumn';
+import {
+  stickyCornerSx,
+  stickyFirstColumnSx,
+  stickyHeaderRowSx,
+  STICKY_FIRST_COLUMN_CLASS,
+  stickyFirstColumnRowHoverSx,
+} from '@ui/components/stickyFirstColumn';
 import { ResponsiveDataList } from '@ui/components/ResponsiveList/ResponsiveDataList';
 import { RowActionSheet } from '@ui/components/ResponsiveList/RowActionSheet';
 import type { RowAction } from '@ui/components/ResponsiveList/RowAction';
@@ -449,9 +455,9 @@ export function AbsencesView() {
                       key={a.id}
                       hover
                       onClick={() => setDialog({ absence: a })}
-                      sx={{ cursor: 'pointer' }}
+                      sx={{ ...stickyFirstColumnRowHoverSx, cursor: 'pointer' }}
                     >
-                      <TableCell sx={stickyFirstColumnSx}>{employeeName(employee)}</TableCell>
+                      <TableCell className={STICKY_FIRST_COLUMN_CLASS} sx={stickyFirstColumnSx}>{employeeName(employee)}</TableCell>
                       <TableCell>
                         <Chip size="small" label={absenceTypeLabel(a) + halfDayText} />
                       </TableCell>

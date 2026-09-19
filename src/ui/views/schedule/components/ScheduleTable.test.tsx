@@ -104,6 +104,20 @@ describe('ScheduleTable', () => {
     delete window.matchMedia;
   });
 
+  it('hebt die fixierte Zeilenkopf-Zelle beim Hover einer editierbaren Zeile mit hervor', () => {
+    render(<ScheduleTable rows={rowsFor(employees)} weekDays={weekDays} validationResults={[]} onCellClick={() => {}} {...notAssigning} {...noSelection} />);
+
+    const rowHeader = screen.getAllByRole('rowheader')[0];
+    expect(rowHeader).toHaveClass('pep-sticky-first-column');
+    const row = rowHeader.closest('tr')!;
+    const rowClass = Array.from(row.classList).find((c) => c.startsWith('css-'));
+    // jsdom has no real :hover engine - assert on the injected Emotion stylesheet text instead
+    // (same approach as the a11y plan's MUI-Alert probe), since that's the only place a
+    // conditional `&:hover .class` rule is actually observable without a real browser.
+    const styles = Array.from(document.querySelectorAll('style')).map((s) => s.textContent).join('\n');
+    expect(styles).toContain(`.${rowClass}:hover .pep-sticky-first-column`);
+  });
+
   it('renders one row per employee with their shift times', () => {
     render(<ScheduleTable rows={rowsFor(employees)} weekDays={weekDays} validationResults={[]} onCellClick={() => {}} {...notAssigning} {...noSelection} />);
 

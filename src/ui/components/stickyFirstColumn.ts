@@ -31,6 +31,20 @@ export const stickyFirstColumnSx: SxProps<Theme> = {
   backgroundColor: 'background.paper',
 };
 
+/** Applied to the sticky first-column cell itself, alongside stickyFirstColumnSx - lets
+ * stickyFirstColumnRowHoverSx below target it from the owning TableRow. A stable class, not a
+ * ref/JS hover-state, is what makes this a pure CSS cascade: the opaque background above already
+ * covers the sticky cell, so MUI's own `hover` tint on the row (a plain sibling-selector-free
+ * background-color) never reaches it - this is the documented, accepted trade-off in the comment
+ * above. The fix is a second, independent rule keyed off this class, not a replacement for that
+ * opaque background (still needed to stop scrolled-past content bleeding through underneath). */
+export const STICKY_FIRST_COLUMN_CLASS = 'pep-sticky-first-column';
+
+/** Spread into a `hover`-enabled TableRow's own `sx` alongside its other rules. */
+export const stickyFirstColumnRowHoverSx: SxProps<Theme> = {
+  [`&:hover .${STICKY_FIRST_COLUMN_CLASS}`]: { backgroundColor: 'action.hover' },
+};
+
 /**
  * Sticky header row and corner cell both take the scroll container's own top edge as `top`
  * (usually 0) - NOT `--pep-header-height`/the page. A table that needs BOTH a sticky header row

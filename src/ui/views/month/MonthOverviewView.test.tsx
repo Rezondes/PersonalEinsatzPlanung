@@ -480,6 +480,22 @@ describe('MonthOverviewView', () => {
     expect(dataCell).not.toHaveAttribute('tabindex');
   });
 
+  it('hebt die fixierte Mitarbeiter-Zelle beim Hover der Zeile mit hervor', async () => {
+    selectBranch();
+    const employee = makeEmployee();
+    employeeForBranch.mockResolvedValue([employee]);
+    scheduleForBranch.mockResolvedValue([]);
+    renderView();
+
+    const nameCell = await screen.findByText(fullName(employee));
+    expect(nameCell.closest('td')).toHaveClass('pep-sticky-first-column');
+    const row = nameCell.closest('tr')!;
+    const rowClass = Array.from(row.classList).find((c) => c.startsWith('css-'));
+    // jsdom has no real :hover engine - assert on the injected Emotion stylesheet text instead.
+    const styles = Array.from(document.querySelectorAll('style')).map((s) => s.textContent).join('\n');
+    expect(styles).toContain(`.${rowClass}:hover .pep-sticky-first-column`);
+  });
+
   it('puts the actions button on an inner element, not the <th> itself, for the week header (N23)', async () => {
     selectBranch();
     const employee = makeEmployee();

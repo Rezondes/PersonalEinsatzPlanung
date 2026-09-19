@@ -227,6 +227,20 @@ describe('AbsencesView', () => {
       expect(await screen.findByRole('tooltip')).toHaveTextContent(/aktiven Mitarbeiter/i);
     });
 
+    it('hebt die fixierte Namens-Zelle beim Hover der Zeile mit hervor', async () => {
+      employeeForBranchMock.mockResolvedValue([e1]);
+      absenceForBranchMock.mockResolvedValue([a1]);
+      renderView();
+
+      const nameCell = (await screen.findByText('Bauer, Anna')).closest('td')!;
+      expect(nameCell).toHaveClass('pep-sticky-first-column');
+      const row = nameCell.closest('tr')!;
+      const rowClass = Array.from(row.classList).find((c) => c.startsWith('css-'));
+      // jsdom has no real :hover engine - assert on the injected Emotion stylesheet text instead.
+      const styles = Array.from(document.querySelectorAll('style')).map((s) => s.textContent).join('\n');
+      expect(styles).toContain(`.${rowClass}:hover .pep-sticky-first-column`);
+    });
+
     it('renders employee names, type labels and date ranges for a mix of absence types', async () => {
       employeeForBranchMock.mockResolvedValue([e1, e2]);
       absenceForBranchMock.mockResolvedValue([a1, a2, a3, a4, a5]);

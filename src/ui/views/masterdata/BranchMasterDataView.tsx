@@ -34,7 +34,13 @@ import { useBreakpoint } from '@ui/hooks/useBreakpoint';
 import { useActivationToggle } from '@ui/hooks/useActivationToggle';
 import { useTableSort } from '@ui/hooks/useTableSort';
 import { ConfirmDialog } from '@ui/components/ConfirmDialog';
-import { stickyCornerSx, stickyFirstColumnSx, stickyHeaderRowSx } from '@ui/components/stickyFirstColumn';
+import {
+  stickyCornerSx,
+  stickyFirstColumnSx,
+  stickyHeaderRowSx,
+  STICKY_FIRST_COLUMN_CLASS,
+  stickyFirstColumnRowHoverSx,
+} from '@ui/components/stickyFirstColumn';
 import { ResponsiveDataList } from '@ui/components/ResponsiveList/ResponsiveDataList';
 import { RowActionSheet } from '@ui/components/ResponsiveList/RowActionSheet';
 import type { RowAction } from '@ui/components/ResponsiveList/RowAction';
@@ -282,12 +288,13 @@ export function BranchMasterDataView() {
                       hover
                       onClick={() => setDialog({ branch: b })}
                       sx={{
+                        ...stickyFirstColumnRowHoverSx,
                         cursor: 'pointer',
                         bgcolor: b.active ? undefined : 'inactiveSurface',
                         color: b.active ? undefined : 'text.secondary',
                       }}
                     >
-                      <TableCell sx={stickyFirstColumnSx}>
+                      <TableCell className={STICKY_FIRST_COLUMN_CLASS} sx={stickyFirstColumnSx}>
                         {b.name}
                         <Typography variant="caption" color="text.secondary" display="block">
                           {b.branchNumber}

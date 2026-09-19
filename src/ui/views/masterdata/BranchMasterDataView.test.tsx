@@ -186,6 +186,21 @@ describe('BranchMasterDataView', () => {
     expect(screen.getByText('Filiale Süd')).toBeInTheDocument();
   });
 
+  it('hebt die fixierte Namens-Zelle beim Hover der Zeile mit hervor', async () => {
+    mockViewportWidth(1100);
+    const nord = makeBranch({ id: 'branch-1' as BranchId, name: 'Filiale Nord', branchNumber: '001' });
+    seedBranches([nord]);
+    renderView();
+
+    const nameCell = (await screen.findByText('Filiale Nord')).closest('td')!;
+    expect(nameCell).toHaveClass('pep-sticky-first-column');
+    const row = nameCell.closest('tr')!;
+    const rowClass = Array.from(row.classList).find((c) => c.startsWith('css-'));
+    // jsdom has no real :hover engine - assert on the injected Emotion stylesheet text instead.
+    const styles = Array.from(document.querySelectorAll('style')).map((s) => s.textContent).join('\n');
+    expect(styles).toContain(`.${rowClass}:hover .pep-sticky-first-column`);
+  });
+
   it('sorts by Filiale (name) ascending and descending when the column header is clicked (N26)', async () => {
     mockViewportWidth(1100);
     const user = userEvent.setup();
