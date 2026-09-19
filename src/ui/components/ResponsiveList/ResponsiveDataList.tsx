@@ -35,9 +35,11 @@ export function ResponsiveDataList<T>({ rows, getKey, renderCard, emptyMessage, 
   }
 
   return (
-    <Stack spacing={1}>
+    <Stack spacing={1} role="list">
       {rows.map((row) => (
-        <div key={getKey(row)}>{renderCard(row)}</div>
+        <div key={getKey(row)} role="listitem">
+          {renderCard(row)}
+        </div>
       ))}
     </Stack>
   );

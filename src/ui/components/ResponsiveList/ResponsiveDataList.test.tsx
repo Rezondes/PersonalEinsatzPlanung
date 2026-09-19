@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { ResponsiveDataList } from './ResponsiveDataList';
 
 /** Same helper as src/ui/hooks/useBreakpoint.test.tsx - jsdom has no layout engine, so
@@ -82,5 +82,13 @@ describe('ResponsiveDataList', () => {
 
     expect(screen.getByText('Tabelle')).toBeInTheDocument();
     expect(screen.queryByText('Noch keine Filiale angelegt.')).not.toBeInTheDocument();
+  });
+
+  it('rendert die mobile Kartenliste mit list/listitem-Rollen', () => {
+    mockViewportWidth(500);
+    renderList(rows);
+
+    const list = screen.getByRole('list');
+    expect(within(list).getAllByRole('listitem')).toHaveLength(2);
   });
 });
