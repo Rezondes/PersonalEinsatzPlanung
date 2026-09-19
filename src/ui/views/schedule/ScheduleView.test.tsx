@@ -511,6 +511,34 @@ describe('ScheduleView', () => {
     });
   });
 
+  describe('combined header row (Suche, Umsatz, Stunden)', () => {
+    it('puts the search field in the same row as the revenue/hours fields on tablet/desktop', async () => {
+      renderScheduleView(TABLET);
+      await screen.findByText(fullName(employeeA));
+
+      const headerRow = screen.getByTestId('schedule-header-row');
+      expect(within(headerRow).getByLabelText('Mitarbeiter suchen')).toBeInTheDocument();
+      expect(within(headerRow).getByLabelText('Geplanter Wochenumsatz')).toBeInTheDocument();
+      expect(within(headerRow).getByLabelText('Geplante Wochenstunden')).toBeInTheDocument();
+    });
+
+    it('does not render the combined header row on mobile - the search field stays its own always-visible row', async () => {
+      renderScheduleView(MOBILE);
+      await screen.findByText(fullName(employeeA));
+
+      expect(screen.queryByTestId('schedule-header-row')).not.toBeInTheDocument();
+      expect(screen.getByLabelText('Mitarbeiter suchen')).toBeInTheDocument();
+    });
+
+    it('gives the search field a floating label instead of only a placeholder', async () => {
+      renderScheduleView();
+      await screen.findByText(fullName(employeeA));
+
+      const search = screen.getByLabelText('Mitarbeiter suchen');
+      expect(search).not.toHaveAttribute('placeholder');
+    });
+  });
+
   describe('context menu', () => {
     function buildContextMenuSchedule(): WeeklySchedule {
       let schedule = createWeeklySchedule(branchId, SELECTED_WEEK, [employeeA.id, employeeB.id, employeeLocked.id]);

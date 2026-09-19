@@ -682,6 +682,27 @@ export function ScheduleView() {
     <ScheduleHeaderFields schedule={schedule} disabled={isLoading} onSaved={scheduleReplaced} onError={notify.report} />
   );
 
+  // Shares a row with headerFields on tablet/desktop (schedule-header-row below) and stays its own
+  // standalone row on mobile - same "one JSX value, two placements" pattern as headerFields above.
+  // A floating label (not just a placeholder) so its accessible name matches the two DecimalTextFields
+  // it now sits next to.
+  const searchField = (
+    <TextField
+      size="small"
+      label={t('searchPlaceholder')}
+      value={searchTerm}
+      onChange={(e) => setSearchTerm(e.target.value)}
+      sx={{ width: 280 }}
+      InputProps={{
+        startAdornment: (
+          <InputAdornment position="start">
+            <SearchOutlinedIcon fontSize="small" />
+          </InputAdornment>
+        ),
+      }}
+    />
+  );
+
   // AppShell's fullBleedPage Container hands every view a bounded, zero-padding region between
   // the header and whatever fixed chrome sits below it (see PageActionsContext/AppShell) - to fill
   // it, this becomes a flex column itself, with its own px/py taking over the padding AppShell's
@@ -788,7 +809,20 @@ export function ScheduleView() {
         </Stack>
       </Stack>
 
-      {layout !== 'mobile' && headerFields}
+      {layout !== 'mobile' && (
+        <Stack
+          data-testid="schedule-header-row"
+          direction="row"
+          justifyContent="space-between"
+          alignItems="flex-start"
+          flexWrap="wrap"
+          gap={2}
+          sx={{ mb: 2 }}
+        >
+          {rows.length > 0 && searchField}
+          {headerFields}
+        </Stack>
+      )}
 
       <Box
         sx={{
@@ -892,26 +926,7 @@ export function ScheduleView() {
         </Alert>
       )}
 
-      {rows.length > 0 && (
-        <TextField
-          size="small"
-          placeholder={t('searchPlaceholder')}
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          // A top-level aria-label prop lands on TextField's outer wrapper, not the native input
-          // getByLabelText/screen readers need - inputProps forwards down to that inner element
-          // (same fix as AppHeader.tsx's Filiale Select, see its comment there).
-          inputProps={{ 'aria-label': t('searchPlaceholder') }}
-          sx={{ mb: 2, width: 280 }}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <SearchOutlinedIcon fontSize="small" />
-              </InputAdornment>
-            ),
-          }}
-        />
-      )}
+      {layout === 'mobile' && rows.length > 0 && <Box sx={{ mb: 2 }}>{searchField}</Box>}
 
       {(() => {
         const toolbar = (
