@@ -188,7 +188,7 @@ export const ScheduleTable = memo(function ScheduleTable({
           <TableRow>
             <TableCell sx={{ ...stickyCornerSx(), minWidth: layout === 'mobile' ? 140 : 180 }}>{t('columnEmployee')}</TableCell>
             {weekDays.map(({ day, date }) => (
-              <TableCell key={day} align="center" sx={{ ...stickyHeaderRowSx(), minWidth: layout === 'mobile' ? 76 : 120 }}>
+              <TableCell key={day} align="center" sx={{ ...stickyHeaderRowSx(), width: layout === 'mobile' ? 76 : 120 }}>
                 {layout === 'mobile' ? (
                   <Stack direction="column" alignItems="center">
                     <Typography variant="caption" fontWeight={500}>
@@ -462,7 +462,16 @@ export const ScheduleTable = memo(function ScheduleTable({
                   );
 
                   return (
-                    <TableCell key={dayView.day} align="center" sx={{ p: 0.5 }}>
+                    // overflowWrap: table-layout stays 'auto' (the sticky Mitarbeiter column still needs
+                    // content-driven sizing), and 'auto' still grows a column past its declared `width`
+                    // for any cell whose content has no in-word break opportunity (confirmed live: without
+                    // this, a shift's "06:00-14:00" pushed its column from 76px to over 100px). 'anywhere'
+                    // gives the browser a fallback break point so long content wraps instead of widening.
+                    <TableCell
+                      key={dayView.day}
+                      align="center"
+                      sx={{ p: 0.5, width: layout === 'mobile' ? 76 : 120, overflowWrap: 'anywhere' }}
+                    >
                       {cell}
                     </TableCell>
                   );

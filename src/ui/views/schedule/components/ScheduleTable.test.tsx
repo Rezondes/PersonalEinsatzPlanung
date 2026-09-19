@@ -123,6 +123,55 @@ describe('ScheduleTable', () => {
     expect(container.querySelectorAll('thead th[scope="col"]')).toHaveLength(weekDays.length + 1);
   });
 
+  it('jede Wochentag-Datenzelle hat dieselbe feste Breite wie ihre Kopfzelle (mobil)', () => {
+    // jsdom's unmocked default matches the mobile breakpoint (see file header comment above).
+    const { container } = render(
+      <ScheduleTable rows={rowsFor(employees)} weekDays={weekDays} validationResults={[]} onCellClick={() => {}} {...notAssigning} {...noSelection} />,
+    );
+
+    const headerCells = Array.from(container.querySelectorAll('thead th')).slice(1);
+    expect(headerCells.length).toBe(weekDays.length);
+    headerCells.forEach((th) => expect(th).toHaveStyle({ width: '76px' }));
+
+    // The employee cell is already a <th> (row header), so every <td> in a body row is a weekday cell.
+    const dataCells = container.querySelectorAll('tbody td');
+    expect(dataCells.length).toBe(employees.length * weekDays.length);
+    dataCells.forEach((td) => expect(td).toHaveStyle({ width: '76px' }));
+  });
+
+  it('jede Wochentag-Datenzelle hat dieselbe feste Breite wie ihre Kopfzelle (Tablet/Desktop)', () => {
+    mockViewportWidth(1200);
+    const { container } = render(
+      <ScheduleTable rows={rowsFor(employees)} weekDays={weekDays} validationResults={[]} onCellClick={() => {}} {...notAssigning} {...noSelection} />,
+    );
+
+    const headerCells = Array.from(container.querySelectorAll('thead th')).slice(1);
+    headerCells.forEach((th) => expect(th).toHaveStyle({ width: '120px' }));
+
+    const dataCells = container.querySelectorAll('tbody td');
+    dataCells.forEach((td) => expect(td).toHaveStyle({ width: '120px' }));
+  });
+
+  it('eine Zelle behält ihre Breite beim Wechsel von frei zu einer Arbeitszeit', () => {
+    render(<ScheduleTable rows={rowsFor(employees)} weekDays={weekDays} validationResults={[]} onCellClick={() => {}} {...notAssigning} {...noSelection} />);
+
+    // Same fixed width regardless of whether the cell shows "frei" or a shift.
+    const shiftCell = screen.getByText('06:00-14:00').closest('td');
+    const freeCell = screen.getAllByText('frei')[0].closest('td');
+    expect(shiftCell).toHaveStyle({ width: '76px' });
+    expect(freeCell).toHaveStyle({ width: '76px' });
+  });
+
+  // jsdom has no real table-layout engine (see file header comment): a real browser check found that
+  // `width` alone still lets `table-layout: auto` grow a column past it for unbreakable content like
+  // "06:00-14:00", so this asserts the accompanying overflow-wrap fix stays in place.
+  it('erlaubt Zeilenumbruch in der Wochentag-Datenzelle, damit lange Inhalte die Spalte nicht verbreitern', () => {
+    render(<ScheduleTable rows={rowsFor(employees)} weekDays={weekDays} validationResults={[]} onCellClick={() => {}} {...notAssigning} {...noSelection} />);
+
+    const shiftCell = screen.getByText('06:00-14:00').closest('td');
+    expect(shiftCell).toHaveStyle({ overflowWrap: 'anywhere' });
+  });
+
   it('die Mitarbeiterzelle ist ein echter Zeilenkopf', () => {
     render(<ScheduleTable rows={rowsFor(employees)} weekDays={weekDays} validationResults={[]} onCellClick={() => {}} {...notAssigning} {...noSelection} />);
 
