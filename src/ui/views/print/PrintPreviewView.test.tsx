@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { render, screen, waitFor, within, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import type { BranchId, EmployeeId } from '@domain/shared/ids';
@@ -218,5 +218,33 @@ describe('PrintPreviewView', () => {
     await user.click(button);
 
     expect(await screen.findByText('Zurück-Ziel')).toBeInTheDocument();
+  });
+
+  it('gives the preview a fixed A4-landscape width via PanZoomContainer, independent of the viewport', async () => {
+    scheduleFindMock.mockResolvedValue(makeSchedule([]));
+    branchFindMock.mockResolvedValue(makeBranch());
+
+    renderPrintPreview(['/print/s1']);
+
+    const panzoomContent = await screen.findByTestId('panzoom-content');
+    expect(getComputedStyle(panzoomContent).width).toBe('297mm');
+  });
+
+  it('"Drucken" still calls window.print after the preview has been zoomed/panned (AC4)', async () => {
+    scheduleFindMock.mockResolvedValue(makeSchedule([]));
+    branchFindMock.mockResolvedValue(makeBranch());
+    const user = userEvent.setup();
+
+    renderPrintPreview(['/print/s1']);
+
+    const panzoomContent = await screen.findByTestId('panzoom-content');
+    fireEvent.wheel(panzoomContent, { deltaY: -200 });
+    fireEvent.mouseDown(panzoomContent, { clientX: 0, clientY: 0 });
+    fireEvent.mouseMove(window, { clientX: 50, clientY: 50 });
+    fireEvent.mouseUp(window);
+
+    await user.click(screen.getByRole('button', { name: 'Drucken' }));
+
+    expect(window.print).toHaveBeenCalledTimes(1);
   });
 });

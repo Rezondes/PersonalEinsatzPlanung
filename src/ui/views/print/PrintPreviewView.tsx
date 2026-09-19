@@ -15,6 +15,7 @@ import type { Absence } from '@domain/absence/Absence';
 import { preparePrintData } from '@application/export/printDataPreparation';
 import { createHolidayCheck } from '@infrastructure/holidays/germanHolidays';
 import { services } from '@infrastructure/services';
+import { PanZoomContainer } from '@ui/components/PanZoomContainer';
 import { FullPartTimeForm } from './FullPartTimeForm';
 import { MinijobForm } from './MinijobForm';
 import './printView.css';
@@ -99,8 +100,21 @@ export function PrintPreviewView() {
   return (
     // Freigegeben: Die Druckansicht ist ein Dokument. Wer Zahlen daraus in eine Mail uebernimmt,
     // soll sie markieren koennen statt sie abzuschreiben.
-    <Box data-selectable>
-      <Stack direction="row" gap={2} className="print-action-bar" sx={{ p: 2 }}>
+    //
+    // A bounded flex column (not plain document flow): PanZoomContainer below needs a concrete
+    // height to pan/zoom within on screen. @media print reverts to plain block flow at auto height
+    // so every sheet prints in full instead of being clipped to one viewport's worth of height -
+    // same "screen-only, print completely unaffected" split PanZoomContainer's own sx uses.
+    <Box
+      data-selectable
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100vh',
+        '@media print': { display: 'block', height: 'auto' },
+      }}
+    >
+      <Stack direction="row" gap={2} className="print-action-bar" sx={{ p: 2, flexShrink: 0 }}>
         <Button startIcon={<ArrowBackIcon />} onClick={() => navigate(-1)}>
           {t('backButton')}
         </Button>
@@ -109,27 +123,29 @@ export function PrintPreviewView() {
         </Button>
       </Stack>
 
-      {fullPartTimeSheets.map((sheet, index) => (
-        <FullPartTimeForm
-          key={`vt-${index}`}
-          branch={branch}
-          calendarWeek={schedule.calendarWeek}
-          plannedWeeklyRevenue={schedule.plannedWeeklyRevenue}
-          plannedWeeklyHours={schedule.plannedWeeklyHours}
-          rows={sheet}
-          dayTotals={dayTotals}
-        />
-      ))}
+      <PanZoomContainer>
+        {fullPartTimeSheets.map((sheet, index) => (
+          <FullPartTimeForm
+            key={`vt-${index}`}
+            branch={branch}
+            calendarWeek={schedule.calendarWeek}
+            plannedWeeklyRevenue={schedule.plannedWeeklyRevenue}
+            plannedWeeklyHours={schedule.plannedWeeklyHours}
+            rows={sheet}
+            dayTotals={dayTotals}
+          />
+        ))}
 
-      {minijobSheets.map((sheet, index) => (
-        <MinijobForm
-          key={`mj-${index}`}
-          branch={branch}
-          calendarWeek={schedule.calendarWeek}
-          rows={sheet}
-          dayTotals={dayTotals}
-        />
-      ))}
+        {minijobSheets.map((sheet, index) => (
+          <MinijobForm
+            key={`mj-${index}`}
+            branch={branch}
+            calendarWeek={schedule.calendarWeek}
+            rows={sheet}
+            dayTotals={dayTotals}
+          />
+        ))}
+      </PanZoomContainer>
     </Box>
   );
 }

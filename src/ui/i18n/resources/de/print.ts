@@ -28,6 +28,7 @@ const print = {
   totalWorkedLabel: 'Gesamtstunden (gearbeitet)',
   signatureMl: 'Unterschrift ML',
   signatureVl: 'Unterschrift VL',
+  resetViewLabel: 'Ansicht zurücksetzen',
 } as const;
 
 export default print;
