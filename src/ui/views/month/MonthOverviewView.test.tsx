@@ -616,6 +616,30 @@ describe('MonthOverviewView', () => {
     expect(screen.getByText('45 Std. diesen Monat, Grenze 40 Std./Monat')).toBeInTheDocument();
   });
 
+  it('der Monatslimit-Hinweis-Button hat eine 44x44-Trefffläche', async () => {
+    selectBranch();
+    const minijobber = makeEmployee({
+      id: 'e1' as EmployeeId,
+      employmentType: { type: 'Minijob', minHours: 5, maxHours: 10, maxMonthlyHours: 40 },
+    });
+    employeeForBranch.mockResolvedValue([minijobber]);
+    const weeks = calendarWeeksInMonth(currentYear, currentMonth);
+    const schedule = scheduleWithWeekdayShifts(
+      minijobber.id,
+      weeks[0],
+      ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag'],
+      9,
+    );
+    scheduleForBranch.mockResolvedValue([schedule]);
+
+    renderView();
+    await screen.findByText(fullName(minijobber));
+
+    const row = screen.getByText(fullName(minijobber)).closest('tr')!;
+    const warningButton = within(row).getByRole('button', { name: 'Monatsgrenze überschritten anzeigen' });
+    expect(warningButton).toHaveStyle({ minWidth: '44px', minHeight: '44px' });
+  });
+
   it('shows no warning icon when the Minijob employee stays within their monthly-hours cap', async () => {
     selectBranch();
     const minijobber = makeEmployee({
@@ -713,6 +737,27 @@ describe('MonthOverviewView', () => {
       name: `${fullName(employee)}, KW ${weeks[1].week}, 0 Std. bearbeiten`,
     });
     expect(within(cleanCell).queryByRole('button', { name: 'Hinweis anzeigen' })).not.toBeInTheDocument();
+  });
+
+  it('der Wochenwert-Hinweis-Button hat eine 44x44-Trefffläche', async () => {
+    selectBranch();
+    const employee = makeEmployee();
+    employeeForBranch.mockResolvedValue([employee]);
+    const weeks = calendarWeeksInMonth(currentYear, currentMonth);
+    const violatingSchedule = withDayEntry(
+      createWeeklySchedule(branch.id, weeks[0], [employee.id]),
+      employee.id,
+      'Montag',
+      { type: 'Shift', shifts: [createShift(clockTime('06:00'), clockTime('20:00'))] },
+    );
+    scheduleForBranch.mockResolvedValue([violatingSchedule]);
+
+    renderView();
+    const violatingCell = await screen.findByRole('button', {
+      name: `${fullName(employee)}, KW ${weeks[0].week}, 14 Std. bearbeiten`,
+    });
+    const warningIcon = within(violatingCell).getByRole('button', { name: 'Hinweis anzeigen' });
+    expect(warningIcon).toHaveStyle({ minWidth: '44px', minHeight: '44px' });
   });
 
   it('shows the week-cell warning tooltip on hover from tablet width up', async () => {

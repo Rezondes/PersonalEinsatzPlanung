@@ -10,6 +10,7 @@ import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 import Paper from '@mui/material/Paper';
 import Box from '@mui/material/Box';
+import IconButton from '@mui/material/IconButton';
 import Chip from '@mui/material/Chip';
 import Typography from '@mui/material/Typography';
 import Tooltip from '@mui/material/Tooltip';
@@ -257,22 +258,12 @@ export const ScheduleTable = memo(function ScheduleTable({
                           arrow
                           {...tooltipProps(`deviation|${view.employeeId}`)}
                         >
-                          <Box
-                            component="button"
-                            type="button"
+                          <IconButton
                             aria-label={t('deviationAriaLabel')}
                             onClick={() => toggleTooltip(`deviation|${view.employeeId}`)}
-                            sx={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              p: 0,
-                              border: 'none',
-                              background: 'transparent',
-                              cursor: 'pointer',
-                            }}
                           >
                             <WarningAmberIcon fontSize="small" sx={{ color: 'warning.main' }} />
-                          </Box>
+                          </IconButton>
                         </Tooltip>
                       </ClickAwayListener>
                     )}
@@ -410,9 +401,7 @@ export const ScheduleTable = memo(function ScheduleTable({
                             {/* A dedicated tap target (not the whole cell, which already opens the
                                 Tageseditor on tap) - stopPropagation keeps the two from competing for
                                 the same tap, matching the row-level deviation icon's own pattern. */}
-                            <Box
-                              component="button"
-                              type="button"
+                            <IconButton
                               aria-label={t('hintAriaLabel')}
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -422,20 +411,11 @@ export const ScheduleTable = memo(function ScheduleTable({
                                 position: 'absolute',
                                 top: 2,
                                 right: 2,
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                width: 20,
-                                height: 20,
-                                p: 0,
-                                border: 'none',
-                                background: 'transparent',
-                                cursor: 'pointer',
-                                color: hasError ? theme.palette.error.main : theme.palette.warning.main,
+                                color: hasError ? 'error.main' : 'warning.main',
                               }}
                             >
                               <WarningAmberIcon sx={{ fontSize: 16 }} />
-                            </Box>
+                            </IconButton>
                           </Tooltip>
                         </ClickAwayListener>
                       )}

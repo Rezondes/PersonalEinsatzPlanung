@@ -364,32 +364,21 @@ export function MonthOverviewView() {
                               arrow
                               {...warningTooltipProps(cellKey)}
                             >
-                              <Box
-                                component="button"
-                                type="button"
+                              <IconButton
                                 aria-label={t('showHintAriaLabel')}
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   toggleWarning(cellKey);
                                 }}
-                                sx={(theme) => ({
+                                sx={{
                                   position: 'absolute',
                                   top: 2,
                                   right: 2,
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                  width: 20,
-                                  height: 20,
-                                  p: 0,
-                                  border: 'none',
-                                  background: 'transparent',
-                                  cursor: 'pointer',
-                                  color: hasError ? theme.palette.error.main : theme.palette.warning.main,
-                                })}
+                                  color: hasError ? 'error.main' : 'warning.main',
+                                }}
                               >
                                 <WarningAmberIcon sx={{ fontSize: 16 }} />
-                              </Box>
+                              </IconButton>
                             </Tooltip>
                           </ClickAwayListener>
                         )}
@@ -411,15 +400,9 @@ export function MonthOverviewView() {
                             arrow
                             {...warningTooltipProps(employee.id)}
                           >
-                            <Box
-                              component="button"
-                              type="button"
-                              aria-label={t('monthlyLimitAriaLabel')}
-                              onClick={() => toggleWarning(employee.id)}
-                              sx={{ display: 'flex', alignItems: 'center', p: 0, border: 'none', background: 'transparent', cursor: 'pointer' }}
-                            >
+                            <IconButton aria-label={t('monthlyLimitAriaLabel')} onClick={() => toggleWarning(employee.id)}>
                               <WarningAmberIcon fontSize="small" sx={{ color: 'warning.main' }} />
-                            </Box>
+                            </IconButton>
                           </Tooltip>
                         </ClickAwayListener>
                       )}

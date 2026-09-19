@@ -178,6 +178,22 @@ describe('ScheduleTable', () => {
     await waitFor(() => expect(screen.queryByText(/Std\. unter Soll/)).not.toBeInTheDocument());
   });
 
+  it('das Abweichungs-Icon hat eine 44x44-Trefffläche', () => {
+    render(
+      <ScheduleTable
+        rows={rowsFor(employees)}
+        weekDays={weekDays}
+        validationResults={[]}
+        onCellClick={() => {}}
+        {...notAssigning}
+        {...noSelection}
+      />,
+    );
+
+    const deviationIcon = screen.getAllByRole('button', { name: 'Abweichung von Soll anzeigen' })[0];
+    expect(deviationIcon).toHaveStyle({ minWidth: '44px', minHeight: '44px' });
+  });
+
   it('does not show the Soll-deviation tooltip on hover at mobile width - still opens via click (N20)', async () => {
     mockViewportWidth(500);
     const user = userEvent.setup();
@@ -269,6 +285,25 @@ describe('ScheduleTable', () => {
     // A second tap on the same icon hides it again.
     await user.click(warningIcon);
     await waitFor(() => expect(screen.queryByText('Tagesarbeitszeit zu lang')).not.toBeInTheDocument());
+  });
+
+  it('das Zell-Hinweis-Icon hat eine 44x44-Trefffläche', () => {
+    const results: ValidationResult[] = [
+      { rule: 'ArbZG_3_Tag', severity: 'error', message: 'Tagesarbeitszeit zu lang', employeeId: m1, date: '2026-09-07' },
+    ];
+    render(
+      <ScheduleTable
+        rows={rowsFor(employees)}
+        weekDays={weekDays}
+        validationResults={results}
+        onCellClick={() => {}}
+        {...notAssigning}
+        {...noSelection}
+      />,
+    );
+
+    const warningIcon = screen.getByRole('button', { name: 'Hinweis anzeigen' });
+    expect(warningIcon).toHaveStyle({ minWidth: '44px', minHeight: '44px' });
   });
 
   it('activating the warning icon by keyboard (Enter) does not also activate the cell underneath it', async () => {
