@@ -86,6 +86,18 @@ describe('BranchDialog', () => {
     });
   });
 
+  it('hat ein leeres alt-Attribut auf dem Logo-Vorschaubild, sobald ein Logo hochgeladen wurde', async () => {
+    const user = userEvent.setup();
+    renderDialog();
+
+    const validImage = new File([new Uint8Array(10)], 'logo.png', { type: 'image/png' });
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+    await user.upload(input, validImage);
+
+    await waitFor(() => expect(document.querySelector('img')).toBeInTheDocument());
+    expect(document.querySelector('img')?.getAttribute('alt')).toBe('');
+  });
+
   it('shows both missing fields, focuses Name and saves nothing on an empty form', async () => {
     const user = userEvent.setup();
     renderDialog();

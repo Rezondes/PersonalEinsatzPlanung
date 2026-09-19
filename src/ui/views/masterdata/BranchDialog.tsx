@@ -204,6 +204,7 @@ export function BranchDialog({ branch, onClose, onSaved, onError, secondaryActio
           <Stack direction="row" spacing={2} alignItems="center">
             <Avatar
               src={form.logoBase64 ?? undefined}
+              alt=""
               variant="rounded"
               sx={(theme) => ({ width: 56, height: 56, bgcolor: theme.palette.accentSurface.subtle })}
             >

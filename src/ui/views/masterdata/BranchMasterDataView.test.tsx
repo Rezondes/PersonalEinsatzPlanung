@@ -152,6 +152,14 @@ describe('BranchMasterDataView', () => {
     expect(avatar?.querySelector('.MuiSvgIcon-root')).toHaveStyle({ color: theme.palette.primary.main });
   });
 
+  it('hat ein leeres alt-Attribut auf dem Logo, da der Name schon als sichtbarer Text daneben steht', () => {
+    seedBranches([makeBranch({ logoBase64: 'data:image/png;base64,abc' })]);
+
+    renderView();
+
+    expect(document.querySelector('img')?.getAttribute('alt')).toBe('');
+  });
+
   it('search narrows the visible branches by name, number or city, and clearing restores them (N26)', async () => {
     mockViewportWidth(1100);
     const user = userEvent.setup();

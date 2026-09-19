@@ -123,6 +123,7 @@ function BranchCard({ branch, onTap, onLongPress }: { branch: Branch; onTap: () 
       >
         <Avatar
           src={branch.logoBase64 ?? undefined}
+          alt=""
           variant="rounded"
           sx={(theme) => ({ bgcolor: theme.palette.accentSurface.subtle, flexShrink: 0 })}
         >
