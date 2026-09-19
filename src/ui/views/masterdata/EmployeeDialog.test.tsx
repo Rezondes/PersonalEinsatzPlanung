@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { render, screen, waitFor, within, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { BranchId, EmployeeId } from '@domain/shared/ids';
 import type { Employee } from '@domain/employee/Employee';
@@ -98,6 +98,30 @@ describe('EmployeeDialog', () => {
     await user.type(textbox('Min. Std./Woche'), '12');
     await user.type(textbox('Max. Std./Woche'), '10');
     expect(screen.getByText('Min. Std. darf nicht über Max. Std. liegen.')).toBeInTheDocument();
+  });
+
+  it('zeigt einen Fehler bei einem Geburtsdatum in der Zukunft', async () => {
+    const user = userEvent.setup();
+    renderDialog();
+
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    fireEvent.change(screen.getByLabelText('Geburtsdatum (optional)'), {
+      target: { value: tomorrow.toISOString().slice(0, 10) },
+    });
+    await user.click(save());
+
+    expect(screen.getByText('Geburtsdatum darf nicht in der Zukunft liegen.')).toBeInTheDocument();
+  });
+
+  it('zeigt einen Fehler bei unplausiblem Alter', async () => {
+    const user = userEvent.setup();
+    renderDialog();
+
+    fireEvent.change(screen.getByLabelText('Geburtsdatum (optional)'), { target: { value: '1900-01-01' } });
+    await user.click(save());
+
+    expect(screen.getByText('Geburtsdatum ist unplausibel.')).toBeInTheDocument();
   });
 
   it('creates the employee with the entered values and closes', async () => {

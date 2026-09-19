@@ -127,6 +127,7 @@ export function EmployeeDialog({ branchId, employee, onClose, onSaved, onError, 
       employmentType: employmentTypeDraft(form),
       vacationEntitlementPerYear: form.vacationEntitlementPerYear,
       holidayVacationHours: form.holidayVacationHours,
+      birthDate: form.birthDate || undefined,
       entryDate: form.entryDate || undefined,
       exitDate: form.exitDate || undefined,
     }),
@@ -299,8 +300,8 @@ export function EmployeeDialog({ branchId, employee, onClose, onSaved, onError, 
             value={form.birthDate}
             onChange={(e) => setForm((f) => ({ ...f, birthDate: e.target.value }))}
             InputLabelProps={{ shrink: true }}
-            helperText={t('employee.dialog.birthDateHint')}
             fullWidth
+            {...validation.fieldProps('birthDate', t('employee.dialog.birthDateHint'))}
           />
 
           <Stack direction="row" spacing={2}>
