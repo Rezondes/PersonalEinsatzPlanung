@@ -72,9 +72,23 @@ interface ScheduleTableProps {
   onToggleCellSelection: (employeeId: EmployeeId, dayView: DayView) => void;
 }
 
+// Einzige Stelle für die Breite der Mitarbeiter-Spalte - width, minWidth UND maxWidth auf denselben
+// Wert (echt fixe Breite, kein Wachsen mehr): bei einem breiten Fenster (z. B. 1920px) hatte
+// table-layout:auto die freie Restfläche komplett dieser Spalte gegeben (beobachtet: bis zu 674px
+// bei einem echten Mitarbeiternamen wie "Schwartinski, Kim Stefanie"), wodurch die 7
+// Wochentag-Spalten optisch nach rechts zusammengeschoben wirkten ("Tage sind rechtsbündig").
+// Ein langer Name/Tätigkeit bricht jetzt ggf. auf 2 Zeilen um, statt die Spalte zu verbreitern.
+const EMPLOYEE_COLUMN_WIDTH = { mobile: 180, desktop: 180 } as const;
+
 // Einzige Stelle für die Breite der 7 Wochentag-Spalten (Kopf- UND Datenzelle nutzen denselben
 // Wert, siehe unten) - hier anpassen, keine Suche nach magischen Zahlen im Rest der Datei nötig.
-const WEEKDAY_COLUMN_WIDTH = { mobile: 76, desktop: 140 } as const;
+// width, minWidth UND maxWidth (alle auf denselben Wert - eine echt fixe Breite, kein Minimum):
+// mit width allein komprimiert table-layout:auto die Spalte proportional, sobald nicht genug Platz
+// für alle Spalten da ist (bestätigt per getComputedStyle im echten Browser bei 1200px
+// Fensterbreite); ohne maxWidth hätte sie umgekehrt bei ÜBERSCHÜSSIGEM Platz wachsen können. Die
+// minWidth erzwingt stattdessen
+// horizontales Scrollen (siehe stickyFirstColumn.ts) statt eines Schrumpfens unter diesen Wert.
+const WEEKDAY_COLUMN_WIDTH = { mobile: 180, desktop: 180 } as const;
 
 const NO_RESULTS: ValidationResult[] = [];
 
@@ -193,10 +207,26 @@ export const ScheduleTable = memo(function ScheduleTable({
           : {}),
       }}
     >
-      <Table size="small">
+      {/* MUI's Table hardcodes width:'100%' (node_modules/@mui/material/Table/Table.js) - under
+          table-layout:auto that forces the browser to grow columns past their own max-width to
+          fill the container whenever the declared column widths add up to less than it (confirmed
+          live: every column exceeded its max-width at a wide 1920px window). width:'auto' lets the
+          table size to its columns' own declared widths instead, leaving real slack space empty in
+          the TableContainer - the existing overflow-x:auto (see stickyFirstColumn.ts) still handles
+          the opposite case, where the table is WIDER than its container. */}
+      <Table size="small" sx={{ width: 'auto' }}>
         <TableHead>
           <TableRow>
-            <TableCell sx={{ ...stickyCornerSx(), minWidth: layout === 'mobile' ? 140 : 180 }}>{t('columnEmployee')}</TableCell>
+            <TableCell
+              sx={{
+                ...stickyCornerSx(),
+                width: layout === 'mobile' ? EMPLOYEE_COLUMN_WIDTH.mobile : EMPLOYEE_COLUMN_WIDTH.desktop,
+                minWidth: layout === 'mobile' ? EMPLOYEE_COLUMN_WIDTH.mobile : EMPLOYEE_COLUMN_WIDTH.desktop,
+                maxWidth: layout === 'mobile' ? EMPLOYEE_COLUMN_WIDTH.mobile : EMPLOYEE_COLUMN_WIDTH.desktop,
+              }}
+            >
+              {t('columnEmployee')}
+            </TableCell>
             {weekDays.map(({ day, date }) => (
               <TableCell
                 key={day}
@@ -204,6 +234,8 @@ export const ScheduleTable = memo(function ScheduleTable({
                 sx={{
                   ...stickyHeaderRowSx(),
                   width: layout === 'mobile' ? WEEKDAY_COLUMN_WIDTH.mobile : WEEKDAY_COLUMN_WIDTH.desktop,
+                  minWidth: layout === 'mobile' ? WEEKDAY_COLUMN_WIDTH.mobile : WEEKDAY_COLUMN_WIDTH.desktop,
+                  maxWidth: layout === 'mobile' ? WEEKDAY_COLUMN_WIDTH.mobile : WEEKDAY_COLUMN_WIDTH.desktop,
                 }}
               >
                 {layout === 'mobile' ? (
@@ -431,8 +463,13 @@ export const ScheduleTable = memo(function ScheduleTable({
                               }}
                               sx={{
                                 position: 'absolute',
-                                top: 2,
+                                // Vertically centered on the cell regardless of its actual height
+                                // (2 lines for a plain shift, 3+ for one with a Pause line) - a
+                                // fixed `top` would pin it near the top edge instead, visibly
+                                // off-center on any taller cell.
+                                top: '50%',
                                 right: 2,
+                                transform: 'translateY(-50%)',
                                 color: hasError ? 'error.main' : 'warning.main',
                               }}
                             >
@@ -495,6 +532,8 @@ export const ScheduleTable = memo(function ScheduleTable({
                       sx={{
                         p: 0.5,
                         width: layout === 'mobile' ? WEEKDAY_COLUMN_WIDTH.mobile : WEEKDAY_COLUMN_WIDTH.desktop,
+                        minWidth: layout === 'mobile' ? WEEKDAY_COLUMN_WIDTH.mobile : WEEKDAY_COLUMN_WIDTH.desktop,
+                        maxWidth: layout === 'mobile' ? WEEKDAY_COLUMN_WIDTH.mobile : WEEKDAY_COLUMN_WIDTH.desktop,
                         overflowWrap: 'anywhere',
                       }}
                     >

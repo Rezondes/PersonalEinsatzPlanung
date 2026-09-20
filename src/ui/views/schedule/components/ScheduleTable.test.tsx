@@ -145,12 +145,12 @@ describe('ScheduleTable', () => {
 
     const headerCells = Array.from(container.querySelectorAll('thead th')).slice(1);
     expect(headerCells.length).toBe(weekDays.length);
-    headerCells.forEach((th) => expect(th).toHaveStyle({ width: '76px' }));
+    headerCells.forEach((th) => expect(th).toHaveStyle({ width: '180px', minWidth: '180px' }));
 
     // The employee cell is already a <th> (row header), so every <td> in a body row is a weekday cell.
     const dataCells = container.querySelectorAll('tbody td');
     expect(dataCells.length).toBe(employees.length * weekDays.length);
-    dataCells.forEach((td) => expect(td).toHaveStyle({ width: '76px' }));
+    dataCells.forEach((td) => expect(td).toHaveStyle({ width: '180px', minWidth: '180px' }));
   });
 
   it('jede Wochentag-Datenzelle hat dieselbe feste Breite wie ihre Kopfzelle (Tablet/Desktop)', () => {
@@ -160,10 +160,10 @@ describe('ScheduleTable', () => {
     );
 
     const headerCells = Array.from(container.querySelectorAll('thead th')).slice(1);
-    headerCells.forEach((th) => expect(th).toHaveStyle({ width: '140px' }));
+    headerCells.forEach((th) => expect(th).toHaveStyle({ width: '180px', minWidth: '180px' }));
 
     const dataCells = container.querySelectorAll('tbody td');
-    dataCells.forEach((td) => expect(td).toHaveStyle({ width: '140px' }));
+    dataCells.forEach((td) => expect(td).toHaveStyle({ width: '180px', minWidth: '180px' }));
   });
 
   it('eine Zelle behält ihre Breite beim Wechsel von frei zu einer Arbeitszeit', () => {
@@ -172,8 +172,34 @@ describe('ScheduleTable', () => {
     // Same fixed width regardless of whether the cell shows "frei" or a shift.
     const shiftCell = screen.getByText('06:00-14:00').closest('td');
     const freeCell = screen.getAllByText('frei')[0].closest('td');
-    expect(shiftCell).toHaveStyle({ width: '76px' });
-    expect(freeCell).toHaveStyle({ width: '76px' });
+    expect(shiftCell).toHaveStyle({ width: '180px' });
+    expect(freeCell).toHaveStyle({ width: '180px' });
+  });
+
+  it('gibt der Wochentag-Spalte zusätzlich zu width auch minWidth UND maxWidth, damit table-layout:auto sie weder komprimiert noch bei Restplatz verbreitert', () => {
+    mockViewportWidth(1200);
+    const { container } = render(
+      <ScheduleTable rows={rowsFor(employees)} weekDays={weekDays} validationResults={[]} onCellClick={() => {}} {...notAssigning} {...noSelection} />,
+    );
+
+    // Regression guard for the reported bugs: width alone gets compressed by table-layout:auto when
+    // the table doesn't fit its container, and grows past its declared value when there's excess
+    // space (jsdom can't reproduce either itself - see the file header comment - so this only proves
+    // minWidth/maxWidth are actually SET, not that a real browser respects them; the live-browser
+    // check is what proves that).
+    const headerCells = Array.from(container.querySelectorAll('thead th')).slice(1);
+    headerCells.forEach((th) => expect(th).toHaveStyle({ minWidth: '180px', maxWidth: '180px' }));
+    container.querySelectorAll('tbody td').forEach((td) => expect(td).toHaveStyle({ minWidth: '180px', maxWidth: '180px' }));
+  });
+
+  it('gibt der Mitarbeiter-Spalte eine echt fixe Breite (width=minWidth=maxWidth) über dieselbe zentrale Konstante wie die Wochentag-Spalten', () => {
+    mockViewportWidth(1200);
+    const { container } = render(
+      <ScheduleTable rows={rowsFor(employees)} weekDays={weekDays} validationResults={[]} onCellClick={() => {}} {...notAssigning} {...noSelection} />,
+    );
+
+    const employeeHeaderCell = container.querySelector('thead th');
+    expect(employeeHeaderCell).toHaveStyle({ width: '180px', minWidth: '180px', maxWidth: '180px' });
   });
 
   // jsdom has no real table-layout engine (see file header comment): a real browser check found that
