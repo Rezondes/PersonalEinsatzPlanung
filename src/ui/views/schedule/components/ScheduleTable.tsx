@@ -72,6 +72,10 @@ interface ScheduleTableProps {
   onToggleCellSelection: (employeeId: EmployeeId, dayView: DayView) => void;
 }
 
+// Einzige Stelle für die Breite der 7 Wochentag-Spalten (Kopf- UND Datenzelle nutzen denselben
+// Wert, siehe unten) - hier anpassen, keine Suche nach magischen Zahlen im Rest der Datei nötig.
+const WEEKDAY_COLUMN_WIDTH = { mobile: 76, desktop: 140 } as const;
+
 const NO_RESULTS: ValidationResult[] = [];
 
 /** Exported so ScheduleView can build/read the same key format for its selectedCells Set (P11)
@@ -194,7 +198,14 @@ export const ScheduleTable = memo(function ScheduleTable({
           <TableRow>
             <TableCell sx={{ ...stickyCornerSx(), minWidth: layout === 'mobile' ? 140 : 180 }}>{t('columnEmployee')}</TableCell>
             {weekDays.map(({ day, date }) => (
-              <TableCell key={day} align="center" sx={{ ...stickyHeaderRowSx(), width: layout === 'mobile' ? 76 : 120 }}>
+              <TableCell
+                key={day}
+                align="center"
+                sx={{
+                  ...stickyHeaderRowSx(),
+                  width: layout === 'mobile' ? WEEKDAY_COLUMN_WIDTH.mobile : WEEKDAY_COLUMN_WIDTH.desktop,
+                }}
+              >
                 {layout === 'mobile' ? (
                   <Stack direction="column" alignItems="center">
                     <Typography variant="caption" fontWeight={500}>
@@ -481,7 +492,11 @@ export const ScheduleTable = memo(function ScheduleTable({
                     <TableCell
                       key={dayView.day}
                       align="center"
-                      sx={{ p: 0.5, width: layout === 'mobile' ? 76 : 120, overflowWrap: 'anywhere' }}
+                      sx={{
+                        p: 0.5,
+                        width: layout === 'mobile' ? WEEKDAY_COLUMN_WIDTH.mobile : WEEKDAY_COLUMN_WIDTH.desktop,
+                        overflowWrap: 'anywhere',
+                      }}
                     >
                       {cell}
                     </TableCell>

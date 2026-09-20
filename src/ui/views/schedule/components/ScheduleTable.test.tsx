@@ -160,10 +160,10 @@ describe('ScheduleTable', () => {
     );
 
     const headerCells = Array.from(container.querySelectorAll('thead th')).slice(1);
-    headerCells.forEach((th) => expect(th).toHaveStyle({ width: '120px' }));
+    headerCells.forEach((th) => expect(th).toHaveStyle({ width: '140px' }));
 
     const dataCells = container.querySelectorAll('tbody td');
-    dataCells.forEach((td) => expect(td).toHaveStyle({ width: '120px' }));
+    dataCells.forEach((td) => expect(td).toHaveStyle({ width: '140px' }));
   });
 
   it('eine Zelle behält ihre Breite beim Wechsel von frei zu einer Arbeitszeit', () => {
