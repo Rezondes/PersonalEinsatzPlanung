@@ -748,7 +748,7 @@ describe('MonthOverviewView', () => {
   });
 
   it('shows the week-cell warning tooltip on hover from tablet width up', async () => {
-    mockViewportWidth(1024);
+    mockViewportWidth(1025);
     selectBranch();
     const user = userEvent.setup();
     const employee = makeEmployee();

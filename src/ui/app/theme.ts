@@ -18,6 +18,13 @@ import type { AccentColorKey } from './theme/accentColors';
 const DIVIDER_LIGHT = '#949490';
 const DIVIDER_DARK = '#6a6a66';
 
+// The one threshold `hooks/useBreakpoint.ts` reads (Handy-UI below it, Desktop-UI at and above) -
+// a dedicated constant rather than one of breakpoints.values below, since sm/md/lg/xl there are
+// MUI's own Dialog/Container maxWidth presets (see the comment at breakpoints.values) and must
+// keep their own values. theme.breakpoints.up() accepts a raw pixel number directly (falls back to
+// it when the argument isn't a known breakpoints.values key), so this needs no entry there.
+export const DESKTOP_LAYOUT_MIN_WIDTH = 1025;
+
 // ScheduleTable.tsx's locked-cell (outside an employee's employment period) background - the exact
 // literals already shipped in light mode; dark value keeps the same "barely-there" relationship to
 // background.default that the light value has to its own light background.default.
@@ -146,9 +153,10 @@ export function createAppTheme(options: CreateAppThemeOptions): Theme {
         warning: { main: warningMain, ...warningDarkFill },
         success: { main: successMain, ...successDarkFill },
       },
-      // `breakpoints.up('sm')` is the one threshold `hooks/useBreakpoint.ts` reads (mobile below it,
-      // tablet at and above) - kept here instead of a raw pixel value scattered through the app.
-      // md/lg/xl are otherwise unused by the two-tier layout model; xl is kept equal to lg only so
+      // sm/md/lg/xl stay MUI's own Dialog/Container maxWidth presets (Dialog maxWidth="sm"/"md"
+      // reads theme.breakpoints.values.sm/md directly - node_modules/@mui/material/Dialog/Dialog.js -
+      // so repurposing one of them for the mobile/desktop split would silently resize every Dialog
+      // using that preset, e.g. DayEditor's maxWidth="sm"). xl is kept equal to lg only so
       // AppShell's Container maxWidth="xl" keeps its existing effective cap, and MUI logs a dev-mode
       // warning if breakpoint values aren't ascending.
       breakpoints: {

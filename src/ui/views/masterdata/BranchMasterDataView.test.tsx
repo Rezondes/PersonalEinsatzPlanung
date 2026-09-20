@@ -471,7 +471,9 @@ describe('BranchMasterDataView', () => {
     seedBranches([branch]);
     renderView();
 
-    await user.click(screen.getByText('Filiale Nord'));
+    // Regex, not the exact string: the mobile card (BranchCard) renders "{branchNumber} {name}" as
+    // one text node, unlike the desktop table row, which renders the name and number separately.
+    await user.click(screen.getByText(/Filiale Nord/));
 
     expect(screen.getByRole('heading', { name: 'Filiale bearbeiten' })).toBeInTheDocument();
     expect(screen.getByText('Weitere Aktionen')).toBeInTheDocument();

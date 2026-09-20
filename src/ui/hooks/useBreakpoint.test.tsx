@@ -32,14 +32,20 @@ describe('useBreakpoint', () => {
     delete window.matchMedia;
   });
 
-  it('reports mobile below 768px', () => {
+  it('reports mobile below 1024px', () => {
     mockViewportWidth(500);
     render(<Harness />);
     expect(screen.getByText('mobile')).toBeInTheDocument();
   });
 
-  it('reports tablet from 768px', () => {
-    mockViewportWidth(768);
+  it('reports mobile at exactly 1024px', () => {
+    mockViewportWidth(1024);
+    render(<Harness />);
+    expect(screen.getByText('mobile')).toBeInTheDocument();
+  });
+
+  it('reports tablet from 1025px', () => {
+    mockViewportWidth(1025);
     render(<Harness />);
     expect(screen.getByText('tablet')).toBeInTheDocument();
   });

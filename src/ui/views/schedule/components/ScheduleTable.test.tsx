@@ -246,7 +246,7 @@ describe('ScheduleTable', () => {
   });
 
   it('shows the Soll-deviation tooltip on hover from tablet width up, and hides it again on unhover (N20)', async () => {
-    mockViewportWidth(1024);
+    mockViewportWidth(1025);
     const user = userEvent.setup();
     render(
       <ScheduleTable

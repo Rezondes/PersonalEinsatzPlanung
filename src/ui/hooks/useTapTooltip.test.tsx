@@ -44,7 +44,7 @@ describe('useTapTooltip', () => {
     renderHarness();
     expect(harness!.tooltipProps('a').disableHoverListener).toBe(true);
 
-    mockViewportWidth(1024);
+    mockViewportWidth(1025);
     renderHarness();
     expect(harness!.tooltipProps('a').disableHoverListener).toBe(false);
   });
