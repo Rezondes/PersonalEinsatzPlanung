@@ -1,12 +1,15 @@
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
-import Paper from '@mui/material/Paper';
 import Stack from '@mui/material/Stack';
 import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
 import ListItemText from '@mui/material/ListItemText';
 import CircularProgress from '@mui/material/CircularProgress';
 import Link from '@mui/material/Link';
+import Accordion from '@mui/material/Accordion';
+import AccordionSummary from '@mui/material/AccordionSummary';
+import AccordionDetails from '@mui/material/AccordionDetails';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { useTranslation } from 'react-i18next';
 import { formatDateGerman } from '@domain/shared/DateFormat';
 import { usePageActions } from '@ui/app/PageActionsContext';
@@ -54,29 +57,37 @@ export function ChangelogView() {
           </Typography>
         ) : (
           <Stack spacing={2}>
-            {releases.map((release) => (
-              <Paper key={release.tagName} sx={{ p: 3 }}>
-                <Stack direction="row" justifyContent="space-between" alignItems="baseline" flexWrap="wrap" gap={1}>
-                  <Typography variant="subtitle1" component="h2" fontWeight={500}>
-                    {release.title}
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    {formatDateGerman(new Date(release.publishedAt))}
-                  </Typography>
-                </Stack>
-                {release.entries.length > 0 && (
-                  <List dense sx={{ listStyleType: 'disc', pl: 2 }}>
-                    {release.entries.map((entry, index) => (
-                      <ListItem key={index} sx={{ display: 'list-item', p: 0 }}>
-                        <ListItemText primary={entry} />
-                      </ListItem>
-                    ))}
-                  </List>
-                )}
-                <Link href={release.url} target="_blank" rel="noreferrer" variant="body2" sx={{ mt: 1, display: 'inline-block' }}>
-                  {t('viewOnGitHub')}
-                </Link>
-              </Paper>
+            {/* Each Accordion keeps its own uncontrolled expanded state (defaultExpanded, not a
+                shared `expanded` prop) - that's what lets several stay open at once instead of
+                collapsing one another. Only the first (newest, per fetchChangelog's own sort -
+                see githubReleases.ts) starts open. */}
+            {releases.map((release, index) => (
+              <Accordion key={release.tagName} defaultExpanded={index === 0} disableGutters>
+                <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                  <Stack direction="row" justifyContent="space-between" alignItems="baseline" flexWrap="wrap" gap={1} sx={{ flex: 1, mr: 1 }}>
+                    <Typography variant="subtitle1" component="h2" fontWeight={500}>
+                      {release.title}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {formatDateGerman(new Date(release.publishedAt))}
+                    </Typography>
+                  </Stack>
+                </AccordionSummary>
+                <AccordionDetails>
+                  {release.entries.length > 0 && (
+                    <List dense sx={{ listStyleType: 'disc', pl: 2 }}>
+                      {release.entries.map((entry, entryIndex) => (
+                        <ListItem key={entryIndex} sx={{ display: 'list-item', p: 0 }}>
+                          <ListItemText primary={entry} />
+                        </ListItem>
+                      ))}
+                    </List>
+                  )}
+                  <Link href={release.url} target="_blank" rel="noreferrer" variant="body2" sx={{ mt: 1, display: 'inline-block' }}>
+                    {t('viewOnGitHub')}
+                  </Link>
+                </AccordionDetails>
+              </Accordion>
             ))}
           </Stack>
         )}

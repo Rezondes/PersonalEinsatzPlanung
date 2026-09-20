@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { services } from '@infrastructure/services';
 import { ChangelogView } from './ChangelogView';
 
@@ -108,5 +109,73 @@ describe('ChangelogView', () => {
     render(<ChangelogView />);
     await waitFor(() => expect(screen.queryByRole('status')).not.toBeInTheDocument());
     expect(screen.getByText('Noch keine Einträge vorhanden.')).toBeInTheDocument();
+  });
+
+  function summaryFor(title: string): HTMLElement {
+    const heading = screen.getByText(title);
+    const summary = heading.closest('.MuiAccordionSummary-root');
+    if (!summary) throw new Error(`no AccordionSummary ancestor found for "${title}"`);
+    return summary as HTMLElement;
+  }
+
+  it('expands the newest release by default, others stay collapsed', async () => {
+    fetchChangelogMock.mockResolvedValue([
+      {
+        tagName: 'deploy-3',
+        title: 'Deploy 3 (newest)',
+        publishedAt: '2026-09-14T00:00:00Z',
+        url: 'https://example.invalid/3',
+        entries: ['chore: third'],
+      },
+      {
+        tagName: 'deploy-2',
+        title: 'Deploy 2',
+        publishedAt: '2026-09-13T00:00:00Z',
+        url: 'https://example.invalid/2',
+        entries: ['chore: second'],
+      },
+      {
+        tagName: 'deploy-1',
+        title: 'Deploy 1',
+        publishedAt: '2026-09-12T00:00:00Z',
+        url: 'https://example.invalid/1',
+        entries: ['chore: first'],
+      },
+    ]);
+
+    render(<ChangelogView />);
+
+    await screen.findByText('Deploy 3 (newest)');
+    expect(summaryFor('Deploy 3 (newest)')).toHaveAttribute('aria-expanded', 'true');
+    expect(summaryFor('Deploy 2')).toHaveAttribute('aria-expanded', 'false');
+    expect(summaryFor('Deploy 1')).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('expanding a second release leaves the first one open', async () => {
+    const user = userEvent.setup();
+    fetchChangelogMock.mockResolvedValue([
+      {
+        tagName: 'deploy-2',
+        title: 'Deploy 2 (newest)',
+        publishedAt: '2026-09-13T00:00:00Z',
+        url: 'https://example.invalid/2',
+        entries: ['chore: second'],
+      },
+      {
+        tagName: 'deploy-1',
+        title: 'Deploy 1',
+        publishedAt: '2026-09-12T00:00:00Z',
+        url: 'https://example.invalid/1',
+        entries: ['chore: first'],
+      },
+    ]);
+
+    render(<ChangelogView />);
+    await screen.findByText('Deploy 2 (newest)');
+
+    await user.click(summaryFor('Deploy 1'));
+
+    expect(summaryFor('Deploy 1')).toHaveAttribute('aria-expanded', 'true');
+    expect(summaryFor('Deploy 2 (newest)')).toHaveAttribute('aria-expanded', 'true');
   });
 });
