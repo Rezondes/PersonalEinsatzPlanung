@@ -390,7 +390,14 @@ describe('ScheduleView', () => {
     const expectedIst = minutesToDecimalHours(480 + 240).toLocaleString('de-DE');
     const expectedSoll = formatHoursRangeGerman(60 * 60, 60 * 60);
     const expectedIstSoll = `Ist ${expectedIst} von ${expectedSoll} Soll`;
-    const expectedNotYetScheduled = `${(0).toLocaleString('de-DE')} noch nicht eingeplant`;
+
+    // The chip is a "Nicht eingeplant" title with the count as a separate value underneath (not a
+    // sentence), so it needs its own subtree scoped via `within` rather than a `container.textContent`
+    // substring check - a bare count like "0"/"1" would otherwise also match unrelated numbers
+    // elsewhere on the page (e.g. "20 Soll").
+    function notYetScheduledChip(): HTMLElement {
+      return screen.getByText('Nicht eingeplant').closest('div') as HTMLElement;
+    }
 
     it('shows the correct Ist/Soll and noch-nicht-eingeplant totals', async () => {
       scheduleGetOrCreate.mockResolvedValueOnce(buildKpiSchedule());
@@ -399,7 +406,7 @@ describe('ScheduleView', () => {
       await screen.findByText(fullName(employeeA));
 
       expect(container.textContent).toContain(expectedIstSoll);
-      expect(container.textContent).toContain(expectedNotYetScheduled);
+      expect(within(notYetScheduledChip()).getByText('0')).toBeInTheDocument();
     });
 
     it('includes a carried-over targetAdjustmentMinutes in the Soll figure, matching the table column below it (H2)', async () => {
@@ -421,7 +428,7 @@ describe('ScheduleView', () => {
       const { container } = renderScheduleView();
       await screen.findByText(fullName(employeeA));
       expect(container.textContent).toContain(expectedIstSoll);
-      expect(container.textContent).toContain(expectedNotYetScheduled);
+      expect(within(notYetScheduledChip()).getByText('0')).toBeInTheDocument();
 
       // Filters employeeB (Schulz) out of the visible rows...
       await userEvent.setup().type(screen.getByLabelText('Mitarbeiter suchen'), 'Müller');
@@ -430,7 +437,7 @@ describe('ScheduleView', () => {
 
       // ...but the KPI header must still sum both rows, not just the visible one.
       expect(container.textContent).toContain(expectedIstSoll);
-      expect(container.textContent).toContain(expectedNotYetScheduled);
+      expect(within(notYetScheduledChip()).getByText('0')).toBeInTheDocument();
     });
 
     it('keeps "noch nicht eingeplant" counting every row (computed from `rows`), not just the search-filtered visible ones', async () => {
@@ -443,18 +450,17 @@ describe('ScheduleView', () => {
       });
       scheduleGetOrCreate.mockResolvedValueOnce(schedule);
 
-      const { container } = renderScheduleView();
+      renderScheduleView();
       await screen.findByText(fullName(employeeA));
 
-      const expectedCountText = `${(1).toLocaleString('de-DE')} noch nicht eingeplant`;
-      expect(container.textContent).toContain(expectedCountText);
+      expect(within(notYetScheduledChip()).getByText('1')).toBeInTheDocument();
 
       // Filters employeeB (the unplanned one) out of the visible rows entirely.
       await userEvent.setup().type(screen.getByLabelText('Mitarbeiter suchen'), 'Müller');
       await waitFor(() => expect(screen.queryByText(fullName(employeeB))).not.toBeInTheDocument());
 
       // A `visibleRows`-based bug would now show 0 here - it must stay 1.
-      expect(container.textContent).toContain(expectedCountText);
+      expect(within(notYetScheduledChip()).getByText('1')).toBeInTheDocument();
     });
 
     it('sums totalWorkedMinutes over EVERY row (including an inactive employee who still carries entries), while totalTarget only sums editable rows', async () => {

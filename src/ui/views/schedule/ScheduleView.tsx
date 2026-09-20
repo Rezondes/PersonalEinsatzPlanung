@@ -912,8 +912,11 @@ export function ScheduleView() {
               />
 
               <Box sx={(theme) => ({ ...chipSx, backgroundColor: theme.palette.accentSurface.subtle, color: theme.palette.primary.main })}>
+                <Typography variant="caption" color="text.secondary" noWrap display="block">
+                  {t('notYetScheduledLabel')}
+                </Typography>
                 <Typography variant="body2" fontWeight={500} noWrap>
-                  {t('notYetScheduled', { value: notYetScheduledText })}
+                  {notYetScheduledText}
                 </Typography>
               </Box>
             </Stack>

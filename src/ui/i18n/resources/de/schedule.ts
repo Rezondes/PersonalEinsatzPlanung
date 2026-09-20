@@ -27,7 +27,7 @@ const schedule = {
   printButton: 'Drucken',
   istSollMobileCaption: 'Ist / Soll',
   istSollSentence: 'Ist {{worked}} von {{range}} Soll',
-  notYetScheduled: '{{value}} noch nicht eingeplant',
+  notYetScheduledLabel: 'Nicht eingeplant',
   // 'Fehler' is invariant between singular/plural in German, but i18next still needs both plural
   // forms defined - without them it silently falls back to the bare key text for every count
   // instead of erroring, which for "Warnung"/"Vorlage" below would render the wrong grammar.
