@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from 'react';
-import type { ReactNode, WheelEvent as ReactWheelEvent, MouseEvent as ReactMouseEvent } from 'react';
+import type { ReactNode, WheelEvent as ReactWheelEvent, MouseEvent as ReactMouseEvent, TouchEvent as ReactTouchEvent } from 'react';
 import Box from '@mui/material/Box';
 import IconButton from '@mui/material/IconButton';
 import Tooltip from '@mui/material/Tooltip';
@@ -19,6 +19,10 @@ interface Transform {
 }
 
 const INITIAL_TRANSFORM: Transform = { scale: 1, x: 0, y: 0 };
+
+function touchDistance(a: { clientX: number; clientY: number }, b: { clientX: number; clientY: number }): number {
+  return Math.hypot(b.clientX - a.clientX, b.clientY - a.clientY);
+}
 
 interface PanZoomContainerProps {
   children: ReactNode;
@@ -73,6 +77,59 @@ export function PanZoomContainer({ children }: PanZoomContainerProps) {
     window.addEventListener('mouseup', handleMouseUp);
   };
 
+  // Not state, same reasoning as dragOrigin above - only the two touch-point distance at gesture
+  // start matters, not every intermediate value.
+  const pinchOrigin = useRef<{ distance: number; scale: number } | null>(null);
+
+  // Window-level listeners, mirroring the mouse handlers above - a fast pinch/drag can move a
+  // finger to a screen position outside the element's bounds mid-gesture just like a mouse drag
+  // can, even though touch events normally keep targeting their original element.
+  const handleTouchMove = useCallback((e: TouchEvent) => {
+    if (e.touches.length === 2 && pinchOrigin.current) {
+      e.preventDefault();
+      const origin = pinchOrigin.current;
+      const distance = touchDistance(e.touches[0], e.touches[1]);
+      setTransform((prev) => ({
+        ...prev,
+        scale: Math.min(MAX_SCALE, Math.max(MIN_SCALE, origin.scale * (distance / origin.distance))),
+      }));
+      return;
+    }
+    const origin = dragOrigin.current;
+    if (!origin || e.touches.length !== 1) return;
+    e.preventDefault();
+    const touch = e.touches[0];
+    setTransform((prev) => ({
+      ...prev,
+      x: origin.startX + (touch.clientX - origin.pointerX),
+      y: origin.startY + (touch.clientY - origin.pointerY),
+    }));
+  }, []);
+
+  const handleTouchEnd = useCallback(() => {
+    dragOrigin.current = null;
+    pinchOrigin.current = null;
+    window.removeEventListener('touchmove', handleTouchMove);
+    window.removeEventListener('touchend', handleTouchEnd);
+    window.removeEventListener('touchcancel', handleTouchEnd);
+  }, [handleTouchMove]);
+
+  const handleTouchStart = (e: ReactTouchEvent<HTMLDivElement>) => {
+    if (e.touches.length === 1) {
+      const touch = e.touches[0];
+      dragOrigin.current = { pointerX: touch.clientX, pointerY: touch.clientY, startX: transform.x, startY: transform.y };
+      pinchOrigin.current = null;
+    } else if (e.touches.length === 2) {
+      dragOrigin.current = null;
+      pinchOrigin.current = { distance: touchDistance(e.touches[0], e.touches[1]), scale: transform.scale };
+    } else {
+      return;
+    }
+    window.addEventListener('touchmove', handleTouchMove, { passive: false });
+    window.addEventListener('touchend', handleTouchEnd);
+    window.addEventListener('touchcancel', handleTouchEnd);
+  };
+
   const reset = () => setTransform(INITIAL_TRANSFORM);
 
   return (
@@ -101,6 +158,7 @@ export function PanZoomContainer({ children }: PanZoomContainerProps) {
       <Box
         onWheel={handleWheel}
         onMouseDown={handleMouseDown}
+        onTouchStart={handleTouchStart}
         data-testid="panzoom-content"
         sx={{
           // 297mm: fixed A4-landscape width (matches printView.css's `@page { size: A4 landscape }`),
@@ -112,6 +170,13 @@ export function PanZoomContainer({ children }: PanZoomContainerProps) {
           transformOrigin: 'top center',
           cursor: 'grab',
           '&:active': { cursor: 'grabbing' },
+          // Overrides theme.ts's global html { touchAction: 'manipulation' } (kept there to
+          // preserve horizontal table scrolling elsewhere), which still lets the browser handle
+          // pinch natively - the opposite of what this component needs, since it drives zoom
+          // itself via handleTouchMove. touch-action is the intersection of an element's own value
+          // and its ancestors', so this more restrictive value wins here without touching the
+          // global rule.
+          touchAction: 'none',
           '@media print': { width: 'auto', mx: 0, transform: 'none !important', cursor: 'auto' },
         }}
       >

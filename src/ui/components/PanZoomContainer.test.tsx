@@ -76,4 +76,73 @@ describe('PanZoomContainer', () => {
 
     expectTransform(0, 0, 1);
   });
+
+  it('a one-finger touch drag changes the translate() position, same as a mouse drag', () => {
+    renderPanZoom();
+
+    fireEvent.touchStart(content(), { touches: [{ clientX: 100, clientY: 100 }] });
+    fireEvent.touchMove(window, { touches: [{ clientX: 140, clientY: 125 }] });
+
+    expectTransform(40, 25, 1);
+
+    fireEvent.touchEnd(window);
+    // Further movement after touchend must not keep dragging.
+    fireEvent.touchMove(window, { touches: [{ clientX: 500, clientY: 500 }] });
+    expectTransform(40, 25, 1);
+  });
+
+  it('a two-finger pinch changes the scale, clamped to the same limits as the wheel', () => {
+    renderPanZoom();
+
+    // Starting distance 100px (100,100)-(200,100).
+    fireEvent.touchStart(content(), {
+      touches: [
+        { clientX: 100, clientY: 100 },
+        { clientX: 200, clientY: 100 },
+      ],
+    });
+    // Distance grows to 150px - 1.5x the starting distance.
+    fireEvent.touchMove(window, {
+      touches: [
+        { clientX: 75, clientY: 100 },
+        { clientX: 225, clientY: 100 },
+      ],
+    });
+    expectTransform(0, 0, 1.5);
+
+    // Far past the upper bound (distance grown ~30x from the start) - must clamp, not run away.
+    fireEvent.touchMove(window, {
+      touches: [
+        { clientX: 0, clientY: 100 },
+        { clientX: 3000, clientY: 100 },
+      ],
+    });
+    expectTransform(0, 0, 3);
+  });
+
+  it('touchend stops the drag, further touchmove has no effect', () => {
+    renderPanZoom();
+
+    fireEvent.touchStart(content(), { touches: [{ clientX: 0, clientY: 0 }] });
+    fireEvent.touchMove(window, { touches: [{ clientX: 20, clientY: 10 }] });
+    expectTransform(20, 10, 1);
+
+    fireEvent.touchEnd(window);
+    fireEvent.touchMove(window, { touches: [{ clientX: 200, clientY: 200 }] });
+    expectTransform(20, 10, 1);
+  });
+
+  it('the content element opts out of native touch gestures (touch-action: none)', () => {
+    // jsdom's CSSOM does not implement touch-action at all (confirmed: even a direct
+    // `el.style.touchAction = 'none'` produces an empty cssText), so getComputedStyle/toHaveStyle
+    // can never see it here regardless of what's actually applied - same class of jsdom gap as the
+    // Table width:'auto' case documented in ScheduleTable.tsx's file header. Emotion's injected
+    // stylesheet text is the only thing in this environment that can confirm the rule was generated.
+    renderPanZoom();
+
+    const styleText = Array.from(document.querySelectorAll('style'))
+      .map((style) => style.textContent)
+      .join('\n');
+    expect(styleText).toMatch(/touch-action:\s*none/);
+  });
 });
