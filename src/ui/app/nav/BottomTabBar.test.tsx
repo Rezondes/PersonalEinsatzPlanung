@@ -20,6 +20,20 @@ describe('BottomTabBar', () => {
     expect(screen.getByRole('button', { name: label(BOTTOM_TABS[1]) })).not.toHaveAttribute('aria-current');
   });
 
+  it('drops MUI\'s 80px tab min-width so five tabs fit a 360px phone', () => {
+    const { container } = render(
+      <MemoryRouter initialEntries={['/de/schedule']}>
+        <BottomTabBar />
+      </MemoryRouter>,
+    );
+
+    const tabs = container.querySelectorAll('.MuiBottomNavigationAction-root');
+    expect(tabs).toHaveLength(5);
+    for (const tab of tabs) {
+      expect(getComputedStyle(tab).minWidth).toBe('0');
+    }
+  });
+
   it('ist ein nav-Landmark', () => {
     render(
       <MemoryRouter initialEntries={['/de/schedule']}>

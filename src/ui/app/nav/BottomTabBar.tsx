@@ -52,6 +52,9 @@ export function BottomTabBar() {
             label={t(tab.shortLabel ?? tab.label)}
             value={tab.path}
             icon={<tab.icon />}
+            // MUI's own min-width is 80px: five tabs need 400px and clipped "Woche"/"Mehr" by 20px
+            // each on a 360px phone. The short labels fit in an equal fifth of the bar.
+            sx={{ minWidth: 0, flex: 1, px: 0.5 }}
             // Unlike NavRail (a plain NavLink, which sets this automatically), BottomNavigationAction
             // navigates programmatically via onChange, not an <a href> - so nothing marks the active
             // tab for assistive tech unless done by hand here.
