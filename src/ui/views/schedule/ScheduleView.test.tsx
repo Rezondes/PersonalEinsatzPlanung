@@ -389,7 +389,7 @@ describe('ScheduleView', () => {
 
     const expectedIst = minutesToDecimalHours(480 + 240).toLocaleString('de-DE');
     const expectedSoll = formatHoursRangeGerman(60 * 60, 60 * 60);
-    const expectedIstSoll = `Ist ${expectedIst} von ${expectedSoll} Soll`;
+    const expectedIstSoll = `${expectedIst} / ${expectedSoll}`;
 
     // The chip is a "Nicht eingeplant" title with the count as a separate value underneath (not a
     // sentence), so it needs its own subtree scoped via `within` rather than a `container.textContent`
@@ -419,7 +419,7 @@ describe('ScheduleView', () => {
       await screen.findByText(fullName(employeeA));
 
       const expectedSollWithAdjustment = formatHoursRangeGerman(60 * 60 + 180, 60 * 60 + 180);
-      expect(container.textContent).toContain(`Ist ${expectedIst} von ${expectedSollWithAdjustment} Soll`);
+      expect(container.textContent).toContain(`${expectedIst} / ${expectedSollWithAdjustment}`);
     });
 
     it('keeps KPI totals summing every row, unaffected by a search term that filters one row out', async () => {
@@ -493,7 +493,7 @@ describe('ScheduleView', () => {
       // Ist includes the inactive employee's 4h; Soll only counts employeeA's 40h contract target.
       const expectedIst = minutesToDecimalHours(480 + 240).toLocaleString('de-DE');
       const expectedSoll = formatHoursRangeGerman(40 * 60, 40 * 60);
-      expect(container.textContent).toContain(`Ist ${expectedIst} von ${expectedSoll} Soll`);
+      expect(container.textContent).toContain(`${expectedIst} / ${expectedSoll}`);
     });
   });
 
@@ -1833,14 +1833,15 @@ describe('ScheduleView', () => {
     const ist = minutesToDecimalHours(480).toLocaleString('de-DE');
     const soll = formatHoursRangeGerman(60 * 60, 60 * 60);
 
-    it('shows the KPI summary as a chip strip at tablet width', async () => {
+    it('shows Ist / Soll as the same caption + value tile at tablet width as on mobile', async () => {
       scheduleGetOrCreate.mockResolvedValueOnce(buildKpiSchedule());
       const { container } = renderScheduleView(TABLET);
       await screen.findByText(fullName(employeeA));
 
-      expect(container.textContent).toContain(`Ist ${ist} von ${soll} Soll`);
-      expect(container.textContent).not.toContain(`Ist ${ist} / ${soll} Soll`);
-      expect(container.textContent).not.toContain('Ist / Soll');
+      // Same caption/value shape as "Nicht eingeplant" next to it, so both tiles are equally tall.
+      expect(screen.getByText('Ist / Soll')).toBeInTheDocument();
+      expect(screen.getByText(`${ist} / ${soll}`)).toBeInTheDocument();
+      expect(container.textContent).not.toContain(`Ist ${ist} von`);
     });
 
     it('shows the KPI summary as a compact chip strip at mobile width', async () => {

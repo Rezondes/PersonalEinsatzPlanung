@@ -25,8 +25,7 @@ const schedule = {
   carryOverButton: 'Vorwoche übertragen',
   copyPreviousWeekButton: 'Vorwoche kopieren',
   printButton: 'Drucken',
-  istSollMobileCaption: 'Ist / Soll',
-  istSollSentence: 'Ist {{worked}} von {{range}} Soll',
+  istSollCaption: 'Ist / Soll',
   notYetScheduledLabel: 'Nicht eingeplant',
   // 'Fehler' is invariant between singular/plural in German, but i18next still needs both plural
   // forms defined - without them it silently falls back to the bare key text for every count

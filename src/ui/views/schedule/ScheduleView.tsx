@@ -856,25 +856,16 @@ export function ScheduleView() {
             borderRadius: 4,
           };
 
-          // Mobile: "Ist / Soll" (a single combined figure); tablet has the room to spell out
-          // "Ist X von Y Soll" instead - matches the mockup's own wording difference between its
-          // two narrower artboards.
-          const istSollText =
-            layout === 'mobile'
-              ? `${formatHoursGerman(totalWorkedMinutes)} / ${formatHoursRangeGerman(totalTarget.min, totalTarget.max)}`
-              : t('istSollSentence', {
-                  worked: formatHoursGerman(totalWorkedMinutes),
-                  range: formatHoursRangeGerman(totalTarget.min, totalTarget.max),
-                });
+          // Caption + value at every width, the same shape as "Nicht eingeplant" below, so the two
+          // tiles are always equally tall (the old one-line "Ist X von Y Soll" on tablet was not).
+          const istSollText = `${formatHoursGerman(totalWorkedMinutes)} / ${formatHoursRangeGerman(totalTarget.min, totalTarget.max)}`;
 
           return (
             <Stack direction="row" gap={1} sx={{ mb: 2, overflowX: 'auto', pb: 0.5 }}>
               <Box sx={{ ...chipSx, backgroundColor: 'background.paper' }}>
-                {layout === 'mobile' && (
-                  <Typography variant="caption" color="text.secondary" noWrap display="block">
-                    {t('istSollMobileCaption')}
-                  </Typography>
-                )}
+                <Typography variant="caption" color="text.secondary" noWrap display="block">
+                  {t('istSollCaption')}
+                </Typography>
                 <Typography variant="body2" fontWeight={500} noWrap>
                   {istSollText}
                 </Typography>
