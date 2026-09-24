@@ -21,3 +21,17 @@ export function useBreakpoint(): Layout {
 
   return isDesktop ? 'tablet' : 'mobile';
 }
+
+/** At or below this height a phone is being held sideways (360-430px on common phones); tablets in
+ * landscape stay above it (>= 600px). */
+export const SHORT_VIEWPORT_MAX_HEIGHT = 500;
+
+/**
+ * True when the viewport is too short for fixed chrome plus a bounded, self-scrolling region - a
+ * phone held sideways. There the app header, tab bar and "Weitere Aktionen" bar alone take half the
+ * height, so AppShell lets full-bleed pages scroll as a whole instead (see AppShell/ScheduleView).
+ * Same `noSsr` reasoning as useBreakpoint above.
+ */
+export function useIsShortViewport(): boolean {
+  return useMediaQuery(`(max-height: ${SHORT_VIEWPORT_MAX_HEIGHT}px)`, { noSsr: true });
+}

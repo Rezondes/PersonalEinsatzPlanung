@@ -68,7 +68,8 @@ import { buildScheduleRows, canReceiveEntry, isCellLocked, isNotYetScheduled } f
 import type { ScheduleRow } from './scheduleRows';
 import type { ScheduleTool } from './scheduleTools';
 import { OFF_TOOL, toolMatchesCell, toolToAbsenceDraft, toolToDayEntry } from './scheduleTools';
-import { useBreakpoint } from '@ui/hooks/useBreakpoint';
+import { useBreakpoint, useIsShortViewport } from '@ui/hooks/useBreakpoint';
+import { mobileSafeBottom } from '@ui/app/nav/mobileChromeOffset';
 import { usePageActions } from '@ui/app/PageActionsContext';
 import { ScheduleToolbar } from './components/ScheduleToolbar';
 import { ShiftTemplateDialog } from './components/ShiftTemplateDialog';
@@ -150,6 +151,10 @@ export function ScheduleView() {
   const [selectedCells, setSelectedCells] = useState<Set<string>>(new Set());
   const layout = useBreakpoint();
   const isMobile = layout === 'mobile';
+  // Phone held sideways: AppShell lets the document scroll (the table takes its natural height), so
+  // the "Weitere Aktionen" bar needs sticky positioning to stay reachable (see useIsShortViewport).
+  const isShortViewport = useIsShortViewport();
+  const pageScrolls = isMobile && isShortViewport;
   // AppShell's Container becomes a bounded, non-scrolling flex column - see PageActionsContext's
   // doc comment on fullBleedPage. Every page calls this; ScheduleTable is the region below that
   // fills the bounded space and scrolls internally.
@@ -1042,7 +1047,13 @@ export function ScheduleView() {
         return layout === 'mobile' ? (
           <>
             {tableSection}
-            {toolbar}
+            {pageScrolls ? (
+              // The document scrolls here (AppShell's pageScrolls), so flex stacking no longer parks
+              // the bar above the fixed tab bar - sticky does, offset by the tab bar's height.
+              <Box sx={{ position: 'sticky', bottom: mobileSafeBottom(0), zIndex: 2 }}>{toolbar}</Box>
+            ) : (
+              toolbar
+            )}
           </>
         ) : (
           <>

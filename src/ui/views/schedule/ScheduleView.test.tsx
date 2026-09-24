@@ -78,14 +78,15 @@ const shiftTemplateDelete = vi.mocked(services.shiftTemplate.delete);
 const restPeriodCheckWeek = vi.mocked(services.restPeriodCheck.checkWeek);
 
 /** jsdom has no real layout engine, so `window.matchMedia` is mocked per test to answer as if the
- * viewport were `width` wide - MUI's `theme.breakpoints.up(key)` produces a `(min-width:...px)`
- * query, which this parses back out. Copied from useBreakpoint.test.tsx / ScheduleToolbar.test.tsx. */
-function mockViewportWidth(width: number) {
+ * viewport were `width` x `height` - MUI's `theme.breakpoints.up(key)` produces a `(min-width:...px)`
+ * query and useIsShortViewport a `(max-height:...px)` one, which this parses back out. Copied from
+ * useBreakpoint.test.tsx. */
+function mockViewportWidth(width: number, height = 900) {
   window.matchMedia = ((query: string) => {
-    const match = /min-width:\s*(\d+(?:\.\d+)?)px/.exec(query);
-    const minWidth = match ? Number(match[1]) : 0;
+    const minWidth = /min-width:\s*(\d+(?:\.\d+)?)px/.exec(query);
+    const maxHeight = /max-height:\s*(\d+(?:\.\d+)?)px/.exec(query);
     return {
-      matches: width >= minWidth,
+      matches: (!minWidth || width >= Number(minWidth[1])) && (!maxHeight || height <= Number(maxHeight[1])),
       media: query,
       onchange: null,
       addListener: () => {},
@@ -221,8 +222,8 @@ function scheduleTree() {
   );
 }
 
-function renderScheduleView(width: number = TABLET) {
-  mockViewportWidth(width);
+function renderScheduleView(width: number = TABLET, height = 900) {
+  mockViewportWidth(width, height);
   return render(scheduleTree());
 }
 
@@ -612,6 +613,27 @@ describe('ScheduleView', () => {
       await user.clear(searchBox()!);
       await user.click(document.body);
       expect(searchBox()).not.toBeInTheDocument();
+    });
+  });
+
+  // Package 6 (Teil 5): at 780x360 the fixed chrome alone takes half the height and the bounded
+  // table got 6px. Sideways, AppShell lets the document scroll instead (see AppShell.test); the
+  // one thing this view must add is keeping its action bar reachable.
+  describe('phone held sideways', () => {
+    const bar = () => screen.getByRole('region', { name: 'Weitere Aktionen' });
+
+    it('keeps "Weitere Aktionen" docked above the tab bar while the page scrolls', async () => {
+      renderScheduleView(780, 360);
+      await screen.findByText(fullName(employeeA));
+
+      expect(getComputedStyle(bar().parentElement!).position).toBe('sticky');
+    });
+
+    it('leaves the bar in normal flow on an upright phone, where the table scrolls instead', async () => {
+      renderScheduleView(MOBILE, 844);
+      await screen.findByText(fullName(employeeA));
+
+      expect(getComputedStyle(bar().parentElement!).position).not.toBe('sticky');
     });
   });
 

@@ -4,7 +4,7 @@ import Box from '@mui/material/Box';
 import Container from '@mui/material/Container';
 import { useTranslation } from 'react-i18next';
 import { BuildVersionBadge } from '@ui/components/BuildVersionBadge';
-import { useBreakpoint } from '@ui/hooks/useBreakpoint';
+import { useBreakpoint, useIsShortViewport } from '@ui/hooks/useBreakpoint';
 import { useDocumentTitle } from '@ui/hooks/useDocumentTitle';
 import { AppHeader } from './AppHeader';
 import { titleForPath } from './routeMeta';
@@ -30,6 +30,14 @@ export function AppShell() {
 
 function AppShellLayout() {
   const layout = useBreakpoint();
+  // A phone held sideways is too short for bounded regions under fixed chrome: at 780x360 the
+  // header, tab bar and a view's own action bar leave next to nothing, and every full-bleed view
+  // collapsed (Wochenplanung table 6px, Mitarbeiter list 0px). There the root only floors the height
+  // instead of fixing it, so each view's height:100% resolves to its content and the document
+  // scrolls - the minHeight behaviour the comment on the root Box below describes as the thing to
+  // avoid everywhere else.
+  const isShortViewport = useIsShortViewport();
+  const pageScrolls = layout === 'mobile' && isShortViewport;
   const { fullBleedPage } = usePageActionsValue();
   const rootRef = useRef<HTMLDivElement>(null);
   const headerRef = useRef<HTMLElement>(null);
@@ -91,7 +99,14 @@ function AppShellLayout() {
     // area on mobile Chrome whenever its address bar was showing, leaving exactly that much residual
     // page scroll - the same bug this fix removes, just reintroduced at the unit level. dvh is
     // supported by every browser this app targets, so there is no real fallback need here.
-    <Box ref={rootRef} sx={{ height: '100dvh', backgroundColor: 'background.default', display: 'flex' }}>
+    <Box
+      ref={rootRef}
+      sx={{
+        ...(pageScrolls ? { minHeight: '100dvh' } : { height: '100dvh' }),
+        backgroundColor: 'background.default',
+        display: 'flex',
+      }}
+    >
       <Box
         component="a"
         href="#main-content"
@@ -126,7 +141,8 @@ function AppShellLayout() {
                   minHeight: 0,
                   display: 'flex',
                   flexDirection: 'column',
-                  overflow: 'hidden',
+                  // Nothing to clip while the document scrolls (see pageScrolls above).
+                  overflow: pageScrolls ? 'visible' : 'hidden',
                   p: 0,
                   // The fixed BottomTabBar is a sibling, not a descendant, of this Container - it
                   // paints on top of whatever is underneath it. Without reserving its own height
