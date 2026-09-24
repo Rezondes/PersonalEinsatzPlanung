@@ -14,7 +14,13 @@ import { routes } from './router';
 // Every leaf view gets a lightweight stand-in, same approach as AppShell.test.tsx - this file
 // tests ROUTING (redirects, locale param handling, path preservation, print-route isolation, lang
 // sync), not each view's own rendering correctness, which already has its own dedicated test file.
-vi.mock('@ui/views/schedule/ScheduleView', () => ({ ScheduleView: () => <div>schedule-view</div> }));
+const scheduleStub = vi.hoisted(() => ({ throwOnRender: false }));
+vi.mock('@ui/views/schedule/ScheduleView', () => ({
+  ScheduleView: () => {
+    if (scheduleStub.throwOnRender) throw new Error('boom');
+    return <div>schedule-view</div>;
+  },
+}));
 vi.mock('@ui/views/month/MonthOverviewView', () => ({ MonthOverviewView: () => <div>month-view</div> }));
 vi.mock('@ui/views/masterdata/BranchMasterDataView', () => ({
   BranchMasterDataView: () => <div>branches-view</div>,
@@ -76,6 +82,28 @@ describe('router', () => {
   afterEach(() => {
     // @ts-expect-error -- undo the per-test stub, jsdom has no matchMedia of its own to restore
     delete window.matchMedia;
+    scheduleStub.throwOnRender = false;
+  });
+
+  it('shows a German not-found page inside the shell for an unknown path', async () => {
+    renderAt('/de/gibtsnicht');
+
+    expect(await screen.findByRole('heading', { name: 'Seite nicht gefunden' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Zur Wochenplanung' })).toHaveAttribute('href', '/de/schedule');
+    expect(screen.getByRole('navigation')).toBeInTheDocument();
+  });
+
+  it('shows a German error page instead of React Router\'s developer page when a view throws', async () => {
+    scheduleStub.throwOnRender = true;
+    // React logs the caught render error to console.error; keep the test output clean.
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    renderAt('/de/schedule');
+
+    expect(await screen.findByRole('heading', { name: 'Etwas ist schiefgelaufen' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Neu laden' })).toBeInTheDocument();
+    expect(screen.queryByText(/Unexpected Application Error/)).not.toBeInTheDocument();
+    consoleError.mockRestore();
   });
 
   it('redirects the bare hash root to /de/schedule', async () => {

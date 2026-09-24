@@ -12,6 +12,7 @@ import { PrivacyView } from '@ui/views/settings/PrivacyView';
 import { TermsView } from '@ui/views/settings/TermsView';
 import { ChangelogView } from '@ui/views/changelog/ChangelogView';
 import { MorePage } from './nav/MorePage';
+import { RouteErrorPage } from './RouteErrorPage';
 import { DEFAULT_LOCALE } from './locale/locale';
 import { localeLoader } from './locale/localeLoader';
 import { LocaleRoot } from './locale/LocaleRoot';
@@ -26,6 +27,7 @@ export const routes: RouteObject[] = [
     path: '/:locale',
     loader: localeLoader,
     element: <LocaleRoot />,
+    errorElement: <RouteErrorPage />,
     children: [
       { path: 'print/:scheduleId', element: <PrintPreviewView /> },
       {
@@ -44,6 +46,7 @@ export const routes: RouteObject[] = [
           { path: 'privacy', element: <PrivacyView /> },
           { path: 'terms', element: <TermsView /> },
           { path: 'more', element: <MorePage /> },
+          { path: '*', element: <RouteErrorPage notFound /> },
         ],
       },
     ],

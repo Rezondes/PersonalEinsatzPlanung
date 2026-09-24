@@ -8,6 +8,12 @@ const app = {
   viewChanges: 'Änderungen ansehen',
   installAvailable: 'Diese App kann installiert werden.',
   installLater: 'Nicht jetzt',
+  notFoundTitle: 'Seite nicht gefunden',
+  notFoundText: 'Diese Adresse gibt es in der App nicht.',
+  notFoundAction: 'Zur Wochenplanung',
+  errorTitle: 'Etwas ist schiefgelaufen',
+  errorText: 'Beim Anzeigen dieser Seite ist ein Fehler aufgetreten.',
+  errorAction: 'Neu laden',
 } as const;
 
 export default app;
