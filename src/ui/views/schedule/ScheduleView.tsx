@@ -37,7 +37,7 @@ import {
   WEEKDAYS,
 } from '@domain/shared/CalendarWeek';
 import { findOverlappingAbsences } from '@domain/absence/absenceOverlap';
-import { toISODate } from '@domain/shared/DateFormat';
+import { formatISODateShortGerman, toISODate } from '@domain/shared/DateFormat';
 import type { Weekday } from '@domain/shared/CalendarWeek';
 import type { EmployeeId } from '@domain/shared/ids';
 import { fullName } from '@domain/employee/Employee';
@@ -82,6 +82,20 @@ import { notify } from '@ui/app/store/notificationStore';
 import CircularProgress from '@mui/material/CircularProgress';
 import { useLocale } from '@ui/app/locale/useLocale';
 import { buildLocalizedPath } from '@ui/app/locale/locale';
+
+/** Hidden on screen, still read by screen readers (the usual clip pattern; @mui/utils'
+ * visuallyHidden is not a direct dependency). Width/height as px strings: in `sx` a bare 1 = 100%. */
+const VISUALLY_HIDDEN_SX = {
+  position: 'absolute',
+  width: '1px',
+  height: '1px',
+  margin: '-1px',
+  padding: 0,
+  border: 0,
+  overflow: 'hidden',
+  clip: 'rect(0 0 0 0)',
+  whiteSpace: 'nowrap',
+} as const;
 
 export function ScheduleView() {
   const { t } = useTranslation('schedule');
@@ -135,6 +149,7 @@ export function ScheduleView() {
   const [selectionModeActive, setSelectionModeActive] = useState(false);
   const [selectedCells, setSelectedCells] = useState<Set<string>>(new Set());
   const layout = useBreakpoint();
+  const isMobile = layout === 'mobile';
   // AppShell's Container becomes a bounded, non-scrolling flex column - see PageActionsContext's
   // doc comment on fullBleedPage. Every page calls this; ScheduleTable is the region below that
   // fills the bounded space and scrolls internally.
@@ -150,6 +165,15 @@ export function ScheduleView() {
   const [copyPreviousWeekOpen, setCopyPreviousWeekOpen] = useState(false);
   const [copyingPreviousWeek, setCopyingPreviousWeek] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  // Mobile only: the search field is collapsed behind a magnifier button to give the table room.
+  // It stays open while it holds a term, so an active filter is never invisible.
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  // Focus moves into the field only as the direct result of tapping the magnifier (not autoFocus,
+  // which would also fire on every remount).
+  useEffect(() => {
+    if (mobileSearchOpen) searchInputRef.current?.focus();
+  }, [mobileSearchOpen]);
 
   const federalState = branch?.federalState;
   const isHoliday = useMemo(
@@ -692,7 +716,10 @@ export function ScheduleView() {
       label={t('searchPlaceholder')}
       value={searchTerm}
       onChange={(e) => setSearchTerm(e.target.value)}
-      sx={{ width: 280 }}
+      inputRef={searchInputRef}
+      onBlur={() => layout === 'mobile' && searchTerm === '' && setMobileSearchOpen(false)}
+      fullWidth={layout === 'mobile'}
+      sx={layout === 'mobile' ? undefined : { width: 280 }}
       InputProps={{
         startAdornment: (
           <InputAdornment position="start">
@@ -722,11 +749,20 @@ export function ScheduleView() {
         pb: layout === 'mobile' ? 0 : 3,
       }}
     >
-      <Typography variant="h5" component="h1" fontWeight={500} sx={{ mb: 1 }}>
+      {/* Mobile: visually hidden, the active "Woche" tab already names the page - saves a row. */}
+      <Typography variant="h5" component="h1" fontWeight={500} sx={isMobile ? VISUALLY_HIDDEN_SX : { mb: 1 }}>
         {tNav('schedule')}
       </Typography>
-      <Stack direction="row" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={2} sx={{ mb: 2 }}>
-        <Box>
+      <Stack
+        data-testid="schedule-nav-row"
+        direction="row"
+        justifyContent="space-between"
+        alignItems="center"
+        flexWrap={isMobile ? 'nowrap' : 'wrap'}
+        gap={isMobile ? 1 : 2}
+        sx={{ mb: isMobile ? 1 : 2 }}
+      >
+        <Box sx={{ minWidth: 0 }}>
           {/* Branch name intentionally not repeated here - it's already shown in the header's
               Filiale dropdown directly above, at every breakpoint. */}
           <Typography
@@ -750,11 +786,25 @@ export function ScheduleView() {
               '&:focus-visible': { outline: `2px solid ${theme.palette.primary.main}`, outlineOffset: 2 },
             })}
           >
-            {formatCalendarWeekRange(selectedWeek)}
+            {isMobile ? (
+              // The full "KW 39 · 21.09.2026 – 27.09.2026" does not fit next to five buttons on a
+              // 360px phone; the aria-label above still carries the full range.
+              <>
+                <Box component="span" sx={{ display: 'block', fontWeight: 500, color: 'text.primary' }}>
+                  KW {selectedWeek.week}
+                </Box>
+                <Box component="span" sx={{ display: 'block', typography: 'caption' }}>
+                  {formatISODateShortGerman(toISODate(mondayOfWeek(selectedWeek)))}–
+                  {formatISODateShortGerman(toISODate(dateForWeekday(selectedWeek, 'Sonntag')))}
+                </Box>
+              </>
+            ) : (
+              formatCalendarWeekRange(selectedWeek)
+            )}
           </Typography>
         </Box>
 
-        <Stack direction="row" gap={1} alignItems="center">
+        <Stack direction="row" gap={isMobile ? 0 : 1} alignItems="center" sx={{ flexShrink: 0 }}>
           <Tooltip title={t('undoTooltip')}>
             <span>
               <IconButton onClick={() => history.undo()} disabled={!history.canUndo} aria-label={t('undoAriaLabel')}>
@@ -772,14 +822,24 @@ export function ScheduleView() {
           <IconButton onClick={() => setSelectedWeek(previousCalendarWeek(selectedWeek))} aria-label={t('previousWeekAriaLabel')}>
             <ChevronLeftIcon />
           </IconButton>
-          <Button
-            size="small"
-            startIcon={<TodayOutlinedIcon />}
-            onClick={() => setSelectedWeek(calendarWeekFromDate(new Date()))}
-            disabled={calendarWeeksEqual(selectedWeek, calendarWeekFromDate(new Date()))}
-          >
-            {t('todayButton')}
-          </Button>
+          {isMobile ? (
+            <IconButton
+              onClick={() => setSelectedWeek(calendarWeekFromDate(new Date()))}
+              disabled={calendarWeeksEqual(selectedWeek, calendarWeekFromDate(new Date()))}
+              aria-label={t('todayButton')}
+            >
+              <TodayOutlinedIcon />
+            </IconButton>
+          ) : (
+            <Button
+              size="small"
+              startIcon={<TodayOutlinedIcon />}
+              onClick={() => setSelectedWeek(calendarWeekFromDate(new Date()))}
+              disabled={calendarWeeksEqual(selectedWeek, calendarWeekFromDate(new Date()))}
+            >
+              {t('todayButton')}
+            </Button>
+          )}
           <IconButton onClick={() => setSelectedWeek(nextCalendarWeek(selectedWeek))} aria-label={t('nextWeekAriaLabel')}>
             <ChevronRightIcon />
           </IconButton>
@@ -861,55 +921,62 @@ export function ScheduleView() {
           const istSollText = `${formatHoursGerman(totalWorkedMinutes)} / ${formatHoursRangeGerman(totalTarget.min, totalTarget.max)}`;
 
           return (
-            <Stack direction="row" gap={1} sx={{ mb: 2, overflowX: 'auto', pb: 0.5 }}>
-              <Box sx={{ ...chipSx, backgroundColor: 'background.paper' }}>
-                <Typography variant="caption" color="text.secondary" noWrap display="block">
-                  {t('istSollCaption')}
-                </Typography>
-                <Typography variant="body2" fontWeight={500} noWrap>
-                  {istSollText}
-                </Typography>
-              </Box>
+            <Stack direction="row" gap={1} alignItems="center" sx={{ mb: isMobile ? 1 : 2 }}>
+              <Stack direction="row" gap={1} sx={{ overflowX: 'auto', pb: 0.5, minWidth: 0, flex: 1 }}>
+                <Box sx={{ ...chipSx, backgroundColor: 'background.paper' }}>
+                  <Typography variant="caption" color="text.secondary" noWrap display="block">
+                    {t('istSollCaption')}
+                  </Typography>
+                  <Typography variant="body2" fontWeight={500} noWrap>
+                    {istSollText}
+                  </Typography>
+                </Box>
 
-              <ValidationNotices
-                results={validationResults}
-                employeeList={employeeList}
-                renderTrigger={({ errorCount, warningCount, onClick, expanded }) => (
-                  <Box
-                    component="button"
-                    type="button"
-                    onClick={onClick}
-                    aria-expanded={expanded}
-                    aria-haspopup="dialog"
-                    sx={(theme) => ({
-                      ...chipSx,
-                      backgroundColor: theme.palette.errorSurface.subtle,
-                      borderColor: theme.palette.errorSurface.border,
-                      color: theme.palette.error.main,
-                      font: 'inherit',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 0.5,
-                    })}
-                  >
-                    <WarningAmberIcon fontSize="small" />
-                    <Typography variant="body2" fontWeight={500} noWrap>
-                      {t('errorSummary', { count: errorCount })}
-                      {warningCount > 0 ? t('warningSuffix', { count: warningCount }) : ''}
-                    </Typography>
-                  </Box>
-                )}
-              />
+                <ValidationNotices
+                  results={validationResults}
+                  employeeList={employeeList}
+                  renderTrigger={({ errorCount, warningCount, onClick, expanded }) => (
+                    <Box
+                      component="button"
+                      type="button"
+                      onClick={onClick}
+                      aria-expanded={expanded}
+                      aria-haspopup="dialog"
+                      sx={(theme) => ({
+                        ...chipSx,
+                        backgroundColor: theme.palette.errorSurface.subtle,
+                        borderColor: theme.palette.errorSurface.border,
+                        color: theme.palette.error.main,
+                        font: 'inherit',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 0.5,
+                      })}
+                    >
+                      <WarningAmberIcon fontSize="small" />
+                      <Typography variant="body2" fontWeight={500} noWrap>
+                        {t('errorSummary', { count: errorCount })}
+                        {warningCount > 0 ? t('warningSuffix', { count: warningCount }) : ''}
+                      </Typography>
+                    </Box>
+                  )}
+                />
 
-              <Box sx={(theme) => ({ ...chipSx, backgroundColor: theme.palette.accentSurface.subtle, color: theme.palette.primary.main })}>
-                <Typography variant="caption" color="text.secondary" noWrap display="block">
-                  {t('notYetScheduledLabel')}
-                </Typography>
-                <Typography variant="body2" fontWeight={500} noWrap>
-                  {notYetScheduledText}
-                </Typography>
-              </Box>
+                <Box sx={(theme) => ({ ...chipSx, backgroundColor: theme.palette.accentSurface.subtle, color: theme.palette.primary.main })}>
+                  <Typography variant="caption" color="text.secondary" noWrap display="block">
+                    {t('notYetScheduledLabel')}
+                  </Typography>
+                  <Typography variant="body2" fontWeight={500} noWrap>
+                    {notYetScheduledText}
+                  </Typography>
+                </Box>
+              </Stack>
+              {isMobile && rows.length > 0 && !mobileSearchOpen && searchTerm === '' && (
+                <IconButton aria-label={t('searchPlaceholder')} onClick={() => setMobileSearchOpen(true)} sx={{ flexShrink: 0 }}>
+                  <SearchOutlinedIcon />
+                </IconButton>
+              )}
             </Stack>
           );
         })()}
@@ -920,7 +987,7 @@ export function ScheduleView() {
         </Alert>
       )}
 
-      {layout === 'mobile' && rows.length > 0 && <Box sx={{ mb: 2 }}>{searchField}</Box>}
+      {isMobile && rows.length > 0 && (mobileSearchOpen || searchTerm !== '') && <Box sx={{ mb: 1 }}>{searchField}</Box>}
 
       {(() => {
         const toolbar = (

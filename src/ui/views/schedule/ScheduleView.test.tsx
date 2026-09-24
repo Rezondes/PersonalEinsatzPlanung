@@ -528,12 +528,11 @@ describe('ScheduleView', () => {
       expect(within(headerRow).getByLabelText('Geplante Wochenstunden')).toBeInTheDocument();
     });
 
-    it('does not render the combined header row on mobile - the search field stays its own always-visible row', async () => {
+    it('does not render the combined header row on mobile', async () => {
       renderScheduleView(MOBILE);
       await screen.findByText(fullName(employeeA));
 
       expect(screen.queryByTestId('schedule-header-row')).not.toBeInTheDocument();
-      expect(screen.getByLabelText('Mitarbeiter suchen')).toBeInTheDocument();
     });
 
     it('gives the search field a floating label instead of only a placeholder', async () => {
@@ -542,6 +541,77 @@ describe('ScheduleView', () => {
 
       const search = screen.getByLabelText('Mitarbeiter suchen');
       expect(search).not.toHaveAttribute('placeholder');
+    });
+  });
+
+  // Package 5 (Teil 5): on a phone the header used to take 61% of the height, leaving the table 291
+  // of 740px. Everything here keeps the header to two short rows.
+  describe('compact mobile header', () => {
+    const searchBox = () => screen.queryByRole('textbox', { name: 'Mitarbeiter suchen' });
+
+    it('keeps the h1 for screen readers but hides it visually on mobile only', async () => {
+      renderScheduleView(MOBILE);
+      await screen.findByText(fullName(employeeA));
+
+      const h1 = screen.getByRole('heading', { level: 1, name: 'Wochenplanung' });
+      expect(getComputedStyle(h1).position).toBe('absolute');
+      expect(getComputedStyle(h1).width).toBe('1px');
+    });
+
+    it('keeps the visible h1 on tablet/desktop', async () => {
+      renderScheduleView(TABLET);
+      await screen.findByText(fullName(employeeA));
+
+      expect(getComputedStyle(screen.getByRole('heading', { level: 1, name: 'Wochenplanung' })).position).not.toBe('absolute');
+    });
+
+    it('puts the week label, Heute and Rückgängig into one non-wrapping row on mobile', async () => {
+      renderScheduleView(MOBILE);
+      await screen.findByText(fullName(employeeA));
+
+      const row = screen.getByTestId('schedule-nav-row');
+      expect(getComputedStyle(row).flexWrap).toBe('nowrap');
+      expect(within(row).getByRole('button', { name: /andere Woche auswählen/ })).toBeInTheDocument();
+      expect(within(row).getByRole('button', { name: 'Heute' })).toBeInTheDocument();
+      expect(within(row).getByRole('button', { name: 'Rückgängig' })).toBeInTheDocument();
+    });
+
+    it('shortens the week label on mobile to the week number and the days without year', async () => {
+      renderScheduleView(MOBILE);
+      await screen.findByText(fullName(employeeA));
+
+      const label = screen.getByRole('button', { name: /andere Woche auswählen/ });
+      expect(label).toHaveTextContent(`KW ${SELECTED_WEEK.week}`);
+      expect(label).not.toHaveTextContent(String(SELECTED_WEEK.year));
+      // The accessible name still carries the full range.
+      expect(label).toHaveAccessibleName(expect.stringContaining(formatCalendarWeekRange(SELECTED_WEEK)));
+    });
+
+    it('collapses the search field behind a magnifier button on mobile', async () => {
+      renderScheduleView(MOBILE);
+      await screen.findByText(fullName(employeeA));
+
+      expect(searchBox()).not.toBeInTheDocument();
+
+      await userEvent.setup().click(screen.getByRole('button', { name: 'Mitarbeiter suchen' }));
+
+      expect(searchBox()).toBeInTheDocument();
+      expect(searchBox()).toHaveFocus();
+    });
+
+    it('keeps the mobile search open while it holds a term, and closes an empty one on blur', async () => {
+      renderScheduleView(MOBILE);
+      await screen.findByText(fullName(employeeA));
+      const user = userEvent.setup();
+
+      await user.click(screen.getByRole('button', { name: 'Mitarbeiter suchen' }));
+      await user.type(searchBox()!, 'Mül');
+      await user.click(document.body);
+      expect(searchBox()).toHaveValue('Mül');
+
+      await user.clear(searchBox()!);
+      await user.click(document.body);
+      expect(searchBox()).not.toBeInTheDocument();
     });
   });
 

@@ -78,7 +78,12 @@ interface ScheduleTableProps {
 // bei einem echten Mitarbeiternamen wie "Schwartinski, Kim Stefanie"), wodurch die 7
 // Wochentag-Spalten optisch nach rechts zusammengeschoben wirkten ("Tage sind rechtsbündig").
 // Ein langer Name/Tätigkeit bricht jetzt ggf. auf 2 Zeilen um, statt die Spalte zu verbreitern.
-const EMPLOYEE_COLUMN_WIDTH = { mobile: 180, desktop: 180 } as const;
+// Mobil 120px: mit 180px war die Spalte auf einem 360px-Handy die halbe Bildschirmbreite und nur
+// ein einziger Tag sichtbar. Dazu gehört das schmalere Zell-Padding (FIRST_COLUMN_MOBILE_PX); mit
+// ihm passen ein Name wie "Becker, Sophie" und "0 / 5-10 Std." plus Warn-Icon je in eine Zeile
+// (bei 112px brachen beide um und die Zeile wurde höher statt kompakter).
+const EMPLOYEE_COLUMN_WIDTH = { mobile: 120, desktop: 180 } as const;
+const FIRST_COLUMN_MOBILE_PX = 1;
 
 // Einzige Stelle für die Breite der 7 Wochentag-Spalten (Kopf- UND Datenzelle nutzen denselben
 // Wert, siehe unten) - hier anpassen, keine Suche nach magischen Zahlen im Rest der Datei nötig.
@@ -88,7 +93,8 @@ const EMPLOYEE_COLUMN_WIDTH = { mobile: 180, desktop: 180 } as const;
 // Fensterbreite); ohne maxWidth hätte sie umgekehrt bei ÜBERSCHÜSSIGEM Platz wachsen können. Die
 // minWidth erzwingt stattdessen
 // horizontales Scrollen (siehe stickyFirstColumn.ts) statt eines Schrumpfens unter diesen Wert.
-const WEEKDAY_COLUMN_WIDTH = { mobile: 180, desktop: 180 } as const;
+// Mobil 150px: neben der 120px-Namensspalte sind so auf einem 360px-Handy 1,6 Tage sichtbar statt 1,3.
+const WEEKDAY_COLUMN_WIDTH = { mobile: 150, desktop: 180 } as const;
 
 const NO_RESULTS: ValidationResult[] = [];
 
@@ -223,6 +229,7 @@ export const ScheduleTable = memo(function ScheduleTable({
                 width: layout === 'mobile' ? EMPLOYEE_COLUMN_WIDTH.mobile : EMPLOYEE_COLUMN_WIDTH.desktop,
                 minWidth: layout === 'mobile' ? EMPLOYEE_COLUMN_WIDTH.mobile : EMPLOYEE_COLUMN_WIDTH.desktop,
                 maxWidth: layout === 'mobile' ? EMPLOYEE_COLUMN_WIDTH.mobile : EMPLOYEE_COLUMN_WIDTH.desktop,
+                ...(layout === 'mobile' && { px: FIRST_COLUMN_MOBILE_PX }),
               }}
             >
               {t('columnEmployee')}
@@ -281,9 +288,14 @@ export const ScheduleTable = memo(function ScheduleTable({
                   color: row.editable ? undefined : 'text.secondary',
                 }}
               >
-                <TableCell component="th" scope="row" className={STICKY_FIRST_COLUMN_CLASS} sx={stickyFirstColumnSx}>
+                <TableCell
+                  component="th"
+                  scope="row"
+                  className={STICKY_FIRST_COLUMN_CLASS}
+                  sx={layout === 'mobile' ? { ...stickyFirstColumnSx, px: FIRST_COLUMN_MOBILE_PX } : stickyFirstColumnSx}
+                >
                   <Stack direction="row" spacing={0.5} alignItems="center">
-                    <Typography variant="body2" fontWeight={500}>
+                    <Typography variant="body2" fontWeight={500} sx={{ overflowWrap: 'anywhere' }}>
                       {fullName(employee)}
                     </Typography>
                     {row.lockReason && (
@@ -293,7 +305,8 @@ export const ScheduleTable = memo(function ScheduleTable({
                   <Typography variant="caption" color="text.secondary">
                     {employee.jobTitle}
                   </Typography>
-                  <Stack direction="row" spacing={0.5} alignItems="center">
+                  {/* Wraps the warning icon under the hours instead of overflowing the 112px mobile column. */}
+                  <Stack direction="row" columnGap={0.5} alignItems="center" flexWrap="wrap">
                     <Typography variant="caption" color="text.secondary">
                       {t('actualVsTargetSuffix', {
                         worked: formatHoursGerman(view.totalNetMinutes),
@@ -315,6 +328,9 @@ export const ScheduleTable = memo(function ScheduleTable({
                           <IconButton
                             aria-label={t('deviationAriaLabel')}
                             onClick={() => toggleTooltip(`deviation|${view.employeeId}`)}
+                            // Mobile: the negative margin keeps the 44px hit area but lets it take
+                            // only ~28px of layout, so it stays on the hours line in the 120px column.
+                            sx={layout === 'mobile' ? { m: -1 } : undefined}
                           >
                             <WarningAmberIcon fontSize="small" sx={{ color: 'warning.main' }} />
                           </IconButton>

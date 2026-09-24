@@ -145,12 +145,12 @@ describe('ScheduleTable', () => {
 
     const headerCells = Array.from(container.querySelectorAll('thead th')).slice(1);
     expect(headerCells.length).toBe(weekDays.length);
-    headerCells.forEach((th) => expect(th).toHaveStyle({ width: '180px', minWidth: '180px' }));
+    headerCells.forEach((th) => expect(th).toHaveStyle({ width: '150px', minWidth: '150px' }));
 
     // The employee cell is already a <th> (row header), so every <td> in a body row is a weekday cell.
     const dataCells = container.querySelectorAll('tbody td');
     expect(dataCells.length).toBe(employees.length * weekDays.length);
-    dataCells.forEach((td) => expect(td).toHaveStyle({ width: '180px', minWidth: '180px' }));
+    dataCells.forEach((td) => expect(td).toHaveStyle({ width: '150px', minWidth: '150px' }));
   });
 
   it('jede Wochentag-Datenzelle hat dieselbe feste Breite wie ihre Kopfzelle (Tablet/Desktop)', () => {
@@ -172,8 +172,8 @@ describe('ScheduleTable', () => {
     // Same fixed width regardless of whether the cell shows "frei" or a shift.
     const shiftCell = screen.getByText('06:00-14:00').closest('td');
     const freeCell = screen.getAllByText('frei')[0].closest('td');
-    expect(shiftCell).toHaveStyle({ width: '180px' });
-    expect(freeCell).toHaveStyle({ width: '180px' });
+    expect(shiftCell).toHaveStyle({ width: '150px' });
+    expect(freeCell).toHaveStyle({ width: '150px' });
   });
 
   it('gibt der Wochentag-Spalte zusätzlich zu width auch minWidth UND maxWidth, damit table-layout:auto sie weder komprimiert noch bei Restplatz verbreitert', () => {
@@ -265,6 +265,19 @@ describe('ScheduleTable', () => {
 
     await user.unhover(deviationIcon);
     await waitFor(() => expect(screen.queryByText(/Std\. unter Soll/)).not.toBeInTheDocument());
+  });
+
+  it('narrows the Mitarbeiter column to 120px and the day columns to 150px on mobile, keeping 180px on desktop', () => {
+    mockViewportWidth(500);
+    const props = { rows: rowsFor(employees), weekDays, validationResults: [], onCellClick: () => {}, ...notAssigning, ...noSelection };
+    const { unmount } = render(<ScheduleTable {...props} />);
+    expect(screen.getAllByRole('columnheader')[0]).toHaveStyle({ width: '120px', minWidth: '120px', maxWidth: '120px' });
+    expect(screen.getAllByRole('columnheader')[1]).toHaveStyle({ width: '150px' });
+    unmount();
+
+    mockViewportWidth(1200);
+    render(<ScheduleTable {...props} />);
+    expect(screen.getAllByRole('columnheader')[0]).toHaveStyle({ width: '180px' });
   });
 
   it('das Abweichungs-Icon hat eine 44x44-Trefffläche', () => {
