@@ -201,8 +201,8 @@ describe('MonthOverviewView', () => {
   it('shows an info alert and renders no table when no branch is selected', async () => {
     renderView();
 
-    expect(await screen.findByText('Bitte zuerst oben eine Filiale auswählen oder anlegen.')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Zu den Filialen' })).toHaveAttribute('href', '/de/branches');
+    expect(await screen.findByText('Lege zuerst eine Filiale an.')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Filiale anlegen' })).toHaveAttribute('href', '/de/branches');
     expect(screen.queryByRole('table')).not.toBeInTheDocument();
     expect(scheduleForBranch).not.toHaveBeenCalled();
   });

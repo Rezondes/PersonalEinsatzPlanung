@@ -184,8 +184,8 @@ describe('EmployeeMasterDataView', () => {
 
     // findBy (not getBy) so the pending useEmployeeList load - it still runs even with no branch,
     // resolving to [] - settles inside act() before the test ends.
-    expect(await screen.findByText('Bitte zuerst oben eine Filiale auswählen oder anlegen.')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Zu den Filialen' })).toHaveAttribute('href', '/de/branches');
+    expect(await screen.findByText('Lege zuerst eine Filiale an.')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Filiale anlegen' })).toHaveAttribute('href', '/de/branches');
     expect(screen.queryByRole('table')).not.toBeInTheDocument();
   });
 

@@ -2,8 +2,10 @@
  * own namespace even when only one string lives there today. */
 const common = {
   requiredLegend: '* Pflichtfeld',
-  noBranchSelected: 'Bitte zuerst oben eine Filiale auswählen oder anlegen.',
+  noBranchSelected: 'Bitte oben eine Filiale auswählen.',
   goToBranches: 'Zu den Filialen',
+  noBranchExists: 'Lege zuerst eine Filiale an.',
+  createBranch: 'Filiale anlegen',
   confirm: 'Bestätigen',
   cancel: 'Abbrechen',
   busyStatus: 'Wird ausgeführt …',
