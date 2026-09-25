@@ -143,6 +143,11 @@ const currentYear = now.getFullYear();
 const currentMonth = now.getMonth() + 1;
 const currentMonthLabel = `${MONTH_NAMES[currentMonth - 1]} ${currentYear}`;
 
+/** Monat/Jahr live in a dialog behind the month label since Teil 5 (one month navigation, not two). */
+async function openMonthPicker(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(screen.getByRole('button', { name: `${currentMonthLabel}, anderen Monat auswählen` }));
+}
+
 /** Copied from useBreakpoint.test.tsx: jsdom has no real layout engine, so window.matchMedia is
  * mocked to answer as if the viewport were `width` wide. Only needed for the tests below that
  * specifically exercise hover-vs-touch behavior - every other test in this file relies on jsdom's
@@ -364,6 +369,70 @@ describe('MonthOverviewView', () => {
     expect(screen.getByText(`Dezember ${currentYear - 1}`)).toBeInTheDocument();
   });
 
+  describe('header (Teil 5, Package 10)', () => {
+    it('has one month navigation: the Monat/Jahr selects only appear in the picker behind the month label', async () => {
+      selectBranch();
+      employeeForBranch.mockResolvedValue([]);
+      scheduleForBranch.mockResolvedValue([]);
+      const user = userEvent.setup();
+      renderView();
+      await screen.findByText(currentMonthLabel);
+
+      expect(screen.queryByRole('combobox', { name: 'Monat' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('combobox', { name: 'Jahr' })).not.toBeInTheDocument();
+
+      await openMonthPicker(user);
+
+      const dialog = screen.getByRole('dialog', { name: 'Monat auswählen' });
+      expect(within(dialog).getByRole('combobox', { name: 'Monat' })).toBeInTheDocument();
+      expect(within(dialog).getByRole('combobox', { name: 'Jahr' })).toBeInTheDocument();
+
+      // An explicit way back besides the X, for a dialog whose choices apply right away.
+      await user.click(within(dialog).getByRole('button', { name: 'Fertig' }));
+      await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Monat auswählen' })).not.toBeInTheDocument());
+    });
+
+    it('shows the ArbZG note only on demand, behind an info button', async () => {
+      selectBranch();
+      employeeForBranch.mockResolvedValue([]);
+      scheduleForBranch.mockResolvedValue([]);
+      const user = userEvent.setup();
+      renderView();
+      await screen.findByText(currentMonthLabel);
+
+      expect(screen.queryByText(/Ruhezeit-Prüfung über Wochengrenzen/)).not.toBeInTheDocument();
+
+      await user.click(screen.getByRole('button', { name: 'Hinweis zur Prüfung' }));
+
+      expect(await screen.findByText(/Ruhezeit-Prüfung über Wochengrenzen/)).toBeInTheDocument();
+    });
+
+    it('keeps "KW n" and its menu button on one line', async () => {
+      selectBranch();
+      const employee = makeEmployee();
+      employeeForBranch.mockResolvedValue([employee]);
+      const weeks = calendarWeeksInMonth(currentYear, currentMonth);
+      scheduleForBranch.mockResolvedValue([createWeeklySchedule(branch.id, weeks[0], [employee.id])]);
+      renderView();
+      await screen.findByText(currentMonthLabel);
+
+      const menuButton = await screen.findByRole('button', { name: `Aktionen für Kalenderwoche ${weeks[0].week}` });
+      expect(menuButton.parentElement).toHaveStyle({ whiteSpace: 'nowrap' });
+    });
+
+    it('keeps a long employee name on one line on a phone, with the full name as title', async () => {
+      selectBranch();
+      const employee = makeEmployee({ lastName: 'Schmidt-Langenberg', firstName: 'Maximilian' });
+      employeeForBranch.mockResolvedValue([employee]);
+      scheduleForBranch.mockResolvedValue([]);
+      renderView();
+
+      const name = await screen.findByText(fullName(employee));
+      expect(name).toHaveAttribute('title', fullName(employee));
+      expect(name).toHaveStyle({ whiteSpace: 'nowrap', textOverflow: 'ellipsis' });
+    });
+  });
+
   it('loads the schedule once per branch and does not re-fetch on month navigation', async () => {
     selectBranch();
     employeeForBranch.mockResolvedValue([]);
@@ -382,7 +451,7 @@ describe('MonthOverviewView', () => {
     expect(scheduleForBranch).toHaveBeenCalledTimes(1);
   });
 
-  it('jumping the Jahr-Select to a different year shows that year\'s weeks for the same month', async () => {
+  it('jumping the Jahr-Select (in the month picker) to a different year shows that year\'s weeks for the same month', async () => {
     selectBranch();
     const employee = makeEmployee();
     employeeForBranch.mockResolvedValue([employee]);
@@ -392,16 +461,19 @@ describe('MonthOverviewView', () => {
     renderView();
     await screen.findByText(currentMonthLabel);
 
+    await openMonthPicker(user);
     await user.click(screen.getByRole('combobox', { name: 'Jahr' }));
     await user.click(screen.getByRole('option', { name: String(currentYear + 1) }));
 
     expect(screen.getByRole('combobox', { name: 'Jahr' })).toHaveTextContent(String(currentYear + 1));
+    // The open picker is modal (the page behind it is aria-hidden), so close it before looking there.
+    await user.click(screen.getByRole('button', { name: 'Schließen' }));
     await waitFor(() =>
       expect(screen.getByRole('button', { name: `Aktionen für Kalenderwoche ${weeksNextYear[0].week}` })).toBeInTheDocument(),
     );
   });
 
-  it('jumping the Monat-Select to a different month works independently of the Jahr-Select', async () => {
+  it('jumping the Monat-Select (in the month picker) to a different month works independently of the Jahr-Select', async () => {
     selectBranch();
     const employee = makeEmployee();
     employeeForBranch.mockResolvedValue([employee]);
@@ -411,12 +483,14 @@ describe('MonthOverviewView', () => {
     renderView();
     await screen.findByText(currentMonthLabel);
 
+    await openMonthPicker(user);
     await user.click(screen.getByRole('combobox', { name: 'Monat' }));
     await user.click(screen.getByRole('option', { name: 'März' }));
 
     expect(screen.getByRole('combobox', { name: 'Monat' })).toHaveTextContent('März');
     // The year field is untouched by a month-only jump.
     expect(screen.getByRole('combobox', { name: 'Jahr' })).toHaveTextContent(String(currentYear));
+    await user.click(screen.getByRole('button', { name: 'Schließen' }));
     await waitFor(() =>
       expect(screen.getByRole('button', { name: `Aktionen für Kalenderwoche ${marchWeeks[0].week}` })).toBeInTheDocument(),
     );
@@ -435,8 +509,10 @@ describe('MonthOverviewView', () => {
     renderView();
     await screen.findByText(currentMonthLabel);
 
+    await openMonthPicker(user);
     await user.click(screen.getByRole('combobox', { name: 'Jahr' }));
     await user.click(screen.getByRole('option', { name: String(targetYear) }));
+    await user.click(screen.getByRole('button', { name: 'Schließen' }));
 
     await screen.findByRole('button', { name: `Aktionen für Kalenderwoche ${week1.week}` });
     await jumpViaWeekMenu(user, week1.week);
@@ -710,7 +786,9 @@ describe('MonthOverviewView', () => {
     renderView();
     await screen.findByText(currentMonthLabel);
 
-    expect(screen.getByText(/Ruhezeit/)).toBeInTheDocument();
+    // The footnote sits behind the info button next to the heading since Teil 5.
+    await user.click(screen.getByRole('button', { name: 'Hinweis zur Prüfung' }));
+    expect(await screen.findByText(/Ruhezeit/)).toBeInTheDocument();
 
     const violatingRow = (await screen.findByText(fullName(employee))).closest('tr')!;
     const violatingCell = weekCellInRow(violatingRow, 0);

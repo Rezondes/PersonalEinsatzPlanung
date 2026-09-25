@@ -4,6 +4,10 @@ const month = {
   previousMonth: 'Vorheriger Monat',
   nextMonth: 'Nächster Monat',
   monthLabel: 'Monat',
+  monthPickerAriaLabel: '{{month}}, anderen Monat auswählen',
+  monthPickerTitle: 'Monat auswählen',
+  monthPickerDone: 'Fertig',
+  infoHintAriaLabel: 'Hinweis zur Prüfung',
   exportButton: 'Exportieren',
   infoCaption:
     'Zeigt je Kalenderwoche nur Tages-/Wochenprüfungen auf ArbZG-/JArbSchG-Verstöße; eine Ruhezeit-Prüfung über Wochengrenzen hinweg findet hier nicht statt.',
