@@ -231,8 +231,18 @@ export function createAppTheme(options: CreateAppThemeOptions): Theme {
           defaultProps: { elevation: 0 },
           styleOverrides: { root: { border: `1px solid ${divider}` } },
         },
+        // Phone UI only: 44px, the touch size MuiIconButton already has below. Buttons were 37px
+        // (31px with size="small"); desktop stays compact.
         MuiButton: {
           defaultProps: { disableElevation: true },
+          styleOverrides: {
+            root: ({ theme }) => ({ [theme.breakpoints.down(DESKTOP_LAYOUT_MIN_WIDTH)]: { minHeight: 44 } }),
+          },
+        },
+        MuiToggleButton: {
+          styleOverrides: {
+            root: ({ theme }) => ({ [theme.breakpoints.down(DESKTOP_LAYOUT_MIN_WIDTH)]: { minHeight: 44 } }),
+          },
         },
         MuiTableCell: {
           styleOverrides: { root: { borderColor: divider } },

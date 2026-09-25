@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { theme, createAppTheme } from './theme';
+import { theme, createAppTheme, DESKTOP_LAYOUT_MIN_WIDTH } from './theme';
 
 describe('theme', () => {
   it('exposes the accent color and its tints as named palette tokens', () => {
@@ -146,6 +146,25 @@ describe('createAppTheme, prefers-reduced-motion', () => {
       expect(rule.animationDuration).toBe('0.01ms !important');
       expect(rule.animationIterationCount).toBe('1 !important');
       expect(rule.scrollBehavior).toBe('auto !important');
+    });
+  }
+});
+
+// Teil 6, Package 3: on the phone UI buttons were 31-37px tall (IconButton already had 44px).
+describe('createAppTheme, 44px touch targets on the phone UI', () => {
+  const appTheme = createAppTheme({ mode: 'light', prefersDark: false });
+  const phoneQuery = appTheme.breakpoints.down(DESKTOP_LAYOUT_MIN_WIDTH);
+  const rootStyle = (component: 'MuiButton' | 'MuiToggleButton') => {
+    const root = appTheme.components?.[component]?.styleOverrides?.root as (props: { theme: typeof appTheme }) => Record<string, unknown>;
+    return root({ theme: appTheme });
+  };
+
+  for (const component of ['MuiButton', 'MuiToggleButton'] as const) {
+    it(`${component} is at least 44px tall below the desktop breakpoint, and only there`, () => {
+      const style = rootStyle(component);
+
+      expect(style[phoneQuery]).toEqual({ minHeight: 44 });
+      expect(style.minHeight).toBeUndefined();
     });
   }
 });
