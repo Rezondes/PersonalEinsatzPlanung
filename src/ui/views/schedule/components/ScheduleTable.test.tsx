@@ -283,6 +283,38 @@ describe('ScheduleTable', () => {
     expect(screen.getAllByRole('columnheader')[0]).toHaveStyle({ width: '180px' });
   });
 
+  // Teil 7, Package 2: Shift+Tab scrolled day cells 67% under the sticky Mitarbeiter column.
+  it('keeps a focused cell clear of the sticky name column and head row (scroll-padding)', () => {
+    const props = { rows: rowsFor(employees), weekDays, validationResults: [], onCellClick: () => {}, ...notAssigning, ...noSelection };
+    mockViewportWidth(500);
+    const { container, unmount } = render(<ScheduleTable {...props} />);
+    const scroller = () => container.querySelector('.MuiTableContainer-root') as HTMLElement;
+    expect(scroller()).toHaveStyle({ scrollPaddingLeft: '120px', scrollPaddingTop: 'var(--pep-table-head-height, 0px)' });
+    unmount();
+
+    mockViewportWidth(1200);
+    const second = render(<ScheduleTable {...props} />);
+    expect(second.container.querySelector('.MuiTableContainer-root')).toHaveStyle({ scrollPaddingLeft: '180px' });
+  });
+
+  // Chrome skips the focus scroll when a cell is already inside the container box - even when it
+  // sits under the sticky column - and ignores scroll-padding for that check. scrollIntoView with
+  // 'nearest' does respect scroll-padding, so the table asks for it on every cell focus.
+  it('scrolls a focused cell clear of the sticky parts with scrollIntoView nearest', () => {
+    const scrollIntoView = vi.fn();
+    const original = Element.prototype.scrollIntoView;
+    Element.prototype.scrollIntoView = scrollIntoView;
+    try {
+      render(<ScheduleTable rows={rowsFor(employees)} weekDays={weekDays} validationResults={[]} onCellClick={() => {}} {...notAssigning} {...noSelection} />);
+
+      screen.getByRole('button', { name: 'Schulz, Anna, Dienstag, frei bearbeiten' }).focus();
+
+      expect(scrollIntoView).toHaveBeenCalledWith({ block: 'nearest', inline: 'nearest' });
+    } finally {
+      Element.prototype.scrollIntoView = original;
+    }
+  });
+
   it('das Abweichungs-Icon hat eine 44x44-Trefffläche', () => {
     render(
       <ScheduleTable

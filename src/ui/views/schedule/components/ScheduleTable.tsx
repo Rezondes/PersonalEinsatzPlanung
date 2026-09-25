@@ -1,4 +1,4 @@
-import { memo, useMemo } from 'react';
+import { memo, useLayoutEffect, useMemo, useRef } from 'react';
 import type { KeyboardEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@mui/material/styles';
@@ -151,6 +151,22 @@ export const ScheduleTable = memo(function ScheduleTable({
   const { t: tCommon } = useTranslation();
   const theme = useTheme();
   const layout = useBreakpoint();
+  const scrollerRef = useRef<HTMLDivElement>(null);
+  const headRef = useRef<HTMLTableSectionElement>(null);
+  // Publishes the head row's height for the container's scroll-padding-top. Straight to the DOM,
+  // no state: a resize must not re-render the table (same pattern as --pep-header-height).
+  useLayoutEffect(() => {
+    const scroller = scrollerRef.current;
+    const head = headRef.current;
+    if (!scroller || !head) return;
+    const publish = () => scroller.style.setProperty('--pep-table-head-height', `${head.offsetHeight}px`);
+    publish();
+    // jsdom has no ResizeObserver and the table must still render in tests.
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(publish);
+    observer.observe(head);
+    return () => observer.disconnect();
+  }, []);
   // Desktop day columns get no width at all: table-layout:fixed shares the space (see the Table).
   const dayColumnSx =
     layout === 'mobile'
@@ -194,8 +210,20 @@ export const ScheduleTable = memo(function ScheduleTable({
     // fixed chrome sits below it, at every breakpoint, and this needs to fill exactly that.
     <TableContainer
       component={Paper}
+      ref={scrollerRef}
+      // Chrome skips the focus scroll for a cell that is already inside the container box - even
+      // one under the sticky column (Shift+Tab left 75% of a cell hidden) - and ignores
+      // scroll-padding for that check. scrollIntoView 'nearest' does honour scroll-padding.
+      onFocus={(e) => {
+        if (e.target.closest('td')) e.target.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
+      }}
       sx={{
         height: '100%',
+        // A focused cell (Tab/Shift+Tab) is scrolled into view clear of the sticky Mitarbeiter
+        // column and head row instead of under them (Shift+Tab hid 67% of a cell at 390px). The
+        // head height is measured below: it is two lines on a phone, so a fixed value would guess.
+        scrollPaddingLeft: layout === 'mobile' ? EMPLOYEE_COLUMN_WIDTH.mobile : EMPLOYEE_COLUMN_WIDTH.desktop,
+        scrollPaddingTop: 'var(--pep-table-head-height, 0px)',
         // Reaches the true screen edges on mobile, cancelling the wrapper Box's own px:1.5 in
         // ScheduleView - same edge-to-edge treatment as the mobile toolbar bar, and it buys back a
         // little extra width for the grid's own inevitable horizontal scroll on a phone.
@@ -241,7 +269,7 @@ export const ScheduleTable = memo(function ScheduleTable({
               }
         }
       >
-        <TableHead>
+        <TableHead ref={headRef}>
           <TableRow>
             <TableCell
               sx={{
