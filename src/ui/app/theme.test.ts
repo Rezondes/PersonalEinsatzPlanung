@@ -129,3 +129,23 @@ describe('createAppTheme', () => {
     expect(dark.palette.inactiveSurface).toBe('#242422');
   });
 });
+
+// Teil 6, Package 2: nothing respected the OS "reduce motion" setting before.
+describe('createAppTheme, prefers-reduced-motion', () => {
+  const REDUCE = '@media (prefers-reduced-motion: reduce)';
+
+  for (const mode of ['light', 'dark'] as const) {
+    it(`schaltet Übergänge und Animationen im ${mode}-Theme ab`, () => {
+      const overrides = createAppTheme({ mode, prefersDark: false }).components?.MuiCssBaseline?.styleOverrides as Record<
+        string,
+        Record<string, Record<string, string>>
+      >;
+
+      const rule = overrides[REDUCE]['*, *::before, *::after'];
+      expect(rule.transitionDuration).toBe('0.01ms !important');
+      expect(rule.animationDuration).toBe('0.01ms !important');
+      expect(rule.animationIterationCount).toBe('1 !important');
+      expect(rule.scrollBehavior).toBe('auto !important');
+    });
+  }
+});

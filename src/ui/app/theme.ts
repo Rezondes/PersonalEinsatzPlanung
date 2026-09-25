@@ -206,6 +206,17 @@ export function createAppTheme(options: CreateAppThemeOptions): Theme {
             '[data-selectable]': { cursor: 'text' },
             // Replaces the tap highlight we just removed; see NAV_LINK_CLASS in app/nav/navLinkStyle.ts.
             '.pep-nav-link:active': { backgroundColor: accentSurface.pressed },
+            // Honours the OS "reduce motion" setting for every MUI transition (dialog slide-up,
+            // sheets, Collapse, tab colours) in one place. 0.01ms rather than 0: with 0 some
+            // browsers fire no transitionend, and code waiting for it would hang.
+            '@media (prefers-reduced-motion: reduce)': {
+              '*, *::before, *::after': {
+                animationDuration: '0.01ms !important',
+                animationIterationCount: '1 !important',
+                transitionDuration: '0.01ms !important',
+                scrollBehavior: 'auto !important',
+              },
+            },
           },
         },
         MuiPaper: {
