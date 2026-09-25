@@ -78,7 +78,7 @@ export function PrintPreviewView() {
         setLoadFailed(true);
       })
       .finally(() => setLoading(false));
-  }, [scheduleId]);
+  }, [scheduleId, t]);
 
   if (loading) {
     // A blank white page was the old behaviour, and this route has no nav chrome to soften it.
