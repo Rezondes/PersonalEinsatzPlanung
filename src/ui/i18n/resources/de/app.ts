@@ -1,6 +1,7 @@
 /** App-chrome copy specific to AppHeader/UpdatePrompt/InstallPromptBanner - not reused elsewhere,
  * unlike `common`. */
 const app = {
+  appName: 'Personaleinsatzplanung',
   branchSelect: 'Filiale auswählen',
   updateAvailable: 'Version {{version}} ist verfügbar.',
   updateLater: 'Später',

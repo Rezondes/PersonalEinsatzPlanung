@@ -31,6 +31,13 @@ describe('NavRail', () => {
     useNavRailStore.setState({ collapsed: false });
   });
 
+  // Teil 8, Package 22: the menu toggle only implied its state through its changing label.
+  it('exposes the menu toggle state as aria-expanded', () => {
+    renderRail('/de/schedule');
+
+    expect(screen.getByRole('button', { name: 'Navigation einklappen' })).toHaveAttribute('aria-expanded', 'true');
+  });
+
   it('marks the active route with aria-current="page" and every other link with none', () => {
     renderRail('/de/schedule');
 

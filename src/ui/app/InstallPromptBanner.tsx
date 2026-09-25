@@ -7,11 +7,9 @@ import { useInstallPrompt } from '@ui/hooks/useInstallPrompt';
 import { promptInstall } from './installPrompt';
 
 const DISMISSED_INSTALL_KEY = 'pep.install.dismissed';
-// Clears the ~64px AppHeader plus a small margin. Cannot use var(--pep-header-height) here - that
-// custom property is set on AppShellLayout's own root Box (AppShell.tsx), which lives inside
-// <RouterProvider>; this component mounts as its sibling in App.tsx, outside that subtree, so the
-// var would never resolve to anything but its own fallback.
-const BANNER_TOP_OFFSET = '72px';
+// Clears the AppHeader plus a small margin. AppShell publishes the header's measured height on
+// <html>, so the variable resolves here too even though this banner mounts outside the router.
+const BANNER_TOP_OFFSET = 'calc(var(--pep-header-height, 64px) + 8px)';
 
 /**
  * Proactively offers to install the app once the browser reports it as installable (Desktop

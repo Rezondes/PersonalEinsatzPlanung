@@ -40,7 +40,20 @@ export function AppHeader({ headerRef }: AppHeaderProps) {
   };
 
   return (
-    <AppBar ref={headerRef} position="sticky" color="transparent" sx={{ top: 0, backgroundColor: 'background.paper' }}>
+    <AppBar
+      ref={headerRef}
+      position="sticky"
+      color="transparent"
+      // viewport-fit=cover (index.html) lets the page reach under a notch; these keep the header
+      // content clear of it. 0 on devices without one.
+      sx={{
+        top: 0,
+        backgroundColor: 'background.paper',
+        pt: 'env(safe-area-inset-top, 0px)',
+        pl: 'env(safe-area-inset-left, 0px)',
+        pr: 'env(safe-area-inset-right, 0px)',
+      }}
+    >
       <Toolbar sx={{ gap: isMobile ? 1.5 : 3, flexWrap: isMobile ? 'nowrap' : 'wrap', py: 1 }}>
         {activeBranches.length > 0 && (
           <Select

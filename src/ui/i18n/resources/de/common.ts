@@ -16,6 +16,12 @@ const common = {
   cancel: 'Abbrechen',
   busyStatus: 'Wird ausgeführt …',
   loadFailed: 'Daten konnten nicht geladen werden',
+  unknownError: 'Unbekannter Fehler.',
+  browserErrors: {
+    QuotaExceededError: 'Der Speicher des Browsers ist voll.',
+    NetworkError: 'Keine Verbindung zum Netzwerk.',
+    AbortError: 'Der Vorgang wurde abgebrochen.',
+  },
   secondaryActionsLocked: 'Erst speichern oder Änderungen verwerfen.',
   loadFailedAlert: 'Daten konnten nicht geladen werden.',
   retry: 'Erneut versuchen',

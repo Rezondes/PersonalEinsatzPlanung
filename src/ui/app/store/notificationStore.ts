@@ -1,4 +1,17 @@
 import { create } from 'zustand';
+import i18n from '@ui/i18n/i18n';
+
+/** Browser errors whose own message is English and means nothing to a store manager. The app's
+ * own errors carry German messages and are shown as they are. */
+const KNOWN_BROWSER_ERRORS = ['QuotaExceededError', 'NetworkError', 'AbortError'] as const;
+
+function errorText(e: unknown): string {
+  // By name, not instanceof: a DOMException is not an Error everywhere (jsdom, older engines).
+  const name = typeof e === 'object' && e !== null ? (e as { name?: unknown }).name : undefined;
+  const known = KNOWN_BROWSER_ERRORS.find((candidate) => candidate === name);
+  if (known) return i18n.t(`browserErrors.${known}`);
+  return e instanceof Error ? e.message : i18n.t('unknownError');
+}
 
 export interface AppNotification {
   id: number;
@@ -54,7 +67,7 @@ export const useNotificationStore = create<NotificationState>((set) => {
     notifySuccess: (text) => push('success', text),
     notifyError: (text) => push('error', text),
     reportError: (e, context) => {
-      const text = e instanceof Error ? e.message : 'Unbekannter Fehler.';
+      const text = errorText(e);
       push('error', context ? `${context}: ${text}` : text);
     },
     dismiss: () => set((state) => ({ queue: state.queue.slice(1) })),

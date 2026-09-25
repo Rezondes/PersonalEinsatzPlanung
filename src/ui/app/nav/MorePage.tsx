@@ -61,7 +61,13 @@ export function MorePage() {
           })}
         >
           {entries.map((item) => (
-            <ListItemButton key={item.path} onClick={() => navigate(buildLocalizedPath(locale, item.path))} divider>
+            <ListItemButton
+              key={item.path}
+              onClick={() => navigate(buildLocalizedPath(locale, item.path))}
+              divider
+              // Inside: the list's overflow:hidden cut off the ring's outer half.
+              sx={{ '&:focus-visible': { outlineOffset: -2 } }}
+            >
               <ListItemIcon>
                 <item.icon />
               </ListItemIcon>

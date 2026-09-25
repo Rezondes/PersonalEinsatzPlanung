@@ -39,6 +39,8 @@ export function BottomTabBar() {
         borderColor: 'divider',
         borderRadius: 0,
         pb: 'env(safe-area-inset-bottom, 0px)',
+        pl: 'env(safe-area-inset-left, 0px)',
+        pr: 'env(safe-area-inset-right, 0px)',
       }}
     >
       <BottomNavigation

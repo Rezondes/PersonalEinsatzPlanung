@@ -16,6 +16,8 @@ import { usePageActions } from '@ui/app/PageActionsContext';
 import { useBreakpoint } from '@ui/hooks/useBreakpoint';
 import { useChangelog } from '@ui/hooks/useChangelog';
 import { LoadErrorAlert } from '@ui/components/LoadErrorAlert';
+import { VISUALLY_HIDDEN_SX } from '@ui/components/visuallyHidden';
+import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 
 /** Reads the project's own GitHub Releases (see infrastructure/changelog/githubReleases.ts) so
  * anyone can see what changed between deploys without leaving the app. One deliberate, isolated
@@ -95,8 +97,19 @@ export function ChangelogView() {
                       ))}
                     </List>
                   )}
-                  <Link href={release.url} target="_blank" rel="noreferrer" variant="body2" sx={{ mt: 1, display: 'inline-block' }}>
+                  <Link
+                    href={release.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    variant="body2"
+                    sx={{ mt: 1, display: 'inline-flex', alignItems: 'center', gap: 0.5 }}
+                  >
                     {t('viewOnGitHub')}
+                    {/* Says that it opens a new window: the icon for the eye, the text for a screen reader. */}
+                    <OpenInNewIcon fontSize="inherit" aria-hidden />
+                    <Box component="span" sx={VISUALLY_HIDDEN_SX}>
+                      {t('opensInNewWindow')}
+                    </Box>
                   </Link>
                 </AccordionDetails>
               </Accordion>

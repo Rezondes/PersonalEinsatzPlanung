@@ -77,7 +77,10 @@ export function NavRail() {
       <ButtonBase
         onClick={toggle}
         aria-label={collapsed ? t('expandNavAriaLabel') : t('collapseNavAriaLabel')}
+        aria-expanded={!collapsed}
         sx={{
+          // Inside: the rail's overflow:hidden cut off the ring's outer half.
+          '&:focus-visible': { outlineOffset: -2 },
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',

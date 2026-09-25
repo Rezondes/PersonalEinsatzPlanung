@@ -46,7 +46,7 @@ describe('ChangelogView', () => {
     expect(screen.getByText('chore: initial release')).toBeInTheDocument();
     expect(screen.getByText('13.09.2026')).toBeInTheDocument();
     expect(screen.getByText('12.09.2026')).toBeInTheDocument();
-    const links = screen.getAllByRole('link', { name: 'Auf GitHub ansehen' });
+    const links = screen.getAllByRole('link', { name: /^Auf GitHub ansehen/ });
     expect(links[0]).toHaveAttribute('href', 'https://github.com/Rezondes/PersonalEinsatzPlanung/releases/tag/deploy-abc1234');
   });
 
@@ -122,6 +122,16 @@ describe('ChangelogView', () => {
 
     await userEvent.setup().click(screen.getByRole('button', { name: 'Erneut versuchen' }));
     expect(await screen.findByText('Noch keine Einträge vorhanden.')).toBeInTheDocument();
+  });
+
+  // Teil 8, Package 22: the link opens a new window without saying so.
+  it('says that the GitHub link opens a new window', async () => {
+    fetchChangelogMock.mockResolvedValue([
+      { tagName: 'v1', title: 'Deploy 1', publishedAt: '2026-09-14T01:36:00Z', url: 'https://example.invalid/v1', entries: [] },
+    ]);
+    render(<ChangelogView />);
+
+    expect(await screen.findByRole('link', { name: /Auf GitHub ansehen.*neuem Fenster/ })).toHaveAttribute('target', '_blank');
   });
 
   // Teil 8, Package 14: MUI's Accordion wraps its summary in an <h3>, so the title's own

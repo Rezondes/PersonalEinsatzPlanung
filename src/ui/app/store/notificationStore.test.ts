@@ -64,6 +64,12 @@ describe('useNotificationStore', () => {
       expect(useNotificationStore.getState().queue[0]?.text).toBe('Speichern fehlgeschlagen: IndexedDB nicht verfügbar');
     });
 
+    // Teil 8, Package 22: the browser's own English text (e.g. a full storage quota) reached users.
+    it('turns known browser errors into German text', () => {
+      useNotificationStore.getState().reportError(new DOMException('The quota has been exceeded.', 'QuotaExceededError'), 'Speichern fehlgeschlagen');
+      expect(useNotificationStore.getState().queue[0]?.text).toBe('Speichern fehlgeschlagen: Der Speicher des Browsers ist voll.');
+    });
+
     it('falls back to a generic German message for a non-Error thrown value', () => {
       useNotificationStore.getState().reportError('a plain string, not an Error');
       expect(useNotificationStore.getState().queue[0]?.text).toBe('Unbekannter Fehler.');
