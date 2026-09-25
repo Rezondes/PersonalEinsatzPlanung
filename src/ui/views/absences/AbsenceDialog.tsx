@@ -5,7 +5,10 @@ import TextField from '@mui/material/TextField';
 import MenuItem from '@mui/material/MenuItem';
 import Stack from '@mui/material/Stack';
 import FormControlLabel from '@mui/material/FormControlLabel';
-import Checkbox from '@mui/material/Checkbox';
+import Radio from '@mui/material/Radio';
+import RadioGroup from '@mui/material/RadioGroup';
+import FormControl from '@mui/material/FormControl';
+import FormLabel from '@mui/material/FormLabel';
 import Alert from '@mui/material/Alert';
 import type { EmployeeId } from '@domain/shared/ids';
 import { toISODate, formatISODateGerman } from '@domain/shared/DateFormat';
@@ -27,7 +30,8 @@ import { useDiscardConfirm } from '@ui/hooks/useDiscardConfirm';
 import { ConfirmDialog } from '@ui/components/ConfirmDialog';
 import { useBreakpoint } from '@ui/hooks/useBreakpoint';
 
-function formatConflict(a: Absence): string {
+/** "Urlaub (01.06.2026 – 05.06.2026)": names one absence, for the conflict and delete questions. */
+export function formatAbsenceEntry(a: Absence): string {
   const range =
     a.from === a.to ? formatISODateGerman(a.from) : `${formatISODateGerman(a.from)} – ${formatISODateGerman(a.to)}`;
   return `${absenceTypeLabel(a)} (${range})`;
@@ -347,26 +351,27 @@ export function AbsenceDialog({ employees, absences, absence, onClose, onSaved, 
             />
           </Stack>
           {form.type === 'Vacation' && singleDay && (
-            <Stack direction="row" spacing={2}>
-              <FormControlLabel
-                control={
-                  <Checkbox
-                    checked={form.halfDayAtStart}
-                    onChange={(e) => setForm((f) => ({ ...f, halfDayAtStart: e.target.checked, halfDayAtEnd: false }))}
-                  />
+            // One radio group, not two checkboxes that cleared each other: that behaved like radios but
+            // was announced as two independent choices. The data model keeps its two flags.
+            <FormControl>
+              <FormLabel id="absence-half-day-label">{t('dialog.halfDayGroupLabel')}</FormLabel>
+              <RadioGroup
+                row
+                aria-labelledby="absence-half-day-label"
+                value={form.halfDayAtStart ? 'morning' : form.halfDayAtEnd ? 'afternoon' : 'full'}
+                onChange={(e) =>
+                  setForm((f) => ({
+                    ...f,
+                    halfDayAtStart: e.target.value === 'morning',
+                    halfDayAtEnd: e.target.value === 'afternoon',
+                  }))
                 }
-                label={t('dialog.halfDayMorningCheckbox')}
-              />
-              <FormControlLabel
-                control={
-                  <Checkbox
-                    checked={form.halfDayAtEnd}
-                    onChange={(e) => setForm((f) => ({ ...f, halfDayAtEnd: e.target.checked, halfDayAtStart: false }))}
-                  />
-                }
-                label={t('dialog.halfDayAfternoonCheckbox')}
-              />
-            </Stack>
+              >
+                <FormControlLabel value="full" control={<Radio />} label={t('dialog.halfDayNone')} />
+                <FormControlLabel value="morning" control={<Radio />} label={t('dialog.halfDayMorningCheckbox')} />
+                <FormControlLabel value="afternoon" control={<Radio />} label={t('dialog.halfDayAfternoonCheckbox')} />
+              </RadioGroup>
+            </FormControl>
           )}
           {form.type === 'Vacation' && (
             <TextField
@@ -386,7 +391,7 @@ export function AbsenceDialog({ employees, absences, absence, onClose, onSaved, 
     <ConfirmDialog
       open={showConfirmation}
       title={t('dialog.conflictTitle')}
-      text={t('dialog.conflictText', { conflicts: conflicts.map(formatConflict).join(', ') })}
+      text={t('dialog.conflictText', { conflicts: conflicts.map(formatAbsenceEntry).join(', ') })}
       confirmText={t('dialog.conflictConfirmButton')}
       onConfirm={() => {
         setShowConfirmation(false);

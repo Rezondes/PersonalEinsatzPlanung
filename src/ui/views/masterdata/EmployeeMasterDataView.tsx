@@ -43,6 +43,7 @@ import { useEmployeeList } from '@ui/hooks/useEmployeeList';
 import { useAbsences } from '@ui/hooks/useAbsences';
 import { useTableSort } from '@ui/hooks/useTableSort';
 import { useListFiltersStore } from '@ui/app/store/listFiltersStore';
+import i18n from '@ui/i18n/i18n';
 import { useBreakpoint } from '@ui/hooks/useBreakpoint';
 import { useActivationToggle } from '@ui/hooks/useActivationToggle';
 import { ConfirmDialog } from '@ui/components/ConfirmDialog';
@@ -109,7 +110,13 @@ function vacationDisplayByEmployee(
       const totalDays = (remainingVacation.get(employee.id) ?? 0) + carriedOverDays;
       const hint =
         carriedOverDays > 0
-          ? `${totalDays.toLocaleString('de-DE')} Tage, davon ${carriedOverDays.toLocaleString('de-DE')} aus ${priorYear}, gültig bis 31.03.${currentYear}`
+          ? i18n.t('employee.carryOverHint', {
+              ns: 'masterdata',
+              total: totalDays.toLocaleString('de-DE'),
+              carried: carriedOverDays.toLocaleString('de-DE'),
+              priorYear,
+              validUntil: `31.03.${currentYear}`,
+            })
           : null;
       return [employee.id, { totalDays, hint }];
     }),
@@ -477,7 +484,7 @@ export function EmployeeMasterDataView() {
         <ResponsiveDataList
           rows={visibleEmployees}
           getKey={(emp) => emp.id}
-          emptyMessage={loadError ? '' : employeeList.length === 0 ? t('employee.emptyNone') : t('employee.emptyNoMatch')}
+          emptyMessage={loading || loadError ? '' : employeeList.length === 0 ? t('employee.emptyNone') : t('employee.emptyNoMatch')}
           renderCard={(emp) => (
             <EmployeeCard
               employee={emp}

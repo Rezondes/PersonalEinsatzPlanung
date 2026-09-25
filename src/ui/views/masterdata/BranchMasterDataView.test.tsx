@@ -7,6 +7,7 @@ import type { BranchId } from '@domain/shared/ids';
 import type { Branch } from '@domain/branch/Branch';
 import { services } from '@infrastructure/services';
 import { useBranchesStore } from '@ui/app/store/branchesStore';
+import { useListFiltersStore } from '@ui/app/store/listFiltersStore';
 import { AppNotifications } from '@ui/app/AppNotifications';
 import { useNotificationStore } from '@ui/app/store/notificationStore';
 import { theme } from '@ui/app/theme';
@@ -69,6 +70,40 @@ function order(container: HTMLElement, names: string[]): string[] {
 
 // ThemeProvider wraps the real app theme - the branch card's logo-avatar style reads the custom
 // theme.palette.accentSurface key, absent on MUI's own default theme.
+// The list filters live in a module-level store and would otherwise leak between tests.
+beforeEach(() => useListFiltersStore.getState().reset());
+
+// Teil 8, Package 20: the search reset on every visit (Mitarbeiter and Abwesenheiten keep theirs),
+// and a missing city showed "-" where the other lists show "–".
+describe('BranchMasterDataView, kept filters and placeholders', () => {
+  beforeEach(() => {
+    useListFiltersStore.getState().reset();
+    allMock.mockResolvedValue([makeBranch()]);
+    useBranchesStore.setState({ branches: [makeBranch()], loading: false, loaded: true });
+  });
+
+  it('keeps the search after leaving the page and coming back', async () => {
+    const user = userEvent.setup();
+    const { unmount } = renderView();
+    await user.type(screen.getByRole('textbox', { name: 'Filiale suchen' }), 'Hann');
+    unmount();
+
+    renderView();
+
+    expect(screen.getByRole('textbox', { name: 'Filiale suchen' })).toHaveValue('Hann');
+  });
+
+  it('shows a missing city as an en dash', () => {
+    const noCity = makeBranch({ address: { street: '', houseNumber: '', postalCode: '', city: '' } });
+    allMock.mockResolvedValue([noCity]);
+    useBranchesStore.setState({ branches: [noCity], loading: false, loaded: true });
+    renderView();
+
+    expect(screen.getAllByText(/^–/).length).toBeGreaterThan(0);
+    expect(screen.queryAllByText(/^- /)).toHaveLength(0);
+  });
+});
+
 const renderView = () =>
   render(
     <ThemeProvider theme={theme}>

@@ -51,9 +51,7 @@ const textbox = (name: string) => screen.getByRole('textbox', { name });
 const save = () => screen.getByRole('button', { name: 'Speichern' });
 const abbrechen = () => screen.getByRole('button', { name: 'Abbrechen' });
 const addSunday = () => screen.getByRole('button', { name: 'Hinzufügen' });
-// A required field's accessible name gets MUI's appended " *", so an exact match against the bare
-// label would stop matching once "Datum hinzufügen" becomes required.
-const sundayInput = () => screen.getByLabelText(/^Datum hinzufügen\s*\*?$/);
+const sundayInput = () => screen.getByLabelText('Datum hinzufügen (optional)');
 
 /** Native date inputs ignore user.type in jsdom; changing the value directly is the reliable way. */
 function pickSunday(value: string) {
@@ -125,6 +123,28 @@ describe('BranchDialog', () => {
     click.mockRestore();
   });
 
+  // Teil 8, Package 20: a logo could only be replaced, never removed.
+  it('removes an uploaded logo again', async () => {
+    const user = userEvent.setup();
+    renderDialog();
+    await user.upload(document.querySelector('input[type="file"]') as HTMLInputElement, new File([new Uint8Array(10)], 'logo.png', { type: 'image/png' }));
+    await waitFor(() => expect(document.querySelector('img')).toBeInTheDocument());
+
+    await user.click(screen.getByRole('button', { name: 'Logo entfernen' }));
+
+    expect(document.querySelector('img')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Logo entfernen' })).not.toBeInTheDocument();
+  });
+
+  // Teil 8, Package 20: its asterisk claimed a required field; the Filiale saves fine without one.
+  it('marks the open-Sunday date as optional', () => {
+    renderDialog();
+
+    const field = screen.getByLabelText(/^Datum hinzufügen/);
+    expect(field).not.toBeRequired();
+    expect(screen.getByLabelText('Datum hinzufügen (optional)')).toBe(field);
+  });
+
   it('hat ein leeres alt-Attribut auf dem Logo-Vorschaubild, sobald ein Logo hochgeladen wurde', async () => {
     const user = userEvent.setup();
     renderDialog();
@@ -191,12 +211,6 @@ describe('BranchDialog', () => {
     });
     expect(updateMock).toHaveBeenCalledWith(expect.objectContaining({ id: 'b-new', allowedOpenSundays: ['2026-09-13'] }));
     expect(onClose).toHaveBeenCalled();
-  });
-
-  it('marks "Datum hinzufügen" as required', () => {
-    renderDialog();
-
-    expect(sundayInput()).toBeRequired();
   });
 
   it('disables Abbrechen and shows a busy Speichern while saving, and Abbrechen has no effect meanwhile', async () => {

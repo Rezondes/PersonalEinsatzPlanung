@@ -31,6 +31,7 @@ import type { Branch } from '@domain/branch/Branch';
 import { services } from '@infrastructure/services';
 import { useBranchList } from '@ui/hooks/useBranch';
 import { useBreakpoint } from '@ui/hooks/useBreakpoint';
+import { useListFiltersStore } from '@ui/app/store/listFiltersStore';
 import { useActivationToggle } from '@ui/hooks/useActivationToggle';
 import { useTableSort } from '@ui/hooks/useTableSort';
 import { ConfirmDialog } from '@ui/components/ConfirmDialog';
@@ -141,7 +142,7 @@ function BranchCard({ branch, onTap, onLongPress }: { branch: Branch; onTap: () 
             {branch.branchNumber} {branch.name}
           </Typography>
           <Typography variant="caption" color="text.secondary">
-            {branch.address.city || '-'} · {branch.federalState}
+            {branch.address.city || '–'} · {branch.federalState}
           </Typography>
         </Box>
         <Chip size="small" label={branch.active ? t('active') : t('inactive')} color={branch.active ? 'success' : 'default'} sx={{ flexShrink: 0 }} />
@@ -169,9 +170,13 @@ export function BranchMasterDataView() {
     busy: statusChangeBusy,
   } = useActivationToggle(services.branch, reload, t('branch.entityLabel'));
   const [sheetBranch, setSheetBranch] = useState<Branch | null>(null);
-  const [search, setSearch] = useState('');
+  // In the shared store like Mitarbeiter and Abwesenheiten, so the filter survives leaving the page.
   // Defaults to "Alle": opening the view must never hide records the user expects.
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const search = useListFiltersStore((s) => s.branches.search);
+  const statusFilter: StatusFilter = useListFiltersStore((s) => s.branches.status);
+  const setBranchFilters = useListFiltersStore((s) => s.setBranchFilters);
+  const setSearch = (value: string) => setBranchFilters({ search: value });
+  const setStatusFilter = (value: StatusFilter) => setBranchFilters({ status: value });
   const { headProps, sortRows } = useTableSort<SortKey>('name');
 
   usePageActions({
@@ -229,7 +234,8 @@ export function BranchMasterDataView() {
             inputProps={{ 'aria-label': t('branch.searchAriaLabel') }}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            sx={{ width: 260 }}
+            fullWidth={layout === 'mobile'}
+            sx={layout === 'mobile' ? undefined : { width: 260 }}
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
@@ -257,7 +263,7 @@ export function BranchMasterDataView() {
         <ResponsiveDataList
           rows={visibleBranches}
           getKey={(b) => b.id}
-          emptyMessage={branches.length === 0 ? t('branch.emptyNone') : t('branch.emptyNoMatch')}
+          emptyMessage={loading ? '' : branches.length === 0 ? t('branch.emptyNone') : t('branch.emptyNoMatch')}
           renderCard={(b) => (
             <BranchCard branch={b} onTap={() => setDialog({ branch: b })} onLongPress={() => setSheetBranch(b)} />
           )}
@@ -318,7 +324,7 @@ export function BranchMasterDataView() {
                           {b.branchNumber}
                         </Typography>
                       </TableCell>
-                      <TableCell>{b.address.city || '-'}</TableCell>
+                      <TableCell>{b.address.city || '–'}</TableCell>
                       <TableCell>
                         <Chip size="small" label={b.active ? tCommon('active') : tCommon('inactive')} color={b.active ? 'success' : 'default'} />
                       </TableCell>
@@ -373,7 +379,7 @@ export function BranchMasterDataView() {
         open={!!sheetBranch}
         onClose={() => setSheetBranch(null)}
         title={sheetBranch ? `${sheetBranch.branchNumber} ${sheetBranch.name}` : ''}
-        subtitle={sheetBranch ? `${sheetBranch.address.city || '-'} · ${sheetBranch.federalState}` : undefined}
+        subtitle={sheetBranch ? `${sheetBranch.address.city || '–'} · ${sheetBranch.federalState}` : undefined}
         actions={sheetBranch ? getRowActions(sheetBranch, (b) => setDialog({ branch: b }), (b) => requestStatusChange(b), t, tCommon) : []}
       />
     </Box>

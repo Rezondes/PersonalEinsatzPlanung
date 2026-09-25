@@ -54,7 +54,7 @@ import { ResponsiveDataList } from '@ui/components/ResponsiveList/ResponsiveData
 import { RowActionSheet } from '@ui/components/ResponsiveList/RowActionSheet';
 import type { RowAction } from '@ui/components/ResponsiveList/RowAction';
 import { useLongPress } from '@ui/components/ResponsiveList/useLongPress';
-import { AbsenceDialog } from './AbsenceDialog';
+import { AbsenceDialog, formatAbsenceEntry } from './AbsenceDialog';
 import { CreateHolidaysDialog } from './components/CreateHolidaysDialog';
 import { notify } from '@ui/app/store/notificationStore';
 import { usePageActions } from '@ui/app/PageActionsContext';
@@ -565,7 +565,15 @@ export function AbsencesView() {
       <ConfirmDialog
         open={!!deleteTarget}
         title={t('deleteConfirmTitle')}
-        text={t('deleteConfirmText')}
+        // Names the entry: after a mis-tap on a similar row the text alone could not tell which one.
+        text={
+          deleteTarget
+            ? t('deleteConfirmTextNamed', {
+                name: employeeById.get(deleteTarget.employeeId) ? fullName(employeeById.get(deleteTarget.employeeId)!) : '–',
+                entry: formatAbsenceEntry(deleteTarget),
+              })
+            : ''
+        }
         confirmText={tCommon('delete')}
         dangerous
         busy={deleting}

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { BranchId, EmployeeId, AbsenceId } from '@domain/shared/ids';
 import type { Employee } from '@domain/employee/Employee';
@@ -95,9 +95,9 @@ describe('AbsenceDialog', () => {
     const user = userEvent.setup();
     renderDialog();
 
-    await user.click(screen.getByRole('checkbox', { name: 'Nur vormittags frei' }));
+    await user.click(screen.getByRole('radio', { name: 'Nur vormittags frei' }));
     setDate('Bis', '2099-01-05'); // safely after "today" (Von), whatever "today" is at test time
-    expect(screen.queryByRole('checkbox', { name: 'Nur vormittags frei' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('radio', { name: 'Nur vormittags frei' })).not.toBeInTheDocument();
 
     await user.click(save());
 
@@ -241,6 +241,20 @@ describe('AbsenceDialog', () => {
 
     await waitFor(() => expect(createMock).toHaveBeenCalledTimes(1));
     expect(screen.queryByText('Überschneidung mit bestehender Abwesenheit?')).not.toBeInTheDocument();
+  });
+
+  // Teil 8, Package 20: two checkboxes that cleared each other behaved like radios but were
+  // announced as two independent choices.
+  it('offers the half day as one radio group', async () => {
+    const user = userEvent.setup();
+    renderDialog();
+
+    const group = screen.getByRole('radiogroup', { name: 'Umfang' });
+    expect(within(group).getByRole('radio', { name: 'Ganzer Tag' })).toBeChecked();
+    await user.click(within(group).getByRole('radio', { name: 'Nur nachmittags frei' }));
+    await user.click(save());
+
+    expect(createMock).toHaveBeenCalledWith(expect.objectContaining({ halfDay: { atStart: false, atEnd: true } }));
   });
 
   it('pre-fills every field from the given absence, titles itself "bearbeiten", and calls update (not create) with its id', async () => {

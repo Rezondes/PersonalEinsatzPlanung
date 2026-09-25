@@ -193,6 +193,16 @@ describe('EmployeeMasterDataView', () => {
     expect(await screen.findByText('Bauer, Anna')).toBeInTheDocument();
   });
 
+  // Teil 8, Package 20: on a phone "Noch keine Mitarbeiter" flashed on every visit while loading.
+  it('shows no empty text while the list is still loading on a phone', async () => {
+    mockViewportWidth(390);
+    forBranchMock.mockReturnValue(new Promise(() => {}));
+    renderView();
+
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(screen.queryByText(/Noch keine Mitarbeiter/)).not.toBeInTheDocument();
+  });
+
   it('shows an alert instead of the table when no branch is selected', async () => {
     useBranchesStore.setState({ branches: [], loading: false, loaded: true });
     useBranchSelectionStore.setState({ selectedBranchId: null });

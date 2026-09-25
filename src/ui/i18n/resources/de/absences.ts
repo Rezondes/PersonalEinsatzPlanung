@@ -24,6 +24,7 @@ const absences = {
   deleteSuccess: 'Abwesenheit wurde gelöscht.',
   deleteError: 'Abwesenheit konnte nicht gelöscht werden',
   deleteConfirmTitle: 'Abwesenheit löschen?',
+  deleteConfirmTextNamed: '{{name}}: {{entry}} wird unwiderruflich entfernt.',
   deleteConfirmText: 'Dieser Eintrag wird unwiderruflich entfernt.',
   dialog: {
     titleEdit: 'Abwesenheit bearbeiten',
@@ -38,6 +39,8 @@ const absences = {
     hoursPerDayHint: 'Zählen nur für diesen Mitarbeiter.',
     fromLabel: 'Von',
     toLabel: 'Bis',
+    halfDayGroupLabel: 'Umfang',
+    halfDayNone: 'Ganzer Tag',
     halfDayMorningCheckbox: 'Nur vormittags frei',
     halfDayAfternoonCheckbox: 'Nur nachmittags frei',
     noteLabel: 'Notiz (optional)',

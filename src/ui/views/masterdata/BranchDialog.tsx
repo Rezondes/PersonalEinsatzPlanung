@@ -223,6 +223,12 @@ export function BranchDialog({ branch, onClose, onSaved, onError, secondaryActio
             <Button variant="text" size="small" disabled={logoReading} onClick={() => logoInputRef.current?.click()}>
               {logoReading ? t('branch.dialog.logoReading') : t('branch.dialog.logoUploadLabel')}
             </Button>
+            {/* A logo could only be replaced, never removed. */}
+            {form.logoBase64 && (
+              <Button variant="text" size="small" color="error" onClick={() => setForm((f) => ({ ...f, logoBase64: null }))}>
+                {t('branch.dialog.logoRemoveLabel')}
+              </Button>
+            )}
             <input
               ref={logoInputRef}
               type="file"
@@ -303,7 +309,8 @@ export function BranchDialog({ branch, onClose, onSaved, onError, secondaryActio
             <TextField
               label={t('branch.dialog.addDateLabel')}
               type="date"
-              required
+              // Not `required`: its asterisk claimed a required field, but the Filiale saves fine
+              // without one. "Hinzufügen" still checks it has a date (sundayValidation).
               size="small"
               value={newSunday}
               onChange={(e) => setNewSunday(e.target.value)}

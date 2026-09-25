@@ -613,7 +613,7 @@ describe('AbsencesView', () => {
 
       const dialog = await screen.findByRole('dialog');
       expect(within(dialog).getByText('Abwesenheit löschen?')).toBeInTheDocument();
-      expect(within(dialog).getByText('Dieser Eintrag wird unwiderruflich entfernt.')).toBeInTheDocument();
+      expect(within(dialog).getByText(/wird unwiderruflich entfernt\.$/)).toBeInTheDocument();
 
       await user.click(within(dialog).getByRole('button', { name: 'Löschen' }));
 
@@ -872,6 +872,8 @@ describe('AbsencesView', () => {
 
       const confirmDialog = await screen.findByRole('dialog');
       expect(within(confirmDialog).getByText('Abwesenheit löschen?')).toBeInTheDocument();
+      // Teil 8, Package 20: the text never said which entry would go.
+      expect(confirmDialog).toHaveTextContent('Bauer, Anna: Urlaub (01.06.2026 – 05.06.2026) wird unwiderruflich entfernt.');
       await user.click(within(confirmDialog).getByRole('button', { name: 'Löschen' }));
 
       await waitFor(() => expect(deleteMock).toHaveBeenCalledWith(a1.id));
