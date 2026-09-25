@@ -16,6 +16,7 @@ const common = {
   cancel: 'Abbrechen',
   busyStatus: 'Wird ausgeführt …',
   loadFailed: 'Daten konnten nicht geladen werden',
+  secondaryActionsLocked: 'Erst speichern oder Änderungen verwerfen.',
   loadFailedAlert: 'Daten konnten nicht geladen werden.',
   retry: 'Erneut versuchen',
   close: 'Schließen',

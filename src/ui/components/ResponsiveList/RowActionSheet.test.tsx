@@ -93,6 +93,13 @@ describe('RowActionSheet', () => {
     expect(screen.getByRole('button', { name: /Bearbeiten/ })).toHaveStyle({ opacity: '0.38' });
   });
 
+  // Teil 8, Package 12: the title was cut to one line with no way to read a long name.
+  it('lets a long title wrap instead of cutting it to one line', () => {
+    render(<RowActionSheet open onClose={vi.fn()} title="Ein sehr langer Mitarbeitername, Vorname" actions={[editAction()]} />);
+
+    expect(screen.getByText('Ein sehr langer Mitarbeitername, Vorname')).not.toHaveStyle({ whiteSpace: 'nowrap' });
+  });
+
   it('hat einen zugänglichen Namen gleich dem sichtbaren Titel', () => {
     render(<RowActionSheet open onClose={vi.fn()} title="Bauer, Anna" actions={[editAction()]} />);
 

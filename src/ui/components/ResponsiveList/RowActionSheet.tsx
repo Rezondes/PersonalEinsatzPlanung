@@ -8,6 +8,7 @@ import Typography from '@mui/material/Typography';
 import { useTranslation } from 'react-i18next';
 import { useDismissOnBack } from '@ui/hooks/useDismissOnBack';
 import type { RowAction } from './RowAction';
+import { TWO_LINES } from '../ResponsiveDialog';
 
 interface RowActionSheetProps {
   open: boolean;
@@ -63,7 +64,8 @@ export function RowActionSheet({ open, onClose, title, subtitle, actions }: RowA
         <Box sx={{ width: 36, height: 4, borderRadius: 2, bgcolor: 'divider' }} />
       </Box>
       <Box sx={{ px: 2.5, pb: 1 }}>
-        <Typography id={titleId} variant="subtitle1" fontWeight={500} noWrap>
+        {/* Two lines, not noWrap: a long name was cut off with no way to read it. */}
+        <Typography id={titleId} variant="subtitle1" fontWeight={500} sx={TWO_LINES}>
           {title}
         </Typography>
         {subtitle && (

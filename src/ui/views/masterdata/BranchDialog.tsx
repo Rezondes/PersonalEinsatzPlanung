@@ -108,10 +108,8 @@ export function BranchDialog({ branch, onClose, onSaved, onError, secondaryActio
   // Flat values only (the logo is a data-URL string), so comparing the serialized state is enough.
   // A picked but not yet added Sonntag counts as input too.
   const [initialState] = useState(() => JSON.stringify({ form, newSunday: '' }));
-  const { requestClose, confirmDialog } = useDiscardConfirm(
-    JSON.stringify({ form, newSunday }) !== initialState,
-    saving ? undefined : onClose,
-  );
+  const dirty = JSON.stringify({ form, newSunday }) !== initialState;
+  const { requestClose, confirmDialog } = useDiscardConfirm(dirty, saving ? undefined : onClose);
   const validation = useFormValidation<BranchField>(() => validateBranch({ name: form.name, branchNumber: form.branchNumber }));
   const sundayValidation = useFormValidation<OpenSundayField>(() => validateOpenSundayDate(newSunday, form.allowedOpenSundays));
 
@@ -191,6 +189,7 @@ export function BranchDialog({ branch, onClose, onSaved, onError, secondaryActio
       title={branch ? t('branch.dialog.titleEdit') : t('branch.newButton')}
       contentRef={validation.containerRef}
       secondaryActions={secondaryActions}
+      secondaryActionsLocked={dirty ? tCommon('secondaryActionsLocked') : undefined}
       actions={
         <>
           <FormErrorNotice errors={validation.errors} />

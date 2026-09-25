@@ -18,6 +18,19 @@ import { theme } from '@ui/app/theme';
 import { useDismissOnBack } from '@ui/hooks/useDismissOnBack';
 import type { RowAction } from './ResponsiveList/RowAction';
 
+/** Clamp to two lines with an ellipsis, breaking long words instead of overflowing. */
+export const TWO_LINES = {
+  display: '-webkit-box',
+  WebkitLineClamp: 2,
+  WebkitBoxOrient: 'vertical',
+  overflow: 'hidden',
+  overflowWrap: 'anywhere',
+} as const;
+
+/** Full screen on a laptop stretched every form field to ~1900px: content and footer stay this
+ * wide, centred. */
+const CONTENT_MAX_WIDTH = 720;
+
 const SlideUpTransition = forwardRef(function SlideUpTransition(
   props: TransitionProps & { children: ReactElement },
   ref: Ref<unknown>,
@@ -42,6 +55,10 @@ interface ResponsiveDialogProps {
    * long-press sheet (see ResponsiveList/RowAction.ts) rather than a second copy of the same
    * actions. */
   secondaryActions?: RowAction[];
+  /** When set, every secondary action is disabled and this text says why. A secondary action closes
+   * the dialog first, through the caller's guarded onClose - with unsaved changes that stacked
+   * "Änderungen verwerfen?" and the action's own confirm on top of each other. */
+  secondaryActionsLocked?: string;
   children: ReactNode;
   maxWidth?: DialogProps['maxWidth'];
   dividers?: boolean;
@@ -61,6 +78,7 @@ export function ResponsiveDialog({
   subtitle,
   actions,
   secondaryActions,
+  secondaryActionsLocked,
   children,
   maxWidth = 'sm',
   dividers,
@@ -92,7 +110,9 @@ export function ResponsiveDialog({
             display: 'flex',
             alignItems: 'center',
             gap: 1,
-            height: 56,
+            // A floor, not a fixed height: the title may wrap onto a second line.
+            minHeight: 56,
+            py: 0.5,
             px: 1,
             flexShrink: 0,
             borderBottom: '1px solid',
@@ -103,11 +123,19 @@ export function ResponsiveDialog({
             <CloseIcon />
           </IconButton>
           <Box sx={{ flex: 1, minWidth: 0 }}>
-            <Typography id={titleId} variant="subtitle1" fontWeight={500} noWrap>
+            {/* Up to two lines, not noWrap: a long employee or branch name was cut off at 375px
+                with no way to read it. */}
+            <Typography
+              id={titleId}
+              variant="subtitle1"
+              fontWeight={500}
+              title={typeof title === 'string' ? title : undefined}
+              sx={TWO_LINES}
+            >
               {title}
             </Typography>
             {subtitle && (
-              <Typography id={subtitleId} variant="caption" color="text.secondary" noWrap display="block">
+              <Typography id={subtitleId} variant="caption" color="text.secondary" sx={TWO_LINES}>
                 {subtitle}
               </Typography>
             )}
@@ -125,48 +153,56 @@ export function ResponsiveDialog({
       )}
 
       <DialogContent ref={contentRef} dividers={dividers}>
-        {children}
+        <Box sx={{ maxWidth: CONTENT_MAX_WIDTH, mx: 'auto' }}>
+          {children}
 
-        {fullScreen && secondaryActions && secondaryActions.length > 0 && (
-          <Box sx={{ mt: 3, pt: 2, borderTop: '1px solid', borderColor: 'divider' }}>
-            <Typography
-              variant="overline"
-              color="text.secondary"
-              sx={{ display: 'block', mb: 1, letterSpacing: '0.04em' }}
-            >
-              {t('secondaryActions')}
-            </Typography>
-            <Stack spacing={1}>
-              {secondaryActions.map((action) => (
-                <Button
-                  key={action.key}
-                  variant="outlined"
-                  color={action.dangerous ? 'error' : 'primary'}
-                  startIcon={<action.icon />}
-                  disabled={action.disabled}
-                  onClick={() => {
-                    onClose?.();
-                    // Deferred, not fired synchronously: every caller of this dialog mounts it
-                    // only while open (see src/ui/CLAUDE.md), so onClose above unmounts it on the
-                    // very next render - there is no "wait for our own exit transition" moment to
-                    // hook from inside this component (unlike RowActionSheet.tsx, which stays
-                    // mounted and can use SlideProps.onExited). Firing action.onSelect() here
-                    // synchronously would build its typical ConfirmDialog's own focus trap while
-                    // this dialog's is still tearing down - two focus traps racing over where
-                    // focus lands (N24; see DriveBackupDialog.tsx's delete-button comment for a
-                    // sibling hazard in this same MUI dialog-lifecycle family). A plain timeout
-                    // matching the theme's own exit duration decouples the two firmly enough that
-                    // this races only with the visual transition, not with the trap itself.
-                    setTimeout(() => action.onSelect(), theme.transitions.duration.leavingScreen);
-                  }}
-                  sx={{ justifyContent: 'flex-start' }}
-                >
-                  {action.label}
-                </Button>
-              ))}
-            </Stack>
-          </Box>
-        )}
+          {fullScreen && secondaryActions && secondaryActions.length > 0 && (
+            <Box sx={{ mt: 3, pt: 2, borderTop: '1px solid', borderColor: 'divider' }}>
+              <Typography
+                variant="overline"
+                color="text.secondary"
+                sx={{ display: 'block', mb: 1, letterSpacing: '0.04em' }}
+              >
+                {t('secondaryActions')}
+              </Typography>
+              {secondaryActionsLocked && (
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                  {secondaryActionsLocked}
+                </Typography>
+              )}
+              <Stack spacing={1}>
+                {secondaryActions.map((action) => (
+                  <Button
+                    key={action.key}
+                    variant="outlined"
+                    color={action.dangerous ? 'error' : 'primary'}
+                    startIcon={<action.icon />}
+                    // Also locked while a save runs (onClose undefined), like the dialog itself.
+                    disabled={action.disabled || !onClose || !!secondaryActionsLocked}
+                    onClick={() => {
+                      onClose?.();
+                      // Deferred, not fired synchronously: every caller of this dialog mounts it
+                      // only while open (see src/ui/CLAUDE.md), so onClose above unmounts it on the
+                      // very next render - there is no "wait for our own exit transition" moment to
+                      // hook from inside this component (unlike RowActionSheet.tsx, which stays
+                      // mounted and can use SlideProps.onExited). Firing action.onSelect() here
+                      // synchronously would build its typical ConfirmDialog's own focus trap while
+                      // this dialog's is still tearing down - two focus traps racing over where
+                      // focus lands (N24; see DriveBackupDialog.tsx's delete-button comment for a
+                      // sibling hazard in this same MUI dialog-lifecycle family). A plain timeout
+                      // matching the theme's own exit duration decouples the two firmly enough that
+                      // this races only with the visual transition, not with the trap itself.
+                      setTimeout(() => action.onSelect(), theme.transitions.duration.leavingScreen);
+                    }}
+                    sx={{ justifyContent: 'flex-start' }}
+                  >
+                    {action.label}
+                  </Button>
+                ))}
+              </Stack>
+            </Box>
+          )}
+        </Box>
       </DialogContent>
 
       {actions && (
@@ -179,7 +215,8 @@ export function ResponsiveDialog({
                   bgcolor: 'background.paper',
                   borderTop: '1px solid',
                   borderColor: 'divider',
-                  px: 2,
+                  // Same centred column as the content above (see CONTENT_MAX_WIDTH).
+                  px: `max(16px, calc((100% - ${CONTENT_MAX_WIDTH}px) / 2))`,
                   py: 1.5,
                   flexShrink: 0,
                 }

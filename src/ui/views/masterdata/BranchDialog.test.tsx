@@ -6,6 +6,7 @@ import type { BranchId } from '@domain/shared/ids';
 import type { Branch } from '@domain/branch/Branch';
 import { services } from '@infrastructure/services';
 import { theme } from '@ui/app/theme';
+import StoreOutlinedIcon from '@mui/icons-material/StoreOutlined';
 import { BranchDialog } from './BranchDialog';
 
 vi.mock('@infrastructure/services', () => ({
@@ -17,6 +18,23 @@ const updateMock = vi.mocked(services.branch.update);
 
 // ThemeProvider wraps the real app theme - the dialog's logo-avatar style reads the custom
 // theme.palette.accentSurface key, absent on MUI's own default theme.
+// Teil 8, Package 12: same stacked-dialog problem as in the EmployeeDialog.
+describe('BranchDialog, secondary actions', () => {
+  it('locks them while the form has unsaved changes', async () => {
+    const user = userEvent.setup();
+    const deactivate = { key: 'deactivate', label: 'Deaktivieren', icon: StoreOutlinedIcon, onSelect: vi.fn() };
+    render(
+      <ThemeProvider theme={theme}>
+        <BranchDialog branch={null} onClose={vi.fn()} onSaved={vi.fn()} onError={vi.fn()} secondaryActions={[deactivate]} />
+      </ThemeProvider>,
+    );
+
+    await user.type(screen.getByRole('textbox', { name: 'Name' }), 'X');
+
+    expect(screen.getByRole('button', { name: 'Deaktivieren' })).toBeDisabled();
+  });
+});
+
 function renderDialog() {
   const onClose = vi.fn();
   const onSaved = vi.fn();

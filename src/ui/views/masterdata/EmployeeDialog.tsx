@@ -124,10 +124,8 @@ export function EmployeeDialog({ branchId, employee, onClose, onSaved, onError, 
   const [saving, setSaving] = useState(false);
   // A flat form of strings/numbers, so comparing the serialized form is enough.
   const [initialForm] = useState(() => JSON.stringify(form));
-  const { requestClose, confirmDialog } = useDiscardConfirm(
-    JSON.stringify(form) !== initialForm,
-    saving ? undefined : onClose,
-  );
+  const dirty = JSON.stringify(form) !== initialForm;
+  const { requestClose, confirmDialog } = useDiscardConfirm(dirty, saving ? undefined : onClose);
   const validation = useFormValidation<EmployeeField>(() =>
     validateEmployee({
       firstName: form.firstName,
@@ -185,6 +183,7 @@ export function EmployeeDialog({ branchId, employee, onClose, onSaved, onError, 
       subtitle={employee ? t('employee.dialog.subtitleEdit') : undefined}
       contentRef={validation.containerRef}
       secondaryActions={secondaryActions}
+      secondaryActionsLocked={dirty ? tCommon('secondaryActionsLocked') : undefined}
       actions={
         <>
           <FormErrorNotice errors={validation.errors} />

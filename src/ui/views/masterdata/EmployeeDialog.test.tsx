@@ -5,6 +5,7 @@ import type { BranchId, EmployeeId } from '@domain/shared/ids';
 import type { Employee } from '@domain/employee/Employee';
 import { services } from '@infrastructure/services';
 import { toISODate } from '@domain/shared/DateFormat';
+import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import { EmployeeDialog } from './EmployeeDialog';
 
 vi.mock('@infrastructure/services', () => ({
@@ -24,6 +25,31 @@ function renderDialog(employee: Employee | null = null) {
 }
 
 const textbox = (name: string) => screen.getByRole('textbox', { name });
+
+// Teil 8, Package 12: with a changed form, "Deaktivieren" opened "Änderungen verwerfen?" and the
+// deactivate confirm on top of each other.
+describe('EmployeeDialog, secondary actions', () => {
+  it('locks them while the form has unsaved changes, and says why', async () => {
+    const user = userEvent.setup();
+    const deactivate = { key: 'deactivate', label: 'Deaktivieren', icon: EditOutlinedIcon, onSelect: vi.fn() };
+    render(
+      <EmployeeDialog
+        branchId={branchId}
+        employee={null}
+        onClose={vi.fn()}
+        onSaved={vi.fn()}
+        onError={vi.fn()}
+        secondaryActions={[deactivate]}
+      />,
+    );
+    expect(screen.getByRole('button', { name: 'Deaktivieren' })).toBeEnabled();
+
+    await user.type(textbox('Vorname'), 'A');
+
+    expect(screen.getByRole('button', { name: 'Deaktivieren' })).toBeDisabled();
+    expect(screen.getByText('Erst speichern oder Änderungen verwerfen.')).toBeInTheDocument();
+  });
+});
 const save = () => screen.getByRole('button', { name: 'Speichern' });
 const abbrechen = () => screen.getByRole('button', { name: 'Abbrechen' });
 
