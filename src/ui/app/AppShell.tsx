@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Container from '@mui/material/Container';
+import GlobalStyles from '@mui/material/GlobalStyles';
 import { useTranslation } from 'react-i18next';
 import { BuildVersionBadge } from '@ui/components/BuildVersionBadge';
 import { useBreakpoint, useIsShortViewport } from '@ui/hooks/useBreakpoint';
@@ -76,7 +77,9 @@ function AppShellLayout() {
     const header = headerRef.current;
     if (!root || !header) return;
 
-    const publish = () => root.style.setProperty('--pep-header-height', `${header.offsetHeight}px`);
+    // On html, not the shell root: html's own scroll-padding (phone landscape, below) has to read
+    // it too, and html is still an ancestor of the sticky Wochenplanung toolbar that uses it.
+    const publish = () => document.documentElement.style.setProperty('--pep-header-height', `${header.offsetHeight}px`);
     publish();
 
     // jsdom has no ResizeObserver and the app must still render in tests.
@@ -180,6 +183,15 @@ function AppShellLayout() {
           <Outlet />
         </Container>
       </Box>
+
+      {/* The document scrolls here, and a focused element must not end up under the sticky header
+          or under the fixed tab bar plus the Wochenplanung's sticky "Weitere Aktionen" bar (54px,
+          measured) - both hid focused cells at 780x360 (WCAG 2.4.11). */}
+      {pageScrolls && (
+        <GlobalStyles
+          styles={{ html: { scrollPaddingTop: 'var(--pep-header-height, 64px)', scrollPaddingBottom: mobileSafeBottom(54) } }}
+        />
+      )}
 
       {layout === 'mobile' && <BottomTabBar />}
       {layout === 'mobile' && <MobileFab />}

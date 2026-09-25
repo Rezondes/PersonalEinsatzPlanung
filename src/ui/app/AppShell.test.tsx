@@ -141,6 +141,33 @@ describe('AppShell', () => {
     expect(document.activeElement).toBe(button);
   });
 
+  // Teil 7, Package 1: in phone landscape the document scrolls, and focused elements ended up under
+  // the sticky header / fixed tab bar / sticky action bar (WCAG 2.4.11).
+  const headCss = () => [...document.head.querySelectorAll('style')].map((el) => el.textContent).join(' ');
+
+  it('reserves scroll padding for the fixed bars on a phone held sideways', async () => {
+    mockViewportWidth(780, 360);
+    renderAt('/fullbleed');
+    await screen.findByText('fullbleed-view');
+
+    expect(headCss()).toMatch(/html\{[^}]*scroll-padding-top:var\(--pep-header-height/);
+    expect(headCss()).toMatch(/html\{[^}]*scroll-padding-bottom:/);
+  });
+
+  it('adds no scroll padding on an upright phone', async () => {
+    mockViewportWidth(390, 844);
+    renderAt('/fullbleed');
+    await screen.findByText('fullbleed-view');
+
+    expect(headCss()).not.toMatch(/scroll-padding-top:var\(--pep-header-height/);
+  });
+
+  it('publishes the header height on the html element, where html itself can read it', () => {
+    renderAt('/schedule');
+
+    expect(document.documentElement.style.getPropertyValue('--pep-header-height')).not.toBe('');
+  });
+
   it('hat einen Skip-Link als erstes fokussierbares Element', () => {
     renderAt('/schedule');
 
