@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import type { BranchId, EmployeeId } from '@domain/shared/ids';
 import type { Employee } from '@domain/employee/Employee';
 import { services } from '@infrastructure/services';
+import { toISODate } from '@domain/shared/DateFormat';
 import { EmployeeDialog } from './EmployeeDialog';
 
 vi.mock('@infrastructure/services', () => ({
@@ -145,7 +146,8 @@ describe('EmployeeDialog', () => {
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
     fireEvent.change(screen.getByLabelText('Geburtsdatum (optional)'), {
-      target: { value: tomorrow.toISOString().slice(0, 10) },
+      // Local date, not toISOString(): that is UTC and still today between 00:00 and 02:00 in Germany.
+      target: { value: toISODate(tomorrow) },
     });
     await user.click(save());
 
