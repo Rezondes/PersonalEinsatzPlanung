@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render as rtlRender, screen, waitFor } from '@testing-library/react';
+import { render as rtlRender, screen, waitFor, within } from '@testing-library/react';
 import type { ReactElement } from 'react';
 import userEvent from '@testing-library/user-event';
 import { ThemeProvider } from '@mui/material/styles';
@@ -263,6 +263,39 @@ describe('ScheduleTable', () => {
       expect(screen.getByRole('button', { name: 'Müller, Anna, Dienstag, frei bearbeiten' })).toBeInTheDocument();
     });
 
+    // Teil 8, Package 6: same icon and label for both, only the colour told them apart.
+    it('gives an error its own icon and label', () => {
+      render(<ScheduleTable rows={rowsFor(employees)} weekDays={weekDays} validationResults={[dayResult('error', 'zu lang'), dayResult('warning', 'spät')]} onCellClick={() => {}} {...notAssigning} {...noSelection} />);
+
+      const button = screen.getByRole('button', { name: 'Fehler anzeigen' });
+      expect(within(button).getByTestId('ErrorOutlineIcon')).toBeInTheDocument();
+    });
+
+    it('gives a warning its own icon and label', () => {
+      render(<ScheduleTable rows={rowsFor(employees)} weekDays={weekDays} validationResults={[dayResult('warning', 'spät')]} onCellClick={() => {}} {...notAssigning} {...noSelection} />);
+
+      const button = screen.getByRole('button', { name: 'Warnung anzeigen' });
+      expect(within(button).getByTestId('WarningAmberIcon')).toBeInTheDocument();
+    });
+
+    it('keeps the hint button out of the Tab order, since the cell name already carries the status', () => {
+      render(<ScheduleTable rows={rowsFor(employees)} weekDays={weekDays} validationResults={[dayResult('error', 'zu lang')]} onCellClick={() => {}} {...notAssigning} {...noSelection} />);
+
+      expect(screen.getByRole('button', { name: 'Fehler anzeigen' })).toHaveAttribute('tabindex', '-1');
+    });
+
+    it('opens the hints of the focused cell with Shift+Enter, without opening the editor', async () => {
+      const user = userEvent.setup();
+      const onCellClick = vi.fn();
+      render(<ScheduleTable rows={rowsFor(employees)} weekDays={weekDays} validationResults={[dayResult('error', 'zu lang')]} onCellClick={onCellClick} {...notAssigning} {...noSelection} />);
+
+      screen.getByRole('button', { name: /^Müller, Anna, Montag/ }).focus();
+      await user.keyboard('{Shift>}{Enter}{/Shift}');
+
+      expect(await screen.findByText('zu lang')).toBeInTheDocument();
+      expect(onCellClick).not.toHaveBeenCalled();
+    });
+
     it('keeps the status in assign and selection mode', () => {
       const results = [dayResult('error', 'zu lang')];
       const { unmount } = render(
@@ -458,7 +491,7 @@ describe('ScheduleTable', () => {
       />,
     );
 
-    const warningIcon = screen.getByRole('button', { name: 'Hinweis anzeigen' });
+    const warningIcon = screen.getByRole('button', { name: 'Fehler anzeigen' });
     await user.click(warningIcon);
 
     expect(await screen.findByText('Tagesarbeitszeit zu lang')).toBeInTheDocument();
@@ -486,7 +519,7 @@ describe('ScheduleTable', () => {
       />,
     );
 
-    const warningIcon = screen.getByRole('button', { name: 'Hinweis anzeigen' });
+    const warningIcon = screen.getByRole('button', { name: 'Fehler anzeigen' });
     expect(warningIcon).toHaveStyle({ minWidth: '44px', minHeight: '44px' });
   });
 
@@ -511,7 +544,7 @@ describe('ScheduleTable', () => {
     // bubbles independently through the DOM regardless - without stopping it at the cell (which
     // only checks target !== currentTarget, not a stopPropagation on the icon itself), the cell's
     // own Enter/Space handler would also fire and open the Tageseditor underneath the icon.
-    screen.getByRole('button', { name: 'Hinweis anzeigen' }).focus();
+    screen.getByRole('button', { name: 'Fehler anzeigen' }).focus();
     await user.keyboard('{Enter}');
 
     expect(await screen.findByText('Tagesarbeitszeit zu lang')).toBeInTheDocument();

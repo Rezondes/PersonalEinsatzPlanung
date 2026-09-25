@@ -28,6 +28,7 @@ import DialogActions from '@mui/material/DialogActions';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
+import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import FileDownloadOutlinedIcon from '@mui/icons-material/FileDownloadOutlined';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
@@ -428,7 +429,7 @@ export function MonthOverviewView() {
                               {...warningTooltipProps(cellKey)}
                             >
                               <IconButton
-                                aria-label={t('showHintAriaLabel')}
+                                aria-label={hasError ? t('showErrorAriaLabel') : t('showWarningAriaLabel')}
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   toggleWarning(cellKey);
@@ -440,7 +441,8 @@ export function MonthOverviewView() {
                                   color: hasError ? 'error.main' : 'warning.main',
                                 }}
                               >
-                                <WarningAmberIcon sx={{ fontSize: 16 }} />
+                                {/* Distinct icons, not just colours (WCAG 1.4.1). */}
+                                {hasError ? <ErrorOutlineIcon sx={{ fontSize: 16 }} /> : <WarningAmberIcon sx={{ fontSize: 16 }} />}
                               </IconButton>
                             </Tooltip>
                           </ClickAwayListener>

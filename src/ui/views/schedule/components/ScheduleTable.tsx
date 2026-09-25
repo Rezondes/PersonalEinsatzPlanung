@@ -18,6 +18,7 @@ import ClickAwayListener from '@mui/material/ClickAwayListener';
 import Stack from '@mui/material/Stack';
 import Checkbox from '@mui/material/Checkbox';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
+import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import type { Weekday } from '@domain/shared/CalendarWeek';
 import { WEEKDAYS_SHORT } from '@domain/shared/CalendarWeek';
 import { formatISODateShortGerman } from '@domain/shared/DateFormat';
@@ -466,6 +467,11 @@ export const ScheduleTable = memo(function ScheduleTable({
                           // regardless. Without this, Enter/Space on the focused icon would also
                           // activate the cell underneath it.
                           if (e.target !== e.currentTarget) return;
+                          if (e.key === 'Enter' && e.shiftKey) {
+                            e.preventDefault();
+                            if (matches.length > 0) toggleTooltip(`cell|${cellId}`);
+                            return;
+                          }
                           if (e.key === 'Enter' || e.key === ' ') {
                             e.preventDefault();
                             activateCell();
@@ -526,7 +532,10 @@ export const ScheduleTable = memo(function ScheduleTable({
                                 Tageseditor on tap) - stopPropagation keeps the two from competing for
                                 the same tap, matching the row-level deviation icon's own pattern. */}
                             <IconButton
-                              aria-label={t('hintAriaLabel')}
+                              aria-label={hasError ? t('errorHintAriaLabel') : t('warningHintAriaLabel')}
+                              // Not a Tab stop of its own: the cell's name already carries the
+                              // status, and Shift+Enter on the cell opens these hints.
+                              tabIndex={-1}
                               onClick={(e) => {
                                 e.stopPropagation();
                                 toggleTooltip(warningKey);
@@ -543,7 +552,8 @@ export const ScheduleTable = memo(function ScheduleTable({
                                 color: hasError ? 'error.main' : 'warning.main',
                               }}
                             >
-                              <WarningAmberIcon sx={{ fontSize: 16 }} />
+                              {/* Distinct icons, not just colours (WCAG 1.4.1). */}
+                              {hasError ? <ErrorOutlineIcon sx={{ fontSize: 16 }} /> : <WarningAmberIcon sx={{ fontSize: 16 }} />}
                             </IconButton>
                           </Tooltip>
                         </ClickAwayListener>

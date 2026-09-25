@@ -823,7 +823,7 @@ describe('MonthOverviewView', () => {
 
     const violatingRow = (await screen.findByText(fullName(employee))).closest('tr')!;
     const violatingCell = weekCellInRow(violatingRow, 0);
-    const warningIcon = within(violatingCell).getByRole('button', { name: 'Hinweis anzeigen' });
+    const warningIcon = within(violatingCell).getByRole('button', { name: 'Fehler anzeigen' });
     await user.click(warningIcon);
 
     expect(
@@ -833,7 +833,36 @@ describe('MonthOverviewView', () => {
     expect(screen.queryByText('schedule-route-landed')).not.toBeInTheDocument();
 
     const cleanCell = weekCellInRow(violatingRow, 1);
-    expect(within(cleanCell).queryByRole('button', { name: 'Hinweis anzeigen' })).not.toBeInTheDocument();
+    expect(within(cleanCell).queryByRole('button', { name: 'Fehler anzeigen' })).not.toBeInTheDocument();
+  });
+
+  // Teil 8, Package 6: error and warning used the same icon and label, only the colour differed.
+  it('tells an error from a warning by icon and label, not by colour alone', async () => {
+    selectBranch();
+    const employee = makeEmployee();
+    employeeForBranch.mockResolvedValue([employee]);
+    const weeks = calendarWeeksInMonth(currentYear, currentMonth);
+    const errorWeek = withDayEntry(
+      createWeeklySchedule(branch.id, weeks[0], [employee.id]),
+      employee.id,
+      'Montag',
+      { type: 'Shift', shifts: [createShift(clockTime('06:00'), clockTime('20:00'))] }, // over 10h: error
+    );
+    const warningWeek = withDayEntry(
+      createWeeklySchedule(branch.id, weeks[1], [employee.id]),
+      employee.id,
+      'Sonntag',
+      { type: 'Shift', shifts: [createShift(clockTime('08:00'), clockTime('12:00'))] }, // Sunday work: warning only
+    );
+    scheduleForBranch.mockResolvedValue([errorWeek, warningWeek]);
+
+    renderView();
+    const row = (await screen.findByText(fullName(employee))).closest('tr')!;
+
+    const errorButton = within(weekCellInRow(row, 0)).getByRole('button', { name: 'Fehler anzeigen' });
+    expect(within(errorButton).getByTestId('ErrorOutlineIcon')).toBeInTheDocument();
+    const warningButton = within(weekCellInRow(row, 1)).getByRole('button', { name: 'Warnung anzeigen' });
+    expect(within(warningButton).getByTestId('WarningAmberIcon')).toBeInTheDocument();
   });
 
   it('der Wochenwert-Hinweis-Button hat eine 44x44-Trefffläche', async () => {
@@ -852,7 +881,7 @@ describe('MonthOverviewView', () => {
     renderView();
     const violatingRow = (await screen.findByText(fullName(employee))).closest('tr')!;
     const violatingCell = weekCellInRow(violatingRow, 0);
-    const warningIcon = within(violatingCell).getByRole('button', { name: 'Hinweis anzeigen' });
+    const warningIcon = within(violatingCell).getByRole('button', { name: 'Fehler anzeigen' });
     expect(warningIcon).toHaveStyle({ minWidth: '44px', minHeight: '44px' });
   });
 
@@ -874,7 +903,7 @@ describe('MonthOverviewView', () => {
     renderView();
     const violatingRow = (await screen.findByText(fullName(employee))).closest('tr')!;
     const violatingCell = weekCellInRow(violatingRow, 0);
-    const warningIcon = within(violatingCell).getByRole('button', { name: 'Hinweis anzeigen' });
+    const warningIcon = within(violatingCell).getByRole('button', { name: 'Fehler anzeigen' });
 
     await user.hover(warningIcon);
     expect(await screen.findByText(/überschreitet die gesetzlich zulässige Höchstgrenze/)).toBeInTheDocument();
@@ -900,7 +929,7 @@ describe('MonthOverviewView', () => {
     renderView();
     const violatingRow = (await screen.findByText(fullName(employee))).closest('tr')!;
     const violatingCell = weekCellInRow(violatingRow, 0);
-    const warningIcon = within(violatingCell).getByRole('button', { name: 'Hinweis anzeigen' });
+    const warningIcon = within(violatingCell).getByRole('button', { name: 'Fehler anzeigen' });
 
     await user.hover(warningIcon);
     expect(screen.queryByText(/überschreitet die gesetzlich zulässige Höchstgrenze/)).not.toBeInTheDocument();
@@ -926,7 +955,7 @@ describe('MonthOverviewView', () => {
     renderView();
     const violatingRow = (await screen.findByText(fullName(employee))).closest('tr')!;
     const violatingCell = weekCellInRow(violatingRow, 0);
-    const warningIcon = within(violatingCell).getByRole('button', { name: 'Hinweis anzeigen' });
+    const warningIcon = within(violatingCell).getByRole('button', { name: 'Fehler anzeigen' });
 
     await user.click(warningIcon);
     expect(await screen.findByText(/überschreitet die gesetzlich zulässige Höchstgrenze/)).toBeInTheDocument();
@@ -952,7 +981,7 @@ describe('MonthOverviewView', () => {
     renderView();
     const violatingRow = (await screen.findByText(fullName(employee))).closest('tr')!;
     const violatingCell = weekCellInRow(violatingRow, 0);
-    const warningIcon = within(violatingCell).getByRole('button', { name: 'Hinweis anzeigen' });
+    const warningIcon = within(violatingCell).getByRole('button', { name: 'Fehler anzeigen' });
 
     await user.click(warningIcon);
     expect(await screen.findByText(/überschreitet die gesetzlich zulässige Höchstgrenze/)).toBeInTheDocument();
