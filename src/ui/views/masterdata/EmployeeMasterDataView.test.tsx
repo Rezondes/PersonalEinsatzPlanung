@@ -358,6 +358,19 @@ describe('EmployeeMasterDataView', () => {
     });
   });
 
+  it('shows no chevron on the mobile card: the card itself opens the dialog, the kebab holds the actions (Teil 5)', async () => {
+    mockViewportWidth(500);
+    const user = userEvent.setup();
+    renderView();
+    await screen.findByText('Bauer, Anna');
+
+    const card = screen.getByText('Bauer, Anna').closest('button') as HTMLButtonElement;
+    expect(card.parentElement!.querySelector('[data-testid="ChevronRightIcon"]')).toBeNull();
+
+    await user.click(card);
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+  });
+
   it('shows the Resturlaub figure as a compact line on the mobile card too', async () => {
     mockViewportWidth(500);
     renderView();

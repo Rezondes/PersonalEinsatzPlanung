@@ -125,3 +125,20 @@ describe('ScheduleHeaderFields', () => {
     expect(saveMock).toHaveBeenCalledTimes(1);
   });
 });
+
+// Teil 5, Package 13: in the mobile "Weitere Aktionen" sheet the two fixed 260px fields left a
+// ragged gap to the sheet's right edge.
+describe('ScheduleHeaderFields, fullWidth', () => {
+  it('stretches both fields to the full width when asked to', () => {
+    render(<ScheduleHeaderFields schedule={schedule()} onSaved={() => {}} onError={() => {}} fullWidth />);
+
+    expect(revenueField().closest('.MuiFormControl-root')).toHaveClass('MuiFormControl-fullWidth');
+    expect(hoursField().closest('.MuiFormControl-root')).toHaveClass('MuiFormControl-fullWidth');
+  });
+
+  it('keeps the fixed width by default', () => {
+    render(<ScheduleHeaderFields schedule={schedule()} onSaved={() => {}} onError={() => {}} />);
+
+    expect(revenueField().closest('.MuiFormControl-root')).not.toHaveClass('MuiFormControl-fullWidth');
+  });
+});

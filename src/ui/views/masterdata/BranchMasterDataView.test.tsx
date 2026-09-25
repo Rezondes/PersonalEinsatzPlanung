@@ -121,6 +121,16 @@ describe('BranchMasterDataView', () => {
     expect(within(table).getByText('Inaktiv')).toBeInTheDocument();
   });
 
+  it('shows no chevron on the mobile card, like the Mitarbeiter cards (Teil 5)', () => {
+    mockViewportWidth(500);
+    seedBranches([makeBranch({ id: 'branch-1' as BranchId, name: 'Filiale Nord', branchNumber: '001' })]);
+
+    const { container } = renderView();
+
+    expect(screen.getByText(/Filiale Nord/)).toBeInTheDocument();
+    expect(container.querySelector('[data-testid="ChevronRightIcon"]')).toBeNull();
+  });
+
   it('zeigt eine h1-Überschrift mit dem Seitentitel', () => {
     renderView();
 

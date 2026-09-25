@@ -484,7 +484,8 @@ export function ScheduleToolbar({
           <Typography variant="overline" color="text.secondary" sx={{ px: 2, display: 'block' }}>
             {tCommon('columnActions')}
           </Typography>
-          <Stack spacing={1} sx={{ px: 2, pb: 2 }}>
+          {/* 44px: finger-sized; MUI's default outlined button is 37px tall. */}
+          <Stack spacing={1} sx={{ px: 2, pb: 2, '& .MuiButton-root': { minHeight: 44 } }}>
             <Button
               variant="outlined"
               startIcon={<SwapHorizOutlinedIcon />}
@@ -548,6 +549,7 @@ export function ScheduleToolbar({
                 setSheetOpen(false);
                 onCreate();
               }}
+              sx={{ minHeight: 40 }}
             >
               {t('newButton')}
             </Button>

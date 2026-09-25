@@ -25,7 +25,6 @@ import ToggleOffOutlinedIcon from '@mui/icons-material/ToggleOffOutlined';
 import ToggleOnOutlinedIcon from '@mui/icons-material/ToggleOnOutlined';
 import StoreOutlinedIcon from '@mui/icons-material/StoreOutlined';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
-import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import SearchOutlinedIcon from '@mui/icons-material/SearchOutlined';
 import type { TFunction } from 'i18next';
 import type { Branch } from '@domain/branch/Branch';
@@ -146,7 +145,6 @@ function BranchCard({ branch, onTap, onLongPress }: { branch: Branch; onTap: () 
           </Typography>
         </Box>
         <Chip size="small" label={branch.active ? t('active') : t('inactive')} color={branch.active ? 'success' : 'default'} sx={{ flexShrink: 0 }} />
-        <ChevronRightIcon sx={{ color: 'text.disabled', flexShrink: 0 }} />
       </ButtonBase>
       <IconButton onClick={onLongPress} aria-label={t('otherActionsFor', { name: branch.name })} sx={{ flexShrink: 0 }}>
         <MoreVertIcon />

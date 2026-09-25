@@ -66,7 +66,10 @@ interface DayEditorProps {
   onSave: (entry: DayEntry) => void;
   onAbsenceSave: (type: AbsenceType, details?: AbsenceDetails) => void;
   employeeId: EmployeeId;
+  /** "Vorname Nachname", for the prose hints ("Trägt für Anna Müller am ... ein"). */
   employeeName: string;
+  /** "Nachname, Vorname" - the title, matching the table row it was opened from. */
+  employeeTitleName: string;
   day: Weekday;
   date: string;
   entry: DayEntry;
@@ -83,6 +86,7 @@ export function DayEditor({
   onAbsenceSave,
   employeeId,
   employeeName,
+  employeeTitleName,
   day,
   date,
   entry,
@@ -248,7 +252,7 @@ export function DayEditor({
       <ResponsiveDialog
         open={open}
         onClose={onClose}
-        title={t('dialogTitle', { name: employeeName, day })}
+        title={t('dialogTitle', { name: employeeTitleName, day })}
         subtitle={formatISODateGerman(date)}
         maxWidth="sm"
         actions={null}
@@ -274,7 +278,7 @@ export function DayEditor({
       <ResponsiveDialog
         open={open}
         onClose={onClose}
-        title={t('dialogTitle', { name: employeeName, day })}
+        title={t('dialogTitle', { name: employeeTitleName, day })}
         subtitle={formatISODateGerman(date)}
         maxWidth="sm"
         contentRef={validation.containerRef}

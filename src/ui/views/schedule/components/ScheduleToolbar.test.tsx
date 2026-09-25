@@ -544,3 +544,23 @@ describe('ScheduleToolbar', () => {
     });
   });
 });
+
+// Teil 5, Package 13: at 360px the sheet's action buttons were 37px and "Neu" 64x31 tall targets.
+describe('ScheduleToolbar, mobile sheet touch targets', () => {
+  afterEach(() => {
+    // @ts-expect-error -- undo the per-test stub, jsdom has no matchMedia of its own to restore
+    delete window.matchMedia;
+  });
+
+  it('gives the sheet actions a 44px and "Neu" a 40px minimum height', async () => {
+    mockViewportWidth(MOBILE);
+    const user = userEvent.setup();
+    renderToolbar();
+
+    await user.click(within(bar()).getByRole('button'));
+
+    expect(screen.getByRole('button', { name: 'Vorwoche übertragen' })).toHaveStyle({ minHeight: '44px' });
+    expect(screen.getByRole('button', { name: 'Mehrfachauswahl' })).toHaveStyle({ minHeight: '44px' });
+    expect(screen.getByRole('button', { name: 'Neu' })).toHaveStyle({ minHeight: '40px' });
+  });
+});

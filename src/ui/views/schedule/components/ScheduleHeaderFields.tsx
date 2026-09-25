@@ -14,12 +14,14 @@ interface ScheduleHeaderFieldsProps {
   disabled?: boolean;
   onSaved: (updated: WeeklySchedule) => void;
   onError: (e: unknown, context?: string) => void;
+  /** Mobile "Weitere Aktionen" sheet: fill the sheet instead of the fixed 260px. */
+  fullWidth?: boolean;
 }
 
 /** Planned weekly revenue/hours inputs of the schedule header. Owns its own draft state so that a
  * keystroke re-renders only these two fields - previously the drafts lived in ScheduleView, where
  * every keystroke re-rendered the whole schedule table underneath. Saves on blur. */
-export function ScheduleHeaderFields({ schedule, disabled = false, onSaved, onError }: ScheduleHeaderFieldsProps) {
+export function ScheduleHeaderFields({ schedule, disabled = false, onSaved, onError, fullWidth = false }: ScheduleHeaderFieldsProps) {
   const { t } = useTranslation('schedule');
   const [revenue, setRevenue] = useState<number | undefined>(schedule?.plannedWeeklyRevenue);
   const [hours, setHours] = useState<number | undefined>(schedule?.plannedWeeklyHours);
@@ -65,7 +67,8 @@ export function ScheduleHeaderFields({ schedule, disabled = false, onSaved, onEr
         onBlur={save}
         disabled={disabled}
         InputProps={{ endAdornment: <InputAdornment position="end">€</InputAdornment> }}
-        sx={{ width: 260 }}
+        fullWidth={fullWidth}
+        sx={fullWidth ? undefined : { width: 260 }}
       />
       <DecimalTextField
         label={t('plannedHoursLabel')}
@@ -74,7 +77,8 @@ export function ScheduleHeaderFields({ schedule, disabled = false, onSaved, onEr
         onChange={setHours}
         onBlur={save}
         disabled={disabled}
-        sx={{ width: 260 }}
+        fullWidth={fullWidth}
+        sx={fullWidth ? undefined : { width: 260 }}
       />
       {savedAt !== null && (
         <Typography role="status" variant="caption" color="success.main" sx={{ alignSelf: 'center' }}>

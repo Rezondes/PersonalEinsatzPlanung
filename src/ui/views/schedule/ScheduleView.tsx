@@ -708,7 +708,13 @@ export function ScheduleView() {
   // Aktionen" restructure below) - one instance either way, never both, since `layout` decides
   // exactly one placement each render.
   const headerFields = (
-    <ScheduleHeaderFields schedule={schedule} disabled={isLoading} onSaved={scheduleReplaced} onError={notify.report} />
+    <ScheduleHeaderFields
+      schedule={schedule}
+      disabled={isLoading}
+      onSaved={scheduleReplaced}
+      onError={notify.report}
+      fullWidth={isMobile}
+    />
   );
 
   // Shares a row with headerFields on tablet/desktop (schedule-header-row below) and stays its own
@@ -1122,6 +1128,7 @@ export function ScheduleView() {
           onAbsenceSave={saveAbsence}
           employeeId={editorState.employeeId}
           employeeName={`${editorRow.employee.firstName} ${editorRow.employee.lastName}`}
+          employeeTitleName={fullName(editorRow.employee)}
           day={editorState.dayView.day}
           date={editorState.dayView.date}
           entry={editorState.dayView.entry}

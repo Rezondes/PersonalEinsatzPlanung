@@ -27,7 +27,6 @@ import ToggleOnOutlinedIcon from '@mui/icons-material/ToggleOnOutlined';
 import ChildCareOutlinedIcon from '@mui/icons-material/ChildCareOutlined';
 import SearchOutlinedIcon from '@mui/icons-material/SearchOutlined';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
-import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import type { TFunction } from 'i18next';
 import type { Employee } from '@domain/employee/Employee';
 import { compareByLastName, fullName } from '@domain/employee/Employee';
@@ -250,7 +249,6 @@ function EmployeeCard({
             </Typography>
           )}
         </Box>
-        <ChevronRightIcon sx={{ color: 'text.disabled', flexShrink: 0, mt: 0.5 }} />
       </ButtonBase>
       <IconButton
         onClick={onLongPress}

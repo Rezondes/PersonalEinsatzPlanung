@@ -616,6 +616,16 @@ describe('ScheduleView', () => {
     });
   });
 
+  // Package 13 (Teil 5): small consistency fixes.
+  describe('Kleinigkeiten', () => {
+    it('makes "Heute" a 40px icon button on a phone, not a 31px text button', async () => {
+      renderScheduleView(MOBILE);
+      await screen.findByText(fullName(employeeA));
+
+      expect(screen.getByRole('button', { name: 'Heute' })).toHaveClass('MuiIconButton-root');
+    });
+  });
+
   // Package 6 (Teil 5): at 780x360 the fixed chrome alone takes half the height and the bounded
   // table got 6px. Sideways, AppShell lets the document scroll instead (see AppShell.test); the
   // one thing this view must add is keeping its action bar reachable.
@@ -1001,7 +1011,7 @@ describe('ScheduleView', () => {
       await waitFor(() => expect(screen.getByRole('button', { name: 'Rückgängig' })).toBeEnabled());
 
       await user.click(cellEl(container, employeeB.id, 'Dienstag'));
-      await screen.findByText(`${employeeB.firstName} ${employeeB.lastName} · Dienstag`);
+      await screen.findByText(`${fullName(employeeB)} · Dienstag`);
 
       act(() => {
         document.dispatchEvent(new KeyboardEvent('keydown', { key: 'z', ctrlKey: true, bubbles: true }));
@@ -1010,7 +1020,7 @@ describe('ScheduleView', () => {
 
       await user.click(screen.getByRole('button', { name: 'Abbrechen' }));
       await waitFor(() =>
-        expect(screen.queryByText(`${employeeB.firstName} ${employeeB.lastName} · Dienstag`)).not.toBeInTheDocument(),
+        expect(screen.queryByText(`${fullName(employeeB)} · Dienstag`)).not.toBeInTheDocument(),
       );
 
       act(() => {
@@ -1228,7 +1238,7 @@ describe('ScheduleView', () => {
       const user = userEvent.setup();
 
       await user.click(cellEl(container, employeeA.id, 'Montag'));
-      await screen.findByText(`${employeeA.firstName} ${employeeA.lastName} · Montag`);
+      await screen.findByText(`${fullName(employeeA)} · Montag`);
 
       await user.click(screen.getByRole('button', { name: 'Urlaub' }));
       await user.click(screen.getByRole('button', { name: 'Speichern' }));
@@ -1259,7 +1269,7 @@ describe('ScheduleView', () => {
       const user = userEvent.setup();
 
       await user.click(cellEl(container, employeeA.id, 'Dienstag'));
-      await screen.findByText(`${employeeA.firstName} ${employeeA.lastName} · Dienstag`);
+      await screen.findByText(`${fullName(employeeA)} · Dienstag`);
 
       await user.click(screen.getByRole('button', { name: 'Sonstige' }));
       await user.type(screen.getByRole('textbox', { name: 'Bezeichnung' }), 'Fortbildung');
@@ -1352,7 +1362,7 @@ describe('ScheduleView', () => {
           }),
         ),
       );
-      expect(screen.queryByText(`${employeeB.firstName} ${employeeB.lastName} · Montag`)).not.toBeInTheDocument();
+      expect(screen.queryByText(`${fullName(employeeB)} · Montag`)).not.toBeInTheDocument();
     });
 
     it('tapping a cell with an armed Other-kind template applies it', async () => {
@@ -1638,13 +1648,13 @@ describe('ScheduleView', () => {
   });
 
   describe('dialog wiring', () => {
-    it('opens DayEditor on a writable cell, titled "Firstname Lastname" (not fullName\'s "Lastname, Firstname")', async () => {
+    it('opens DayEditor on a writable cell, titled "Lastname, Firstname" like its table row (Teil 5)', async () => {
       const { container } = renderScheduleView();
       await screen.findByText(fullName(employeeA));
 
       await userEvent.setup().click(cellEl(container, employeeA.id, 'Montag'));
 
-      expect(await screen.findByText(`${employeeA.firstName} ${employeeA.lastName} · Montag`)).toBeInTheDocument();
+      expect(await screen.findByText(`${fullName(employeeA)} · Montag`)).toBeInTheDocument();
     });
 
     it('opens WeekSelectionDialog when the week-range text is clicked', async () => {
