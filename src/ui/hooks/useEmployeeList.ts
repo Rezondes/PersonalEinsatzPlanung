@@ -4,11 +4,11 @@ import { services } from '@infrastructure/services';
 import { useAsyncData } from './useAsyncData';
 
 export function useEmployeeList(branchId: BranchId | null) {
-  const { data: employeeList, loading, reload } = useAsyncData<Employee[]>(
+  const { data: employeeList, loading, error, reload } = useAsyncData<Employee[]>(
     [],
     () => (branchId ? services.employee.forBranch(branchId) : Promise.resolve([])),
     [branchId],
   );
 
-  return { employeeList, loading, reload };
+  return { employeeList, loading, error, reload };
 }

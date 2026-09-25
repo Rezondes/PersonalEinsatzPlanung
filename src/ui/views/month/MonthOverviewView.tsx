@@ -56,6 +56,7 @@ import { useTapTooltip } from '@ui/hooks/useTapTooltip';
 import { useCalendarWeekStore } from '@ui/app/store/calendarWeekStore';
 import { usePageActions } from '@ui/app/PageActionsContext';
 import { NoBranchSelectedAlert } from '@ui/components/NoBranchSelectedAlert';
+import { LoadErrorAlert } from '@ui/components/LoadErrorAlert';
 import {
   stickyCornerSx,
   stickyFirstColumnSx,
@@ -112,7 +113,12 @@ export function MonthOverviewView() {
   // useAsyncData (not a bare useState+useEffect) for the same reason every other selection-scoped
   // load in this app uses it: error reporting, a loading flag, and a guard against a slow response
   // for a since-abandoned branch overwriting a faster one for the branch since switched to.
-  const { data: schedules, loading: schedulesLoading } = useAsyncData<WeeklySchedule[]>(
+  const {
+    data: schedules,
+    loading: schedulesLoading,
+    error: schedulesError,
+    reload: reloadSchedules,
+  } = useAsyncData<WeeklySchedule[]>(
     [],
     () => (branch ? services.schedule.forBranch(branch.id) : Promise.resolve([])),
     [branch],
@@ -315,6 +321,9 @@ export function MonthOverviewView() {
             {t('loading')}
           </Typography>
         </Stack>
+      ) : schedulesError ? (
+        // A failed load left every employee at 0 hours, which looked like real totals.
+        <LoadErrorAlert onRetry={reloadSchedules} />
       ) : (
       /* Bounded height, self-scrolling (both axes) - see stickyFirstColumn.ts for why a sticky
           header row and horizontal scroll on a real <table> can't coexist any other way. height:

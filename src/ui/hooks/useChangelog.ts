@@ -6,11 +6,11 @@ import { useAsyncData } from './useAsyncData';
  * data-loading hook - the changelog is the same for everyone, so it has no dependency array beyond
  * "loaded once on mount", and reload() is there purely for a manual retry button. */
 export function useChangelog() {
-  const { data: releases, loading, reload } = useAsyncData(
+  const { data: releases, loading, error, reload } = useAsyncData(
     [] as Awaited<ReturnType<typeof services.changelog.fetchChangelog>>,
     () => services.changelog.fetchChangelog(),
     [],
   );
 
-  return { releases, loading, reload };
+  return { releases, loading, error, reload };
 }

@@ -5,7 +5,7 @@ import { useAsyncData } from './useAsyncData';
 
 export function useAbsences(employeeIds: EmployeeId[]) {
   const idsKey = employeeIds.join(',');
-  const { data: absences, loading, reload } = useAsyncData<Absence[]>(
+  const { data: absences, loading, error, reload } = useAsyncData<Absence[]>(
     [],
     () => (employeeIds.length === 0 ? Promise.resolve([]) : services.absence.forEmployees(employeeIds)),
     // idsKey instead of employeeIds itself: a new array reference every render would re-trigger
@@ -13,5 +13,5 @@ export function useAbsences(employeeIds: EmployeeId[]) {
     [idsKey],
   );
 
-  return { absences, loading, reload };
+  return { absences, loading, error, reload };
 }

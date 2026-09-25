@@ -143,4 +143,42 @@ describe('useAsyncData', () => {
       expect.objectContaining({ severity: 'error', text: 'Daten konnten nicht geladen werden: boom' }),
     ]);
   });
+  // Teil 8, Package 8: a failed load only raised a toast, and the view showed its empty state -
+  // offline, the Änderungen page read like "nothing changed".
+  it('exposes the error of a failed load', async () => {
+    const error = new Error('boom');
+    const { result } = renderHook(() => useAsyncData('init', vi.fn().mockRejectedValue(error), []));
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.error).toBe(error);
+  });
+
+  it('clears the error once a reload succeeds', async () => {
+    const load = vi.fn().mockRejectedValueOnce(new Error('boom')).mockResolvedValueOnce('ok');
+    const { result } = renderHook(() => useAsyncData('init', load, []));
+    await waitFor(() => expect(result.current.error).not.toBeNull());
+
+    await act(async () => {
+      await result.current.reload();
+    });
+
+    expect(result.current.error).toBeNull();
+    expect(result.current.data).toBe('ok');
+  });
+
+  it('does not let a stale rejection set the error', async () => {
+    const first = createDeferred<string>();
+    const load = vi.fn().mockReturnValueOnce(first.promise).mockResolvedValueOnce('fresh');
+    const { result } = renderHook(() => useAsyncData('init', load, []));
+
+    await act(async () => {
+      await result.current.reload();
+    });
+    await act(async () => {
+      first.reject(new Error('stale'));
+      await first.promise.catch(() => {});
+    });
+
+    expect(result.current.error).toBeNull();
+  });
 });

@@ -47,6 +47,7 @@ import { useBreakpoint } from '@ui/hooks/useBreakpoint';
 import { useActivationToggle } from '@ui/hooks/useActivationToggle';
 import { ConfirmDialog } from '@ui/components/ConfirmDialog';
 import { NoBranchSelectedAlert } from '@ui/components/NoBranchSelectedAlert';
+import { LoadErrorAlert } from '@ui/components/LoadErrorAlert';
 import {
   stickyCornerSx,
   stickyFirstColumnSx,
@@ -268,7 +269,7 @@ export function EmployeeMasterDataView() {
   const { t: tNav } = useTranslation('nav');
   const layout = useBreakpoint();
   const { branch } = useSelectedBranch();
-  const { employeeList, loading, reload } = useEmployeeList(branch?.id ?? null);
+  const { employeeList, loading, error: loadError, reload } = useEmployeeList(branch?.id ?? null);
   // null = closed; { employee: null } = "Neuer Mitarbeiter"; { employee } = edit. The dialog is
   // mounted only while open so its form state starts fresh each time.
   const [dialog, setDialog] = useState<{ employee: Employee | null } | null>(null);
@@ -470,11 +471,13 @@ export function EmployeeMasterDataView() {
         })()}
       </Paper>
 
+      {/* A failed load keeps employeeList empty; without this it read as "no employees". */}
+      {!!loadError && <LoadErrorAlert onRetry={reload} />}
       <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
         <ResponsiveDataList
           rows={visibleEmployees}
           getKey={(emp) => emp.id}
-          emptyMessage={employeeList.length === 0 ? t('employee.emptyNone') : t('employee.emptyNoMatch')}
+          emptyMessage={loadError ? '' : employeeList.length === 0 ? t('employee.emptyNone') : t('employee.emptyNoMatch')}
           renderCard={(emp) => (
             <EmployeeCard
               employee={emp}
@@ -513,7 +516,7 @@ export function EmployeeMasterDataView() {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {!loading && employeeList.length === 0 && (
+                {!loading && !loadError && employeeList.length === 0 && (
                   <TableRow>
                     <TableCell colSpan={COLUMN_COUNT}>
                       <Typography color="text.secondary" sx={{ py: 2 }}>
@@ -522,7 +525,7 @@ export function EmployeeMasterDataView() {
                     </TableCell>
                   </TableRow>
                 )}
-                {!loading && employeeList.length > 0 && visibleEmployees.length === 0 && (
+                {!loading && !loadError && employeeList.length > 0 && visibleEmployees.length === 0 && (
                   <TableRow>
                     <TableCell colSpan={COLUMN_COUNT}>
                       <Typography color="text.secondary" sx={{ py: 2 }}>

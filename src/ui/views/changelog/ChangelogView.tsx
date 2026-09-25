@@ -15,6 +15,7 @@ import { formatDateGerman } from '@domain/shared/DateFormat';
 import { usePageActions } from '@ui/app/PageActionsContext';
 import { useBreakpoint } from '@ui/hooks/useBreakpoint';
 import { useChangelog } from '@ui/hooks/useChangelog';
+import { LoadErrorAlert } from '@ui/components/LoadErrorAlert';
 
 /** Reads the project's own GitHub Releases (see infrastructure/changelog/githubReleases.ts) so
  * anyone can see what changed between deploys without leaving the app. One deliberate, isolated
@@ -22,7 +23,7 @@ import { useChangelog } from '@ui/hooks/useChangelog';
 export function ChangelogView() {
   const layout = useBreakpoint();
   usePageActions({ fullBleedPage: true });
-  const { releases, loading } = useChangelog();
+  const { releases, loading, error, reload } = useChangelog();
   const { t } = useTranslation('changelog');
   const { t: tNav } = useTranslation('nav');
 
@@ -51,6 +52,9 @@ export function ChangelogView() {
               {t('loading')}
             </Typography>
           </Stack>
+        ) : error ? (
+          // Offline (common for this app) a failed fetch used to read as "no changes yet".
+          <LoadErrorAlert onRetry={reload} />
         ) : releases.length === 0 ? (
           <Typography variant="body2" color="text.secondary">
             {t('empty')}

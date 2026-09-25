@@ -350,6 +350,28 @@ describe('ScheduleView', () => {
       expect(await screen.findByText(fullName(employeeA))).toBeInTheDocument();
     });
 
+    // Teil 8, Package 8: a failed load left an empty page (schedule) or claimed there were no
+    // employees (employee list).
+    it('shows a load error with a retry when the week cannot be loaded', async () => {
+      const user = userEvent.setup();
+      scheduleGetOrCreate.mockRejectedValueOnce(new Error('boom'));
+
+      renderScheduleView();
+
+      expect(await screen.findByText('Daten konnten nicht geladen werden.')).toBeInTheDocument();
+      await user.click(screen.getByRole('button', { name: 'Erneut versuchen' }));
+      expect(await screen.findByRole('grid')).toBeInTheDocument();
+    });
+
+    it('does not claim the branch has no employees when their load failed', async () => {
+      employeeForBranch.mockRejectedValueOnce(new Error('boom'));
+
+      renderScheduleView();
+
+      expect(await screen.findByText('Daten konnten nicht geladen werden.')).toBeInTheDocument();
+      expect(screen.queryByText(/noch keine Mitarbeiter angelegt/)).not.toBeInTheDocument();
+    });
+
     it('shows an alert when the branch has no employees', async () => {
       employeeForBranch.mockResolvedValueOnce([]);
       scheduleGetOrCreate.mockResolvedValueOnce(createWeeklySchedule(branchId, SELECTED_WEEK, []));

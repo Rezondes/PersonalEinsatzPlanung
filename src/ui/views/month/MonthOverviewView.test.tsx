@@ -836,6 +836,22 @@ describe('MonthOverviewView', () => {
     expect(within(cleanCell).queryByRole('button', { name: 'Fehler anzeigen' })).not.toBeInTheDocument();
   });
 
+  // Teil 8, Package 8: a failed load showed every employee with 0 hours, which looked real.
+  it('shows a load error with a retry instead of a table of zeros', async () => {
+    selectBranch();
+    const user = userEvent.setup();
+    const employee = makeEmployee();
+    employeeForBranch.mockResolvedValue([employee]);
+    scheduleForBranch.mockRejectedValueOnce(new Error('boom')).mockResolvedValue([]);
+
+    renderView();
+
+    expect(await screen.findByText('Daten konnten nicht geladen werden.')).toBeInTheDocument();
+    expect(screen.queryByRole('table')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Erneut versuchen' }));
+    expect(await screen.findByRole('table')).toBeInTheDocument();
+  });
+
   // Teil 8, Package 6: error and warning used the same icon and label, only the colour differed.
   it('tells an error from a warning by icon and label, not by colour alone', async () => {
     selectBranch();

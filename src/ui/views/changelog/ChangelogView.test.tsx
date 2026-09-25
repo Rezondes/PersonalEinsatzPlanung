@@ -111,6 +111,18 @@ describe('ChangelogView', () => {
     expect(screen.getByText('Noch keine Einträge vorhanden.')).toBeInTheDocument();
   });
 
+  // Teil 8, Package 8: offline this showed "Noch keine Einträge vorhanden." as if nothing changed.
+  it('shows a load error with a retry instead of the empty message', async () => {
+    fetchChangelogMock.mockRejectedValueOnce(new Error('offline')).mockResolvedValueOnce([]);
+    render(<ChangelogView />);
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Daten konnten nicht geladen werden.');
+    expect(screen.queryByText('Noch keine Einträge vorhanden.')).not.toBeInTheDocument();
+
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Erneut versuchen' }));
+    expect(await screen.findByText('Noch keine Einträge vorhanden.')).toBeInTheDocument();
+  });
+
   function summaryFor(title: string): HTMLElement {
     const heading = screen.getByText(title);
     const summary = heading.closest('.MuiAccordionSummary-root');

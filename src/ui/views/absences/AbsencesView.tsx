@@ -42,6 +42,7 @@ import { useListFiltersStore } from '@ui/app/store/listFiltersStore';
 import { useBreakpoint } from '@ui/hooks/useBreakpoint';
 import { ConfirmDialog } from '@ui/components/ConfirmDialog';
 import { NoBranchSelectedAlert } from '@ui/components/NoBranchSelectedAlert';
+import { LoadErrorAlert } from '@ui/components/LoadErrorAlert';
 import {
   stickyCornerSx,
   stickyFirstColumnSx,
@@ -155,7 +156,7 @@ export function AbsencesView() {
   const { employeeList } = useEmployeeList(branch?.id ?? null);
   const activeEmployees = employeeList.filter((emp) => emp.active);
   const employeeIds = employeeList.map((emp) => emp.id);
-  const { absences, loading: absencesLoading, reload } = useAbsences(employeeIds);
+  const { absences, loading: absencesLoading, error: loadError, reload } = useAbsences(employeeIds);
   // Mounted only while open, so the form starts fresh each time. null = closed; { absence: null } =
   // "Erfassen"; { absence } = edit.
   const [dialog, setDialog] = useState<{ absence: Absence | null } | null>(null);
@@ -429,12 +430,14 @@ export function AbsencesView() {
         })()}
       </Paper>
 
+      {/* A failed load keeps absences empty; without this it read as "nothing recorded". */}
+      {!!loadError && <LoadErrorAlert onRetry={reload} />}
       <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
         <ResponsiveDataList
           rows={visibleAbsences}
           getKey={(a) => a.id}
           emptyMessage={
-            absencesLoading
+            absencesLoading || loadError
               ? ''
               : absences.length === 0
                 ? t('emptyNone')
@@ -471,7 +474,7 @@ export function AbsencesView() {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {!absencesLoading && absences.length === 0 && (
+                {!absencesLoading && !loadError && absences.length === 0 && (
                   <TableRow>
                     <TableCell colSpan={COLUMN_COUNT}>
                       <Typography color="text.secondary" sx={{ py: 2 }}>
@@ -480,7 +483,7 @@ export function AbsencesView() {
                     </TableCell>
                   </TableRow>
                 )}
-                {!absencesLoading && absences.length > 0 && visibleAbsences.length === 0 && (
+                {!absencesLoading && !loadError && absences.length > 0 && visibleAbsences.length === 0 && (
                   <TableRow>
                     <TableCell colSpan={COLUMN_COUNT}>
                       <Typography color="text.secondary" sx={{ py: 2 }}>

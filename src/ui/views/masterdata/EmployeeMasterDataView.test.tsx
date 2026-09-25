@@ -180,6 +180,19 @@ describe('EmployeeMasterDataView', () => {
     delete window.matchMedia;
   });
 
+  // Teil 8, Package 8: a failed load showed "Noch keine Mitarbeiter", as if everyone was gone.
+  it('shows a load error with a retry instead of the empty message', async () => {
+    const user = userEvent.setup();
+    forBranchMock.mockRejectedValueOnce(new Error('boom'));
+    renderView();
+
+    expect(await screen.findByText('Daten konnten nicht geladen werden.')).toBeInTheDocument();
+    expect(screen.queryByText(/Noch keine Mitarbeiter/)).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Erneut versuchen' }));
+    expect(await screen.findByText('Bauer, Anna')).toBeInTheDocument();
+  });
+
   it('shows an alert instead of the table when no branch is selected', async () => {
     useBranchesStore.setState({ branches: [], loading: false, loaded: true });
     useBranchSelectionStore.setState({ selectedBranchId: null });

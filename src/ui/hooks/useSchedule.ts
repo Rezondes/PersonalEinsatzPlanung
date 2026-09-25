@@ -5,7 +5,7 @@ import { services } from '@infrastructure/services';
 import { useAsyncData } from './useAsyncData';
 
 export function useSchedule(branchId: BranchId | null, cw: CalendarWeek) {
-  const { data: schedule, loading, reload, setData: setSchedule } = useAsyncData<WeeklySchedule | null>(
+  const { data: schedule, loading, error, reload, setData: setSchedule } = useAsyncData<WeeklySchedule | null>(
     null,
     () => (branchId ? services.schedule.getOrCreate(branchId, cw) : Promise.resolve(null)),
     // cw.year/cw.week instead of cw itself: CalendarWeek is created as a new object on every
@@ -13,5 +13,5 @@ export function useSchedule(branchId: BranchId | null, cw: CalendarWeek) {
     [branchId, cw.year, cw.week],
   );
 
-  return { schedule, loading, reload, setSchedule };
+  return { schedule, loading, error, reload, setSchedule };
 }

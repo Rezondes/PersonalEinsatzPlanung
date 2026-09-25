@@ -209,6 +209,20 @@ describe('AbsencesView', () => {
       expect(screen.getByText('Noch keine Abwesenheiten erfasst.')).toBeInTheDocument();
     });
 
+    // Teil 8, Package 8: a failed load showed "Noch keine Abwesenheiten erfasst.".
+    it('shows a load error with a retry instead of the empty message', async () => {
+      const user = userEvent.setup();
+      employeeForBranchMock.mockResolvedValue([e1]);
+      absenceForBranchMock.mockRejectedValueOnce(new Error('boom')).mockResolvedValue([]);
+      renderView();
+
+      expect(await screen.findByText('Daten konnten nicht geladen werden.')).toBeInTheDocument();
+      expect(screen.queryByText('Noch keine Abwesenheiten erfasst.')).not.toBeInTheDocument();
+
+      await user.click(screen.getByRole('button', { name: 'Erneut versuchen' }));
+      expect(await screen.findByText('Noch keine Abwesenheiten erfasst.')).toBeInTheDocument();
+    });
+
     it('shows a disabled FAB (not none at all) and a tooltip on the laptop buttons when there are no active employees', async () => {
       const user = userEvent.setup();
       employeeForBranchMock.mockResolvedValue([e3]); // e3 is inactive

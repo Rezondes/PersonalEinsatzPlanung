@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import { notify } from '@ui/app/store/notificationStore';
+import i18n from '@ui/i18n/i18n';
 
 /** Shared shape behind every selection-scoped data-loading hook (useSchedule, useEmployeeList,
  * useShiftTemplates, useAbsences): state + a loading flag + a reload callback, guarded against a
@@ -17,9 +18,18 @@ export function useAsyncData<T>(
   initial: T,
   load: () => Promise<T>,
   deps: readonly unknown[],
-): { data: T; loading: boolean; reload: () => Promise<void>; setData: Dispatch<SetStateAction<T>> } {
+): {
+  data: T;
+  loading: boolean;
+  /** The last load's failure, or null. Lets a view show "could not load" instead of its empty
+   * state - `data` stays at `initial` on failure and is indistinguishable from "nothing there". */
+  error: unknown;
+  reload: () => Promise<void>;
+  setData: Dispatch<SetStateAction<T>>;
+} {
   const [data, setData] = useState<T>(initial);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<unknown>(null);
   const loadIdRef = useRef(0);
 
   const reload = useCallback(async () => {
@@ -32,11 +42,13 @@ export function useAsyncData<T>(
         return;
       }
       setData(loaded);
-    } catch (error) {
+      setError(null);
+    } catch (failure) {
       if (loadIdRef.current !== loadId) {
         return;
       }
-      notify.report(error, 'Daten konnten nicht geladen werden');
+      setError(failure);
+      notify.report(failure, i18n.t('loadFailed'));
     } finally {
       if (loadIdRef.current === loadId) {
         setLoading(false);
@@ -49,5 +61,5 @@ export function useAsyncData<T>(
     reload();
   }, [reload]);
 
-  return { data, loading, reload, setData };
+  return { data, loading, error, reload, setData };
 }

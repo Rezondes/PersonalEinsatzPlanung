@@ -56,6 +56,7 @@ import { useAbsences } from '@ui/hooks/useAbsences';
 import { useCalendarWeekStore } from '@ui/app/store/calendarWeekStore';
 import { ConfirmDialog } from '@ui/components/ConfirmDialog';
 import { NoBranchSelectedAlert } from '@ui/components/NoBranchSelectedAlert';
+import { LoadErrorAlert } from '@ui/components/LoadErrorAlert';
 import { ScheduleTable, cellKey } from './components/ScheduleTable';
 import { ScheduleHeaderFields } from './components/ScheduleHeaderFields';
 import { DayEditor } from './components/DayEditor';
@@ -104,7 +105,12 @@ export function ScheduleView() {
   const { t: tCommon } = useTranslation();
   const { t: tNav } = useTranslation('nav');
   const { branch } = useSelectedBranch();
-  const { employeeList, loading: employeeListLoading } = useEmployeeList(branch?.id ?? null);
+  const {
+    employeeList,
+    loading: employeeListLoading,
+    error: employeeListError,
+    reload: reloadEmployees,
+  } = useEmployeeList(branch?.id ?? null);
   const selectedWeek = useCalendarWeekStore((s) => s.selectedWeek);
   const setSelectedWeek = useCalendarWeekStore((s) => s.setSelectedWeek);
   // The week also lives in the URL (?kw=2026-39) so a link or F5 keeps it. The store stays the
@@ -145,7 +151,16 @@ export function ScheduleView() {
       );
     }
   }, [selectedWeek, setSearchParams]);
-  const { schedule, loading, setSchedule } = useSchedule(branch?.id ?? null, selectedWeek);
+  const { schedule, loading, error: scheduleError, reload: reloadSchedule, setSchedule } = useSchedule(
+    branch?.id ?? null,
+    selectedWeek,
+  );
+  // A failed load left the table area blank (schedule) or claimed there were no employees.
+  const loadFailed = !!scheduleError || !!employeeListError;
+  const retryLoad = () => {
+    if (scheduleError) reloadSchedule();
+    if (employeeListError) reloadEmployees();
+  };
   const {
     absences,
     loading: absencesLoading,
@@ -1035,10 +1050,16 @@ export function ScheduleView() {
           );
         })()}
 
-      {!isLoading && employeeList.length === 0 && (
+      {!isLoading && !employeeListError && employeeList.length === 0 && (
         <Alert severity="info" sx={{ mb: 2 }}>
           {t('noEmployeesAlert')}
         </Alert>
+      )}
+
+      {!isLoading && loadFailed && (
+        <Box sx={{ mb: 2 }}>
+          <LoadErrorAlert onRetry={retryLoad} />
+        </Box>
       )}
 
       {isMobile && rows.length > 0 && (mobileSearchOpen || searchTerm !== '') && <Box sx={{ mb: 1 }}>{searchField}</Box>}
