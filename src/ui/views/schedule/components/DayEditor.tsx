@@ -224,6 +224,11 @@ export function DayEditor({
   // and validateYouthRestPeriodSequence need the whole week's minutes / cross-week shift sequence,
   // neither of which this single-day editor has (same reason validateWeeklyWorkingTime and the
   // async rest-period check aren't in the adult list above either).
+  //
+  // validateSundayHolidayWork is missing too, for a different reason: it needs the branch's
+  // allowedOpenSundays and its holiday calendar, which this editor is not given. Its Sonntags-/
+  // Feiertagsarbeit warning therefore only shows up in the week view after saving.
+  //
   // All live results, errors and warnings: both are shown while editing, only errors ask on Speichern.
   const liveResults = useMemo(() => {
     if (!parsedShifts) return [];
