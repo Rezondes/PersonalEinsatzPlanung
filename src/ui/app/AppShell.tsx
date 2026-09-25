@@ -125,9 +125,16 @@ function AppShellLayout() {
         display: 'flex',
       }}
     >
+      {/* The app routes on the hash, so following "#main-content" would navigate to the unknown path
+          /main-content (and the locale loader would bounce to Wochenplanung). The href stays for
+          the link role; the click moves the focus itself instead. */}
       <Box
         component="a"
         href="#main-content"
+        onClick={(e) => {
+          e.preventDefault();
+          document.getElementById('main-content')?.focus();
+        }}
         sx={{
           position: 'absolute',
           left: -9999,
@@ -150,6 +157,8 @@ function AppShellLayout() {
         <Container
           component="main"
           id="main-content"
+          // Target of the skip link only; never a Tab stop, and no ring around the whole page.
+          tabIndex={-1}
           maxWidth={fullBleed ? false : 'xl'}
           disableGutters={fullBleed}
           sx={
@@ -168,6 +177,7 @@ function AppShellLayout() {
                   // render right where the tab bar visually covers it, not above it. Tablet has no
                   // such fixed bottom chrome (NavRail is a side rail instead), so nothing to clear.
                   pb: layout === 'mobile' ? mobileSafeBottom(0) : 0,
+                  outline: 'none',
                 }
               : {
                   flex: 1,
@@ -177,6 +187,7 @@ function AppShellLayout() {
                   // above it) so the last row of a list or the schedule grid's toolbar sheet isn't
                   // hidden behind them.
                   pb: layout === 'mobile' ? mobileSafeBottom(24) : 3,
+                  outline: 'none',
                 }
           }
         >

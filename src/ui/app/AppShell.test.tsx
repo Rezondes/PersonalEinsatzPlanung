@@ -177,4 +177,23 @@ describe('AppShell', () => {
     const focusable = Array.from(document.querySelectorAll<HTMLElement>('a[href], button'));
     expect(focusable[0]).toBe(link);
   });
+
+  // Teil 8, Package 2: the app routes on the hash, so following "#main-content" navigated to the
+  // unknown path /main-content and the locale loader bounced the user to Wochenplanung.
+  it('moves the focus to the main content without touching the URL hash', async () => {
+    window.location.hash = '#/de/employees';
+    renderAt('/schedule');
+    const link = screen.getByRole('link', { name: 'Zum Hauptinhalt springen' });
+
+    await userEvent.setup().click(link);
+
+    expect(window.location.hash).toBe('#/de/employees');
+    expect(document.activeElement).toBe(document.getElementById('main-content'));
+  });
+
+  it('makes the main content focusable by script only', () => {
+    renderAt('/schedule');
+
+    expect(document.getElementById('main-content')).toHaveAttribute('tabindex', '-1');
+  });
 });
