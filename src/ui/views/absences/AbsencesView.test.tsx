@@ -532,7 +532,8 @@ describe('AbsencesView', () => {
       // outruns the 1000ms default under CI's slower/shared runners (saw it flake there).
       expect(await screen.findByText('Urlaub', {}, { timeout: 5000 })).toBeInTheDocument();
       expect(screen.queryByText('Noch keine Abwesenheiten erfasst.')).not.toBeInTheDocument();
-    });
+      // The whole test needs more than the 5000ms default: the findByText above alone may take that long.
+    }, 15000);
 
     it('wires onClose so cancelling the dialog does not save', async () => {
       const user = userEvent.setup();
