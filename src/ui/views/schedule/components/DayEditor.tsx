@@ -355,6 +355,8 @@ export function DayEditor({
             value={creditedHoursOverride}
             onChange={setCreditedHoursOverride}
             sx={{ maxWidth: 280, mb: 2 }}
+            // Always shrunk, same reason as in AbsenceDialog: 314px of label in a 280px field.
+            slotProps={{ inputLabel: { shrink: true } }}
             {...validation.fieldProps(CREDITED_OVERRIDE_FIELD, t('dayEditorCreditedHoursHint'))}
           />
         )}

@@ -258,7 +258,9 @@ export function BranchDialog({ branch, onClose, onSaved, onError, secondaryActio
               label={t('branch.dialog.houseNumberLabel')}
               value={form.houseNumber}
               onChange={(e) => setForm((f) => ({ ...f, houseNumber: e.target.value }))}
-              sx={{ width: 130 }}
+              // flexShrink 0 here and on PLZ: the fullWidth neighbour squeezed them on a phone until
+              // their labels were cut off - the neighbour gives way instead.
+              sx={{ width: 130, flexShrink: 0 }}
             />
           </Stack>
           <Stack direction="row" spacing={2}>
@@ -266,7 +268,7 @@ export function BranchDialog({ branch, onClose, onSaved, onError, secondaryActio
               label={t('branch.dialog.postalCodeLabel')}
               value={form.postalCode}
               onChange={(e) => setForm((f) => ({ ...f, postalCode: e.target.value }))}
-              sx={{ width: 160 }}
+              sx={{ width: 160, flexShrink: 0 }}
             />
             <TextField
               label={t('branch.dialog.cityLabel')}

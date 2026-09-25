@@ -19,6 +19,7 @@ import { DecimalTextField } from '@ui/components/DecimalTextField';
 import { RequiredLegend } from '@ui/components/RequiredLegend';
 import { FormErrorNotice } from '@ui/components/FormErrorNotice';
 import { ResponsiveDialog } from '@ui/components/ResponsiveDialog';
+import { useBreakpoint } from '@ui/hooks/useBreakpoint';
 import type { RowAction } from '@ui/components/ResponsiveList/RowAction';
 
 interface FormState {
@@ -117,6 +118,7 @@ interface EmployeeDialogProps {
 export function EmployeeDialog({ branchId, employee, onClose, onSaved, onError, secondaryActions }: EmployeeDialogProps) {
   const { t } = useTranslation('masterdata');
   const { t: tCommon } = useTranslation();
+  const isMobile = useBreakpoint() === 'mobile';
   const [form, setForm] = useState<FormState>(() => (employee ? formFromEmployee(employee) : emptyForm()));
   const [saving, setSaving] = useState(false);
   const validation = useFormValidation<EmployeeField>(() =>
@@ -275,7 +277,8 @@ export function EmployeeDialog({ branchId, employee, onClose, onSaved, onError, 
             />
           )}
 
-          <Stack direction="row" spacing={2}>
+          {/* Long labels: side by side they were cut off on a phone ("Urlaubsanspruch/Jahr…"). */}
+          <Stack direction={isMobile ? 'column' : 'row'} spacing={2}>
             <DecimalTextField
               label={t('employee.dialog.vacationEntitlementLabel')}
               required
@@ -304,7 +307,7 @@ export function EmployeeDialog({ branchId, employee, onClose, onSaved, onError, 
             {...validation.fieldProps('birthDate', t('employee.dialog.birthDateHint'))}
           />
 
-          <Stack direction="row" spacing={2}>
+          <Stack direction={isMobile ? 'column' : 'row'} spacing={2}>
             <TextField
               label={t('employee.dialog.entryDateLabel')}
               type="date"

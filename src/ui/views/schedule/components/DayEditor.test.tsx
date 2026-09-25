@@ -72,6 +72,13 @@ describe('DayEditor', () => {
     });
   });
 
+  it('keeps the long "Angerechnete Stunden manuell (optional)" label shrunk, so it is never cut off (Teil 5)', async () => {
+    renderEditor();
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Urlaub' }));
+
+    expect(screen.getByText('Angerechnete Stunden manuell (optional)', { selector: 'label' })).toHaveAttribute('data-shrink', 'true');
+  });
+
   it('suggests a 06:00-14:00 shift on a free day and saves it', async () => {
     const user = userEvent.setup();
     const { onSave, onClose } = renderEditor();

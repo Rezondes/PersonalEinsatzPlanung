@@ -43,6 +43,14 @@ function pickSunday(value: string) {
 }
 
 describe('BranchDialog', () => {
+  it('does not let the full-width Straße/Ort squeeze the Nr./PLZ fields until their labels are cut off (Teil 5)', () => {
+    renderDialog();
+
+    // At 360px "Nr. (optional)" got 63 of its 98px and "PLZ (optional)" 76 of 106px.
+    expect(textbox('Nr. (optional)').closest('.MuiFormControl-root')).toHaveStyle({ flexShrink: '0' });
+    expect(textbox('PLZ (optional)').closest('.MuiFormControl-root')).toHaveStyle({ flexShrink: '0' });
+  });
+
   beforeEach(() => {
     createMock.mockReset();
     updateMock.mockReset();

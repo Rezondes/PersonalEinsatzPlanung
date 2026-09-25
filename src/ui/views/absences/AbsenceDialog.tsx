@@ -286,6 +286,9 @@ export function AbsenceDialog({ employees, absences, absence, onClose, onSaved, 
               value={form.creditedHoursOverride}
               onChange={(value) => setForm((f) => ({ ...f, creditedHoursOverride: value }))}
               sx={{ width: 280 }}
+              // Always shrunk: resting, an outlined label only gets the field width minus 24px, and
+              // this one (314px) was cut off in the 280px field.
+              slotProps={{ inputLabel: { shrink: true } }}
               {...validation.fieldProps(CREDITED_OVERRIDE_FIELD, t('dialog.creditedHoursHint'))}
             />
           )}

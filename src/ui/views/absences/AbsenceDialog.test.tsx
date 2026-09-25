@@ -76,6 +76,14 @@ async function chooseType(user: ReturnType<typeof userEvent.setup>, option: stri
 }
 
 describe('AbsenceDialog', () => {
+  it('keeps the long "Angerechnete Stunden manuell (optional)" label shrunk, so it is never cut off (Teil 5)', () => {
+    renderDialog();
+
+    // In its resting position an outlined label may only be the field width minus 24px: 314px of
+    // text in a 280px field was cut off on desktop and phone alike.
+    expect(screen.getByText('Angerechnete Stunden manuell (optional)', { selector: 'label' })).toHaveAttribute('data-shrink', 'true');
+  });
+
   beforeEach(() => {
     createMock.mockReset();
     createMock.mockImplementation(async (input) => ({ ...input, id: 'a1' as AbsenceId, createdAt: '' }));

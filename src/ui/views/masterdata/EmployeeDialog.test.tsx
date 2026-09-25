@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor, within, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { BranchId, EmployeeId } from '@domain/shared/ids';
@@ -31,7 +31,45 @@ async function chooseEmploymentType(user: ReturnType<typeof userEvent.setup>, op
   await user.click(screen.getByRole('option', { name: option }));
 }
 
+/** The Stack a field sits in: its FormControl's parent. */
+const rowOf = (input: HTMLElement) => input.closest('.MuiFormControl-root')!.parentElement!;
+
 describe('EmployeeDialog', () => {
+  describe('two-field rows (Teil 5, Package 9)', () => {
+    afterEach(() => {
+      // @ts-expect-error -- undo the per-test stub, jsdom has no matchMedia of its own to restore
+      delete window.matchMedia;
+    });
+
+    it('stacks the long-label pairs on a phone, where "Urlaubsanspruch/Jahr…" and "Austrittsdatum (option…" were cut off', () => {
+      // jsdom has no matchMedia of its own, so MUI's media queries answer false: the phone layout.
+      renderDialog();
+
+      expect(rowOf(textbox('Urlaubsanspruch/Jahr (Tage)'))).toHaveStyle({ flexDirection: 'column' });
+      expect(rowOf(textbox('Urlaubsanspruch/Jahr (Tage)'))).toContainElement(textbox('Std. je Feier-/Urlaubstag'));
+      expect(rowOf(screen.getByLabelText('Eintrittsdatum (optional)'))).toHaveStyle({ flexDirection: 'column' });
+      // Short labels still fit side by side.
+      expect(rowOf(textbox('Vorname'))).toHaveStyle({ flexDirection: 'row' });
+    });
+
+    it('keeps both pairs side by side on desktop', () => {
+      window.matchMedia = ((query: string) => ({
+        matches: /min-width/.test(query),
+        media: query,
+        onchange: null,
+        addListener: () => {},
+        removeListener: () => {},
+        addEventListener: () => {},
+        removeEventListener: () => {},
+        dispatchEvent: () => false,
+      })) as unknown as typeof window.matchMedia;
+      renderDialog();
+
+      expect(rowOf(textbox('Urlaubsanspruch/Jahr (Tage)'))).toHaveStyle({ flexDirection: 'row' });
+      expect(rowOf(screen.getByLabelText('Eintrittsdatum (optional)'))).toHaveStyle({ flexDirection: 'row' });
+    });
+  });
+
   beforeEach(() => {
     createMock.mockReset();
     updateMock.mockReset();
