@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { EmployeeId, AbsenceId } from '@domain/shared/ids';
@@ -40,6 +40,38 @@ const timeField = (label: string) => screen.getByLabelText((text) => text.replac
 const setTime = (label: string, value: string) => fireEvent.change(timeField(label), { target: { value } });
 
 describe('DayEditor', () => {
+  describe('Tagesart-Auswahl layout (Teil 5, Package 8)', () => {
+    const group = () => screen.getByRole('group', { name: 'Eintragsart' });
+
+    afterEach(() => {
+      // @ts-expect-error -- undo the per-test stub, jsdom has no matchMedia of its own to restore
+      delete window.matchMedia;
+    });
+
+    it('lays the six day types out as a 3x2 grid on a phone, where one row clipped "Arbeitszeit"', () => {
+      // jsdom has no matchMedia of its own, so MUI's media queries answer false: the phone layout.
+      renderEditor();
+
+      expect(group()).toHaveStyle({ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)' });
+    });
+
+    it('keeps the six day types in one row on desktop', () => {
+      window.matchMedia = ((query: string) => ({
+        matches: /min-width/.test(query),
+        media: query,
+        onchange: null,
+        addListener: () => {},
+        removeListener: () => {},
+        addEventListener: () => {},
+        removeEventListener: () => {},
+        dispatchEvent: () => false,
+      })) as unknown as typeof window.matchMedia;
+      renderEditor();
+
+      expect(group()).toHaveStyle({ display: 'flex' });
+    });
+  });
+
   it('suggests a 06:00-14:00 shift on a free day and saves it', async () => {
     const user = userEvent.setup();
     const { onSave, onClose } = renderEditor();

@@ -42,6 +42,7 @@ import { DecimalTextField } from '@ui/components/DecimalTextField';
 import { RequiredLegend } from '@ui/components/RequiredLegend';
 import { FormErrorNotice } from '@ui/components/FormErrorNotice';
 import { ResponsiveDialog } from '@ui/components/ResponsiveDialog';
+import { useBreakpoint } from '@ui/hooks/useBreakpoint';
 import { ShiftListEditor } from './ShiftListEditor';
 
 type Mode = 'Off' | 'Shift' | AbsenceType;
@@ -90,6 +91,7 @@ export function DayEditor({
 }: DayEditorProps) {
   const { t } = useTranslation('schedule');
   const { t: tCommon } = useTranslation();
+  const isMobile = useBreakpoint() === 'mobile';
   const [mode, setMode] = useState<Mode>('Off');
   // Raw input values (see shiftDraft.ts): a cleared time field stays empty and gets marked,
   // instead of being parsed away on every keystroke.
@@ -292,7 +294,26 @@ export function DayEditor({
           onChange={(_, value) => value && setMode(value)}
           size="small"
           aria-label={t('entryTypeAriaLabel')}
-          sx={{ mb: 2, display: 'flex', '& .MuiToggleButton-root': { flex: 1, minWidth: 0 } }}
+          sx={
+            isMobile
+              ? {
+                  // Six equal buttons in one row were 56px each on a 390px phone, clipping
+                  // "Arbeitszeit" (61px) and "Krankheit" (58px); a 3x2 grid gives each a third.
+                  mb: 2,
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(3, 1fr)',
+                  gap: 0.5,
+                  // ToggleButtonGroup joins neighbours in ONE row (negative margin, removed inner
+                  // borders/radii) - in a grid every button needs its own full border back.
+                  '& .MuiToggleButtonGroup-grouped': {
+                    m: 0,
+                    border: 1,
+                    borderColor: 'divider',
+                    borderRadius: 1,
+                  },
+                }
+              : { mb: 2, display: 'flex', '& .MuiToggleButton-root': { flex: 1, minWidth: 0 } }
+          }
         >
           <ToggleButton value="Off">{t('offMenuItem')}</ToggleButton>
           <ToggleButton value="Shift">{t('arbeitszeitOption')}</ToggleButton>
