@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ShiftDraft } from '@domain/schedule/shiftDraft';
@@ -18,6 +18,21 @@ const setTime = (label: string, value: string) => fireEvent.change(timeField(lab
 /** ShiftListEditor is fully controlled - this host mirrors what every real caller (DayEditor,
  * ShiftTemplateDialog) does: owns the drafts array itself and feeds onChange's result straight
  * back in, so a real user interaction (typing, clicking) produces real, observable DOM changes. */
+/** jsdom has no matchMedia, so useBreakpoint reads it as a phone; this answers every query as a
+ * desktop instead. */
+function mockDesktop() {
+  window.matchMedia = ((query: string) => ({
+    matches: true,
+    media: query,
+    onchange: null,
+    addListener: () => {},
+    removeListener: () => {},
+    addEventListener: () => {},
+    removeEventListener: () => {},
+    dispatchEvent: () => false,
+  })) as unknown as typeof window.matchMedia;
+}
+
 function Host({
   initialDrafts,
   onChangeSpy,
@@ -122,6 +137,29 @@ describe('ShiftListEditor', () => {
     await user.click(screen.getByRole('button', { name: 'Pause 1 entfernen (Schicht 1)' }));
 
     expect(allByLabel('Dauer (Min.)').map((el) => (el as HTMLInputElement).value)).toEqual(['45']);
+  });
+
+  // Teil 8, Package 18: 170 + 140px fields plus the delete button (~368px) in ~295px on a phone.
+  describe('pause row width', () => {
+    const pauseRow = () => allByLabel('Dauer (Min.)')[0].closest('.MuiStack-root') as HTMLElement;
+
+    afterEach(() => {
+      // @ts-expect-error -- undo the stub, jsdom has no matchMedia of its own
+      delete window.matchMedia;
+    });
+
+    it('wraps on a phone', () => {
+      render(<Host initialDrafts={[{ ...newShiftDraft(), breaks: [newBreakDraft(30)] }]} />);
+
+      expect(pauseRow()).toHaveStyle({ flexWrap: 'wrap' });
+    });
+
+    it('stays one row on a desktop', () => {
+      mockDesktop();
+      render(<Host initialDrafts={[{ ...newShiftDraft(), breaks: [newBreakDraft(30)] }]} />);
+
+      expect(pauseRow()).not.toHaveStyle({ flexWrap: 'wrap' });
+    });
   });
 
   // Teil 8, Package 16: every pause of a shift had the same name, "Pause entfernen (Schicht 1)".

@@ -24,6 +24,7 @@ import {
 import { shiftNetMinutes, formatHoursGerman } from '@domain/schedule/scheduleCalculation';
 import type { FieldValidationProps } from '@ui/hooks/useFormValidation';
 import { DecimalTextField } from '@ui/components/DecimalTextField';
+import { useBreakpoint } from '@ui/hooks/useBreakpoint';
 
 interface ShiftListEditorProps {
   drafts: ShiftDraft[];
@@ -52,6 +53,7 @@ function parseShiftDraft(draft: ShiftDraft): Shift | null {
  */
 export function ShiftListEditor({ drafts, onChange, fieldProps }: ShiftListEditorProps) {
   const { t } = useTranslation('schedule');
+  const isMobile = useBreakpoint() === 'mobile';
   const addShift = () => onChange([...drafts, newShiftDraft()]);
   const removeShift = (id: string) => onChange(drafts.filter((s) => s.id !== id));
   const updateShift = (id: string, change: Partial<ShiftDraft>) =>
@@ -132,7 +134,15 @@ export function ShiftListEditor({ drafts, onChange, fieldProps }: ShiftListEdito
               </Typography>
             )}
             {shift.breaks.map((brk, breakIndex) => (
-              <Stack key={brk.id} direction="row" spacing={1.5} alignItems="flex-start">
+              // Wraps on a phone: 170 + 140px plus the delete button did not fit the ~295px there.
+              <Stack
+                key={brk.id}
+                direction="row"
+                spacing={1.5}
+                useFlexGap
+                alignItems="flex-start"
+                flexWrap={isMobile ? 'wrap' : 'nowrap'}
+              >
                 <TextField
                   label={t('breakStartLabel')}
                   type="time"
@@ -140,7 +150,7 @@ export function ShiftListEditor({ drafts, onChange, fieldProps }: ShiftListEdito
                   value={brk.start}
                   onChange={(e) => updateBreak(shift.id, brk.id, { start: e.target.value })}
                   InputLabelProps={{ shrink: true }}
-                  sx={{ width: 170 }}
+                  sx={isMobile ? { flex: '1 1 140px' } : { width: 170 }}
                   {...fieldProps(breakFieldKey(brk.id, 'start'))}
                 />
                 <DecimalTextField
@@ -149,7 +159,7 @@ export function ShiftListEditor({ drafts, onChange, fieldProps }: ShiftListEdito
                   required
                   value={brk.durationMinutes}
                   onChange={(value) => updateBreak(shift.id, brk.id, { durationMinutes: value })}
-                  sx={{ width: 140 }}
+                  sx={isMobile ? { flex: '1 1 110px' } : { width: 140 }}
                   {...fieldProps(breakFieldKey(brk.id, 'durationMinutes'))}
                 />
                 <IconButton

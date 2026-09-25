@@ -25,6 +25,7 @@ import CircularProgress from '@mui/material/CircularProgress';
 import { ResponsiveDialog } from '@ui/components/ResponsiveDialog';
 import { useDiscardConfirm } from '@ui/hooks/useDiscardConfirm';
 import { ConfirmDialog } from '@ui/components/ConfirmDialog';
+import { useBreakpoint } from '@ui/hooks/useBreakpoint';
 
 function formatConflict(a: Absence): string {
   const range =
@@ -104,6 +105,7 @@ interface AbsenceDialogProps {
  * validateAbsence - deliberately not re-applied stricter on edit than on create (see
  * domain/CLAUDE.md's "update paths ... deliberately do NOT re-validate" rule). */
 export function AbsenceDialog({ employees, absences, absence, onClose, onSaved, onError }: AbsenceDialogProps) {
+  const isMobile = useBreakpoint() === 'mobile';
   const { t } = useTranslation('absences');
   const { t: tCommon } = useTranslation();
   const [form, setForm] = useState<FormState>(() => (absence ? formFromAbsence(absence) : emptyForm(employees[0]?.id ?? '')));
@@ -300,7 +302,9 @@ export function AbsenceDialog({ employees, absences, absence, onClose, onSaved, 
             />
           )}
           {form.type === 'Other' && (
-            <Stack direction="row" spacing={2} alignItems="flex-start">
+            // Stacked on a phone: next to a fixed 220px hours field the required Bezeichnung got
+            // ~100px, and the hours label was cut off.
+            <Stack direction={isMobile ? 'column' : 'row'} spacing={2} alignItems={isMobile ? 'stretch' : 'flex-start'}>
               <TextField
                 label={t('dialog.labelLabel')}
                 required
@@ -314,7 +318,8 @@ export function AbsenceDialog({ employees, absences, absence, onClose, onSaved, 
                 label={t('dialog.hoursPerDayLabel')}
                 value={form.hoursPerDay}
                 onChange={(value) => setForm((f) => ({ ...f, hoursPerDay: value }))}
-                sx={{ width: 220 }}
+                sx={isMobile ? undefined : { width: 220 }}
+                fullWidth={isMobile}
                 {...validation.fieldProps('hoursPerDay', t('dialog.hoursPerDayHint'))}
               />
             </Stack>

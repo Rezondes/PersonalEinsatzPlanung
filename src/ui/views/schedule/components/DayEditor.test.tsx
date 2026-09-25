@@ -154,6 +154,17 @@ describe('DayEditor', () => {
     expect(screen.queryByText('Bitte mindestens eine Schicht anlegen.')).not.toBeInTheDocument();
   });
 
+  // Teil 8, Package 18: next to a fixed 200px hours field the required Bezeichnung got ~110px.
+  it('stacks Bezeichnung and hours on a phone', async () => {
+    const user = userEvent.setup();
+    renderEditor();
+
+    await user.click(screen.getByRole('button', { name: 'Sonstige' }));
+
+    const row = screen.getByRole('textbox', { name: 'Bezeichnung' }).closest('.MuiStack-root') as HTMLElement;
+    expect(row).toHaveStyle({ flexDirection: 'column' });
+  });
+
   it('requires a Bezeichnung for Sonstige and passes it on trimmed', async () => {
     const user = userEvent.setup();
     const { onAbsenceSave, onClose } = renderEditor();

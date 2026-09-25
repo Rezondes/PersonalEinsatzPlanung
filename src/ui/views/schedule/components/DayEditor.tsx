@@ -400,7 +400,8 @@ export function DayEditor({
         )}
 
         {mode === 'Other' && (
-          <Stack direction="row" spacing={2} alignItems="flex-start" sx={{ mb: 2 }}>
+          // Stacked on a phone: next to a fixed 200px hours field the required Bezeichnung got ~110px.
+          <Stack direction={isMobile ? 'column' : 'row'} spacing={2} alignItems={isMobile ? 'stretch' : 'flex-start'} sx={{ mb: 2 }}>
             <TextField
               label={t('labelFieldLabel')}
               required
@@ -414,7 +415,8 @@ export function DayEditor({
               label={t('hoursOptionalLabel')}
               value={hoursPerDay}
               onChange={setHoursPerDay}
-              sx={{ width: 200 }}
+              sx={isMobile ? undefined : { width: 200 }}
+              fullWidth={isMobile}
               {...validation.fieldProps('hoursPerDay', t('dayEditorHoursHint'))}
             />
           </Stack>

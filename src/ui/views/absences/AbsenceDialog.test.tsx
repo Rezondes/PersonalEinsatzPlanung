@@ -153,6 +153,18 @@ describe('AbsenceDialog', () => {
     expect(updateMock).toHaveBeenCalledWith(expect.objectContaining({ note: 'Wichtige Schulung' }));
   });
 
+  // Teil 8, Package 18: next to a fixed 220px hours field the required Bezeichnung got ~100px and
+  // the hours label was cut off.
+  it('stacks Bezeichnung and hours on a phone', async () => {
+    const user = userEvent.setup();
+    renderDialog();
+
+    await chooseType(user, 'Sonstige');
+
+    const row = screen.getByRole('textbox', { name: 'Bezeichnung' }).closest('.MuiStack-root') as HTMLElement;
+    expect(row).toHaveStyle({ flexDirection: 'column' });
+  });
+
   it('requires a Bezeichnung for Sonstige and saves it trimmed instead of a placeholder', async () => {
     const user = userEvent.setup();
     renderDialog();
