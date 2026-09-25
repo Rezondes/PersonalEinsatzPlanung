@@ -206,6 +206,9 @@ export function createAppTheme(options: CreateAppThemeOptions): Theme {
             '[data-selectable]': { cursor: 'text' },
             // Replaces the tap highlight we just removed; see NAV_LINK_CLASS in app/nav/navLinkStyle.ts.
             '.pep-nav-link:active': { backgroundColor: accentSurface.pressed },
+            // AppShell focuses a page's h1 after a page change (tabindex=-1). That is for screen
+            // readers only: no ring for it, but a real keyboard focus still shows one.
+            'h1[tabindex="-1"]:focus:not(:focus-visible)': { outline: 'none' },
             // Honours the OS "reduce motion" setting for every MUI transition (dialog slide-up,
             // sheets, Collapse, tab colours) in one place. 0.01ms rather than 0: with 0 some
             // browsers fire no transitionend, and code waiting for it would hang.

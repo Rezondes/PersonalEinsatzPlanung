@@ -168,3 +168,16 @@ describe('createAppTheme, 44px touch targets on the phone UI', () => {
     });
   }
 });
+
+// Teil 6, Package 7: AppShell focuses the new page's h1 after a page change; that programmatic
+// focus must not paint a focus ring, while real keyboard focus (:focus-visible) still would.
+describe('createAppTheme, programmatically focused h1', () => {
+  it('hides the outline of an h1 with tabindex=-1 unless the focus is keyboard-visible', () => {
+    const overrides = createAppTheme({ mode: 'light', prefersDark: false }).components?.MuiCssBaseline?.styleOverrides as Record<
+      string,
+      Record<string, string>
+    >;
+
+    expect(overrides['h1[tabindex="-1"]:focus:not(:focus-visible)']).toEqual({ outline: 'none' });
+  });
+});

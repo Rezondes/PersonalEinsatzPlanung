@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
-import { MemoryRouter, Routes, Route } from 'react-router-dom';
+import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { MemoryRouter, Routes, Route, Link, useNavigate } from 'react-router-dom';
 import { useBranchesStore } from '@ui/app/store/branchesStore';
 import { useBranchSelectionStore } from '@ui/app/store/branchSelectionStore';
 import { AppShell } from './AppShell';
@@ -26,6 +27,19 @@ function mockViewportWidth(width: number, height = 900) {
   }) as typeof window.matchMedia;
 }
 
+function PageA() {
+  const navigate = useNavigate();
+  return (
+    <>
+      <h1>Seite A</h1>
+      <Link to="/page-b">zu B</Link>
+      <button type="button" onClick={() => navigate('/page-a?x=1')}>
+        nur Query
+      </button>
+    </>
+  );
+}
+
 function FullBleedStub() {
   usePageActions({ fullBleedPage: true });
   return <div>fullbleed-view</div>;
@@ -39,6 +53,8 @@ function renderAt(path: string) {
           <Route path="schedule" element={<div>schedule-view</div>} />
           <Route path="absences" element={<div>absences-view</div>} />
           <Route path="fullbleed" element={<FullBleedStub />} />
+          <Route path="page-a" element={<PageA />} />
+          <Route path="page-b" element={<h1>Seite B</h1>} />
         </Route>
       </Routes>
     </MemoryRouter>,
@@ -95,6 +111,34 @@ describe('AppShell', () => {
     // The shell root no longer caps the height, so every view's height:100% resolves to its
     // content height and the whole page scrolls (the Mitarbeiter list was 0px tall at 780x360).
     expect(getComputedStyle(main.parentElement!.parentElement!).height).not.toBe('100dvh');
+  });
+
+  // Teil 6, Package 7: after a page change the focus stayed on the nav tab, so a screen reader
+  // only heard the changed document title.
+  it('moves the focus to the h1 of the new page after a page change', async () => {
+    renderAt('/page-a');
+
+    await userEvent.setup().click(screen.getByRole('link', { name: 'zu B' }));
+
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('heading', { level: 1, name: 'Seite B' })));
+    expect(screen.getByRole('heading', { level: 1, name: 'Seite B' })).toHaveAttribute('tabindex', '-1');
+  });
+
+  it('leaves the focus alone on the first load, so the skip link stays the first stop', async () => {
+    renderAt('/page-a');
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+
+    expect(document.activeElement).toBe(document.body);
+  });
+
+  it('does not move the focus when only the query changes (a week change on the same page)', async () => {
+    renderAt('/page-a');
+    const button = screen.getByRole('button', { name: 'nur Query' });
+
+    await userEvent.setup().click(button);
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+
+    expect(document.activeElement).toBe(button);
   });
 
   it('hat einen Skip-Link als erstes fokussierbares Element', () => {

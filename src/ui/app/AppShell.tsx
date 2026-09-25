@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef } from 'react';
+import { useEffect, useLayoutEffect, useRef } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Container from '@mui/material/Container';
@@ -49,6 +49,21 @@ function AppShellLayout() {
   const { t } = useTranslation('nav');
   const titleKey = titleForPath(stripLocalePrefix(location.pathname, locale));
   useDocumentTitle(titleKey ? t(titleKey) : undefined);
+
+  // After a page change, focus the new page's h1 so a screen reader announces where the user
+  // landed instead of staying silent on the nav tab (whose own element may even be gone). Not on
+  // the first load (the skip link stays the first stop) and not for a query-only change, e.g.
+  // the week in ?kw=. No extra frame needed: effects run after the commit that already contains the
+  // new page's h1 (and requestAnimationFrame would never fire in a background tab).
+  const previousPath = useRef(location.pathname);
+  useEffect(() => {
+    if (previousPath.current === location.pathname) return;
+    previousPath.current = location.pathname;
+    const heading = document.querySelector<HTMLElement>('main h1');
+    if (!heading) return;
+    heading.setAttribute('tabindex', '-1');
+    heading.focus();
+  }, [location.pathname]);
 
   // The header's toolbar wraps at narrow widths, so its height is not a constant. Publishing it as
   // a CSS custom property lets a sticky element below it (the Wochenplanung toolbar) dock exactly
