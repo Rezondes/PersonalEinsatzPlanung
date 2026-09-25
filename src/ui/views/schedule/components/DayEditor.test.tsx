@@ -241,3 +241,49 @@ describe('DayEditor', () => {
     expect(screen.getByRole('group', { name: 'Eintragsart' })).toBeInTheDocument();
   });
 });
+
+describe('DayEditor discard confirmation', () => {
+  it('does not ask for the untouched 06:00-14:00 suggestion on a free day', async () => {
+    const { onClose } = renderEditor();
+
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Abbrechen' }));
+
+    expect(screen.queryByText('Änderungen verwerfen?')).not.toBeInTheDocument();
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('asks on Abbrechen once the end time was changed', async () => {
+    const { onClose } = renderEditor();
+
+    setTime('Ende', '15:00');
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Abbrechen' }));
+
+    expect(await screen.findByText('Änderungen verwerfen?')).toBeInTheDocument();
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('compares against the day it was reopened for, not the previous one', async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    const props = {
+      onClose,
+      onSave: vi.fn(),
+      onAbsenceSave: vi.fn(),
+      employeeId: m1,
+      employeeName: 'Anna Müller',
+      employeeTitleName: 'Müller, Anna',
+      day: 'Montag' as const,
+      date,
+    };
+    const { rerender } = render(<DayEditor open {...props} entry={{ type: 'Off' }} />);
+    setTime('Ende', '15:00');
+
+    const nextDay: DayEntry = { type: 'Off' };
+    rerender(<DayEditor open={false} {...props} entry={nextDay} />);
+    rerender(<DayEditor open {...props} entry={nextDay} />);
+    await user.click(screen.getByRole('button', { name: 'Abbrechen' }));
+
+    expect(screen.queryByText('Änderungen verwerfen?')).not.toBeInTheDocument();
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+});

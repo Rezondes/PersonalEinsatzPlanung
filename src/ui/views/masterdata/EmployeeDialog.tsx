@@ -20,6 +20,7 @@ import { RequiredLegend } from '@ui/components/RequiredLegend';
 import { FormErrorNotice } from '@ui/components/FormErrorNotice';
 import { ResponsiveDialog } from '@ui/components/ResponsiveDialog';
 import { useBreakpoint } from '@ui/hooks/useBreakpoint';
+import { useDiscardConfirm } from '@ui/hooks/useDiscardConfirm';
 import type { RowAction } from '@ui/components/ResponsiveList/RowAction';
 
 interface FormState {
@@ -121,6 +122,12 @@ export function EmployeeDialog({ branchId, employee, onClose, onSaved, onError, 
   const isMobile = useBreakpoint() === 'mobile';
   const [form, setForm] = useState<FormState>(() => (employee ? formFromEmployee(employee) : emptyForm()));
   const [saving, setSaving] = useState(false);
+  // A flat form of strings/numbers, so comparing the serialized form is enough.
+  const [initialForm] = useState(() => JSON.stringify(form));
+  const { requestClose, confirmDialog } = useDiscardConfirm(
+    JSON.stringify(form) !== initialForm,
+    saving ? undefined : onClose,
+  );
   const validation = useFormValidation<EmployeeField>(() =>
     validateEmployee({
       firstName: form.firstName,
@@ -173,7 +180,7 @@ export function EmployeeDialog({ branchId, employee, onClose, onSaved, onError, 
   return (
     <ResponsiveDialog
       open
-      onClose={saving ? undefined : onClose}
+      onClose={requestClose}
       title={employee ? t('employee.dialog.titleEdit') : t('employee.newButton')}
       subtitle={employee ? t('employee.dialog.subtitleEdit') : undefined}
       contentRef={validation.containerRef}
@@ -181,7 +188,7 @@ export function EmployeeDialog({ branchId, employee, onClose, onSaved, onError, 
       actions={
         <>
           <FormErrorNotice errors={validation.errors} />
-          <Button onClick={onClose} disabled={saving}>
+          <Button onClick={requestClose} disabled={saving}>
             {tCommon('cancel')}
           </Button>
           <Button
@@ -328,6 +335,7 @@ export function EmployeeDialog({ branchId, employee, onClose, onSaved, onError, 
             />
           </Stack>
         </Stack>
+        {confirmDialog}
     </ResponsiveDialog>
   );
 }

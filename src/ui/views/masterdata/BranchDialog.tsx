@@ -21,6 +21,7 @@ import { useFormValidation } from '@ui/hooks/useFormValidation';
 import { RequiredLegend } from '@ui/components/RequiredLegend';
 import { FormErrorNotice } from '@ui/components/FormErrorNotice';
 import { ResponsiveDialog } from '@ui/components/ResponsiveDialog';
+import { useDiscardConfirm } from '@ui/hooks/useDiscardConfirm';
 import type { RowAction } from '@ui/components/ResponsiveList/RowAction';
 
 interface FormState {
@@ -103,6 +104,13 @@ export function BranchDialog({ branch, onClose, onSaved, onError, secondaryActio
   const [saving, setSaving] = useState(false);
   const [logoReading, setLogoReading] = useState(false);
   const [newSunday, setNewSunday] = useState('');
+  // Flat values only (the logo is a data-URL string), so comparing the serialized state is enough.
+  // A picked but not yet added Sonntag counts as input too.
+  const [initialState] = useState(() => JSON.stringify({ form, newSunday: '' }));
+  const { requestClose, confirmDialog } = useDiscardConfirm(
+    JSON.stringify({ form, newSunday }) !== initialState,
+    saving ? undefined : onClose,
+  );
   const validation = useFormValidation<BranchField>(() => validateBranch({ name: form.name, branchNumber: form.branchNumber }));
   const sundayValidation = useFormValidation<OpenSundayField>(() => validateOpenSundayDate(newSunday, form.allowedOpenSundays));
 
@@ -178,14 +186,14 @@ export function BranchDialog({ branch, onClose, onSaved, onError, secondaryActio
   return (
     <ResponsiveDialog
       open
-      onClose={saving ? undefined : onClose}
+      onClose={requestClose}
       title={branch ? t('branch.dialog.titleEdit') : t('branch.newButton')}
       contentRef={validation.containerRef}
       secondaryActions={secondaryActions}
       actions={
         <>
           <FormErrorNotice errors={validation.errors} />
-          <Button onClick={onClose} disabled={saving}>
+          <Button onClick={requestClose} disabled={saving}>
             {tCommon('cancel')}
           </Button>
           <Button
@@ -310,6 +318,7 @@ export function BranchDialog({ branch, onClose, onSaved, onError, secondaryActio
             ))}
           </Stack>
         </Stack>
+      {confirmDialog}
     </ResponsiveDialog>
   );
 }

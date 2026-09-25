@@ -14,6 +14,8 @@ interface ConfirmDialogProps {
   title: string;
   text: string;
   confirmText?: string;
+  /** Label of the dismissing button; defaults to "Abbrechen". */
+  cancelText?: string;
   dangerous?: boolean;
   /** While true the dialog stays open with a spinning confirm button and cannot be dismissed.
    * For confirmations whose action takes a visible moment (a full database replace, a network
@@ -31,6 +33,7 @@ export function ConfirmDialog({
   title,
   text,
   confirmText,
+  cancelText,
   dangerous = false,
   busy = false,
   onConfirm,
@@ -59,7 +62,7 @@ export function ConfirmDialog({
           </Typography>
         )}
         <Button onClick={onCancel} disabled={busy}>
-          {t('cancel')}
+          {cancelText ?? t('cancel')}
         </Button>
         <Button
           variant="contained"

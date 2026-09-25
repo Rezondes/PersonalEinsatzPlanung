@@ -23,6 +23,7 @@ import { RequiredLegend } from '@ui/components/RequiredLegend';
 import { FormErrorNotice } from '@ui/components/FormErrorNotice';
 import CircularProgress from '@mui/material/CircularProgress';
 import { ResponsiveDialog } from '@ui/components/ResponsiveDialog';
+import { useDiscardConfirm } from '@ui/hooks/useDiscardConfirm';
 import { ConfirmDialog } from '@ui/components/ConfirmDialog';
 
 function formatConflict(a: Absence): string {
@@ -153,6 +154,12 @@ export function AbsenceDialog({ employees, absences, absence, onClose, onSaved, 
 
   const [saving, setSaving] = useState(false);
   const [showConfirmation, setShowConfirmation] = useState(false);
+  // A flat form of strings/numbers/booleans, so comparing the serialized form is enough.
+  const [initialForm] = useState(() => JSON.stringify(form));
+  const { requestClose, confirmDialog } = useDiscardConfirm(
+    JSON.stringify(form) !== initialForm,
+    saving ? undefined : onClose,
+  );
 
   // Deliberately NOT the raw findOverlappingAbsences: a single-day absence intentionally nested
   // inside a longer one (e.g. a Feiertag inside a booked Urlaubswoche) is an established, valid
@@ -230,13 +237,13 @@ export function AbsenceDialog({ employees, absences, absence, onClose, onSaved, 
     <>
     <ResponsiveDialog
       open
-      onClose={saving ? undefined : onClose}
+      onClose={requestClose}
       title={absence ? t('dialog.titleEdit') : t('dialog.titleNew')}
       contentRef={validation.containerRef}
       actions={
         <>
           <FormErrorNotice errors={validation.errors} />
-          <Button onClick={onClose} disabled={saving}>
+          <Button onClick={requestClose} disabled={saving}>
             {tCommon('cancel')}
           </Button>
           <Button
@@ -368,6 +375,7 @@ export function AbsenceDialog({ employees, absences, absence, onClose, onSaved, 
           )}
           {form.type === 'Illness' && <Alert severity="info">{t('dialog.illnessNotice')}</Alert>}
         </Stack>
+      {confirmDialog}
     </ResponsiveDialog>
 
     <ConfirmDialog

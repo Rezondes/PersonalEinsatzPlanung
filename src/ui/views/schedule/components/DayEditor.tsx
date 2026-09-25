@@ -42,10 +42,33 @@ import { DecimalTextField } from '@ui/components/DecimalTextField';
 import { RequiredLegend } from '@ui/components/RequiredLegend';
 import { FormErrorNotice } from '@ui/components/FormErrorNotice';
 import { ResponsiveDialog } from '@ui/components/ResponsiveDialog';
+import { useDiscardConfirm } from '@ui/hooks/useDiscardConfirm';
 import { useBreakpoint } from '@ui/hooks/useBreakpoint';
 import { ShiftListEditor } from './ShiftListEditor';
 
 type Mode = 'Off' | 'Shift' | AbsenceType;
+
+interface DayState {
+  mode: Mode;
+  drafts: ShiftDraft[];
+  label: string;
+  hoursPerDay: number | undefined;
+  netOverrideHours: number | undefined;
+  creditedHoursOverride: number | undefined;
+}
+
+const EMPTY_DAY_STATE: DayState = {
+  mode: 'Off',
+  drafts: [],
+  label: '',
+  hoursPerDay: undefined,
+  netOverrideHours: undefined,
+  creditedHoursOverride: undefined,
+};
+
+/** Fixed order, so the same state always gives the same string (the unsaved-changes check). */
+const serializeDayState = (s: DayState) =>
+  JSON.stringify([s.mode, s.drafts, s.label, s.hoursPerDay, s.netOverrideHours, s.creditedHoursOverride]);
 
 /** Extra fields "Sonstige" and the credited-hours variants carry. The label is always a
  * non-empty, trimmed string here (validated before saving) for "Sonstige"; hoursPerDay is
@@ -108,6 +131,7 @@ export function DayEditor({
   // hours here, same as netOverrideHours, and converted to minutes right before saving.
   const [creditedHoursOverride, setCreditedHoursOverride] = useState<number | undefined>(undefined);
   const [showConfirmation, setShowConfirmation] = useState(false);
+  const [baseline, setBaseline] = useState('');
 
   const isSingleDayAbsence = !!absence && absence.from === date && absence.to === date;
   const isMultiDayAbsence = !!absence && !isSingleDayAbsence;
@@ -135,44 +159,51 @@ export function DayEditor({
     if (!open) return;
     resetValidation();
 
-    setNetOverrideHours(
+    const netOverride =
       entry.type === 'Shift' && entry.netMinutesOverride !== undefined
         ? minutesToDecimalHours(entry.netMinutesOverride)
-        : undefined,
-    );
-
+        : undefined;
+    let next: DayState;
     if (isSingleDayAbsence && absence) {
-      setMode(absence.type);
-      setLabel(absence.type === 'Other' ? absence.label : '');
-      setHoursPerDay(absence.type === 'Other' ? absence.hoursPerDay : undefined);
-      setCreditedHoursOverride(
-        absence.type !== 'Other' && absence.creditedMinutesOverride !== undefined
-          ? minutesToDecimalHours(absence.creditedMinutesOverride)
-          : undefined,
-      );
-      setDrafts(entry.type === 'Shift' ? entry.shifts.map(shiftToDraft) : []);
+      next = {
+        mode: absence.type,
+        drafts: entry.type === 'Shift' ? entry.shifts.map(shiftToDraft) : [],
+        label: absence.type === 'Other' ? absence.label : '',
+        hoursPerDay: absence.type === 'Other' ? absence.hoursPerDay : undefined,
+        netOverrideHours: netOverride,
+        creditedHoursOverride:
+          absence.type !== 'Other' && absence.creditedMinutesOverride !== undefined
+            ? minutesToDecimalHours(absence.creditedMinutesOverride)
+            : undefined,
+      };
     } else if (entry.type === 'Shift' && entry.shifts.length > 0) {
-      setMode('Shift');
-      setDrafts(entry.shifts.map(shiftToDraft));
-      setLabel('');
-      setHoursPerDay(undefined);
-      setCreditedHoursOverride(undefined);
+      next = { ...EMPTY_DAY_STATE, mode: 'Shift', drafts: entry.shifts.map(shiftToDraft), netOverrideHours: netOverride };
     } else {
       // Free day: suggest work time with a default shift right away instead of
       // showing "Off" first, saving a click for new entries. If the user cancels, the day stays
       // free since nothing is saved here.
-      setMode('Shift');
-      setDrafts([newShiftDraft()]);
-      setLabel('');
-      setHoursPerDay(undefined);
-      setCreditedHoursOverride(undefined);
+      next = { ...EMPTY_DAY_STATE, mode: 'Shift', drafts: [newShiftDraft()], netOverrideHours: netOverride };
     }
+    setMode(next.mode);
+    setDrafts(next.drafts);
+    setLabel(next.label);
+    setHoursPerDay(next.hoursPerDay);
+    setNetOverrideHours(next.netOverrideHours);
+    setCreditedHoursOverride(next.creditedHoursOverride);
+    // Taken here, not on mount: the editor stays mounted, and the default suggestion above is
+    // what the user started from, so an untouched suggestion is no change.
+    setBaseline(serializeDayState(next));
     // Deliberately excludes `resetValidation`: useFormValidation returns a fresh `reset` closure
     // every render (not memoized, see its own comment), so listing it here would either re-run
     // this effect every render or require memoizing the hook for no real benefit - this effect
     // only needs to run again when the dialog reopens for a (possibly different) day.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, entry, absence, date, isSingleDayAbsence]);
+
+  const { requestClose, confirmDialog } = useDiscardConfirm(
+    serializeDayState({ mode, drafts, label, hoursPerDay, netOverrideHours, creditedHoursOverride }) !== baseline,
+    onClose,
+  );
 
   // Only complete drafts can be checked against ArbZG rules; while a field is still empty the
   // field validation below blocks saving anyway.
@@ -277,7 +308,7 @@ export function DayEditor({
     <>
       <ResponsiveDialog
         open={open}
-        onClose={onClose}
+        onClose={requestClose}
         title={t('dialogTitle', { name: employeeTitleName, day })}
         subtitle={formatISODateGerman(date)}
         maxWidth="sm"
@@ -285,7 +316,7 @@ export function DayEditor({
         actions={
           <>
             <FormErrorNotice errors={validation.errors} />
-            <Button onClick={onClose}>{tCommon('cancel')}</Button>
+            <Button onClick={requestClose}>{tCommon('cancel')}</Button>
             <Button variant="contained" onClick={save}>
               {tCommon('save')}
             </Button>
@@ -414,6 +445,7 @@ export function DayEditor({
         }}
         onCancel={() => setShowConfirmation(false)}
       />
+      {confirmDialog}
     </>
   );
 }

@@ -221,3 +221,18 @@ describe('ShiftTemplateDialog', () => {
     });
   });
 });
+
+describe('ShiftTemplateDialog discard confirmation', () => {
+  it('closes at once without a change, but asks before the X drops a changed end time', async () => {
+    const user = userEvent.setup();
+    const { onClose } = renderDialog();
+
+    await user.click(screen.getByRole('button', { name: 'Schließen' }));
+    expect(onClose).toHaveBeenCalledTimes(1);
+
+    setTime('Ende', '15:00');
+    await user.click(screen.getByRole('button', { name: 'Schließen' }));
+    expect(await screen.findByText('Änderungen verwerfen?')).toBeInTheDocument();
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+});

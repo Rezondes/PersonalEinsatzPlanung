@@ -261,3 +261,18 @@ describe('AbsenceDialog', () => {
     expect(screen.queryByText('Überschneidung mit bestehender Abwesenheit?')).not.toBeInTheDocument();
   });
 });
+
+describe('AbsenceDialog discard confirmation', () => {
+  it('closes at once without a change, but asks before the X drops a typed note', async () => {
+    const user = userEvent.setup();
+    const { onClose } = renderDialog();
+
+    await user.click(screen.getByRole('button', { name: 'Schließen' }));
+    expect(onClose).toHaveBeenCalledTimes(1);
+
+    await user.type(screen.getByLabelText('Notiz (optional)'), 'Ski-Urlaub');
+    await user.click(screen.getByRole('button', { name: 'Schließen' }));
+    expect(await screen.findByText('Änderungen verwerfen?')).toBeInTheDocument();
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+});

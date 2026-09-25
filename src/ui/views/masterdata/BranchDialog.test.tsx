@@ -234,3 +234,16 @@ describe('BranchDialog', () => {
     expect(screen.queryByRole('img')).not.toBeInTheDocument();
   });
 });
+
+describe('BranchDialog discard confirmation', () => {
+  it('asks before the X drops a typed name', async () => {
+    const user = userEvent.setup();
+    const { onClose } = renderDialog();
+
+    await user.type(textbox('Name'), 'Velpke');
+    await user.click(screen.getByRole('button', { name: 'Schließen' }));
+
+    expect(await screen.findByText('Änderungen verwerfen?')).toBeInTheDocument();
+    expect(onClose).not.toHaveBeenCalled();
+  });
+});

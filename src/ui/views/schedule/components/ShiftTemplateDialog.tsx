@@ -23,6 +23,7 @@ import { useFormValidation } from '@ui/hooks/useFormValidation';
 import { RequiredLegend } from '@ui/components/RequiredLegend';
 import { FormErrorNotice } from '@ui/components/FormErrorNotice';
 import { ResponsiveDialog } from '@ui/components/ResponsiveDialog';
+import { useDiscardConfirm } from '@ui/hooks/useDiscardConfirm';
 import { DecimalTextField } from '@ui/components/DecimalTextField';
 import { ShiftListEditor } from './ShiftListEditor';
 
@@ -65,6 +66,10 @@ export function ShiftTemplateDialog({
     template?.kind === 'Other' ? template.hoursPerDay : undefined,
   );
   const [saving, setSaving] = useState(false);
+  // Drafts are raw input strings, so comparing the serialized fields is enough.
+  const current = JSON.stringify({ kind, name, drafts, hoursPerDay });
+  const [initialState] = useState(current);
+  const { requestClose, confirmDialog } = useDiscardConfirm(current !== initialState, saving ? undefined : onClose);
 
   // Other-kind templates use the single "Bezeichnung" field for both the toolbar tile's own name
   // AND the absence's label applied to a day - asking for the same text twice would be pointless
@@ -137,13 +142,13 @@ export function ShiftTemplateDialog({
   return (
     <ResponsiveDialog
       open
-      onClose={saving ? undefined : onClose}
+      onClose={requestClose}
       title={template ? t('templateDialogTitleEdit') : t('templateDialogTitleNew')}
       contentRef={validation.containerRef}
       actions={
         <>
           <FormErrorNotice errors={validation.errors} />
-          <Button onClick={onClose} disabled={saving}>
+          <Button onClick={requestClose} disabled={saving}>
             {tCommon('cancel')}
           </Button>
           <Button
@@ -191,6 +196,7 @@ export function ShiftTemplateDialog({
             />
           )}
         </Stack>
+      {confirmDialog}
     </ResponsiveDialog>
   );
 }

@@ -36,6 +36,48 @@ async function chooseEmploymentType(user: ReturnType<typeof userEvent.setup>, op
 const rowOf = (input: HTMLElement) => input.closest('.MuiFormControl-root')!.parentElement!;
 
 describe('EmployeeDialog', () => {
+  // Teil 7, Package 3: Escape with a typed name used to close the dialog and drop the input.
+  describe('discard confirmation', () => {
+    it('asks before Escape drops a typed name, and closes only after Verwerfen', async () => {
+      const user = userEvent.setup();
+      const { onClose } = renderDialog();
+
+      await user.type(textbox('Vorname'), 'Test');
+      await user.keyboard('{Escape}');
+
+      expect(await screen.findByText('Änderungen verwerfen?')).toBeInTheDocument();
+      expect(onClose).not.toHaveBeenCalled();
+
+      await user.click(screen.getByRole('button', { name: 'Verwerfen' }));
+      expect(onClose).toHaveBeenCalledTimes(1);
+    });
+
+    it('asks on Abbrechen after a change, but not without one', async () => {
+      const user = userEvent.setup();
+      const { onClose } = renderDialog();
+
+      await user.click(abbrechen());
+      expect(onClose).toHaveBeenCalledTimes(1);
+
+      await user.type(textbox('Vorname'), 'Test');
+      await user.click(abbrechen());
+      expect(await screen.findByText('Änderungen verwerfen?')).toBeInTheDocument();
+      expect(onClose).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not count input that was typed and deleted again as a change', async () => {
+      const user = userEvent.setup();
+      const { onClose } = renderDialog();
+
+      await user.type(textbox('Vorname'), 'Te');
+      await user.clear(textbox('Vorname'));
+      await user.keyboard('{Escape}');
+
+      expect(screen.queryByText('Änderungen verwerfen?')).not.toBeInTheDocument();
+      expect(onClose).toHaveBeenCalledTimes(1);
+    });
+  });
+
   describe('two-field rows (Teil 5, Package 9)', () => {
     afterEach(() => {
       // @ts-expect-error -- undo the per-test stub, jsdom has no matchMedia of its own to restore
