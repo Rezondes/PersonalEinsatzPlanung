@@ -110,7 +110,7 @@ function AbsenceCard({
       sx={{
         display: 'flex',
         alignItems: 'center',
-        gap: 0.5,
+        gap: 1, // 8px between card and kebab: the minimum gap between two touch targets
         width: '100%',
         bgcolor: 'background.paper',
         border: '1px solid',

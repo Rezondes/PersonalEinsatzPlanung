@@ -371,6 +371,14 @@ describe('EmployeeMasterDataView', () => {
     expect(screen.getByRole('dialog')).toBeInTheDocument();
   });
 
+  it('keeps 8px between the mobile card and its kebab (Teil 6)', async () => {
+    mockViewportWidth(500);
+    renderView();
+    await screen.findByText('Bauer, Anna');
+
+    expect(screen.getByRole('button', { name: 'Weitere Aktionen für Bauer, Anna' }).parentElement).toHaveStyle({ gap: '8px' });
+  });
+
   it('shows the Resturlaub figure as a compact line on the mobile card too', async () => {
     mockViewportWidth(500);
     renderView();

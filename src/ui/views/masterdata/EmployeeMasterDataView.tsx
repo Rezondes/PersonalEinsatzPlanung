@@ -185,7 +185,7 @@ function EmployeeCard({
       sx={{
         display: 'flex',
         alignItems: 'flex-start',
-        gap: 0.5,
+        gap: 1, // 8px between card and kebab: the minimum gap between two touch targets
         width: '100%',
         minHeight: 76,
         pr: 0.5,

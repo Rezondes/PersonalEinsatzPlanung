@@ -131,6 +131,15 @@ describe('BranchMasterDataView', () => {
     expect(container.querySelector('[data-testid="ChevronRightIcon"]')).toBeNull();
   });
 
+  it('keeps 8px between the mobile card and its kebab (Teil 6)', () => {
+    mockViewportWidth(500);
+    seedBranches([makeBranch({ id: 'branch-1' as BranchId, name: 'Filiale Nord', branchNumber: '001' })]);
+
+    renderView();
+
+    expect(screen.getByRole('button', { name: 'Weitere Aktionen für Filiale Nord' }).parentElement).toHaveStyle({ gap: '8px' });
+  });
+
   it('zeigt eine h1-Überschrift mit dem Seitentitel', () => {
     renderView();
 

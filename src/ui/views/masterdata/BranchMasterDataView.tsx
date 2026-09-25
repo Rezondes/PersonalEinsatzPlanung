@@ -103,7 +103,7 @@ function BranchCard({ branch, onTap, onLongPress }: { branch: Branch; onTap: () 
       sx={{
         display: 'flex',
         alignItems: 'center',
-        gap: 0.5,
+        gap: 1, // 8px between card and kebab: the minimum gap between two touch targets
         width: '100%',
         minHeight: 76,
         pr: 0.5,

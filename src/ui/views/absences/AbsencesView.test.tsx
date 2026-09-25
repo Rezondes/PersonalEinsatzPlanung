@@ -745,6 +745,16 @@ describe('AbsencesView', () => {
       expect(screen.getByRole('combobox', { name: 'Jahr' })).toBeInTheDocument();
     });
 
+    it('keeps 8px between the mobile card and its kebab (Teil 6)', async () => {
+      mockViewportWidth(500);
+      employeeForBranchMock.mockResolvedValue([e1]);
+      absenceForBranchMock.mockResolvedValue([a1]);
+      renderView();
+      await screen.findByText('Bauer, Anna');
+
+      expect(screen.getByRole('button', { name: 'Weitere Aktionen für Abwesenheit von Bauer, Anna' }).parentElement).toHaveStyle({ gap: '8px' });
+    });
+
     it('opens the edit dialog when tapping the mobile card itself, pre-filled for that absence', async () => {
       mockViewportWidth(500);
       const user = userEvent.setup();
