@@ -453,7 +453,7 @@ describe('MonthOverviewView', () => {
       expect(menuButton.parentElement).toHaveStyle({ whiteSpace: 'nowrap' });
     });
 
-    it('keeps a long employee name on one line on a phone, with the full name as title', async () => {
+    it('keeps a long employee name on one line on a phone (a tap shows it in full, see Teil 8)', async () => {
       selectBranch();
       const employee = makeEmployee({ lastName: 'Schmidt-Langenberg', firstName: 'Maximilian' });
       employeeForBranch.mockResolvedValue([employee]);
@@ -461,7 +461,6 @@ describe('MonthOverviewView', () => {
       renderView();
 
       const name = await screen.findByText(fullName(employee));
-      expect(name).toHaveAttribute('title', fullName(employee));
       expect(name).toHaveStyle({ whiteSpace: 'nowrap', textOverflow: 'ellipsis' });
     });
   });
@@ -1008,6 +1007,70 @@ describe('MonthOverviewView', () => {
 
     await user.click(screen.getByText(currentMonthLabel));
     await waitFor(() => expect(screen.queryByText(/überschreitet die gesetzlich zulässige Höchstgrenze/)).not.toBeInTheDocument());
+  });
+
+  // Teil 8, Package 21
+  describe('details (Teil 8)', () => {
+    it('locks Exportieren while the month is loading, so it cannot export a table of zeros', async () => {
+      selectBranch();
+      employeeForBranch.mockResolvedValue([makeEmployee()]);
+      scheduleForBranch.mockReturnValue(new Promise(() => {}));
+      renderView();
+
+      expect(await screen.findByRole('button', { name: 'Exportieren' })).toBeDisabled();
+    });
+
+    it('shows the CSV preview in the standard app dialog, with a close button', async () => {
+      selectBranch();
+      const employee = makeEmployee();
+      employeeForBranch.mockResolvedValue([employee]);
+      scheduleForBranch.mockResolvedValue([]);
+      const user = userEvent.setup();
+      renderView();
+      await screen.findByText(currentMonthLabel);
+
+      await user.click(screen.getByRole('button', { name: 'Exportieren' }));
+
+      const dialog = await screen.findByRole('dialog', { name: 'Vorschau des CSV-Exports' });
+      expect(within(dialog).getByRole('button', { name: 'Schließen' })).toBeInTheDocument();
+    });
+
+    it('names a week without entries "keine Einträge" for screen readers', async () => {
+      selectBranch();
+      const planned = makeEmployee();
+      const unplanned = makeEmployee({ id: 'e2' as EmployeeId, lastName: 'Ohneplan' });
+      employeeForBranch.mockResolvedValue([planned, unplanned]);
+      // Only the first employee is in the month's plan: the second one's weeks show the dash.
+      const weeks = calendarWeeksInMonth(currentYear, currentMonth);
+      scheduleForBranch.mockResolvedValue([createWeeklySchedule(branch.id, weeks[0], [planned.id])]);
+      renderView();
+
+      const row = (await screen.findByText(fullName(unplanned))).closest('tr')!;
+      expect(within(row).getAllByText('keine Einträge').length).toBe(weeks.length);
+    });
+
+    it('uses tabular figures, so the hours line up down a column', async () => {
+      selectBranch();
+      employeeForBranch.mockResolvedValue([makeEmployee()]);
+      scheduleForBranch.mockResolvedValue([]);
+      renderView();
+
+      expect(await screen.findByRole('table')).toHaveStyle({ fontVariantNumeric: 'tabular-nums' });
+    });
+
+    it('shows a cut-off name in full on a tap, on a phone', async () => {
+      mockViewportWidth(390);
+      selectBranch();
+      const employee = makeEmployee();
+      employeeForBranch.mockResolvedValue([employee]);
+      scheduleForBranch.mockResolvedValue([]);
+      const user = userEvent.setup();
+      renderView();
+
+      await user.click(await screen.findByText(fullName(employee)));
+
+      expect(await screen.findByRole('tooltip')).toHaveTextContent(fullName(employee));
+    });
   });
 
   describe('CSV-Export', () => {

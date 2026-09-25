@@ -21,10 +21,6 @@ import Chip from '@mui/material/Chip';
 import Tooltip from '@mui/material/Tooltip';
 import ClickAwayListener from '@mui/material/ClickAwayListener';
 import CircularProgress from '@mui/material/CircularProgress';
-import Dialog from '@mui/material/Dialog';
-import DialogTitle from '@mui/material/DialogTitle';
-import DialogContent from '@mui/material/DialogContent';
-import DialogActions from '@mui/material/DialogActions';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
@@ -53,6 +49,7 @@ import { useAbsences } from '@ui/hooks/useAbsences';
 import { useAsyncData } from '@ui/hooks/useAsyncData';
 import { useBreakpoint } from '@ui/hooks/useBreakpoint';
 import { useTapTooltip } from '@ui/hooks/useTapTooltip';
+import { VISUALLY_HIDDEN_SX } from '@ui/components/visuallyHidden';
 import { useCalendarWeekStore } from '@ui/app/store/calendarWeekStore';
 import { usePageActions } from '@ui/app/PageActionsContext';
 import { NoBranchSelectedAlert } from '@ui/components/NoBranchSelectedAlert';
@@ -269,7 +266,9 @@ export function MonthOverviewView() {
           </IconButton>
         </Stack>
 
-        <Button variant="outlined" startIcon={<FileDownloadOutlinedIcon />} onClick={exportCsv}>
+        {/* Locked while loading: the rows are built from no schedules then, a CSV of zeros that
+            looks real. */}
+        <Button variant="outlined" startIcon={<FileDownloadOutlinedIcon />} onClick={exportCsv} disabled={schedulesLoading}>
           {t('exportButton')}
         </Button>
       </Stack>
@@ -332,7 +331,8 @@ export function MonthOverviewView() {
           '100%', not a vh cap: the root Box above gives this a flex:1 region bounded by the header
           Stack, at every breakpoint, and this needs to fill exactly that. */
       <TableContainer component={Paper} sx={{ flex: 1, minHeight: 0, height: '100%' }}>
-        <Table size="small">
+        {/* Tabular figures: the hours line up down each column. */}
+        <Table size="small" sx={{ fontVariantNumeric: 'tabular-nums' }}>
           <TableHead>
             <TableRow>
               <TableCell sx={stickyCornerSx()}>{t('columnEmployee')}</TableCell>
@@ -340,7 +340,7 @@ export function MonthOverviewView() {
                 {t('columnTargetWeekly')}
               </TableCell>
               {allWeeks.map((cw) => (
-                <TableCell key={`${cw.year}-${cw.week}`} align="center" sx={stickyHeaderRowSx()}>
+                <TableCell key={`${cw.year}-${cw.week}`} align="right" sx={stickyHeaderRowSx()}>
                   {/* The actions button lives on this inner element, not the <th> itself (N23) -
                       matches ScheduleTable.tsx's own correct pattern. A real IconButton needs no
                       manual tabIndex/keyboard handling, unlike the role="button" Box it replaces. */}
@@ -391,18 +391,23 @@ export function MonthOverviewView() {
                 >
                   <TableCell className={STICKY_FIRST_COLUMN_CLASS} sx={stickyFirstColumnSx}>
                     <Stack direction="row" spacing={0.5} alignItems="center">
-                      {/* Phone: one line with an ellipsis instead of 2-3 wrapped lines per row. */}
-                      <Box
-                        component="span"
-                        title={fullName(employee)}
-                        sx={
-                          layout === 'mobile'
-                            ? { display: 'block', maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }
-                            : undefined
-                        }
-                      >
-                        {fullName(employee)}
-                      </Box>
+                      {/* Phone: one line with an ellipsis instead of 2-3 wrapped lines per row. A tap
+                          shows the whole name: a title attribute alone never shows on a touch screen. */}
+                      {layout === 'mobile' ? (
+                        <ClickAwayListener onClickAway={() => closeWarning(`name|${employee.id}`)}>
+                          <Tooltip title={fullName(employee)} {...warningTooltipProps(`name|${employee.id}`)}>
+                            <Box
+                              component="span"
+                              onClick={() => toggleWarning(`name|${employee.id}`)}
+                              sx={{ display: 'block', maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                            >
+                              {fullName(employee)}
+                            </Box>
+                          </Tooltip>
+                        </ClickAwayListener>
+                      ) : (
+                        <Box component="span">{fullName(employee)}</Box>
+                      )}
                       {!employee.active && <Chip size="small" label={tCommon('inactive')} />}
                     </Stack>
                   </TableCell>
@@ -421,7 +426,7 @@ export function MonthOverviewView() {
                     const hasError = weekResults.some((r) => r.severity === 'error');
                     const hasWarning = weekResults.some((r) => r.severity === 'warning');
                     return (
-                      <TableCell key={`${cw.year}-${cw.week}`} align="center">
+                      <TableCell key={`${cw.year}-${cw.week}`} align="right">
                       {/* Purely informational now - a week is only ever opened via the header's
                           actions menu (Package 5). position:relative stays so the absolutely
                           positioned warning icon below still anchors correctly. */}
@@ -458,7 +463,17 @@ export function MonthOverviewView() {
                             </Tooltip>
                           </ClickAwayListener>
                         )}
-                        {weekValue ? formatHoursGerman(weekValue.totalNetMinutes) : '–'}
+                        {weekValue ? (
+                          formatHoursGerman(weekValue.totalNetMinutes)
+                        ) : (
+                          // A bare dash was skipped or read as "Strich"; screen readers get words.
+                          <>
+                            <span aria-hidden="true">–</span>
+                            <Box component="span" sx={VISUALLY_HIDDEN_SX}>
+                              {t('noEntries')}
+                            </Box>
+                          </>
+                        )}
                       </Box>
                       </TableCell>
                     );
@@ -495,9 +510,21 @@ export function MonthOverviewView() {
       </TableContainer>
       )}
 
-      <Dialog open={!!csvPreview} onClose={() => setCsvPreview(null)} maxWidth="md" fullWidth>
-        <DialogTitle>{t('exportPreviewTitle')}</DialogTitle>
-        <DialogContent>
+      {/* The app's standard dialog: full screen on a phone like every other one. */}
+      <ResponsiveDialog
+        open={!!csvPreview}
+        onClose={() => setCsvPreview(null)}
+        title={t('exportPreviewTitle')}
+        maxWidth="md"
+        actions={
+          <>
+            <Button onClick={() => setCsvPreview(null)}>{tCommon('cancel')}</Button>
+            <Button variant="contained" onClick={confirmCsvExport}>
+              {t('downloadButton')}
+            </Button>
+          </>
+        }
+      >
           {/* The exact bytes confirmCsvExport will download - a raw preformatted dump rather than a
               re-parsed table, so the preview can never visually diverge from the actual file. */}
           <Box
@@ -515,14 +542,7 @@ export function MonthOverviewView() {
           >
             {csvPreview?.csv}
           </Box>
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={() => setCsvPreview(null)}>{tCommon('cancel')}</Button>
-          <Button variant="contained" onClick={confirmCsvExport}>
-            {t('downloadButton')}
-          </Button>
-        </DialogActions>
-      </Dialog>
+      </ResponsiveDialog>
     </Box>
   );
 }
