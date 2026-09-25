@@ -131,7 +131,7 @@ export function ShiftListEditor({ drafts, onChange, fieldProps }: ShiftListEdito
                 {t('noBreaksText')}
               </Typography>
             )}
-            {shift.breaks.map((brk) => (
+            {shift.breaks.map((brk, breakIndex) => (
               <Stack key={brk.id} direction="row" spacing={1.5} alignItems="flex-start">
                 <TextField
                   label={t('breakStartLabel')}
@@ -155,7 +155,7 @@ export function ShiftListEditor({ drafts, onChange, fieldProps }: ShiftListEdito
                 <IconButton
                   size="small"
                   onClick={() => removeBreak(shift.id, brk.id)}
-                  aria-label={t('removeBreakAriaLabel', { number: index + 1 })}
+                  aria-label={t('removeBreakAriaLabel', { breakNumber: breakIndex + 1, number: index + 1 })}
                   sx={{ mt: 0.5 }}
                 >
                   <DeleteOutlineIcon fontSize="small" />

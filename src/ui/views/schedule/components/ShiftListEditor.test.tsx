@@ -119,9 +119,18 @@ describe('ShiftListEditor', () => {
 
     expect(allByLabel('Dauer (Min.)').map((el) => (el as HTMLInputElement).value)).toEqual(['15', '45']);
 
-    await user.click(screen.getAllByRole('button', { name: /Pause entfernen/ })[0]);
+    await user.click(screen.getByRole('button', { name: 'Pause 1 entfernen (Schicht 1)' }));
 
     expect(allByLabel('Dauer (Min.)').map((el) => (el as HTMLInputElement).value)).toEqual(['45']);
+  });
+
+  // Teil 8, Package 16: every pause of a shift had the same name, "Pause entfernen (Schicht 1)".
+  it('names each pause remove button by its own pause number', () => {
+    const shift = { ...newShiftDraft(), breaks: [newBreakDraft(15), newBreakDraft(45)] };
+    render(<Host initialDrafts={[shift]} />);
+
+    expect(screen.getByRole('button', { name: 'Pause 1 entfernen (Schicht 1)' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Pause 2 entfernen (Schicht 1)' })).toBeInTheDocument();
   });
 
   it('shows the computed net hours for a complete shift, and a dash once it is missing its end time', () => {

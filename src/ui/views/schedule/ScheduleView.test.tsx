@@ -350,6 +350,44 @@ describe('ScheduleView', () => {
       expect(await screen.findByText(fullName(employeeA))).toBeInTheDocument();
     });
 
+    // Teil 8, Package 16: only pointer-events were off while a week loaded, so Tab and Enter still
+    // reached the old week's cells, and the spinner had no name.
+    it('makes the table inert and busy while a week loads', async () => {
+      scheduleGetOrCreate.mockReturnValueOnce(new Promise(() => {}));
+      renderScheduleView();
+
+      const spinner = await screen.findByRole('progressbar', { name: 'Woche wird geladen' });
+      const wrapper = spinner.closest('[aria-busy="true"]');
+      expect(wrapper).not.toBeNull();
+      // The content next to the spinner, not the spinner itself: an inert spinner is never read.
+      expect(wrapper!.querySelector('[inert]')).not.toBeNull();
+      expect(spinner.closest('[inert]')).toBeNull();
+    });
+
+    // Teil 8, Package 16: the chip was always red, reading "0 Fehler, 1 Warnung".
+    it('shows a warnings-only week without an error colour and without "0 Fehler"', async () => {
+      scheduleGetOrCreate.mockImplementation(async (bId, cw) =>
+        withDayEntry(createWeeklySchedule(bId, cw, [employeeA.id, employeeB.id]), employeeA.id, 'Sonntag', {
+          type: 'Shift',
+          shifts: [createShift(clockTime('08:00'), clockTime('12:00'))],
+        }),
+      );
+      renderScheduleView();
+      await screen.findByText(fullName(employeeA));
+
+      const chip = await screen.findByRole('button', { name: '1 Warnung' });
+      expect(chip).not.toHaveTextContent('Fehler');
+      expect(chip).toHaveStyle({ color: theme.palette.warning.main });
+      expect(screen.getByTestId('validation-announcer')).toHaveTextContent('1 Warnung');
+    });
+
+    it('labels the week "KW" from the translations on a phone', async () => {
+      renderScheduleView(MOBILE);
+      await screen.findByText(fullName(employeeA));
+
+      expect(screen.getByText(`KW ${SELECTED_WEEK.week}`)).toBeInTheDocument();
+    });
+
     // Teil 8, Package 14: the counter chip changed silently after a save.
     it('keeps a live region with the current ArbZG counts', async () => {
       scheduleGetOrCreate.mockImplementation(async (bId, cw) =>
@@ -799,6 +837,18 @@ describe('ScheduleView', () => {
       expectMenuItemEnabled('Kopieren');
       expectMenuItemDisabled('Einfügen');
       expectMenuItemEnabled('Frei');
+      expectMenuItemEnabled('Als Vorlage speichern');
+    });
+
+    // Teil 8, Package 16: Shift+F10 / the menu key fire contextmenu on the focused cell, often at
+    // 0/0 - the point lookup found nothing there.
+    it('opens the menu for the focused cell on a keyboard contextmenu at 0/0', async () => {
+      const { container } = await renderWithFixtures();
+      document.elementsFromPoint = vi.fn(() => []) as unknown as typeof document.elementsFromPoint;
+
+      fireEvent.contextMenu(cellEl(container, employeeA.id, 'Montag'), { clientX: 0, clientY: 0 });
+
+      expect(screen.getByRole('menu')).toBeInTheDocument();
       expectMenuItemEnabled('Als Vorlage speichern');
     });
 

@@ -339,6 +339,20 @@ describe('ScheduleTable', () => {
       expect(onCellClick).not.toHaveBeenCalled();
     });
 
+    // Teil 8, Package 16: the icon sat over the end of the shift time, the cell reserved no room.
+    it('reserves room for the hint icon in a cell with findings', () => {
+      render(<ScheduleTable rows={rowsFor(employees)} weekDays={weekDays} validationResults={[dayResult('error', 'zu lang')]} onCellClick={() => {}} {...notAssigning} {...noSelection} />);
+
+      expect(screen.getByRole('button', { name: /^Müller, Anna, Montag/ })).toHaveStyle({ paddingRight: '24px' });
+      expect(screen.getByRole('button', { name: /^Müller, Anna, Dienstag/ })).toHaveStyle({ paddingRight: '8px' });
+    });
+
+    it('uses tabular figures, so times line up down a column', () => {
+      render(<ScheduleTable rows={rowsFor(employees)} weekDays={weekDays} validationResults={[]} onCellClick={() => {}} {...notAssigning} {...noSelection} />);
+
+      expect(screen.getByRole('button', { name: /^Müller, Anna, Montag/ })).toHaveStyle({ fontVariantNumeric: 'tabular-nums' });
+    });
+
     it('keeps the status in assign and selection mode', () => {
       const results = [dayResult('error', 'zu lang')];
       const { unmount } = render(

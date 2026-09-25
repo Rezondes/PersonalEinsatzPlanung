@@ -62,6 +62,11 @@ itself is special-cased (checks `[role="menu"]` in the stack) to just block the 
 touching state, rather than closing/reopening. If you ever refactor this menu, keep it centralized
 here - reintroducing a per-cell handler reintroduces the bug.
 
+The one exception runs first: when `e.target` itself sits inside a cell, that cell is used and the
+point lookup is skipped. Shift+F10 and the menu key fire `contextmenu` on the focused cell, often
+at 0/0, where `elementsFromPoint` finds nothing. With the menu open the target is its backdrop, so
+the point lookup still handles the case above.
+
 Clipboard state and the `copy`/`paste`/`setToOff` handlers live in `ScheduleView.tsx`.
 Paste works between ANY two cells (any employee, any day), not just within one employee's row - a
 deliberate choice (e.g. to duplicate one employee's shift onto a colleague). Pasting regenerates

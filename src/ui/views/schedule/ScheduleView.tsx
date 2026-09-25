@@ -164,10 +164,14 @@ export function ScheduleView() {
   const validationResults = useScheduleValidation(schedule, branch, absences);
   const errorTotal = validationResults.filter((r) => r.severity === 'error').length;
   const warningTotal = validationResults.filter((r) => r.severity === 'warning').length;
+  // Shared by the counter chip and its live region. Without errors it names only the warnings: the
+  // chip used to read "0 Fehler, 3 Warnungen" in error red.
   const validationSummaryText =
-    errorTotal + warningTotal === 0
-      ? ''
-      : t('errorSummary', { count: errorTotal }) + (warningTotal > 0 ? t('warningSuffix', { count: warningTotal }) : '');
+    errorTotal > 0
+      ? t('errorSummary', { count: errorTotal }) + (warningTotal > 0 ? t('warningSuffix', { count: warningTotal }) : '')
+      : warningTotal > 0
+        ? t('warningSummary', { count: warningTotal })
+        : '';
   const navigate = useNavigate();
   const locale = useLocale();
 
@@ -466,13 +470,17 @@ export function ScheduleView() {
   // cell can be found even underneath the backdrop.
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      const stack = document.elementsFromPoint(e.clientX, e.clientY);
+      // The event's own target first: Shift+F10 or the menu key fire on the focused cell, often at
+      // 0/0, where the point lookup below finds nothing. With the menu's backdrop open the target
+      // is the backdrop, and the point lookup takes over.
+      const targetCell = e.target instanceof Element ? e.target.closest('[data-employeeid]') : null;
+      const stack = targetCell ? [] : document.elementsFromPoint(e.clientX, e.clientY);
       // Right-clicking the open custom menu itself: just block the native menu, leave ours as-is.
       if (stack.some((el) => el.closest('[role="menu"]'))) {
         e.preventDefault();
         return;
       }
-      const cell = stack.map((el) => el.closest('[data-employeeid]')).find((el) => el);
+      const cell = targetCell ?? stack.map((el) => el.closest('[data-employeeid]')).find((el) => el);
       if (!(cell instanceof HTMLElement)) {
         setContextMenu(null);
         return;
@@ -849,7 +857,7 @@ export function ScheduleView() {
               // 360px phone; the aria-label above still carries the full range.
               <>
                 <Box component="span" sx={{ display: 'block', fontWeight: 500, color: 'text.primary' }}>
-                  KW {selectedWeek.week}
+                  {t('weekShort', { week: selectedWeek.week })}
                 </Box>
                 <Box component="span" sx={{ display: 'block', typography: 'caption' }}>
                   {formatISODateShortGerman(toISODate(mondayOfWeek(selectedWeek)))}–
@@ -947,6 +955,7 @@ export function ScheduleView() {
       )}
 
       <Box
+        aria-busy={isLoading}
         sx={{
           position: 'relative',
           opacity: isLoading ? 0.4 : 1,
@@ -963,9 +972,13 @@ export function ScheduleView() {
             alignItems="center"
             sx={{ position: 'absolute', inset: 0, justifyContent: 'center', zIndex: 3 }}
           >
-            <CircularProgress />
+            <CircularProgress aria-label={t('weekLoadingAriaLabel')} />
           </Stack>
         )}
+        {/* Only pointer-events used to be off while a week loads, so Tab and Enter still reached
+            the old week's cells. inert takes it all out, but must leave the spinner above alone,
+            or its label would never be read. display:contents keeps the flex layout as it was. */}
+        <Box {...(isLoading ? { inert: '' } : {})} sx={{ display: 'contents' }}>
 
         {(() => {
           const notYetScheduledText = absencesLoading ? '–' : notYetScheduledCount.toLocaleString('de-DE');
@@ -1002,18 +1015,19 @@ export function ScheduleView() {
                 <ValidationNotices
                   results={validationResults}
                   employeeList={employeeList}
-                  renderTrigger={({ errorCount, warningCount, onClick, expanded }) => (
+                  renderTrigger={({ errorCount, onClick, expanded }) => (
                     <Box
                       component="button"
                       type="button"
                       onClick={onClick}
                       aria-expanded={expanded}
                       aria-haspopup="dialog"
+                      // Red only with at least one error: a warnings-only week is no alarm.
                       sx={(theme) => ({
                         ...chipSx,
-                        backgroundColor: theme.palette.errorSurface.subtle,
-                        borderColor: theme.palette.errorSurface.border,
-                        color: theme.palette.error.main,
+                        backgroundColor: errorCount > 0 ? theme.palette.errorSurface.subtle : theme.palette.warningSurface.subtle,
+                        borderColor: errorCount > 0 ? theme.palette.errorSurface.border : theme.palette.warningSurface.border,
+                        color: errorCount > 0 ? theme.palette.error.main : theme.palette.warning.main,
                         font: 'inherit',
                         cursor: 'pointer',
                         display: 'flex',
@@ -1023,8 +1037,7 @@ export function ScheduleView() {
                     >
                       <WarningAmberIcon fontSize="small" />
                       <Typography variant="body2" fontWeight={500} noWrap>
-                        {t('errorSummary', { count: errorCount })}
-                        {warningCount > 0 ? t('warningSuffix', { count: warningCount }) : ''}
+                        {validationSummaryText}
                       </Typography>
                     </Box>
                   )}
@@ -1132,6 +1145,7 @@ export function ScheduleView() {
           </>
         );
       })()}
+        </Box>
       </Box>
 
       <Menu

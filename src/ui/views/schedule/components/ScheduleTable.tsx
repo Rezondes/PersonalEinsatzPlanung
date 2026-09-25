@@ -502,6 +502,10 @@ export const ScheduleTable = memo(function ScheduleTable({
                         cursor: locked ? 'default' : 'pointer',
                         borderRadius: 1.5,
                         p: 1,
+                        // Room for the hint icon on the right, which used to cover the end time.
+                        pr: matches.length > 0 ? 3 : 1,
+                        // Times and hours line up down a column.
+                        fontVariantNumeric: 'tabular-nums',
                         backgroundColor: background,
                         border: isTarget
                           ? `1px solid ${theme.palette.primary.main}`
