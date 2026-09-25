@@ -76,6 +76,8 @@ function renderToolbar(overrides: Partial<ToolbarProps> = {}) {
     onCopyPreviousWeek: vi.fn(),
     onPrint: vi.fn(),
     printAvailable: false,
+    onRedo: vi.fn(),
+    canRedo: false,
     headerFields: <div>header-fields-probe</div>,
     ...overrides,
   };
@@ -562,5 +564,35 @@ describe('ScheduleToolbar, mobile sheet touch targets', () => {
     expect(screen.getByRole('button', { name: 'Vorwoche übertragen' })).toHaveStyle({ minHeight: '44px' });
     expect(screen.getByRole('button', { name: 'Mehrfachauswahl' })).toHaveStyle({ minHeight: '44px' });
     expect(screen.getByRole('button', { name: 'Neu' })).toHaveStyle({ minHeight: '40px' });
+  });
+});
+
+// Teil 6, Package 4: on a phone "Wiederholen" moved out of the crowded week-navigation row.
+describe('ScheduleToolbar, Wiederholen im Sheet', () => {
+  afterEach(() => {
+    // @ts-expect-error -- undo the per-test stub, jsdom has no matchMedia of its own to restore
+    delete window.matchMedia;
+  });
+
+  it('offers Wiederholen in the mobile sheet and closes the sheet on use', async () => {
+    mockViewportWidth(MOBILE);
+    const user = userEvent.setup();
+    const { onRedo } = renderToolbar({ canRedo: true });
+
+    await user.click(within(bar()).getByRole('button'));
+    await user.click(screen.getByRole('button', { name: 'Wiederholen' }));
+
+    expect(onRedo).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Vorwoche übertragen' })).not.toBeInTheDocument());
+  });
+
+  it('disables Wiederholen in the sheet when there is nothing to redo', async () => {
+    mockViewportWidth(MOBILE);
+    const user = userEvent.setup();
+    renderToolbar({ canRedo: false });
+
+    await user.click(within(bar()).getByRole('button'));
+
+    expect(screen.getByRole('button', { name: 'Wiederholen' })).toBeDisabled();
   });
 });

@@ -19,6 +19,7 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import SwapHorizOutlinedIcon from '@mui/icons-material/SwapHorizOutlined';
 import ContentCopyOutlinedIcon from '@mui/icons-material/ContentCopyOutlined';
 import PrintOutlinedIcon from '@mui/icons-material/PrintOutlined';
+import RedoIcon from '@mui/icons-material/Redo';
 import ChecklistOutlinedIcon from '@mui/icons-material/ChecklistOutlined';
 import type { ShiftTemplate } from '@domain/schedule/ShiftTemplate';
 import type { ScheduleTool } from '../scheduleTools';
@@ -67,6 +68,10 @@ interface ScheduleToolbarProps {
   onCopyPreviousWeek: () => void;
   onPrint: () => void;
   printAvailable: boolean;
+  /** Mobile-only sheet entry: on a phone the week-navigation row has no room for Wiederholen
+   * (see ScheduleView), so it lives in the "Aktionen" section. */
+  onRedo: () => void;
+  canRedo: boolean;
   /** Mobile-only "Wochenplanung" section of the sheet: ScheduleView's own <ScheduleHeaderFields>
    * element, relocated here specifically on mobile (there's no room to show it inline above the
    * table there) - rendered as-is, never rebuilt, so its loading/blur-save logic stays in one
@@ -100,6 +105,8 @@ export function ScheduleToolbar({
   onCopyPreviousWeek,
   onPrint,
   printAvailable,
+  onRedo,
+  canRedo,
   headerFields,
 }: ScheduleToolbarProps) {
   const { t } = useTranslation('schedule');
@@ -528,6 +535,17 @@ export function ScheduleToolbar({
               }}
             >
               {t('multiSelectButton')}
+            </Button>
+            <Button
+              variant="outlined"
+              startIcon={<RedoIcon />}
+              disabled={!canRedo}
+              onClick={() => {
+                setSheetOpen(false);
+                onRedo();
+              }}
+            >
+              {t('redoAriaLabel')}
             </Button>
           </Stack>
 

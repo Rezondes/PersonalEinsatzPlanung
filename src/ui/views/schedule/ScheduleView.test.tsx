@@ -618,6 +618,23 @@ describe('ScheduleView', () => {
 
   // Package 13 (Teil 5): small consistency fixes.
   describe('Kleinigkeiten', () => {
+    it('keeps Wiederholen out of the mobile week row and spaces the buttons 8px apart (Teil 6)', async () => {
+      renderScheduleView(MOBILE);
+      await screen.findByText(fullName(employeeA));
+
+      const row = screen.getByTestId('schedule-nav-row');
+      expect(within(row).queryByRole('button', { name: 'Wiederholen' })).not.toBeInTheDocument();
+      expect(within(row).getByRole('button', { name: 'Rückgängig' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Heute' }).parentElement).toHaveStyle({ gap: '8px' });
+    });
+
+    it('keeps Wiederholen in the week row on desktop', async () => {
+      renderScheduleView(TABLET);
+      await screen.findByText(fullName(employeeA));
+
+      expect(within(screen.getByTestId('schedule-nav-row')).getByRole('button', { name: 'Wiederholen' })).toBeInTheDocument();
+    });
+
     it('makes "Heute" a 40px icon button on a phone, not a 31px text button', async () => {
       renderScheduleView(MOBILE);
       await screen.findByText(fullName(employeeA));

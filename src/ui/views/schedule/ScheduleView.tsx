@@ -815,7 +815,9 @@ export function ScheduleView() {
           </Typography>
         </Box>
 
-        <Stack direction="row" gap={isMobile ? 0 : 1} alignItems="center" sx={{ flexShrink: 0 }}>
+        {/* 8px between touch targets. On a phone Wiederholen lives in the "Weitere Aktionen" sheet
+            instead: four 44px buttons plus gaps fit a 320px screen, five do not fit even 360px. */}
+        <Stack direction="row" gap={1} alignItems="center" sx={{ flexShrink: 0 }}>
           <Tooltip title={t('undoTooltip')}>
             <span>
               <IconButton onClick={() => history.undo()} disabled={!history.canUndo} aria-label={t('undoAriaLabel')}>
@@ -823,13 +825,15 @@ export function ScheduleView() {
               </IconButton>
             </span>
           </Tooltip>
-          <Tooltip title={t('redoTooltip')}>
-            <span>
-              <IconButton onClick={() => history.redo()} disabled={!history.canRedo} aria-label={t('redoAriaLabel')}>
-                <RedoIcon />
-              </IconButton>
-            </span>
-          </Tooltip>
+          {!isMobile && (
+            <Tooltip title={t('redoTooltip')}>
+              <span>
+                <IconButton onClick={() => history.redo()} disabled={!history.canRedo} aria-label={t('redoAriaLabel')}>
+                  <RedoIcon />
+                </IconButton>
+              </span>
+            </Tooltip>
+          )}
           <IconButton onClick={() => setSelectedWeek(previousCalendarWeek(selectedWeek))} aria-label={t('previousWeekAriaLabel')}>
             <ChevronLeftIcon />
           </IconButton>
@@ -1020,6 +1024,8 @@ export function ScheduleView() {
             onCopyPreviousWeek={() => setCopyPreviousWeekOpen(true)}
             onPrint={() => schedule && navigate(buildLocalizedPath(locale, `/print/${schedule.id}`))}
             printAvailable={!!schedule}
+            onRedo={() => history.redo()}
+            canRedo={history.canRedo}
             headerFields={headerFields}
           />
         );
