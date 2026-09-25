@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react';
 import TextField from '@mui/material/TextField';
 import type { TextFieldProps } from '@mui/material/TextField';
 
-/** Formats for the input box, not for display: no thousands grouping, because a grouped "25.000"
- * contains a period that the input filter below would reject on the very next keystroke. */
+/** Formats for the input box, not for display: no thousands grouping, because the input filter
+ * below reads the period of a grouped "25.000" as a decimal comma on the very next keystroke. */
 function formatComma(value: number): string {
   return value.toLocaleString('de-DE', { useGrouping: false, maximumFractionDigits: 10 });
 }
@@ -51,7 +51,9 @@ export function DecimalTextField({ value, onChange, slotProps, ...rest }: Decima
       slotProps={{ ...slotProps, htmlInput: { inputMode: 'decimal', ...slotProps?.htmlInput } }}
       value={draft}
       onChange={(e) => {
-        const text = e.target.value;
+        // A period counts as the comma: habit, or a phone keyboard that only offers ".". Dropping
+        // it silently turned "7.5" into 75.
+        const text = e.target.value.replace(/\./g, ',');
         if (!/^-?[0-9]*,?[0-9]*$/.test(text)) return;
         setDraft(text);
         onChange(parseCommaNumber(text));

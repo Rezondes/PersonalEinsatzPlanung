@@ -140,16 +140,46 @@ describe('DecimalTextField', () => {
   });
 
   describe('input filtering', () => {
-    it('ignores a period so the German comma convention is enforced', async () => {
+    // Dropping the period used to turn a habitual "7.5" into 75, a plausible value that saved.
+    it('takes a typed period as the decimal comma', async () => {
       const user = userEvent.setup();
       const onChange = vi.fn();
       render(<ControlledHarness onChange={onChange} />);
 
-      await user.type(field(), '38.');
+      await user.type(field(), '7.5');
 
-      expect(field()).toHaveValue('38');
-      expect(onChange).toHaveBeenCalledTimes(2);
-      expect(onChange).toHaveBeenLastCalledWith(38);
+      expect(field()).toHaveValue('7,5');
+      expect(onChange).toHaveBeenLastCalledWith(7.5);
+    });
+
+    it('takes a period in pasted text as the decimal comma', async () => {
+      const user = userEvent.setup();
+      const onChange = vi.fn();
+      render(<ControlledHarness onChange={onChange} />);
+
+      await user.click(field());
+      await user.paste('12.25');
+
+      expect(field()).toHaveValue('12,25');
+      expect(onChange).toHaveBeenLastCalledWith(12.25);
+    });
+
+    it('keeps a trailing period while typing, shown as a comma', async () => {
+      const user = userEvent.setup();
+      render(<ControlledHarness />);
+
+      await user.type(field(), '7.');
+
+      expect(field()).toHaveValue('7,');
+    });
+
+    it('ignores a period after a comma', async () => {
+      const user = userEvent.setup();
+      render(<ControlledHarness />);
+
+      await user.type(field(), '7,5.');
+
+      expect(field()).toHaveValue('7,5');
     });
 
     it('ignores letters', async () => {
