@@ -85,16 +85,18 @@ interface ScheduleTableProps {
 const EMPLOYEE_COLUMN_WIDTH = { mobile: 120, desktop: 180 } as const;
 const FIRST_COLUMN_MOBILE_PX = 1;
 
-// Einzige Stelle für die Breite der 7 Wochentag-Spalten (Kopf- UND Datenzelle nutzen denselben
-// Wert, siehe unten) - hier anpassen, keine Suche nach magischen Zahlen im Rest der Datei nötig.
-// width, minWidth UND maxWidth (alle auf denselben Wert - eine echt fixe Breite, kein Minimum):
-// mit width allein komprimiert table-layout:auto die Spalte proportional, sobald nicht genug Platz
-// für alle Spalten da ist (bestätigt per getComputedStyle im echten Browser bei 1200px
-// Fensterbreite); ohne maxWidth hätte sie umgekehrt bei ÜBERSCHÜSSIGEM Platz wachsen können. Die
-// minWidth erzwingt stattdessen
-// horizontales Scrollen (siehe stickyFirstColumn.ts) statt eines Schrumpfens unter diesen Wert.
-// Mobil 150px: neben der 120px-Namensspalte sind so auf einem 360px-Handy 1,6 Tage sichtbar statt 1,3.
-const WEEKDAY_COLUMN_WIDTH = { mobile: 150, desktop: 180 } as const;
+// Einzige Stelle für die Breite der 7 Wochentag-Spalten (Kopf- UND Datenzelle nutzen dasselbe
+// dayColumnSx, siehe unten).
+// Mobil: echt fix 150px (width = minWidth = maxWidth; mit width allein komprimiert table-layout:auto
+// die Spalte, ohne maxWidth wächst sie bei Restplatz). Neben der 120px-Namensspalte sind so auf einem
+// 360px-Handy 1,6 Tage sichtbar statt 1,3; breiter scrollt die Tabelle horizontal.
+// Desktop: table-layout:fixed teilt den Platz nach der 180px-Namensspalte gleichmäßig auf die Tage
+// auf, zwischen DAY_MIN und DAY_MAX. 180px ist die bewusst gewählte Breite auf breiten Fenstern (bei
+// 1920px unverändert); die 112px unten reichen für "06:00-14:00" (84px Text + 16px Box-Padding + 8px
+// Zell-Padding, gemessen) und lassen bei 1280px alle 7 Tage ohne Querscrollen zu.
+const WEEKDAY_COLUMN_WIDTH_MOBILE = 150;
+const DESKTOP_DAY_MIN_WIDTH = 112;
+const DESKTOP_DAY_MAX_WIDTH = 180;
 
 const NO_RESULTS: ValidationResult[] = [];
 
@@ -149,6 +151,11 @@ export const ScheduleTable = memo(function ScheduleTable({
   const { t: tCommon } = useTranslation();
   const theme = useTheme();
   const layout = useBreakpoint();
+  // Desktop day columns get no width at all: table-layout:fixed shares the space (see the Table).
+  const dayColumnSx =
+    layout === 'mobile'
+      ? { width: WEEKDAY_COLUMN_WIDTH_MOBILE, minWidth: WEEKDAY_COLUMN_WIDTH_MOBILE, maxWidth: WEEKDAY_COLUMN_WIDTH_MOBILE }
+      : {};
   const emptyCellText = t('emptyCellText');
   // Only 2 fixed, non-interpolated outputs possible - computed once instead of once per locked row.
   const inactiveLabel = tCommon('inactive');
@@ -213,14 +220,27 @@ export const ScheduleTable = memo(function ScheduleTable({
           : {}),
       }}
     >
-      {/* MUI's Table hardcodes width:'100%' (node_modules/@mui/material/Table/Table.js) - under
-          table-layout:auto that forces the browser to grow columns past their own max-width to
-          fill the container whenever the declared column widths add up to less than it (confirmed
-          live: every column exceeded its max-width at a wide 1920px window). width:'auto' lets the
-          table size to its columns' own declared widths instead, leaving real slack space empty in
-          the TableContainer - the existing overflow-x:auto (see stickyFirstColumn.ts) still handles
-          the opposite case, where the table is WIDER than its container. */}
-      <Table size="small" sx={{ width: 'auto' }}>
+      {/* Mobile: MUI's Table hardcodes width:'100%' (node_modules/@mui/material/Table/Table.js) -
+          under table-layout:auto that forces the browser to grow columns past their own max-width
+          to fill the container (confirmed live at 1920px). width:'auto' sizes the table to its
+          fixed columns instead; overflow-x:auto (see stickyFirstColumn.ts) handles a wider table.
+          Desktop: table-layout:fixed with a 100% width shares the container between the day
+          columns, capped at DAY_MAX each (no stretching on a wide window, the table then simply
+          ends early) and floored at DAY_MIN each (a narrower window scrolls instead of squashing).
+          min/max-width on the cells do nothing under table-layout:fixed, hence on the table. */}
+      <Table
+        size="small"
+        sx={
+          layout === 'mobile'
+            ? { width: 'auto' }
+            : {
+                tableLayout: 'fixed',
+                width: '100%',
+                maxWidth: EMPLOYEE_COLUMN_WIDTH.desktop + weekDays.length * DESKTOP_DAY_MAX_WIDTH,
+                minWidth: EMPLOYEE_COLUMN_WIDTH.desktop + weekDays.length * DESKTOP_DAY_MIN_WIDTH,
+              }
+        }
+      >
         <TableHead>
           <TableRow>
             <TableCell
@@ -240,9 +260,7 @@ export const ScheduleTable = memo(function ScheduleTable({
                 align="center"
                 sx={{
                   ...stickyHeaderRowSx(),
-                  width: layout === 'mobile' ? WEEKDAY_COLUMN_WIDTH.mobile : WEEKDAY_COLUMN_WIDTH.desktop,
-                  minWidth: layout === 'mobile' ? WEEKDAY_COLUMN_WIDTH.mobile : WEEKDAY_COLUMN_WIDTH.desktop,
-                  maxWidth: layout === 'mobile' ? WEEKDAY_COLUMN_WIDTH.mobile : WEEKDAY_COLUMN_WIDTH.desktop,
+                  ...dayColumnSx,
                 }}
               >
                 {layout === 'mobile' ? (
@@ -547,9 +565,7 @@ export const ScheduleTable = memo(function ScheduleTable({
                       align="center"
                       sx={{
                         p: 0.5,
-                        width: layout === 'mobile' ? WEEKDAY_COLUMN_WIDTH.mobile : WEEKDAY_COLUMN_WIDTH.desktop,
-                        minWidth: layout === 'mobile' ? WEEKDAY_COLUMN_WIDTH.mobile : WEEKDAY_COLUMN_WIDTH.desktop,
-                        maxWidth: layout === 'mobile' ? WEEKDAY_COLUMN_WIDTH.mobile : WEEKDAY_COLUMN_WIDTH.desktop,
+                        ...dayColumnSx,
                         overflowWrap: 'anywhere',
                       }}
                     >

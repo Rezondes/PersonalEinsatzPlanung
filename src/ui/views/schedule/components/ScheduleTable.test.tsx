@@ -153,17 +153,20 @@ describe('ScheduleTable', () => {
     dataCells.forEach((td) => expect(td).toHaveStyle({ width: '150px', minWidth: '150px' }));
   });
 
-  it('jede Wochentag-Datenzelle hat dieselbe feste Breite wie ihre Kopfzelle (Tablet/Desktop)', () => {
+  it('lässt die Wochentag-Spalten auf Tablet/Desktop sich die Breite teilen, zwischen 112 und 180px (Teil 5, Package 7)', () => {
     mockViewportWidth(1200);
     const { container } = render(
       <ScheduleTable rows={rowsFor(employees)} weekDays={weekDays} validationResults={[]} onCellClick={() => {}} {...notAssigning} {...noSelection} />,
     );
 
-    const headerCells = Array.from(container.querySelectorAll('thead th')).slice(1);
-    headerCells.forEach((th) => expect(th).toHaveStyle({ width: '180px', minWidth: '180px' }));
+    // table-layout:fixed splits whatever is left after the 180px Mitarbeiter column equally over the
+    // seven days. The table is capped at 8 x 180 = 1440px (so a 1920px window looks as before) and
+    // floored at 180 + 7 x 112 = 964px (narrower windows scroll horizontally instead of squashing).
+    const table = container.querySelector('table')!;
+    expect(table).toHaveStyle({ tableLayout: 'fixed', width: '100%', maxWidth: '1440px', minWidth: '964px' });
 
-    const dataCells = container.querySelectorAll('tbody td');
-    dataCells.forEach((td) => expect(td).toHaveStyle({ width: '180px', minWidth: '180px' }));
+    const dayCells = [...Array.from(container.querySelectorAll('thead th')).slice(1), ...container.querySelectorAll('tbody td')];
+    dayCells.forEach((cell) => expect(getComputedStyle(cell).width).not.toBe('180px'));
   });
 
   it('eine Zelle behält ihre Breite beim Wechsel von frei zu einer Arbeitszeit', () => {
@@ -176,8 +179,8 @@ describe('ScheduleTable', () => {
     expect(freeCell).toHaveStyle({ width: '150px' });
   });
 
-  it('gibt der Wochentag-Spalte zusätzlich zu width auch minWidth UND maxWidth, damit table-layout:auto sie weder komprimiert noch bei Restplatz verbreitert', () => {
-    mockViewportWidth(1200);
+  it('gibt der Wochentag-Spalte mobil zusätzlich zu width auch minWidth UND maxWidth, damit table-layout:auto sie weder komprimiert noch bei Restplatz verbreitert', () => {
+    // jsdom's unmocked default matches the mobile breakpoint, where the day columns stay fixed.
     const { container } = render(
       <ScheduleTable rows={rowsFor(employees)} weekDays={weekDays} validationResults={[]} onCellClick={() => {}} {...notAssigning} {...noSelection} />,
     );
@@ -188,8 +191,8 @@ describe('ScheduleTable', () => {
     // minWidth/maxWidth are actually SET, not that a real browser respects them; the live-browser
     // check is what proves that).
     const headerCells = Array.from(container.querySelectorAll('thead th')).slice(1);
-    headerCells.forEach((th) => expect(th).toHaveStyle({ minWidth: '180px', maxWidth: '180px' }));
-    container.querySelectorAll('tbody td').forEach((td) => expect(td).toHaveStyle({ minWidth: '180px', maxWidth: '180px' }));
+    headerCells.forEach((th) => expect(th).toHaveStyle({ minWidth: '150px', maxWidth: '150px' }));
+    container.querySelectorAll('tbody td').forEach((td) => expect(td).toHaveStyle({ minWidth: '150px', maxWidth: '150px' }));
   });
 
   it('gibt der Mitarbeiter-Spalte eine echt fixe Breite (width=minWidth=maxWidth) über dieselbe zentrale Konstante wie die Wochentag-Spalten', () => {
