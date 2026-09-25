@@ -56,6 +56,34 @@ describe('UpdatePrompt', () => {
     sessionStorage.clear();
   });
 
+  // Teil 8, Package 15: below 768px every snackbar is full width, and this one sat on the same
+  // bottom spot as AppNotifications - an error could hide its buttons.
+  it('sits at the top on a phone, clear of the notifications at the bottom', () => {
+    withUpdate(true);
+    const { container } = renderPrompt();
+
+    expect(container.querySelector('.MuiSnackbar-anchorOriginTopLeft')).toBeInTheDocument();
+  });
+
+  it('stays at the bottom left on a desktop', () => {
+    window.matchMedia = ((query: string) => ({
+      matches: true,
+      media: query,
+      onchange: null,
+      addListener: () => {},
+      removeListener: () => {},
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      dispatchEvent: () => false,
+    })) as unknown as typeof window.matchMedia;
+    withUpdate(true);
+    const { container } = renderPrompt();
+
+    expect(container.querySelector('.MuiSnackbar-anchorOriginBottomLeft')).toBeInTheDocument();
+    // @ts-expect-error -- undo the stub, jsdom has no matchMedia of its own
+    delete window.matchMedia;
+  });
+
   it('stays out of the way while no update is waiting', () => {
     withUpdate(false);
     renderPrompt();

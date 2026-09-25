@@ -6,7 +6,6 @@ import Stack from '@mui/material/Stack';
 import { useRegisterSW } from 'virtual:pwa-register/react';
 import { useTranslation } from 'react-i18next';
 import { useBreakpoint } from '@ui/hooks/useBreakpoint';
-import { mobileSafeBottom } from './nav/mobileChromeOffset';
 import { APP_VERSION } from './buildInfo';
 import { router } from './router';
 import { useLocaleStore } from './locale/localeStore';
@@ -68,8 +67,13 @@ export function UpdatePrompt() {
   return (
     <Snackbar
       open={needRefresh && !isDismissedUpdate}
-      anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
-      sx={{ '@media print': { display: 'none' }, ...(layout === 'mobile' && { bottom: `${mobileSafeBottom(8)} !important` }) }}
+      // On a phone every snackbar is full width, and AppNotifications owns the bottom: at the same
+      // spot an error could cover these buttons. So this one sits at the top there, under the header.
+      anchorOrigin={{ vertical: layout === 'mobile' ? 'top' : 'bottom', horizontal: 'left' }}
+      sx={{
+        '@media print': { display: 'none' },
+        ...(layout === 'mobile' && { top: 'calc(var(--pep-header-height, 56px) + 8px) !important' }),
+      }}
     >
       <Alert
         severity="info"

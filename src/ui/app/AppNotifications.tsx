@@ -17,9 +17,9 @@ const SUCCESS_MS = 4_000;
  * is a top-level route outside the shell, and feedback has to reach it too.
  *
  * Bottom centre - where the old ErrorSnackbar sat. UpdatePrompt keeps bottom left and
- * BuildVersionBadge bottom right, so the three never overlap - except on mobile, where
- * BottomTabBar now also occupies the bottom of the screen; all three there get lifted by
- * mobileSafeBottom() so none of them render underneath it.
+ * BuildVersionBadge bottom right on a desktop, so the three never overlap. On a phone every snackbar
+ * is full width, so UpdatePrompt moves to the top there; this one is lifted by mobileSafeBottom() to
+ * stay clear of the BottomTabBar.
  *
  * Errors auto-hide too, they just get longer. A snackbar sits at z-index 1400, above every dialog
  * (1300), and is full width below 600px - a permanent one would cover the Speichern button of the

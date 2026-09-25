@@ -1,4 +1,4 @@
-import { createTheme } from '@mui/material/styles';
+import { createTheme, darken } from '@mui/material/styles';
 import type { Theme } from '@mui/material/styles';
 import { deDE } from '@mui/material/locale';
 import { SELECTABLE_SELECTOR } from './selectableText';
@@ -152,6 +152,9 @@ export function createAppTheme(options: CreateAppThemeOptions): Theme {
         error: { main: errorMain, ...errorDarkFill },
         warning: { main: warningMain, ...warningDarkFill },
         success: { main: successMain, ...successDarkFill },
+        // MUI's default info blue (#0288d1) under white text is only 3.86:1 (update and install
+        // banners). Dark mode keeps MUI's own lighter info tone, which pairs with dark text.
+        ...(!isDark && { info: { main: '#01579b' } }),
       },
       // sm/md/lg/xl stay MUI's own Dialog/Container maxWidth presets (Dialog maxWidth="sm"/"md"
       // reads theme.breakpoints.values.sm/md directly - node_modules/@mui/material/Dialog/Dialog.js -
@@ -239,7 +242,20 @@ export function createAppTheme(options: CreateAppThemeOptions): Theme {
         MuiButton: {
           defaultProps: { disableElevation: true },
           styleOverrides: {
-            root: ({ theme }) => ({ [theme.breakpoints.down(DESKTOP_LAYOUT_MIN_WIDTH)]: { minHeight: 44 } }),
+            root: ({ theme, ownerState }) => {
+              const color = ownerState?.color;
+              const palette =
+                color && color !== 'inherit' ? (theme.palette as unknown as Record<string, { main: string }>)[color] : undefined;
+              return {
+                [theme.breakpoints.down(DESKTOP_LAYOUT_MIN_WIDTH)]: { minHeight: 44 },
+                // A filled button hovers to palette[color].dark but keeps its text colour. In dark
+                // mode `.dark` is pinned to the dark light-mode tone (for Alerts, see above), so
+                // black text sat on it at ~2.7:1. Hover slightly darker than `.main` instead.
+                ...(isDark &&
+                  ownerState?.variant === 'contained' &&
+                  palette && { '&:hover': { backgroundColor: darken(palette.main, 0.1) } }),
+              };
+            },
           },
         },
         MuiToggleButton: {

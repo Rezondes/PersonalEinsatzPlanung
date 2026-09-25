@@ -1,5 +1,48 @@
 import { describe, it, expect } from 'vitest';
+import { getContrastRatio } from '@mui/material/styles';
 import { theme, createAppTheme, DESKTOP_LAYOUT_MIN_WIDTH } from './theme';
+import { ACCENT_COLORS } from './theme/accentColors';
+import type { AccentColorKey } from './theme/accentColors';
+
+// Teil 8, Package 15: a filled button's hover used palette[color].dark while keeping the text
+// colour. In dark mode that is the dark light-mode tone under black text (~2.7:1).
+describe('createAppTheme, filled button hover contrast', () => {
+  const hoverOf = (result: ReturnType<typeof createAppTheme>, color: string) => {
+    const root = result.components?.MuiButton?.styleOverrides?.root as (props: object) => Record<string, unknown>;
+    const style = root({ ownerState: { variant: 'contained', color }, theme: result }) as { '&:hover'?: { backgroundColor?: string } };
+    return style['&:hover']?.backgroundColor;
+  };
+
+  for (const accentColor of Object.keys(ACCENT_COLORS) as AccentColorKey[]) {
+    it(`keeps 4.5:1 on hover in dark mode for the ${accentColor} accent`, () => {
+      const result = createAppTheme({ mode: 'dark', prefersDark: false, accentColor });
+      const hover = hoverOf(result, 'primary');
+
+      expect(hover).toBeDefined();
+      expect(getContrastRatio(hover!, result.palette.primary.contrastText)).toBeGreaterThanOrEqual(4.5);
+    });
+  }
+
+  for (const color of ['error', 'warning', 'success'] as const) {
+    it(`keeps 4.5:1 on hover in dark mode for ${color}`, () => {
+      const result = createAppTheme({ mode: 'dark', prefersDark: false });
+      const hover = hoverOf(result, color);
+
+      expect(hover).toBeDefined();
+      expect(getContrastRatio(hover!, result.palette[color].contrastText)).toBeGreaterThanOrEqual(4.5);
+    });
+  }
+});
+
+// Teil 8, Package 15: MUI's default info blue (#0288d1) under white text is 3.86:1 (update and
+// install banners).
+describe('createAppTheme, info colour', () => {
+  it('keeps 4.5:1 for info text in light mode', () => {
+    const result = createAppTheme({ mode: 'light', prefersDark: false });
+
+    expect(getContrastRatio(result.palette.info.main, result.palette.info.contrastText)).toBeGreaterThanOrEqual(4.5);
+  });
+});
 
 describe('theme', () => {
   it('exposes the accent color and its tints as named palette tokens', () => {
