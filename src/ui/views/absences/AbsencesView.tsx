@@ -289,28 +289,32 @@ export function AbsencesView() {
         {tNav('absences')}
       </Typography>
       <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
-        {/* Hidden on mobile: MobileFab (registered above via usePageActions, label "Erfassen"
-            matching the mockup) is the primary action there. */}
-        <Stack direction="row" spacing={1} sx={{ display: { xs: 'none', sm: 'flex' } }}>
+        {/* On mobile MobileFab (registered above via usePageActions, label "Erfassen" matching the
+            mockup) is the primary action, so "Erfassen" is left out here. "Feiertage anlegen" has
+            no other way in and stays, as a quieter text button. Decided by the same `layout` that
+            shows MobileFab, so the two can never both be missing. */}
+        <Stack direction="row" spacing={1}>
           {/* Tooltip on a disabled button never fires - MUI's own documented workaround is a plain
               span wrapper, which still receives the pointer/focus events the button itself no
               longer does (N18). */}
+          {layout !== 'mobile' && (
+            <Tooltip title={activeEmployees.length === 0 ? t('noActiveEmployees') : ''}>
+              <span>
+                <Button
+                  variant="outlined"
+                  startIcon={<AddIcon />}
+                  onClick={() => setDialog({ absence: null })}
+                  disabled={activeEmployees.length === 0}
+                >
+                  {t('createButton')}
+                </Button>
+              </span>
+            </Tooltip>
+          )}
           <Tooltip title={activeEmployees.length === 0 ? t('noActiveEmployees') : ''}>
             <span>
               <Button
-                variant="outlined"
-                startIcon={<AddIcon />}
-                onClick={() => setDialog({ absence: null })}
-                disabled={activeEmployees.length === 0}
-              >
-                {t('createButton')}
-              </Button>
-            </span>
-          </Tooltip>
-          <Tooltip title={activeEmployees.length === 0 ? t('noActiveEmployees') : ''}>
-            <span>
-              <Button
-                variant="outlined"
+                variant={layout === 'mobile' ? 'text' : 'outlined'}
                 startIcon={<EventAvailableOutlinedIcon />}
                 onClick={() => setHolidaysDialogOpen(true)}
                 disabled={activeEmployees.length === 0}

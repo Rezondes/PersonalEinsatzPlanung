@@ -765,6 +765,41 @@ describe('AbsencesView', () => {
       expect(screen.getByRole('combobox', { name: 'Jahr' })).toBeInTheDocument();
     });
 
+    // Teil 8, Package 4: the button row is hidden on a phone and the FAB only offers "Erfassen", so
+    // "Feiertage anlegen" could not be reached there at all.
+    it('keeps "Feiertage anlegen" reachable on a phone', async () => {
+      mockViewportWidth(390);
+      const user = userEvent.setup();
+      employeeForBranchMock.mockResolvedValue([e1]);
+      absenceForBranchMock.mockResolvedValue([]);
+      renderView();
+      await screen.findByText('Noch keine Abwesenheiten erfasst.');
+
+      expect(feiertageButton()).toBeVisible();
+      await user.click(feiertageButton());
+      expect(await screen.findByRole('dialog')).toBeInTheDocument();
+    });
+
+    it('locks "Feiertage anlegen" on a phone without active employees', async () => {
+      mockViewportWidth(390);
+      employeeForBranchMock.mockResolvedValue([e3]);
+      absenceForBranchMock.mockResolvedValue([]);
+      renderView();
+      await screen.findByText('Noch keine Abwesenheiten erfasst.');
+
+      expect(feiertageButton()).toBeDisabled();
+    });
+
+    it('leaves "Erfassen" to the FAB on a phone', async () => {
+      mockViewportWidth(390);
+      employeeForBranchMock.mockResolvedValue([e1]);
+      absenceForBranchMock.mockResolvedValue([]);
+      renderView();
+      await screen.findByText('Noch keine Abwesenheiten erfasst.');
+
+      expect(screen.queryByRole('button', { name: 'Abwesenheit erfassen' })).not.toBeInTheDocument();
+    });
+
     it('keeps 8px between the mobile card and its kebab (Teil 6)', async () => {
       mockViewportWidth(500);
       employeeForBranchMock.mockResolvedValue([e1]);
