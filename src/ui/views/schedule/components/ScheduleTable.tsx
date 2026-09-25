@@ -388,8 +388,16 @@ export const ScheduleTable = memo(function ScheduleTable({
 
                 {view.days.map((dayView: DayView) => {
                   const matches = resultsFor(view.employeeId, dayView.date);
-                  const hasError = matches.some((e) => e.severity === 'error');
-                  const hasWarning = matches.some((e) => e.severity === 'warning');
+                  const errorCount = matches.filter((e) => e.severity === 'error').length;
+                  const warningCount = matches.filter((e) => e.severity === 'warning').length;
+                  const hasError = errorCount > 0;
+                  const hasWarning = warningCount > 0;
+                  // The aria-label replaces the cell's content, so the day's ArbZG status has to be
+                  // in it too - otherwise only the colours and the icon tell that it breaks a rule.
+                  const summary =
+                    cellSummaryText(dayView, emptyCellText) +
+                    (hasError ? t('errorSuffix', { count: errorCount }) : '') +
+                    (hasWarning ? t('warningSuffix', { count: warningCount }) : '');
                   const locked = isCellLocked(row, dayView.day);
                   const droppable = canReceiveEntry(row, dayView);
                   const cellId = cellKey(view.employeeId, dayView.date);
@@ -446,10 +454,10 @@ export const ScheduleTable = memo(function ScheduleTable({
                         ...(selectable ? { 'aria-checked': isSelected } : {}),
                         tabIndex: 0,
                         'aria-label': selectable
-                          ? t('selectCellAriaLabel', { name: fullName(employee), day: dayView.day, summary: cellSummaryText(dayView, emptyCellText) })
+                          ? t('selectCellAriaLabel', { name: fullName(employee), day: dayView.day, summary })
                           : assignMode && droppable
-                            ? t('assignCellAriaLabel', { name: fullName(employee), day: dayView.day, summary: cellSummaryText(dayView, emptyCellText) })
-                            : t('editCellAriaLabel', { name: fullName(employee), day: dayView.day, summary: cellSummaryText(dayView, emptyCellText) }),
+                            ? t('assignCellAriaLabel', { name: fullName(employee), day: dayView.day, summary })
+                            : t('editCellAriaLabel', { name: fullName(employee), day: dayView.day, summary }),
                         onClick: activateCell,
                         onKeyDown: (e: KeyboardEvent) => {
                           // Ignores a keydown that bubbled up from a nested interactive element

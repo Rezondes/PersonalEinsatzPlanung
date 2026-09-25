@@ -34,6 +34,8 @@ const schedule = {
   errorSummary_other: '{{count}} Fehler',
   warningSuffix_one: ', {{count}} Warnung',
   warningSuffix_other: ', {{count}} Warnungen',
+  errorSuffix_one: ', {{count}} Fehler',
+  errorSuffix_other: ', {{count}} Fehler',
   noEmployeesAlert: 'Für diese Filiale sind noch keine Mitarbeiter angelegt. Lege zuerst Mitarbeiter unter „Mitarbeiter“ an.',
   searchPlaceholder: 'Mitarbeiter suchen',
   noEmployeeFound: 'Kein Mitarbeiter gefunden.',

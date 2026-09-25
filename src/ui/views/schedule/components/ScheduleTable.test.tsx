@@ -231,6 +231,53 @@ describe('ScheduleTable', () => {
     expect(screen.getByRole('button', { name: 'Müller, Anna, Dienstag, frei bearbeiten' })).toBeInTheDocument();
   });
 
+  // Teil 8, Package 5: the aria-label replaced the cell's content, so an ArbZG problem on that day
+  // (background, border, icon) never reached a screen reader.
+  describe('ArbZG status in the cell name', () => {
+    const dayResult = (severity: 'error' | 'warning', message: string): ValidationResult => ({
+      rule: 'ArbZG_3_Tag',
+      severity,
+      message,
+      employeeId: m1,
+      date: '2026-09-07',
+    });
+
+    it('names the errors and warnings of the day', () => {
+      const results = [dayResult('error', 'zu lang'), dayResult('warning', 'Pause knapp'), dayResult('warning', 'spät')];
+      render(<ScheduleTable rows={rowsFor(employees)} weekDays={weekDays} validationResults={results} onCellClick={() => {}} {...notAssigning} {...noSelection} />);
+
+      expect(
+        screen.getByRole('button', { name: 'Müller, Anna, Montag, 06:00-14:00, 1 Fehler, 2 Warnungen bearbeiten' }),
+      ).toBeInTheDocument();
+    });
+
+    it('names only the warnings when there is no error', () => {
+      render(<ScheduleTable rows={rowsFor(employees)} weekDays={weekDays} validationResults={[dayResult('warning', 'spät')]} onCellClick={() => {}} {...notAssigning} {...noSelection} />);
+
+      expect(screen.getByRole('button', { name: 'Müller, Anna, Montag, 06:00-14:00, 1 Warnung bearbeiten' })).toBeInTheDocument();
+    });
+
+    it('leaves a cell without findings unchanged', () => {
+      render(<ScheduleTable rows={rowsFor(employees)} weekDays={weekDays} validationResults={[dayResult('error', 'zu lang')]} onCellClick={() => {}} {...notAssigning} {...noSelection} />);
+
+      expect(screen.getByRole('button', { name: 'Müller, Anna, Dienstag, frei bearbeiten' })).toBeInTheDocument();
+    });
+
+    it('keeps the status in assign and selection mode', () => {
+      const results = [dayResult('error', 'zu lang')];
+      const { unmount } = render(
+        <ScheduleTable rows={rowsFor(employees)} weekDays={weekDays} validationResults={results} onCellClick={() => {}} {...notAssigning} assignMode {...noSelection} />,
+      );
+      expect(screen.getByRole('button', { name: /^Müller, Anna, Montag, 06:00-14:00, 1 Fehler .+/ })).toBeInTheDocument();
+      unmount();
+
+      render(
+        <ScheduleTable rows={rowsFor(employees)} weekDays={weekDays} validationResults={results} onCellClick={() => {}} {...notAssigning} {...noSelection} selectionMode />,
+      );
+      expect(screen.getByRole('checkbox', { name: /^Müller, Anna, Montag, 06:00-14:00, 1 Fehler .+/ })).toBeInTheDocument();
+    });
+  });
+
   it('names the whole-day absence kind in a cell\'s aria-label instead of "frei" (H6)', () => {
     const illness: Absence = {
       id: 'a1' as AbsenceId,
