@@ -666,3 +666,26 @@ describe('SettingsView, rechtliche Links', () => {
     expect(screen.getByRole('link', { name: 'Nutzungsbedingungen' })).toHaveAttribute('href', '/de/terms');
   });
 });
+
+// Teil 6, Package 1: the page had no h1 and its sections rendered as h6 (MUI maps subtitle1 to h6).
+describe('SettingsView, Überschriften', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    useNotificationStore.getState().clear();
+  });
+
+  it('hat eine h1 Einstellungen', () => {
+    renderView();
+
+    expect(screen.getByRole('heading', { level: 1, name: 'Einstellungen' })).toBeInTheDocument();
+  });
+
+  it('gibt die Abschnitte als h2 aus, ohne ihr Aussehen zu ändern, und hat keine h6', () => {
+    renderView();
+
+    const section = screen.getByRole('heading', { level: 2, name: 'Erscheinungsbild' });
+    expect(section).toHaveClass('MuiTypography-subtitle1');
+    expect(screen.getByRole('heading', { level: 2, name: 'Version' })).toBeInTheDocument();
+    expect(screen.queryAllByRole('heading', { level: 6 })).toHaveLength(0);
+  });
+});

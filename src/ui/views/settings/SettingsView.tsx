@@ -501,9 +501,12 @@ export function SettingsView() {
         py: layout === 'mobile' ? 1.5 : 3,
       }}
     >
+      <Typography variant="h5" component="h1" fontWeight={500} sx={{ mb: 1 }}>
+        {tNav('settings')}
+      </Typography>
       <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
         <Paper sx={{ p: 3, mb: 3 }}>
-          <Typography variant="subtitle1" fontWeight={500} sx={{ mb: 1 }}>
+          <Typography variant="subtitle1" component="h2" fontWeight={500} sx={{ mb: 1 }}>
             {t('backup.heading')}
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
@@ -533,7 +536,7 @@ export function SettingsView() {
           {driveAvailable && (
             <>
               <Divider sx={{ my: 3 }} />
-              <Typography variant="subtitle1" fontWeight={500} sx={{ mb: 1 }}>
+              <Typography variant="subtitle1" component="h2" fontWeight={500} sx={{ mb: 1 }}>
                 {t('drive.heading')}
               </Typography>
               {!online && (
@@ -598,7 +601,7 @@ export function SettingsView() {
           )}
 
           <Divider sx={{ my: 3 }} />
-          <Typography variant="subtitle1" fontWeight={500} sx={{ mb: 1 }}>
+          <Typography variant="subtitle1" component="h2" fontWeight={500} sx={{ mb: 1 }}>
             {t('password.heading')}
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
@@ -624,7 +627,7 @@ export function SettingsView() {
 
 
         <Paper sx={{ p: 3, mb: 3 }}>
-          <Typography variant="subtitle1" fontWeight={500} sx={{ mb: 1 }}>
+          <Typography variant="subtitle1" component="h2" fontWeight={500} sx={{ mb: 1 }}>
             {t('appearance.heading')}
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
@@ -718,7 +721,7 @@ export function SettingsView() {
         </Paper>
 
         <Paper sx={{ p: 3, mb: 3 }}>
-          <Typography variant="subtitle1" fontWeight={500} sx={{ mb: 1 }}>
+          <Typography variant="subtitle1" component="h2" fontWeight={500} sx={{ mb: 1 }}>
             {t('appStorage.heading')}
           </Typography>
 
@@ -778,7 +781,7 @@ export function SettingsView() {
           )}
         </Paper>
         <Paper sx={{ p: 3, mb: 3 }}>
-          <Typography variant="subtitle1" fontWeight={500} sx={{ mb: 1 }}>
+          <Typography variant="subtitle1" component="h2" fontWeight={500} sx={{ mb: 1 }}>
             {t('legal.heading')}
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
@@ -798,7 +801,7 @@ export function SettingsView() {
         </Paper>
 
         <Paper sx={(theme) => ({ p: 3, borderColor: theme.palette.errorSurface.border })}>
-          <Typography variant="subtitle1" fontWeight={500} sx={{ mb: 1 }}>
+          <Typography variant="subtitle1" component="h2" fontWeight={500} sx={{ mb: 1 }}>
             {t('dangerZone.heading')}
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
@@ -815,7 +818,7 @@ export function SettingsView() {
         </Paper>
 
         <Paper sx={{ p: 3, mt: 3 }}>
-          <Typography variant="subtitle1" fontWeight={500} sx={{ mb: 1 }}>
+          <Typography variant="subtitle1" component="h2" fontWeight={500} sx={{ mb: 1 }}>
             {t('version.heading')}
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
