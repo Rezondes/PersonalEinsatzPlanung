@@ -11,11 +11,10 @@ import FormControl from '@mui/material/FormControl';
 import FormLabel from '@mui/material/FormLabel';
 import Alert from '@mui/material/Alert';
 import type { EmployeeId } from '@domain/shared/ids';
-import { toISODate, formatISODateGerman } from '@domain/shared/DateFormat';
+import { toISODate } from '@domain/shared/DateFormat';
 import type { Employee } from '@domain/employee/Employee';
 import { fullName } from '@domain/employee/Employee';
 import type { Absence, AbsenceInput, AbsenceType } from '@domain/absence/Absence';
-import { absenceTypeLabel } from '@domain/absence/Absence';
 import { CREDITED_OVERRIDE_FIELD, validateAbsence } from '@domain/absence/absenceValidation';
 import type { AbsenceField } from '@domain/absence/absenceValidation';
 import { findConflictingAbsences } from '@domain/absence/absenceOverlap';
@@ -29,13 +28,7 @@ import { ResponsiveDialog } from '@ui/components/ResponsiveDialog';
 import { useDiscardConfirm } from '@ui/hooks/useDiscardConfirm';
 import { ConfirmDialog } from '@ui/components/ConfirmDialog';
 import { useBreakpoint } from '@ui/hooks/useBreakpoint';
-
-/** "Urlaub (01.06.2026 – 05.06.2026)": names one absence, for the conflict and delete questions. */
-export function formatAbsenceEntry(a: Absence): string {
-  const range =
-    a.from === a.to ? formatISODateGerman(a.from) : `${formatISODateGerman(a.from)} – ${formatISODateGerman(a.to)}`;
-  return `${absenceTypeLabel(a)} (${range})`;
-}
+import { formatAbsenceEntry } from './formatAbsenceEntry';
 
 interface FormState {
   employeeId: string;

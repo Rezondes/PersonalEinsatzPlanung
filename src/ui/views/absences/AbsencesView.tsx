@@ -54,7 +54,8 @@ import { ResponsiveDataList } from '@ui/components/ResponsiveList/ResponsiveData
 import { RowActionSheet } from '@ui/components/ResponsiveList/RowActionSheet';
 import type { RowAction } from '@ui/components/ResponsiveList/RowAction';
 import { useLongPress } from '@ui/components/ResponsiveList/useLongPress';
-import { AbsenceDialog, formatAbsenceEntry } from './AbsenceDialog';
+import { AbsenceDialog } from './AbsenceDialog';
+import { formatAbsenceEntry } from './formatAbsenceEntry';
 import { CreateHolidaysDialog } from './components/CreateHolidaysDialog';
 import { notify } from '@ui/app/store/notificationStore';
 import { usePageActions } from '@ui/app/PageActionsContext';
