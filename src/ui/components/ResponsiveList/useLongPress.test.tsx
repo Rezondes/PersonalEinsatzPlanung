@@ -30,7 +30,12 @@ describe('useLongPress', () => {
 
     act(() => result.current.onPointerDown(fakeEvent(0, 0)));
     act(() => vi.advanceTimersByTime(500));
-    act(() => result.current.onPointerUp());
+    // A real browser fires click right after pointerup, in the same task (Teil 8, Package 11: that
+    // click used to open the edit dialog on top of the action sheet).
+    act(() => {
+      result.current.onPointerUp();
+      result.current.onClick();
+    });
 
     expect(onLongPress).toHaveBeenCalledTimes(1);
     expect(onTap).not.toHaveBeenCalled();
@@ -43,8 +48,12 @@ describe('useLongPress', () => {
 
     act(() => result.current.onPointerDown(fakeEvent(0, 0)));
     act(() => vi.advanceTimersByTime(200));
-    act(() => result.current.onPointerUp());
+    act(() => {
+      result.current.onPointerUp();
+      result.current.onClick();
+    });
 
+    // Exactly once: pointerup and the click that follows it used to call onTap each.
     expect(onTap).toHaveBeenCalledTimes(1);
     expect(onLongPress).not.toHaveBeenCalled();
   });
@@ -57,7 +66,10 @@ describe('useLongPress', () => {
     act(() => result.current.onPointerDown(fakeEvent(0, 0)));
     act(() => result.current.onPointerMove(fakeEvent(50, 0)));
     act(() => vi.advanceTimersByTime(500));
-    act(() => result.current.onPointerUp());
+    act(() => {
+      result.current.onPointerUp();
+      result.current.onClick();
+    });
 
     expect(onLongPress).not.toHaveBeenCalled();
     // A cancelled long-press also doesn't fall back to a tap - the gesture was a scroll, not a click.
@@ -84,5 +96,19 @@ describe('useLongPress', () => {
 
     expect(onTap).toHaveBeenCalledTimes(1);
     expect(onLongPress).not.toHaveBeenCalled();
+  });
+
+  it('still takes a keyboard click after an earlier long press', () => {
+    const onTap = vi.fn();
+    const { result } = renderHook(() => useLongPress({ onLongPress: vi.fn(), onTap, delayMs: 500, moveThresholdPx: 10 }));
+
+    act(() => result.current.onPointerDown(fakeEvent(0, 0)));
+    act(() => vi.advanceTimersByTime(500));
+    // Touch browsers often send no click after a long press at all.
+    act(() => result.current.onPointerUp());
+    act(() => vi.advanceTimersByTime(0));
+    act(() => result.current.onClick());
+
+    expect(onTap).toHaveBeenCalledTimes(1);
   });
 });

@@ -3,7 +3,7 @@ import type { PointerEvent } from 'react';
 
 interface UseLongPressOptions {
   onLongPress: () => void;
-  /** Fires on a short tap/click - i.e. a pointer up that didn't already trigger onLongPress. */
+  /** Fires on a short tap/click - i.e. a click that did not end a long press or a drag. */
   onTap?: () => void;
   delayMs?: number;
   /** A pointer moving further than this before the delay elapses cancels the long-press (and the
@@ -25,6 +25,10 @@ export function useLongPress({ onLongPress, onTap, delayMs = 500, moveThresholdP
   // threshold exists to prevent (a scroll gesture that happens to end over the row would still
   // have opened the row's default action).
   const movedRef = useRef(false);
+  // Set on a pointerup that ended a long press or a drag, for the click the browser fires right
+  // after it in the same task. Cleared on the next task, so a later keyboard click still counts
+  // (touch browsers often send no click at all after a long press).
+  const suppressClickRef = useRef(false);
 
   const clear = useCallback(() => {
     if (timerRef.current !== null) {
@@ -62,23 +66,30 @@ export function useLongPress({ onLongPress, onTap, delayMs = 500, moveThresholdP
     [clear, moveThresholdPx],
   );
 
+  // Only ends the gesture: the tap itself is the click that follows (see onClick). Calling onTap
+  // here too ran every tap twice.
   const onPointerUp = useCallback(() => {
     clear();
-    if (!firedRef.current && !movedRef.current) {
-      onTap?.();
+    if (firedRef.current || movedRef.current) {
+      suppressClickRef.current = true;
+      setTimeout(() => {
+        suppressClickRef.current = false;
+      }, 0);
     }
-  }, [clear, onTap]);
+  }, [clear]);
 
   const onPointerCancel = useCallback(() => {
     clear();
   }, [clear]);
 
-  // Keyboard activation: a native <button>/ButtonBase already translates Enter/Space into a click
-  // event, so this needs no separate onKeyDown - it just has to route that click to the same place
-  // a short tap goes. Pointer-based presses never fire onClick from a plain click alone in a way
-  // that would double up: onTap already required onPointerUp, which a keyboard activation never
-  // produces.
+  // The one place a tap lands: a short mouse/touch press and keyboard Enter/Space (a native
+  // <button>/ButtonBase turns those into a click) all arrive here. The click right after a long
+  // press or a drag is swallowed - it used to open the edit dialog on top of the action sheet.
   const onClick = useCallback(() => {
+    if (suppressClickRef.current) {
+      suppressClickRef.current = false;
+      return;
+    }
     onTap?.();
   }, [onTap]);
 

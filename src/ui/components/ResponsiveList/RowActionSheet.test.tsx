@@ -85,6 +85,14 @@ describe('RowActionSheet', () => {
     expect(screen.getByRole('button', { name: /Bearbeiten/ })).toBeDisabled();
   });
 
+  // Teil 8, Package 11: ButtonBase has no disabled look of its own, so a disabled action looked
+  // exactly like an active one that silently did nothing.
+  it('makes a disabled action look disabled', () => {
+    render(<RowActionSheet open onClose={vi.fn()} title="t" actions={[editAction({ disabled: true })]} />);
+
+    expect(screen.getByRole('button', { name: /Bearbeiten/ })).toHaveStyle({ opacity: '0.38' });
+  });
+
   it('hat einen zugänglichen Namen gleich dem sichtbaren Titel', () => {
     render(<RowActionSheet open onClose={vi.fn()} title="Bauer, Anna" actions={[editAction()]} />);
 

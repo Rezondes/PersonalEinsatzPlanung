@@ -91,6 +91,8 @@ export function RowActionSheet({ open, onClose, title, subtitle, actions }: RowA
             justifyContent: 'flex-start',
             textAlign: 'left',
             color: action.dangerous ? 'error.main' : 'text.primary',
+            // ButtonBase has no disabled look of its own; MUI's standard disabled opacity.
+            '&.Mui-disabled': { opacity: 0.38 },
           }}
         >
           <action.icon fontSize="small" sx={{ flexShrink: 0 }} />
