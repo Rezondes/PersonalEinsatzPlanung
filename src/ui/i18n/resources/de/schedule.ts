@@ -140,7 +140,7 @@ const schedule = {
   netHoursHint:
     'Ersetzt die berechneten {{hours}} Std. für diesen Tag. Die Prüfung nach ArbZG bleibt bei den eingetragenen Zeiten.',
   arbzgViolationTitle: 'Gesetzesverstoß trotzdem speichern?',
-  arbzgViolationText: 'Diese Schicht verstößt gegen das Arbeitszeitgesetz: {{messages}}',
+  arbzgViolationIntro: 'Diese Schicht verstößt gegen das Arbeitszeitgesetz:',
   saveAnywayButton: 'Trotzdem speichern',
 
   // ShiftListEditor.tsx

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { EmployeeId, AbsenceId } from '@domain/shared/ids';
 import type { Absence } from '@domain/absence/Absence';
@@ -188,6 +188,47 @@ describe('DayEditor', () => {
       type: 'Shift',
       shifts: [expect.objectContaining({ start: '06:00', end: '22:00' })],
     });
+  });
+
+  // Teil 8, Package 17: the ArbZG results were only shown after Speichern, warnings never.
+  it('shows ArbZG errors while editing, before Speichern', () => {
+    renderEditor();
+
+    setTime('Ende', '22:00');
+
+    expect(screen.getByTestId('arbzg-live')).toHaveTextContent(/Höchstgrenze von 10 Std/);
+  });
+
+  it('shows ArbZG warnings while editing', () => {
+    renderEditor();
+
+    // 06:00-15:30 with the suggested breaks is over 8h net: a warning, not an error.
+    setTime('Ende', '15:30');
+
+    expect(screen.getByTestId('arbzg-live')).toHaveTextContent(/über 8 Std/);
+  });
+
+  it('shows nothing while the day is fine, and saving stays possible', async () => {
+    const user = userEvent.setup();
+    const { onSave } = renderEditor();
+
+    // 4h: no break needed (the 06:00-14:00 suggestion itself lacks its 30 min break).
+    setTime('Ende', '10:00');
+
+    expect(screen.getByTestId('arbzg-live')).toBeEmptyDOMElement();
+    await user.click(save());
+    expect(onSave).toHaveBeenCalled();
+  });
+
+  it('lists the violations one by one in the confirmation', async () => {
+    const user = userEvent.setup();
+    renderEditor();
+
+    setTime('Ende', '22:00');
+    await user.click(save());
+
+    const dialog = screen.getByRole('dialog', { name: 'Gesetzesverstoß trotzdem speichern?' });
+    expect(within(dialog).getAllByRole('listitem').length).toBeGreaterThanOrEqual(2);
   });
 
   it('asks for confirmation on a pure youth-protection violation (minor working past 20:00) even though no adult rule fires', async () => {

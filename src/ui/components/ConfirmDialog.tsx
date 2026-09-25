@@ -1,4 +1,5 @@
 import { useId } from 'react';
+import type { ReactNode } from 'react';
 import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
@@ -12,7 +13,8 @@ import { useTranslation } from 'react-i18next';
 interface ConfirmDialogProps {
   open: boolean;
   title: string;
-  text: string;
+  /** A string, or rich content such as a list (then rendered in a div, not a p). */
+  text: ReactNode;
   confirmText?: string;
   /** Label of the dismissing button; defaults to "Abbrechen". */
   cancelText?: string;
@@ -51,7 +53,7 @@ export function ConfirmDialog({
       <DialogContent>
         {/* Freigegeben, weil hier die ArbZG-Verstoesse des DayEditors und die Warnungen vor
             Import und Loeschung stehen - Text, den man beim Nachfragen kopieren koennen muss. */}
-        <DialogContentText id={textId} data-selectable>
+        <DialogContentText id={textId} data-selectable component={typeof text === 'string' ? 'p' : 'div'}>
           {text}
         </DialogContentText>
       </DialogContent>

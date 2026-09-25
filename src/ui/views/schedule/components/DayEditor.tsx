@@ -8,6 +8,7 @@ import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import Divider from '@mui/material/Divider';
 import Alert from '@mui/material/Alert';
+import Box from '@mui/material/Box';
 import type { ShiftDraft } from '@domain/schedule/shiftDraft';
 import {
   NET_OVERRIDE_FIELD,
@@ -223,7 +224,8 @@ export function DayEditor({
   // and validateYouthRestPeriodSequence need the whole week's minutes / cross-week shift sequence,
   // neither of which this single-day editor has (same reason validateWeeklyWorkingTime and the
   // async rest-period check aren't in the adult list above either).
-  const liveErrors = useMemo(() => {
+  // All live results, errors and warnings: both are shown while editing, only errors ask on Speichern.
+  const liveResults = useMemo(() => {
     if (!parsedShifts) return [];
     const context = { employeeId, date };
     const netMinutes = parsedShifts.reduce((sum, s) => sum + shiftNetMinutes(s), 0);
@@ -237,8 +239,9 @@ export function DayEditor({
       ...validateYouthDailyWorkingTime(netMinutes, birthDate, context),
       ...validateYouthSundayWork(date, day, birthDate, { employeeId }),
       ...validateChildEmploymentBan(date, birthDate, { employeeId }),
-    ].filter((e) => e.severity === 'error');
+    ];
   }, [parsedShifts, employeeId, date, day, birthDate]);
+  const liveErrors = liveResults.filter((e) => e.severity === 'error');
 
   const actuallySave = () => {
     if (mode === 'Off') {
@@ -421,6 +424,21 @@ export function DayEditor({
           <Stack spacing={2}>
             <ShiftListEditor drafts={drafts} onChange={setDrafts} fieldProps={validation.fieldProps} />
 
+            {/* The ArbZG results while editing: they used to appear only after Speichern (errors)
+                or never (warnings). A polite live region that is always there, so a change that
+                breaks a rule is announced without interrupting the typing. They never block. */}
+            <Box data-testid="arbzg-live" aria-live="polite">
+              {liveResults.length > 0 && (
+                <Alert severity={liveErrors.length > 0 ? 'error' : 'warning'} role="none">
+                  <Box component="ul" sx={{ m: 0, pl: 2 }}>
+                    {liveResults.map((result, index) => (
+                      <li key={index}>{result.message}</li>
+                    ))}
+                  </Box>
+                </Alert>
+              )}
+            </Box>
+
             <Divider />
             <DecimalTextField
               label={t('netHoursLabel')}
@@ -436,7 +454,16 @@ export function DayEditor({
       <ConfirmDialog
         open={showConfirmation}
         title={t('arbzgViolationTitle')}
-        text={t('arbzgViolationText', { messages: liveErrors.map((e) => e.message).join(' ') })}
+        text={
+          <>
+            {t('arbzgViolationIntro')}
+            <Box component="ul" sx={{ mt: 1, mb: 0, pl: 2 }}>
+              {liveErrors.map((e, index) => (
+                <li key={index}>{e.message}</li>
+              ))}
+            </Box>
+          </>
+        }
         confirmText={t('saveAnywayButton')}
         dangerous
         onConfirm={() => {

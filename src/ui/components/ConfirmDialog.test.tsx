@@ -79,6 +79,26 @@ describe('ConfirmDialog', () => {
     expect(document.getElementById(describedById!)).toHaveTextContent('Dies kann nicht rückgängig gemacht werden.');
   });
 
+  // Teil 8, Package 17: a list of messages cannot live in a <p>.
+  it('takes rich text and renders it in a div', () => {
+    render(
+      <ConfirmDialog
+        open
+        title="t"
+        text={
+          <ul>
+            <li>eins</li>
+          </ul>
+        }
+        onConfirm={vi.fn()}
+        onCancel={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole('listitem')).toHaveTextContent('eins');
+    expect(screen.getByRole('list').parentElement?.tagName).toBe('DIV');
+  });
+
   // Teil 8, Package 14: the status element was inserted together with the busy text, which screen
   // readers often skip.
   it('keeps its status region in place while not busy, and fills it once busy', () => {
