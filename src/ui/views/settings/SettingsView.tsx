@@ -18,10 +18,6 @@ import DeleteForeverOutlinedIcon from '@mui/icons-material/DeleteForeverOutlined
 import InstallMobileOutlinedIcon from '@mui/icons-material/InstallMobileOutlined';
 import CheckIcon from '@mui/icons-material/Check';
 import CircularProgress from '@mui/material/CircularProgress';
-import Dialog from '@mui/material/Dialog';
-import DialogTitle from '@mui/material/DialogTitle';
-import DialogContent from '@mui/material/DialogContent';
-import DialogActions from '@mui/material/DialogActions';
 import Backdrop from '@mui/material/Backdrop';
 import { useTranslation } from 'react-i18next';
 import { services } from '@infrastructure/services';
@@ -102,6 +98,9 @@ export function SettingsView() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [confirmationText, setConfirmationText] = useState('');
   const [importFile, setImportFile] = useState<File | null>(null);
+  // Both acted at once: disconnecting Drive, and removing the password, which silently makes every
+  // future backup unencrypted. Now each asks first.
+  const [confirmAction, setConfirmAction] = useState<'disconnectDrive' | 'removePassword' | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [driveSignedIn, setDriveSignedIn] = useState(services.backupStorage.isSignedIn());
   const [driveBusy, setDriveBusy] = useState(false);
@@ -578,7 +577,7 @@ export function SettingsView() {
                     >
                       {t('drive.loadButton')}
                     </Button>
-                    <Button onClick={disconnectDrive} disabled={driveBusy}>
+                    <Button onClick={() => setConfirmAction('disconnectDrive')} disabled={driveBusy}>
                       {t('drive.disconnectButton')}
                     </Button>
                   </Stack>
@@ -598,7 +597,7 @@ export function SettingsView() {
                       {driveBusy ? t('drive.signingIn') : t('drive.signInButton')}
                     </Button>
                     {driveRemembered && (
-                      <Button onClick={disconnectDrive} disabled={driveBusy}>
+                      <Button onClick={() => setConfirmAction('disconnectDrive')} disabled={driveBusy}>
                         {t('drive.stopUsingButton')}
                       </Button>
                     )}
@@ -629,7 +628,7 @@ export function SettingsView() {
             >
               {passwordConfigured ? t('password.changeButton') : t('password.setLabel')}
             </Button>
-            {passwordConfigured && <Button onClick={removeBackupPassword}>{t('password.removeButton')}</Button>}
+            {passwordConfigured && <Button onClick={() => setConfirmAction('removePassword')}>{t('password.removeButton')}</Button>}
           </Stack>
         </Paper>
 
@@ -913,7 +912,18 @@ export function SettingsView() {
       <ConfirmDialog
         open={!!importFile}
         title={t('importDialog.title')}
-        text={t('importDialog.text')}
+        text={
+          <>
+            {t('importDialog.text')}
+            {/* Picking the wrong file replaces everything for good: offer to save what is there
+                first. The export preview opens on top, and this question waits underneath. */}
+            <Box sx={{ mt: 2 }}>
+              <Button variant="outlined" startIcon={<DownloadOutlinedIcon />} onClick={openBackupPreview} disabled={importing}>
+                {t('importDialog.backupFirstButton')}
+              </Button>
+            </Box>
+          </>
+        }
         confirmText={t('importDialog.confirmButton')}
         dangerous
         busy={importing}
@@ -921,9 +931,22 @@ export function SettingsView() {
         onCancel={closeImportDialog}
       />
 
-      <Dialog open={!!backupPreview} onClose={() => setBackupPreview(null)} maxWidth="xs" fullWidth>
-        <DialogTitle>{t('backup.previewTitle')}</DialogTitle>
-        <DialogContent>
+      {/* The app's standard dialog like every other one: full screen on a phone, a close button, and
+          the Android back button closes it instead of leaving the page. */}
+      <ResponsiveDialog
+        open={!!backupPreview}
+        onClose={() => setBackupPreview(null)}
+        title={t('backup.previewTitle')}
+        maxWidth="xs"
+        actions={
+          <>
+            <Button onClick={() => setBackupPreview(null)}>{tCommon('cancel')}</Button>
+            <Button variant="contained" onClick={confirmBackupExport}>
+              {t('backup.downloadButton')}
+            </Button>
+          </>
+        }
+      >
           <Stack spacing={1}>
             {backupPreview &&
               (
@@ -945,14 +968,21 @@ export function SettingsView() {
                 </Stack>
               ))}
           </Stack>
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={() => setBackupPreview(null)}>{tCommon('cancel')}</Button>
-          <Button variant="contained" onClick={confirmBackupExport}>
-            {t('backup.downloadButton')}
-          </Button>
-        </DialogActions>
-      </Dialog>
+      </ResponsiveDialog>
+
+      <ConfirmDialog
+        open={confirmAction !== null}
+        title={confirmAction === 'removePassword' ? t('password.removeConfirmTitle') : t('drive.disconnectConfirmTitle')}
+        text={confirmAction === 'removePassword' ? t('password.removeConfirmText') : t('drive.disconnectConfirmText')}
+        confirmText={confirmAction === 'removePassword' ? t('password.removeConfirmButton') : t('drive.disconnectConfirmButton')}
+        dangerous
+        onConfirm={() => {
+          if (confirmAction === 'removePassword') removeBackupPassword();
+          else disconnectDrive();
+          setConfirmAction(null);
+        }}
+        onCancel={() => setConfirmAction(null)}
+      />
 
       {/* modal + 1, not drawer + 1: a standalone Backdrop has no z-index of its own and would
           otherwise sit behind the dialog that just closed, while its exit transition still runs. */}

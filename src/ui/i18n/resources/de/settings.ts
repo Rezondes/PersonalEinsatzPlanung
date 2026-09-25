@@ -51,6 +51,10 @@ const settings = {
     signingIn: 'Anmeldung läuft…',
     signInButton: 'Mit Google anmelden',
     stopUsingButton: 'Google Drive nicht mehr verwenden',
+    disconnectConfirmTitle: 'Verbindung zu Google Drive trennen?',
+    disconnectConfirmText:
+      'Deine Sicherungen in Google Drive bleiben erhalten. Zum Sichern oder Laden musst du dich danach neu anmelden.',
+    disconnectConfirmButton: 'Trennen',
   },
   password: {
     heading: 'Backup-Passwort',
@@ -63,6 +67,10 @@ const settings = {
     // Also BackupPasswordDialog's own title in 'set' mode - identical wording, one key.
     setLabel: 'Backup-Passwort festlegen',
     removeButton: 'Passwort entfernen',
+    removeConfirmTitle: 'Passwort entfernen?',
+    removeConfirmText:
+      'Künftige Backups werden dann unverschlüsselt gespeichert. Bereits erstellte Sicherungen brauchen weiterhin ihr altes Passwort.',
+    removeConfirmButton: 'Entfernen',
     requiredError: 'Bitte Passwort eingeben.',
     mismatchError: 'Passwörter stimmen nicht überein.',
     showPassword: 'Passwort anzeigen',
@@ -131,6 +139,7 @@ const settings = {
     title: 'Daten importieren?',
     text: 'Der komplette lokale Datenbestand wird durch den Inhalt dieser Datei ersetzt. Dieser Vorgang kann nicht rückgängig gemacht werden.',
     confirmButton: 'Importieren',
+    backupFirstButton: 'Vorher aktuelle Daten sichern',
   },
   notify: {
     persistentGranted: 'Der Browser bewahrt die Daten dieser App jetzt dauerhaft auf.',

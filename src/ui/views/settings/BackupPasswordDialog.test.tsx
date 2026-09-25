@@ -44,6 +44,38 @@ describe('BackupPasswordDialog', () => {
     expect(screen.queryByLabelText(/^Passwort bestätigen/)).not.toBeInTheDocument();
   });
 
+  // Teil 8, Package 19: without autocomplete hints a password manager could fill in a site password,
+  // which would then encrypt the backup with a value nobody knows.
+  it('tells password managers which password is meant', () => {
+    const { unmount } = render(<BackupPasswordDialog mode="set" busy={false} onClose={vi.fn()} onSubmit={vi.fn()} />);
+    expect(screen.getByLabelText(/^Passwort\s*\*?$/)).toHaveAttribute('autocomplete', 'new-password');
+    expect(screen.getByLabelText(/^Passwort bestätigen/)).toHaveAttribute('autocomplete', 'new-password');
+    unmount();
+
+    render(<BackupPasswordDialog mode="enter" busy={false} onClose={vi.fn()} onSubmit={vi.fn()} />);
+    expect(screen.getByLabelText(/^Passwort\s*\*?$/)).toHaveAttribute('autocomplete', 'current-password');
+  });
+
+  // Teil 8, Package 19: a wrong password was a separate alert; the field itself looked fine.
+  it('marks the field itself for a wrong password and puts the focus there', () => {
+    // As in the app: the error arrives after a failed attempt, with the dialog already open.
+    const { rerender } = render(<BackupPasswordDialog mode="enter" busy={false} onClose={vi.fn()} onSubmit={vi.fn()} />);
+    rerender(
+      <BackupPasswordDialog
+        mode="enter"
+        error="Falsches Passwort oder beschädigte Sicherung."
+        busy={false}
+        onClose={vi.fn()}
+        onSubmit={vi.fn()}
+      />,
+    );
+
+    const field = screen.getByLabelText(/^Passwort\s*\*?$/);
+    expect(field).toHaveAttribute('aria-invalid', 'true');
+    expect(field).toHaveAccessibleDescription('Falsches Passwort oder beschädigte Sicherung.');
+    expect(field).toHaveFocus();
+  });
+
   it('confirm mode: has two fields and blocks submission on a mismatch, catching a re-entry typo before export', async () => {
     const user = userEvent.setup();
     const onSubmit = vi.fn();

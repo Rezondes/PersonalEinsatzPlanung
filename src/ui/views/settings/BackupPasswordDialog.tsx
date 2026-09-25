@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Button from '@mui/material/Button';
 import TextField from '@mui/material/TextField';
 import InputAdornment from '@mui/material/InputAdornment';
@@ -47,6 +47,18 @@ export function BackupPasswordDialog({ mode, error = null, busy, onClose, onSubm
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const passwordRef = useRef<HTMLInputElement>(null);
+  // A wrong password is marked on the field itself, which takes the focus with its content
+  // selected, ready to type again (it used to be a separate alert above an unmarked field).
+  useEffect(() => {
+    if (mode === 'enter' && error) {
+      passwordRef.current?.focus();
+      passwordRef.current?.select();
+    }
+  }, [mode, error]);
+  // Tells password managers which password this is: without it one could fill in a site password,
+  // which would then encrypt the backup with a value nobody knows.
+  const autoComplete = mode === 'set' ? 'new-password' : 'current-password';
 
   // Same shared hook every other data-entry dialog in the app uses (EmployeeDialog, BranchDialog,
   // AbsenceDialog, DayEditor, ShiftTemplateDialog) instead of a hand-rolled touched/mismatch pair -
@@ -132,12 +144,6 @@ export function BackupPasswordDialog({ mode, error = null, busy, onClose, onSubm
         </Alert>
       )}
 
-      {mode === 'enter' && error && (
-        <Alert severity="error" sx={{ mb: 2 }} data-selectable>
-          {error}
-        </Alert>
-      )}
-
       <Stack spacing={2}>
         <TextField
           required
@@ -150,8 +156,11 @@ export function BackupPasswordDialog({ mode, error = null, busy, onClose, onSubm
             if (e.key === 'Enter' && mode === 'enter') submit();
           }}
           InputProps={visibilityToggle}
+          inputRef={passwordRef}
+          autoComplete={autoComplete}
           disabled={busy}
           {...validation.fieldProps('password', ' ')}
+          {...(mode === 'enter' && error ? { error: true, helperText: error } : {})}
         />
         {(mode === 'set' || mode === 'confirm') && (
           <TextField
@@ -165,6 +174,7 @@ export function BackupPasswordDialog({ mode, error = null, busy, onClose, onSubm
               if (e.key === 'Enter') submit();
             }}
             InputProps={visibilityToggle}
+            autoComplete={autoComplete}
             disabled={busy}
             {...validation.fieldProps('confirmPassword', ' ')}
           />

@@ -106,6 +106,20 @@ describe('SettingsView, Google Drive section', () => {
     expect(drive.signIn).not.toHaveBeenCalled();
   });
 
+  // Teil 8, Package 19: disconnecting acted at once, without a question.
+  it('asks before it stops using Google Drive', async () => {
+    const user = userEvent.setup();
+    drive.wasConnected.mockReturnValue(true);
+    renderView();
+
+    await user.click(screen.getByRole('button', { name: 'Google Drive nicht mehr verwenden' }));
+
+    expect(drive.signOut).not.toHaveBeenCalled();
+    const dialog = await screen.findByRole('dialog', { name: 'Verbindung zu Google Drive trennen?' });
+    await user.click(within(dialog).getByRole('button', { name: 'Trennen' }));
+    expect(drive.signOut).toHaveBeenCalled();
+  });
+
   it('does not attempt a silent restore on a normal reopening, even for a returning Drive user (the reported bug)', () => {
     // A plain reopening of the app, independent of any import: the user connected Drive at some
     // point in the past, but nothing marked this particular mount as following a self-triggered
@@ -176,10 +190,12 @@ describe('SettingsView, Google Drive section', () => {
 
     await waitFor(() => expect(signInButton()).toBeInTheDocument());
     await userEvent.click(screen.getByRole('button', { name: 'Google Drive nicht mehr verwenden' }));
+    await userEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Trennen' }));
 
     expect(drive.signOut).toHaveBeenCalled();
+    // The page behind the confirmation is aria-hidden until the dialog has finished closing.
+    await waitFor(() => expect(signInButton()).toBeInTheDocument());
     expect(screen.queryByRole('button', { name: 'Google Drive nicht mehr verwenden' })).not.toBeInTheDocument();
-    expect(signInButton()).toBeInTheDocument();
   });
 
   it('offers no such opt-out to someone who never connected', () => {
@@ -360,6 +376,21 @@ describe('SettingsView, Backup-Passwort', () => {
     setBackupPasswordConfigured(false);
   });
 
+  // Teil 8, Package 19: removing it acted at once, and silently made every future backup unencrypted.
+  it('asks before it removes the backup password, and says what that means', async () => {
+    const user = userEvent.setup();
+    setBackupPasswordConfigured(true);
+    renderView();
+
+    await user.click(screen.getByRole('button', { name: 'Passwort entfernen' }));
+
+    const dialog = await screen.findByRole('dialog', { name: 'Passwort entfernen?' });
+    expect(dialog).toHaveTextContent('unverschlüsselt');
+    expect(isBackupPasswordConfigured()).toBe(true);
+    await user.click(within(dialog).getByRole('button', { name: 'Entfernen' }));
+    expect(isBackupPasswordConfigured()).toBe(false);
+  });
+
   it('does not let a password typed to decrypt an import become the password the next export uses', async () => {
     const user = userEvent.setup();
     renderView();
@@ -419,6 +450,7 @@ describe('SettingsView, Backup-Passwort', () => {
     renderView();
 
     await user.click(screen.getByRole('button', { name: 'Passwort entfernen' }));
+    await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Entfernen' }));
 
     expect(isBackupPasswordConfigured()).toBe(false);
     expect(getCachedPassword()).toBeNull();
@@ -450,6 +482,31 @@ describe('SettingsView, Datensicherungs-Vorschau', () => {
         shiftTemplates: [{}] as never,
       },
     });
+  });
+
+  // Teil 8, Package 19: a raw Dialog - not full screen, no X, and the Android back button left the
+  // page instead of closing it.
+  it('shows the preview in the standard app dialog, with a close button', async () => {
+    const user = userEvent.setup();
+    renderView();
+
+    await user.click(screen.getByRole('button', { name: 'Daten exportieren' }));
+
+    const dialog = await screen.findByRole('dialog', { name: 'Vorschau der Datensicherung' });
+    expect(within(dialog).getByRole('button', { name: 'Schließen' })).toBeInTheDocument();
+  });
+
+  // Teil 8, Package 19: picking the wrong file replaced everything with no way back.
+  it('offers to back up the current data from the import question first', async () => {
+    const user = userEvent.setup();
+    renderView();
+
+    const file = new File([JSON.stringify(fakeExportFile)], 'backup.json', { type: 'application/json' });
+    await user.upload(document.querySelector<HTMLInputElement>('input[type="file"]')!, file);
+    await user.click(await screen.findByRole('button', { name: 'Vorher aktuelle Daten sichern' }));
+
+    expect(await screen.findByRole('dialog', { name: 'Vorschau der Datensicherung' })).toBeInTheDocument();
+    expect(services.dataExport.importAndReplace).not.toHaveBeenCalled();
   });
 
   it('opens a summary preview instead of downloading immediately', async () => {
