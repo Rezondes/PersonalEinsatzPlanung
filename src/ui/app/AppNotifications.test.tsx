@@ -37,11 +37,18 @@ describe('AppNotifications', () => {
     expect(screen.getByRole('alert')).toHaveTextContent('Google Drive ist nicht erreichbar.');
   });
 
-  it('announces a success politely, as a status', () => {
+  // Teil 8, Package 14: the success status was inserted together with its text (and remounted per
+  // message), which screen readers often skip. It now lands in a live region that is always there.
+  it('announces a success politely, through a live region that exists before any message', () => {
     renderHost();
+    const liveRegion = screen.getByTestId('notification-announcer');
+    expect(liveRegion).toHaveAttribute('aria-live', 'polite');
+    expect(liveRegion).toBeEmptyDOMElement();
+
     push(() => store().notifySuccess('Backup wurde heruntergeladen.'));
 
-    expect(screen.getByRole('status')).toHaveTextContent('Backup wurde heruntergeladen.');
+    expect(screen.getByTestId('notification-announcer')).toBe(liveRegion);
+    expect(liveRegion).toHaveTextContent('Backup wurde heruntergeladen.');
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 

@@ -64,7 +64,8 @@ describe('ChangelogView', () => {
     render(<ChangelogView />);
 
     expect(screen.getByRole('heading', { level: 1, name: 'Änderungen' })).toBeInTheDocument();
-    expect(await screen.findByRole('heading', { level: 2, name: 'Deploy 2026-09-13 10:00 UTC' })).toBeInTheDocument();
+    // The h2 wraps the whole accordion button, so its name also carries the date.
+    expect(await screen.findByRole('heading', { level: 2, name: /^Deploy 2026-09-13 10:00 UTC/ })).toBeInTheDocument();
   });
 
   it('renders releases in the order fetchChangelog provides, even when unsorted', async () => {
@@ -98,9 +99,9 @@ describe('ChangelogView', () => {
 
     const headings = await screen.findAllByRole('heading', { level: 2 });
     expect(headings.map((h) => h.textContent)).toEqual([
-      'Deploy 2026-09-14 01:36 UTC',
-      'Deploy 2026-09-14 18:34 UTC',
-      'Deploy 2026-09-14 17:27 UTC',
+      expect.stringContaining('Deploy 2026-09-14 01:36 UTC'),
+      expect.stringContaining('Deploy 2026-09-14 18:34 UTC'),
+      expect.stringContaining('Deploy 2026-09-14 17:27 UTC'),
     ]);
   });
 
@@ -121,6 +122,19 @@ describe('ChangelogView', () => {
 
     await userEvent.setup().click(screen.getByRole('button', { name: 'Erneut versuchen' }));
     expect(await screen.findByText('Noch keine Einträge vorhanden.')).toBeInTheDocument();
+  });
+
+  // Teil 8, Package 14: MUI's Accordion wraps its summary in an <h3>, so the title's own
+  // component="h2" nested a heading inside a heading (h1 > h3 > button > h2).
+  it('does not nest headings inside the accordion heading', async () => {
+    fetchChangelogMock.mockResolvedValue([
+      { tagName: 'v1', title: 'Deploy 1', publishedAt: '2026-09-14T01:36:00Z', url: 'https://example.invalid/v1', entries: ['a'] },
+    ]);
+    render(<ChangelogView />);
+
+    const heading = await screen.findByRole('heading', { level: 2, name: /Deploy 1/ });
+    expect(heading.querySelector('h1, h2, h3, h4, h5, h6')).toBeNull();
+    expect(heading.closest('h3')).toBeNull();
   });
 
   function summaryFor(title: string): HTMLElement {

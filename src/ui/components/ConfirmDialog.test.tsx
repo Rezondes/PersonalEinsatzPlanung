@@ -79,6 +79,19 @@ describe('ConfirmDialog', () => {
     expect(document.getElementById(describedById!)).toHaveTextContent('Dies kann nicht rückgängig gemacht werden.');
   });
 
+  // Teil 8, Package 14: the status element was inserted together with the busy text, which screen
+  // readers often skip.
+  it('keeps its status region in place while not busy, and fills it once busy', () => {
+    const { rerender } = render(<ConfirmDialog open title="t" text="x" onConfirm={vi.fn()} onCancel={vi.fn()} />);
+    const status = screen.getByRole('status');
+    expect(status).toBeEmptyDOMElement();
+
+    rerender(<ConfirmDialog open busy title="t" text="x" onConfirm={vi.fn()} onCancel={vi.fn()} />);
+
+    expect(screen.getByRole('status')).toBe(status);
+    expect(status).toHaveTextContent('Wird ausgeführt …');
+  });
+
   it('does not render a spinner and keeps both buttons enabled while not busy', () => {
     render(<ConfirmDialog open title="t" text="x" onConfirm={vi.fn()} onCancel={vi.fn()} />);
     expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();

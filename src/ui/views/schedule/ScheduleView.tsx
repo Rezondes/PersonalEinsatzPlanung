@@ -57,6 +57,7 @@ import { useCalendarWeekStore } from '@ui/app/store/calendarWeekStore';
 import { ConfirmDialog } from '@ui/components/ConfirmDialog';
 import { NoBranchSelectedAlert } from '@ui/components/NoBranchSelectedAlert';
 import { LoadErrorAlert } from '@ui/components/LoadErrorAlert';
+import { VISUALLY_HIDDEN_SX } from '@ui/components/visuallyHidden';
 import { ScheduleTable, cellKey } from './components/ScheduleTable';
 import { ScheduleHeaderFields } from './components/ScheduleHeaderFields';
 import { DayEditor } from './components/DayEditor';
@@ -85,20 +86,6 @@ import { notify } from '@ui/app/store/notificationStore';
 import CircularProgress from '@mui/material/CircularProgress';
 import { useLocale } from '@ui/app/locale/useLocale';
 import { buildLocalizedPath } from '@ui/app/locale/locale';
-
-/** Hidden on screen, still read by screen readers (the usual clip pattern; @mui/utils'
- * visuallyHidden is not a direct dependency). Width/height as px strings: in `sx` a bare 1 = 100%. */
-const VISUALLY_HIDDEN_SX = {
-  position: 'absolute',
-  width: '1px',
-  height: '1px',
-  margin: '-1px',
-  padding: 0,
-  border: 0,
-  overflow: 'hidden',
-  clip: 'rect(0 0 0 0)',
-  whiteSpace: 'nowrap',
-} as const;
 
 export function ScheduleView() {
   const { t } = useTranslation('schedule');
@@ -175,6 +162,12 @@ export function ScheduleView() {
   const isLoading = loading || employeeListLoading || absencesLoading;
   const { templates, reload: reloadTemplates } = useShiftTemplates(branch?.id ?? null);
   const validationResults = useScheduleValidation(schedule, branch, absences);
+  const errorTotal = validationResults.filter((r) => r.severity === 'error').length;
+  const warningTotal = validationResults.filter((r) => r.severity === 'warning').length;
+  const validationSummaryText =
+    errorTotal + warningTotal === 0
+      ? ''
+      : t('errorSummary', { count: errorTotal }) + (warningTotal > 0 ? t('warningSuffix', { count: warningTotal }) : '');
   const navigate = useNavigate();
   const locale = useLocale();
 
@@ -1001,6 +994,11 @@ export function ScheduleView() {
                   </Typography>
                 </Box>
 
+                {/* Always mounted: the chip below appears and changes silently, so a save that adds
+                    a violation would otherwise go unannounced. */}
+                <Box data-testid="validation-announcer" aria-live="polite" aria-atomic="true" sx={VISUALLY_HIDDEN_SX}>
+                  {validationSummaryText}
+                </Box>
                 <ValidationNotices
                   results={validationResults}
                   employeeList={employeeList}

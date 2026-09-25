@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import Snackbar from '@mui/material/Snackbar';
 import Alert from '@mui/material/Alert';
+import Box from '@mui/material/Box';
 import { useNotificationStore, type AppNotification } from './store/notificationStore';
 import { useBreakpoint } from '@ui/hooks/useBreakpoint';
 import { mobileSafeBottom } from './nav/mobileChromeOffset';
@@ -40,39 +41,44 @@ export function AppNotifications() {
     }
   }, [current]);
 
-  if (!shown) {
-    return null;
-  }
-
+  // The live region is mounted from the start and never replaced; each message is rendered into it.
+  // A status region inserted together with its text (and the Snackbar remounts per message) is often
+  // not announced. An error keeps role="alert" on the message itself, which is announced on
+  // insertion, so the region stays off for it rather than announcing it a second time.
   return (
-    <Snackbar
-      open={!!current}
-      // Remounts on a change of message, so a queued one plays its own entry animation instead of
-      // silently swapping the text of the one already there.
-      key={shown.id}
-      autoHideDuration={shown.severity === 'error' ? ERROR_MS : SUCCESS_MS}
-      onClose={(_event, reason) => {
-        // A click anywhere else on the page must not count as "read".
-        if (reason !== 'clickaway') {
-          dismiss();
-        }
-      }}
-      anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-      sx={{ '@media print': { display: 'none' }, ...(layout === 'mobile' && { bottom: `${mobileSafeBottom(8)} !important` }) }}
-    >
-      <Alert
-        severity={shown.severity}
-        variant="filled"
-        // An error interrupts, a success only informs. Note this makes the .MuiAlert-root half of
-        // app/selectableText.ts load-bearing: a success is no longer role="alert".
-        role={shown.severity === 'error' ? 'alert' : 'status'}
-        // onClose without an action: MUI renders its own close icon only when action is empty. The
-        // X is a shortcut here, not the only way out - both severities time out by themselves.
-        onClose={dismiss}
-        sx={{ width: '100%' }}
-      >
-        {shown.text}
-      </Alert>
-    </Snackbar>
+    <Box data-testid="notification-announcer" aria-live={current?.severity === 'error' ? 'off' : 'polite'} aria-atomic="true">
+      {shown && (
+        <Snackbar
+          open={!!current}
+          // Remounts on a change of message, so a queued one plays its own entry animation instead of
+          // silently swapping the text of the one already there.
+          key={shown.id}
+          autoHideDuration={shown.severity === 'error' ? ERROR_MS : SUCCESS_MS}
+          onClose={(_event, reason) => {
+            // A click anywhere else on the page must not count as "read".
+            if (reason !== 'clickaway') {
+              dismiss();
+            }
+          }}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+          sx={{ '@media print': { display: 'none' }, ...(layout === 'mobile' && { bottom: `${mobileSafeBottom(8)} !important` }) }}
+        >
+          <Alert
+            severity={shown.severity}
+            variant="filled"
+            // An error interrupts, a success only informs. Note this makes the .MuiAlert-root half of
+            // app/selectableText.ts load-bearing: a success is no longer role="alert".
+            // A success is announced through the live region around it, not a role of its own.
+            role={shown.severity === 'error' ? 'alert' : 'none'}
+            // onClose without an action: MUI renders its own close icon only when action is empty. The
+            // X is a shortcut here, not the only way out - both severities time out by themselves.
+            onClose={dismiss}
+            sx={{ width: '100%' }}
+          >
+            {shown.text}
+          </Alert>
+        </Snackbar>
+      )}
+    </Box>
   );
 }

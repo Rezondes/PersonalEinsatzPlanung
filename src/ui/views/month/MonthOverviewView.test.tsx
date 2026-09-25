@@ -436,6 +436,8 @@ describe('MonthOverviewView', () => {
       await user.click(screen.getByRole('button', { name: 'Hinweis zur Prüfung' }));
 
       expect(await screen.findByText(/Ruhezeit-Prüfung über Wochengrenzen/)).toBeInTheDocument();
+      // Teil 8, Package 14: the note never reached the button's accessible description.
+      expect(screen.getByRole('button', { name: 'Hinweis zur Prüfung' })).toHaveAccessibleDescription(/Ruhezeit/);
     });
 
     it('keeps "KW n" and its menu button on one line', async () => {
@@ -712,6 +714,8 @@ describe('MonthOverviewView', () => {
     await user.click(warningButton);
 
     expect(screen.getByText('45 Std. diesen Monat, Grenze 40 Std./Monat')).toBeInTheDocument();
+    // Teil 8, Package 14: the tooltip text never reached the button's accessible description.
+    expect(warningButton).toHaveAccessibleDescription('45 Std. diesen Monat, Grenze 40 Std./Monat');
   });
 
   it('der Monatslimit-Hinweis-Button hat eine 44x44-Trefffläche', async () => {

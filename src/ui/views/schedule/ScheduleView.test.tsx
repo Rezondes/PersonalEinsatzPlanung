@@ -350,6 +350,24 @@ describe('ScheduleView', () => {
       expect(await screen.findByText(fullName(employeeA))).toBeInTheDocument();
     });
 
+    // Teil 8, Package 14: the counter chip changed silently after a save.
+    it('keeps a live region with the current ArbZG counts', async () => {
+      scheduleGetOrCreate.mockImplementation(async (bId, cw) =>
+        withDayEntry(createWeeklySchedule(bId, cw, [employeeA.id, employeeB.id]), employeeA.id, 'Montag', {
+          type: 'Shift',
+          shifts: [createShift(clockTime('06:00'), clockTime('20:00'))],
+        }),
+      );
+
+      renderScheduleView();
+      await screen.findByText(fullName(employeeA));
+
+      const announcer = screen.getByTestId('validation-announcer');
+      expect(announcer).toHaveAttribute('aria-live', 'polite');
+      // 14h in one day: over the 10h maximum, and without the required break.
+      await waitFor(() => expect(announcer).toHaveTextContent('2 Fehler'));
+    });
+
     // Teil 8, Package 8: a failed load left an empty page (schedule) or claimed there were no
     // employees (employee list).
     it('shows a load error with a retry when the week cannot be loaded', async () => {

@@ -56,11 +56,11 @@ export function ConfirmDialog({
         </DialogContentText>
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2 }}>
-        {busy && (
-          <Typography role="status" variant="body2" color="text.secondary" sx={{ mr: 'auto' }}>
-            {t('busyStatus')}
-          </Typography>
-        )}
+        {/* Always rendered, only the text changes: a status region inserted together with its text
+            is often not announced. */}
+        <Typography role="status" variant="body2" color="text.secondary" sx={{ mr: 'auto' }}>
+          {busy ? t('busyStatus') : ''}
+        </Typography>
         <Button onClick={onCancel} disabled={busy}>
           {cancelText ?? t('cancel')}
         </Button>

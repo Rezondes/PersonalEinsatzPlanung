@@ -234,7 +234,9 @@ export function MonthOverviewView() {
         </Typography>
         {/* The ArbZG scope note is jargon for most readers, so it is shown on demand only.
             enterTouchDelay 0: a tap opens it on a phone, where there is no hover. */}
-        <Tooltip title={t('infoCaption')} enterTouchDelay={0} leaveTouchDelay={6000}>
+        {/* describeChild: the button keeps its own aria-label and gets the note as its description;
+            without it the note never reached a screen reader. */}
+        <Tooltip title={t('infoCaption')} enterTouchDelay={0} leaveTouchDelay={6000} describeChild>
           <IconButton size="small" aria-label={t('infoHintAriaLabel')}>
             <InfoOutlinedIcon fontSize="small" />
           </IconButton>
@@ -472,6 +474,8 @@ export function MonthOverviewView() {
                               limit: monthlyLimit!.toLocaleString('de-DE'),
                             })}
                             arrow
+                            // The numbers become the button's description (it keeps its own label).
+                            describeChild
                             {...warningTooltipProps(employee.id)}
                           >
                             <IconButton aria-label={t('monthlyLimitAriaLabel')} onClick={() => toggleWarning(employee.id)}>

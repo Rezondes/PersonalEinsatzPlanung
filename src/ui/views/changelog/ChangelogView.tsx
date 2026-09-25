@@ -66,10 +66,18 @@ export function ChangelogView() {
                 collapsing one another. Only the first (newest, per fetchChangelog's own sort -
                 see githubReleases.ts) starts open. */}
             {releases.map((release, index) => (
-              <Accordion key={release.tagName} defaultExpanded={index === 0} disableGutters>
+              // MUI wraps the summary button in its own heading element (h3 by default): that is
+              // the release heading, as an h2 under the page's h1. A heading element inside the
+              // summary instead nested a heading in a heading, inside a button.
+              <Accordion
+                key={release.tagName}
+                defaultExpanded={index === 0}
+                disableGutters
+                slotProps={{ heading: { component: 'h2' } }}
+              >
                 <AccordionSummary expandIcon={<ExpandMoreIcon />}>
                   <Stack direction="row" justifyContent="space-between" alignItems="baseline" flexWrap="wrap" gap={1} sx={{ flex: 1, mr: 1 }}>
-                    <Typography variant="subtitle1" component="h2" fontWeight={500}>
+                    <Typography variant="subtitle1" component="span" fontWeight={500}>
                       {release.title}
                     </Typography>
                     <Typography variant="caption" color="text.secondary">
