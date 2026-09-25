@@ -727,6 +727,24 @@ describe('AbsencesView', () => {
       expect(within(dialog).getByRole('combobox', { name: 'Mitarbeiter' })).toHaveTextContent('Schulz, Otto');
     });
 
+    it('folds Mitarbeiter/Art/Jahr behind a "Filter" button on a phone, keeping the count visible (Teil 5)', async () => {
+      mockViewportWidth(500);
+      const user = userEvent.setup();
+      employeeForBranchMock.mockResolvedValue([e1]);
+      absenceForBranchMock.mockResolvedValue([a1]);
+      renderView();
+      await screen.findByText('Bauer, Anna');
+
+      expect(screen.queryByRole('combobox', { name: 'Art' })).not.toBeInTheDocument();
+      expect(screen.getByText('1 von 1 Einträgen')).toBeInTheDocument();
+
+      await user.click(screen.getByRole('button', { name: 'Filter' }));
+
+      expect(screen.getByRole('combobox', { name: 'Mitarbeiter' })).toBeInTheDocument();
+      expect(screen.getByRole('combobox', { name: 'Art' })).toBeInTheDocument();
+      expect(screen.getByRole('combobox', { name: 'Jahr' })).toBeInTheDocument();
+    });
+
     it('opens the edit dialog when tapping the mobile card itself, pre-filled for that absence', async () => {
       mockViewportWidth(500);
       const user = userEvent.setup();

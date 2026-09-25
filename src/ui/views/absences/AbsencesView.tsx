@@ -18,6 +18,8 @@ import TextField from '@mui/material/TextField';
 import MenuItem from '@mui/material/MenuItem';
 import Checkbox from '@mui/material/Checkbox';
 import ListItemText from '@mui/material/ListItemText';
+import Collapse from '@mui/material/Collapse';
+import FilterListIcon from '@mui/icons-material/FilterList';
 import Tooltip from '@mui/material/Tooltip';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
@@ -164,6 +166,9 @@ export function AbsencesView() {
   const [typeFilter, setTypeFilter] = useState<TypeFilter>(ALL);
   // Empty = "Alle" (every year), same meaning ALL had for the single-select this replaces.
   const [yearFilters, setYearFilters] = useState<string[]>([]);
+  // Phone only: the filters fold behind a "Filter" button, same as EmployeeMasterDataView.
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const activeFilterCount = Number(employeeFilter !== ALL) + Number(typeFilter !== ALL) + Number(yearFilters.length > 0);
   // Newest first, the order this view had before it became sortable.
   const sort = useTableSort<SortKey>('from', 'desc');
 
@@ -311,71 +316,106 @@ export function AbsencesView() {
       </Stack>
 
       <Paper sx={{ p: 2, mb: 2 }}>
-        <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap alignItems="center">
-          <TextField
-            select
-            size="small"
-            label={t('employeeLabel')}
-            value={employeeFilter}
-            onChange={(e) => setEmployeeFilter(e.target.value)}
-            sx={{ width: 240 }}
-          >
-            <MenuItem value={ALL}>{t('filterAll')}</MenuItem>
-            {employeeList.map((emp) => (
-              <MenuItem key={emp.id} value={emp.id}>
-                {fullName(emp)}
-                {!emp.active && t('employeeInactiveSuffix')}
-              </MenuItem>
-            ))}
-          </TextField>
-          <TextField
-            select
-            size="small"
-            label={t('typeLabel')}
-            value={typeFilter}
-            onChange={(e) => setTypeFilter(e.target.value as TypeFilter)}
-            sx={{ width: 180 }}
-          >
-            <MenuItem value={ALL}>{t('filterAll')}</MenuItem>
-            <MenuItem value="Vacation">{tCommon('absenceKind.vacation')}</MenuItem>
-            <MenuItem value="Illness">{tCommon('absenceKind.illness')}</MenuItem>
-            <MenuItem value="PublicHoliday">{tCommon('absenceKind.publicHoliday')}</MenuItem>
-            <MenuItem value="Other">{tCommon('absenceKind.other')}</MenuItem>
-          </TextField>
-          <TextField
-            select
-            size="small"
-            label={tCommon('yearLabel')}
-            value={yearFilters}
-            onChange={(e) => {
-              const value = e.target.value as unknown as string | string[];
-              setYearFilters(typeof value === 'string' ? (value ? value.split(',') : []) : value);
-            }}
-            SelectProps={{
-              multiple: true,
-              // Without displayEmpty, MUI shows a blank field (not renderValue's output) whenever
-              // value is an empty array - it assumes "empty" means "show the floating label only",
-              // which is wrong here since an empty selection is a meaningful state ("Alle").
-              displayEmpty: true,
-              renderValue: (selected) => ((selected as string[]).length === 0 ? t('filterAll') : (selected as string[]).join(', ')),
-            }}
-            InputLabelProps={{ shrink: true }}
-            sx={{ minWidth: 160 }}
-          >
-            {availableYears.map((y) => (
-              <MenuItem key={y} value={y}>
-                <Checkbox checked={yearFilters.includes(y)} size="small" />
-                <ListItemText primary={y} />
-              </MenuItem>
-            ))}
-          </TextField>
-          <Typography variant="body2" color="text.secondary">
-            {t('countSummary', {
-              visible: visibleAbsences.length.toLocaleString('de-DE'),
-              total: absences.length.toLocaleString('de-DE'),
-            })}
-          </Typography>
-        </Stack>
+        {(() => {
+          const isMobile = layout === 'mobile';
+          const selects = (
+            <>
+              <TextField
+                select
+                size="small"
+                label={t('employeeLabel')}
+                value={employeeFilter}
+                onChange={(e) => setEmployeeFilter(e.target.value)}
+                fullWidth={isMobile}
+                sx={isMobile ? undefined : { width: 240 }}
+              >
+                <MenuItem value={ALL}>{t('filterAll')}</MenuItem>
+                {employeeList.map((emp) => (
+                  <MenuItem key={emp.id} value={emp.id}>
+                    {fullName(emp)}
+                    {!emp.active && t('employeeInactiveSuffix')}
+                  </MenuItem>
+                ))}
+              </TextField>
+              <TextField
+                select
+                size="small"
+                label={t('typeLabel')}
+                value={typeFilter}
+                onChange={(e) => setTypeFilter(e.target.value as TypeFilter)}
+                fullWidth={isMobile}
+                sx={isMobile ? undefined : { width: 180 }}
+              >
+                <MenuItem value={ALL}>{t('filterAll')}</MenuItem>
+                <MenuItem value="Vacation">{tCommon('absenceKind.vacation')}</MenuItem>
+                <MenuItem value="Illness">{tCommon('absenceKind.illness')}</MenuItem>
+                <MenuItem value="PublicHoliday">{tCommon('absenceKind.publicHoliday')}</MenuItem>
+                <MenuItem value="Other">{tCommon('absenceKind.other')}</MenuItem>
+              </TextField>
+              <TextField
+                select
+                size="small"
+                label={tCommon('yearLabel')}
+                value={yearFilters}
+                onChange={(e) => {
+                  const value = e.target.value as unknown as string | string[];
+                  setYearFilters(typeof value === 'string' ? (value ? value.split(',') : []) : value);
+                }}
+                SelectProps={{
+                  multiple: true,
+                  // Without displayEmpty, MUI shows a blank field (not renderValue's output) whenever
+                  // value is an empty array - it assumes "empty" means "show the floating label only",
+                  // which is wrong here since an empty selection is a meaningful state ("Alle").
+                  displayEmpty: true,
+                  renderValue: (selected) => ((selected as string[]).length === 0 ? t('filterAll') : (selected as string[]).join(', ')),
+                }}
+                InputLabelProps={{ shrink: true }}
+                fullWidth={isMobile}
+                sx={isMobile ? undefined : { minWidth: 160 }}
+              >
+                {availableYears.map((y) => (
+                  <MenuItem key={y} value={y}>
+                    <Checkbox checked={yearFilters.includes(y)} size="small" />
+                    <ListItemText primary={y} />
+                  </MenuItem>
+                ))}
+              </TextField>
+            </>
+          );
+          const count = (
+            <Typography variant="body2" color="text.secondary">
+              {t('countSummary', {
+                visible: visibleAbsences.length.toLocaleString('de-DE'),
+                total: absences.length.toLocaleString('de-DE'),
+              })}
+            </Typography>
+          );
+          return isMobile ? (
+            // Phone: three selects took ~180px of height for good; they fold behind a button whose
+            // label counts the active ones, so a hidden filter is never a silent one.
+            <Stack spacing={2}>
+              <Stack direction="row" alignItems="center" justifyContent="space-between">
+                <Button
+                  size="small"
+                  startIcon={<FilterListIcon />}
+                  aria-expanded={filtersOpen}
+                  onClick={() => setFiltersOpen((open) => !open)}
+                >
+                  {activeFilterCount > 0 ? tCommon('filtersButtonWithCount', { count: activeFilterCount }) : tCommon('filtersButton')}
+                </Button>
+                {count}
+              </Stack>
+              <Collapse in={filtersOpen} unmountOnExit>
+                <Stack spacing={2}>{selects}</Stack>
+              </Collapse>
+            </Stack>
+          ) : (
+            <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap alignItems="center">
+              {selects}
+              {count}
+            </Stack>
+          );
+        })()}
       </Paper>
 
       <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>

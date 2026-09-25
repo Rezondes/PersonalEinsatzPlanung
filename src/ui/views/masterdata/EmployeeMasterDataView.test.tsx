@@ -320,6 +320,44 @@ describe('EmployeeMasterDataView', () => {
     expect(within(annaRow).queryByText(/gültig bis/)).not.toBeInTheDocument();
   });
 
+  describe('mobile filters (Teil 5, Package 11)', () => {
+    it('keeps the search visible but folds Status/Beschäftigung behind a "Filter" button on a phone', async () => {
+      mockViewportWidth(500);
+      const user = userEvent.setup();
+      renderView();
+      await screen.findByText('Bauer, Anna');
+
+      expect(screen.getByLabelText('Mitarbeiter suchen')).toBeInTheDocument();
+      expect(screen.queryByRole('combobox', { name: 'Status' })).not.toBeInTheDocument();
+      expect(screen.getByText(/von \d+ Mitarbeitern/)).toBeInTheDocument();
+
+      await user.click(screen.getByRole('button', { name: 'Filter' }));
+
+      expect(screen.getByRole('combobox', { name: 'Status' })).toBeInTheDocument();
+      expect(screen.getByRole('combobox', { name: 'Beschäftigung' })).toBeInTheDocument();
+    });
+
+    it('counts the active filters on the button, so a folded filter is never invisible', async () => {
+      mockViewportWidth(500);
+      const user = userEvent.setup();
+      renderView();
+      await screen.findByText('Bauer, Anna');
+
+      await user.click(screen.getByRole('button', { name: 'Filter' }));
+      await chooseStatusFilter(user, 'Aktiv');
+
+      expect(screen.getByRole('button', { name: 'Filter (1)' })).toBeInTheDocument();
+    });
+
+    it('keeps every filter in one visible row on desktop, without a "Filter" button', async () => {
+      renderView();
+      await screen.findByText('Bauer, Anna');
+
+      expect(screen.getByRole('combobox', { name: 'Status' })).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Filter' })).not.toBeInTheDocument();
+    });
+  });
+
   it('shows the Resturlaub figure as a compact line on the mobile card too', async () => {
     mockViewportWidth(500);
     renderView();

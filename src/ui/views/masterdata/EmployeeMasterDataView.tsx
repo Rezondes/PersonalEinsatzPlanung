@@ -18,6 +18,8 @@ import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
 import MenuItem from '@mui/material/MenuItem';
 import InputAdornment from '@mui/material/InputAdornment';
+import Collapse from '@mui/material/Collapse';
+import FilterListIcon from '@mui/icons-material/FilterList';
 import AddIcon from '@mui/icons-material/Add';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import ToggleOffOutlinedIcon from '@mui/icons-material/ToggleOffOutlined';
@@ -283,6 +285,9 @@ export function EmployeeMasterDataView() {
   // Both filters default to "Alle": opening the view must never hide records the user expects.
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [employmentFilter, setEmploymentFilter] = useState<EmploymentFilter>('all');
+  // Phone only: the two selects fold behind a "Filter" button (see the filter Paper below).
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const activeFilterCount = Number(statusFilter !== 'all') + Number(employmentFilter !== 'all');
   const sort = useTableSort<SortKey>('name');
 
   usePageActions({
@@ -366,57 +371,98 @@ export function EmployeeMasterDataView() {
       </Stack>
 
       <Paper sx={{ p: 2, mb: 2 }}>
-        <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap alignItems="center">
-          <TextField
-            size="small"
-            placeholder={t('employee.searchPlaceholder')}
-            // A top-level aria-label prop lands on TextField's outer wrapper, not the native input
-            // getByLabelText/screen readers need - inputProps forwards down to that inner element
-            // (same fix as AppHeader.tsx's Filiale Select, see its comment there).
-            inputProps={{ 'aria-label': t('employee.searchAriaLabel') }}
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            sx={{ width: 260 }}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchOutlinedIcon fontSize="small" />
-                </InputAdornment>
-              ),
-            }}
-          />
-          <TextField
-            select
-            size="small"
-            label={t('employee.statusLabel')}
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
-            sx={{ width: 160 }}
-          >
-            <MenuItem value="all">{t('employee.filterAll')}</MenuItem>
-            <MenuItem value="active">{tCommon('active')}</MenuItem>
-            <MenuItem value="inactive">{tCommon('inactive')}</MenuItem>
-          </TextField>
-          <TextField
-            select
-            size="small"
-            label={t('employee.employmentLabel')}
-            value={employmentFilter}
-            onChange={(e) => setEmploymentFilter(e.target.value as EmploymentFilter)}
-            sx={{ width: 220 }}
-          >
-            <MenuItem value="all">{t('employee.filterAll')}</MenuItem>
-            <MenuItem value="FullTime">{t('employee.fullTimeOption')}</MenuItem>
-            <MenuItem value="PartTime">{t('employee.partTimeOption')}</MenuItem>
-            <MenuItem value="Minijob">{employmentTypeLabel({ type: 'Minijob', minHours: 0, maxHours: 0 })}</MenuItem>
-          </TextField>
-          <Typography variant="body2" color="text.secondary">
-            {t('employee.countSummary', {
-              visible: visibleEmployees.length.toLocaleString('de-DE'),
-              total: employeeList.length.toLocaleString('de-DE'),
-            })}
-          </Typography>
-        </Stack>
+        {(() => {
+          const isMobile = layout === 'mobile';
+          const selects = (
+            <>
+              <TextField
+                select
+                size="small"
+                label={t('employee.statusLabel')}
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
+                fullWidth={isMobile}
+                sx={isMobile ? undefined : { width: 160 }}
+              >
+                <MenuItem value="all">{t('employee.filterAll')}</MenuItem>
+                <MenuItem value="active">{tCommon('active')}</MenuItem>
+                <MenuItem value="inactive">{tCommon('inactive')}</MenuItem>
+              </TextField>
+              <TextField
+                select
+                size="small"
+                label={t('employee.employmentLabel')}
+                value={employmentFilter}
+                onChange={(e) => setEmploymentFilter(e.target.value as EmploymentFilter)}
+                fullWidth={isMobile}
+                sx={isMobile ? undefined : { width: 220 }}
+              >
+                <MenuItem value="all">{t('employee.filterAll')}</MenuItem>
+                <MenuItem value="FullTime">{t('employee.fullTimeOption')}</MenuItem>
+                <MenuItem value="PartTime">{t('employee.partTimeOption')}</MenuItem>
+                <MenuItem value="Minijob">{employmentTypeLabel({ type: 'Minijob', minHours: 0, maxHours: 0 })}</MenuItem>
+              </TextField>
+            </>
+          );
+          const count = (
+            <Typography variant="body2" color="text.secondary">
+              {t('employee.countSummary', {
+                visible: visibleEmployees.length.toLocaleString('de-DE'),
+                total: employeeList.length.toLocaleString('de-DE'),
+              })}
+            </Typography>
+          );
+          return (
+            <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap alignItems="center">
+              <TextField
+                size="small"
+                placeholder={t('employee.searchPlaceholder')}
+                // A top-level aria-label prop lands on TextField's outer wrapper, not the native input
+                // getByLabelText/screen readers need - inputProps forwards down to that inner element
+                // (same fix as AppHeader.tsx's Filiale Select, see its comment there).
+                inputProps={{ 'aria-label': t('employee.searchAriaLabel') }}
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                fullWidth={isMobile}
+                sx={isMobile ? undefined : { width: 260 }}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchOutlinedIcon fontSize="small" />
+                    </InputAdornment>
+                  ),
+                }}
+              />
+              {isMobile ? (
+                // Phone: the selects took ~220px of height for good; they fold behind a button whose
+                // label counts the active ones, so a hidden filter is never a silent one.
+                <>
+                  <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ width: '100%' }}>
+                    <Button
+                      size="small"
+                      startIcon={<FilterListIcon />}
+                      aria-expanded={filtersOpen}
+                      onClick={() => setFiltersOpen((open) => !open)}
+                    >
+                      {activeFilterCount > 0
+                        ? tCommon('filtersButtonWithCount', { count: activeFilterCount })
+                        : tCommon('filtersButton')}
+                    </Button>
+                    {count}
+                  </Stack>
+                  <Collapse in={filtersOpen} unmountOnExit sx={{ width: '100%' }}>
+                    <Stack spacing={2}>{selects}</Stack>
+                  </Collapse>
+                </>
+              ) : (
+                <>
+                  {selects}
+                  {count}
+                </>
+              )}
+            </Stack>
+          );
+        })()}
       </Paper>
 
       <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>

@@ -6,6 +6,8 @@ const common = {
   goToBranches: 'Zu den Filialen',
   noBranchExists: 'Lege zuerst eine Filiale an.',
   createBranch: 'Filiale anlegen',
+  filtersButton: 'Filter',
+  filtersButtonWithCount: 'Filter ({{count}})',
   confirm: 'Bestätigen',
   cancel: 'Abbrechen',
   busyStatus: 'Wird ausgeführt …',
