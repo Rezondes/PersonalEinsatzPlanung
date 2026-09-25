@@ -7,7 +7,7 @@ import { theme } from '@ui/app/theme';
 import { useNavRailStore } from '@ui/app/store/navRailStore';
 import i18n from '@ui/i18n/i18n';
 import type { NavKey } from '@ui/i18n/resources/de/nav';
-import { MAIN_NAV_ITEMS, FOOTER_NAV_ITEMS } from './navItems';
+import { MAIN_NAV_ITEMS, NAV_RAIL_FOOTER_ITEMS } from './navItems';
 import { NavRail } from './NavRail';
 
 const navLabel = (key: NavKey) => i18n.t(key, { ns: 'nav' });
@@ -38,6 +38,15 @@ describe('NavRail', () => {
     expect(screen.getByRole('link', { name: navLabel(MAIN_NAV_ITEMS[1].label) })).not.toHaveAttribute('aria-current');
   });
 
+  it('keeps Datenschutz and Nutzungsbedingungen out of the rail footer (reachable from Einstellungen) (Teil 5)', () => {
+    renderRail();
+
+    expect(screen.getByRole('link', { name: 'Änderungen' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Einstellungen' })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Datenschutz' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Nutzungsbedingungen' })).not.toBeInTheDocument();
+  });
+
   it('ist bereits ein nav-Landmark', () => {
     renderRail();
 
@@ -48,7 +57,7 @@ describe('NavRail', () => {
     useNavRailStore.setState({ collapsed: true });
     renderRail('/de/schedule');
 
-    for (const item of [...MAIN_NAV_ITEMS, ...FOOTER_NAV_ITEMS]) {
+    for (const item of [...MAIN_NAV_ITEMS, ...NAV_RAIL_FOOTER_ITEMS]) {
       const link = screen.getByTitle(navLabel(item.label));
       expect(link).toHaveAttribute('aria-label', navLabel(item.label));
     }
@@ -57,7 +66,7 @@ describe('NavRail', () => {
   it('gives every nav link the shared press-feedback class', () => {
     renderRail();
 
-    for (const item of [...MAIN_NAV_ITEMS, ...FOOTER_NAV_ITEMS]) {
+    for (const item of [...MAIN_NAV_ITEMS, ...NAV_RAIL_FOOTER_ITEMS]) {
       expect(screen.getByRole('link', { name: navLabel(item.label) })).toHaveClass('pep-nav-link');
     }
   });

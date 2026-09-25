@@ -7,7 +7,7 @@ import type { Theme } from '@mui/material/styles';
 import MenuOpenIcon from '@mui/icons-material/MenuOpen';
 import MenuIcon from '@mui/icons-material/Menu';
 import { useTranslation } from 'react-i18next';
-import { MAIN_NAV_ITEMS, FOOTER_NAV_ITEMS } from './navItems';
+import { MAIN_NAV_ITEMS, NAV_RAIL_FOOTER_ITEMS } from './navItems';
 import { NAV_LINK_CLASS } from './navLinkStyle';
 import { useNavRailStore } from '../store/navRailStore';
 import { useLocale } from '../locale/useLocale';
@@ -120,7 +120,7 @@ export function NavRail() {
       <Box sx={{ flex: 1 }} />
 
       <Box sx={{ p: 1, borderTop: `1px solid ${theme.palette.divider}`, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-        {FOOTER_NAV_ITEMS.map((item) => (
+        {NAV_RAIL_FOOTER_ITEMS.map((item) => (
           <NavLink
             key={item.path}
             to={buildLocalizedPath(locale, item.path)}

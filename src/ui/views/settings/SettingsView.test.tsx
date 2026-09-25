@@ -650,3 +650,19 @@ describe('SettingsView, App & Speicher (Installations-Hinweis)', () => {
     expect(screen.queryByText(/Zum Home-Bildschirm/)).not.toBeInTheDocument();
   });
 });
+
+// Teil 5, Package 12: Datenschutz and Nutzungsbedingungen left the desktop NavRail; this page is
+// now where a desktop user finds them, so the two links must not quietly disappear from it.
+describe('SettingsView, rechtliche Links', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    useNotificationStore.getState().clear();
+  });
+
+  it('links to the Datenschutz and Nutzungsbedingungen pages', () => {
+    renderView();
+
+    expect(screen.getByRole('link', { name: 'Datenschutzhinweisen' })).toHaveAttribute('href', '/de/privacy');
+    expect(screen.getByRole('link', { name: 'Nutzungsbedingungen' })).toHaveAttribute('href', '/de/terms');
+  });
+});

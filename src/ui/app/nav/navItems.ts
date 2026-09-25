@@ -41,6 +41,13 @@ export const FOOTER_NAV_ITEMS: NavItem[] = [
   { path: '/settings', label: 'settings', icon: SettingsOutlinedIcon },
 ];
 
+/** NavRail's footer: FOOTER_NAV_ITEMS without Datenschutz/Nutzungsbedingungen, which sat there as
+ * full nav entries next to daily destinations ("Nutzungsbeding…" was even cut off). On desktop the
+ * Einstellungen page links both; MorePage (mobile) still lists all FOOTER_NAV_ITEMS. */
+export const NAV_RAIL_FOOTER_ITEMS: NavItem[] = FOOTER_NAV_ITEMS.filter(
+  (item) => item.path !== '/privacy' && item.path !== '/terms',
+);
+
 export interface BottomTab extends NavItem {
   /** Paths beyond `path` itself that should also show this tab as active - only the "Mehr" tab
    * uses this, since /branches, /settings and /privacy are all reached through it. */
