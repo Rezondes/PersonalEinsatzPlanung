@@ -42,6 +42,7 @@ import { useSelectedBranch } from '@ui/hooks/useBranch';
 import { useEmployeeList } from '@ui/hooks/useEmployeeList';
 import { useAbsences } from '@ui/hooks/useAbsences';
 import { useTableSort } from '@ui/hooks/useTableSort';
+import { useListFiltersStore } from '@ui/app/store/listFiltersStore';
 import { useBreakpoint } from '@ui/hooks/useBreakpoint';
 import { useActivationToggle } from '@ui/hooks/useActivationToggle';
 import { ConfirmDialog } from '@ui/components/ConfirmDialog';
@@ -279,12 +280,18 @@ export function EmployeeMasterDataView() {
     busy: statusChangeBusy,
   } = useActivationToggle(services.employee, reload, t('employee.entityLabel'));
   const [sheetEmployee, setSheetEmployee] = useState<Employee | null>(null);
-  const [search, setSearch] = useState('');
+  // Filters and search live in listFiltersStore so they survive leaving the page (until reload).
+  const search = useListFiltersStore((s) => s.employees.search);
+  const setEmployeeFilters = useListFiltersStore((s) => s.setEmployeeFilters);
+  const setSearch = (value: string) => setEmployeeFilters({ search: value });
   // Both filters default to "Alle": opening the view must never hide records the user expects.
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
-  const [employmentFilter, setEmploymentFilter] = useState<EmploymentFilter>('all');
+  const statusFilter: StatusFilter = useListFiltersStore((s) => s.employees.status);
+  const employmentFilter: EmploymentFilter = useListFiltersStore((s) => s.employees.employment);
+  const setStatusFilter = (value: StatusFilter) => setEmployeeFilters({ status: value });
+  const setEmploymentFilter = (value: EmploymentFilter) => setEmployeeFilters({ employment: value });
   // Phone only: the two selects fold behind a "Filter" button (see the filter Paper below).
-  const [filtersOpen, setFiltersOpen] = useState(false);
+  const filtersOpen = useListFiltersStore((s) => s.employees.filtersOpen);
+  const setFiltersOpen = (open: boolean) => setEmployeeFilters({ filtersOpen: open });
   const activeFilterCount = Number(statusFilter !== 'all') + Number(employmentFilter !== 'all');
   const sort = useTableSort<SortKey>('name');
 
@@ -440,7 +447,7 @@ export function EmployeeMasterDataView() {
                       size="small"
                       startIcon={<FilterListIcon />}
                       aria-expanded={filtersOpen}
-                      onClick={() => setFiltersOpen((open) => !open)}
+                      onClick={() => setFiltersOpen(!filtersOpen)}
                     >
                       {activeFilterCount > 0
                         ? tCommon('filtersButtonWithCount', { count: activeFilterCount })

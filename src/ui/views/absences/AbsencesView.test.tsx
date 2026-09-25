@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { useListFiltersStore } from '@ui/app/store/listFiltersStore';
 import { render, screen, waitFor, within, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
@@ -129,6 +130,9 @@ const table = () => screen.getByRole('table');
 const dataRows = () => within(table()).getAllByRole('row').slice(1);
 const erfassenButton = () => screen.getByRole('button', { name: 'Abwesenheit erfassen' });
 const feiertageButton = () => screen.getByRole('button', { name: 'Feiertage anlegen' });
+
+// The list filters live in a module-level store since Teil 6 and would otherwise leak between tests.
+beforeEach(() => useListFiltersStore.getState().reset());
 
 describe('AbsencesView', () => {
   beforeEach(() => {
@@ -725,6 +729,22 @@ describe('AbsencesView', () => {
 
       const dialog = await screen.findByRole('dialog');
       expect(within(dialog).getByRole('combobox', { name: 'Mitarbeiter' })).toHaveTextContent('Schulz, Otto');
+    });
+
+    it('keeps the Art filter across leaving the page and coming back (Teil 6)', async () => {
+      const user = userEvent.setup();
+      employeeForBranchMock.mockResolvedValue([e1]);
+      absenceForBranchMock.mockResolvedValue([a1]);
+      const { unmount } = renderView();
+      await screen.findByText('Bauer, Anna');
+      await user.click(screen.getByRole('combobox', { name: 'Art' }));
+      await user.click(screen.getByRole('option', { name: 'Urlaub' }));
+
+      unmount();
+      renderView();
+      await screen.findByText('Bauer, Anna');
+
+      expect(screen.getByRole('combobox', { name: 'Art' })).toHaveTextContent('Urlaub');
     });
 
     it('folds Mitarbeiter/Art/Jahr behind a "Filter" button on a phone, keeping the count visible (Teil 5)', async () => {

@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { useListFiltersStore } from '@ui/app/store/listFiltersStore';
 import { render, screen, waitFor, within, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
@@ -154,6 +155,9 @@ async function chooseEmploymentFilter(user: ReturnType<typeof userEvent.setup>, 
   await user.click(screen.getByRole('combobox', { name: 'Beschäftigung' }));
   await user.click(screen.getByRole('option', { name: option }));
 }
+
+// The list filters live in a module-level store since Teil 6 and would otherwise leak between tests.
+beforeEach(() => useListFiltersStore.getState().reset());
 
 describe('EmployeeMasterDataView', () => {
   beforeEach(() => {
@@ -318,6 +322,21 @@ describe('EmployeeMasterDataView', () => {
     // (28) with no breakdown line - same as Urlaub/Jahr, so "28" legitimately appears twice.
     await waitFor(() => expect(within(annaRow).getAllByText('28')).toHaveLength(2));
     expect(within(annaRow).queryByText(/gültig bis/)).not.toBeInTheDocument();
+  });
+
+  it('keeps search and Status across leaving the page and coming back (Teil 6)', async () => {
+    const user = userEvent.setup();
+    const { unmount } = renderView();
+    await screen.findByText('Bauer, Anna');
+    await user.type(screen.getByLabelText('Mitarbeiter suchen'), 'Bau');
+    await chooseStatusFilter(user, 'Aktiv');
+
+    unmount();
+    renderView();
+    await screen.findByText('Bauer, Anna');
+
+    expect(screen.getByLabelText('Mitarbeiter suchen')).toHaveValue('Bau');
+    expect(screen.getByRole('combobox', { name: 'Status' })).toHaveTextContent('Aktiv');
   });
 
   describe('mobile filters (Teil 5, Package 11)', () => {

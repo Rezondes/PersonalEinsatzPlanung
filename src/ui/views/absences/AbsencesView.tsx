@@ -38,6 +38,7 @@ import { useSelectedBranch } from '@ui/hooks/useBranch';
 import { useEmployeeList } from '@ui/hooks/useEmployeeList';
 import { useAbsences } from '@ui/hooks/useAbsences';
 import { useTableSort } from '@ui/hooks/useTableSort';
+import { useListFiltersStore } from '@ui/app/store/listFiltersStore';
 import { useBreakpoint } from '@ui/hooks/useBreakpoint';
 import { ConfirmDialog } from '@ui/components/ConfirmDialog';
 import { NoBranchSelectedAlert } from '@ui/components/NoBranchSelectedAlert';
@@ -162,12 +163,18 @@ export function AbsencesView() {
   const [sheetAbsence, setSheetAbsence] = useState<Absence | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Absence | null>(null);
   const [deleting, setDeleting] = useState(false);
-  const [employeeFilter, setEmployeeFilter] = useState<string>(ALL);
-  const [typeFilter, setTypeFilter] = useState<TypeFilter>(ALL);
+  // Filters live in listFiltersStore so they survive leaving the page (until reload).
+  const employeeFilter = useListFiltersStore((s) => s.absences.employee);
+  const typeFilter: TypeFilter = useListFiltersStore((s) => s.absences.type);
+  const setAbsenceFilters = useListFiltersStore((s) => s.setAbsenceFilters);
+  const setEmployeeFilter = (value: string) => setAbsenceFilters({ employee: value });
+  const setTypeFilter = (value: TypeFilter) => setAbsenceFilters({ type: value });
   // Empty = "Alle" (every year), same meaning ALL had for the single-select this replaces.
-  const [yearFilters, setYearFilters] = useState<string[]>([]);
+  const yearFilters = useListFiltersStore((s) => s.absences.years);
+  const setYearFilters = (years: string[]) => setAbsenceFilters({ years });
   // Phone only: the filters fold behind a "Filter" button, same as EmployeeMasterDataView.
-  const [filtersOpen, setFiltersOpen] = useState(false);
+  const filtersOpen = useListFiltersStore((s) => s.absences.filtersOpen);
+  const setFiltersOpen = (open: boolean) => setAbsenceFilters({ filtersOpen: open });
   const activeFilterCount = Number(employeeFilter !== ALL) + Number(typeFilter !== ALL) + Number(yearFilters.length > 0);
   // Newest first, the order this view had before it became sortable.
   const sort = useTableSort<SortKey>('from', 'desc');
@@ -399,7 +406,7 @@ export function AbsencesView() {
                   size="small"
                   startIcon={<FilterListIcon />}
                   aria-expanded={filtersOpen}
-                  onClick={() => setFiltersOpen((open) => !open)}
+                  onClick={() => setFiltersOpen(!filtersOpen)}
                 >
                   {activeFilterCount > 0 ? tCommon('filtersButtonWithCount', { count: activeFilterCount }) : tCommon('filtersButton')}
                 </Button>
