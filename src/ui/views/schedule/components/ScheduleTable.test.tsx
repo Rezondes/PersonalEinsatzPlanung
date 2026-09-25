@@ -231,6 +231,49 @@ describe('ScheduleTable', () => {
     expect(screen.getByRole('button', { name: 'Müller, Anna, Dienstag, frei bearbeiten' })).toBeInTheDocument();
   });
 
+  // Teil 8, Package 7: every cell was its own Tab stop (140 with 20 employees) and there were no
+  // arrow keys.
+  describe('keyboard grid', () => {
+    const dayCells = () => screen.getAllByRole('button', { name: / bearbeiten$/ });
+
+    it('is a single Tab stop', () => {
+      render(<ScheduleTable rows={rowsFor(employees)} weekDays={weekDays} validationResults={[]} onCellClick={() => {}} {...notAssigning} {...noSelection} />);
+
+      expect(dayCells().filter((c) => c.tabIndex === 0)).toHaveLength(1);
+      expect(dayCells()[0]).toHaveAttribute('tabindex', '0');
+    });
+
+    it('moves between days and employees with the arrow keys', async () => {
+      const user = userEvent.setup();
+      render(<ScheduleTable rows={rowsFor(employees)} weekDays={weekDays} validationResults={[]} onCellClick={() => {}} {...notAssigning} {...noSelection} />);
+
+      screen.getByRole('button', { name: /^Müller, Anna, Montag/ }).focus();
+      await user.keyboard('{ArrowRight}');
+      expect(screen.getByRole('button', { name: /^Müller, Anna, Dienstag/ })).toHaveFocus();
+      await user.keyboard('{ArrowDown}');
+      expect(screen.getByRole('button', { name: /^Schulz, Anna, Dienstag/ })).toHaveFocus();
+    });
+
+    it('still opens the editor with Enter after moving', async () => {
+      const user = userEvent.setup();
+      const onCellClick = vi.fn();
+      render(<ScheduleTable rows={rowsFor(employees)} weekDays={weekDays} validationResults={[]} onCellClick={onCellClick} {...notAssigning} {...noSelection} />);
+
+      screen.getByRole('button', { name: /^Müller, Anna, Montag/ }).focus();
+      await user.keyboard('{ArrowDown}{Enter}');
+
+      expect(onCellClick).toHaveBeenCalledWith(m2, expect.objectContaining({ day: 'Montag' }));
+    });
+
+    it('is exposed as a grid with row and column headers', () => {
+      render(<ScheduleTable rows={rowsFor(employees)} weekDays={weekDays} validationResults={[]} onCellClick={() => {}} {...notAssigning} {...noSelection} />);
+
+      expect(screen.getByRole('grid', { name: 'Wochenplan' })).toBeInTheDocument();
+      expect(screen.getAllByRole('rowheader').length).toBe(2);
+      expect(screen.getAllByRole('columnheader').length).toBe(8);
+    });
+  });
+
   // Teil 8, Package 5: the aria-label replaced the cell's content, so an ArbZG problem on that day
   // (background, border, icon) never reached a screen reader.
   describe('ArbZG status in the cell name', () => {

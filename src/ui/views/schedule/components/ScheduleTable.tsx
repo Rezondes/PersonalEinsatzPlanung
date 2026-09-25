@@ -44,6 +44,7 @@ import {
 } from '@ui/components/stickyFirstColumn';
 import { useBreakpoint } from '@ui/hooks/useBreakpoint';
 import { useTapTooltip } from '@ui/hooks/useTapTooltip';
+import { useGridNavigation } from './useGridNavigation';
 
 interface ScheduleTableProps {
   rows: ScheduleRow[];
@@ -202,6 +203,11 @@ export const ScheduleTable = memo(function ScheduleTable({
   const resultsFor = (employeeId: EmployeeId, date: string) =>
     resultsByCell.get(cellKey(employeeId, date)) ?? NO_RESULTS;
 
+  // One Tab stop for the whole table, arrow keys inside it (was one Tab stop per cell). Locked
+  // cells take no focus, so the arrow keys skip them.
+  const focusable = useMemo(() => rows.map((row) => row.view.days.map((d) => !isCellLocked(row, d.day))), [rows]);
+  const grid = useGridNavigation(focusable);
+
   return (
     // Bounded height, self-scrolling on both axes - see stickyFirstColumn.ts for why a sticky
     // header row and horizontal scroll on a real <table> can't coexist any other way (overflow-x:
@@ -259,6 +265,8 @@ export const ScheduleTable = memo(function ScheduleTable({
           min/max-width on the cells do nothing under table-layout:fixed, hence on the table. */}
       <Table
         size="small"
+        role="grid"
+        aria-label={t('gridAriaLabel')}
         sx={
           layout === 'mobile'
             ? { width: 'auto' }
@@ -316,7 +324,7 @@ export const ScheduleTable = memo(function ScheduleTable({
           </TableRow>
         </TableHead>
         <TableBody>
-          {rows.map((row) => {
+          {rows.map((row, rowIndex) => {
             const { employee, view } = row;
             const target = effectiveTargetMinutesRange(employee, view);
             const differenceMinutes = deviationFromTarget(view.totalNetMinutes, target);
@@ -387,7 +395,7 @@ export const ScheduleTable = memo(function ScheduleTable({
                   </Stack>
                 </TableCell>
 
-                {view.days.map((dayView: DayView) => {
+                {view.days.map((dayView: DayView, dayIndex) => {
                   const matches = resultsFor(view.employeeId, dayView.date);
                   const errorCount = matches.filter((e) => e.severity === 'error').length;
                   const warningCount = matches.filter((e) => e.severity === 'warning').length;
@@ -453,7 +461,9 @@ export const ScheduleTable = memo(function ScheduleTable({
                     : {
                         role: selectable ? 'checkbox' : 'button',
                         ...(selectable ? { 'aria-checked': isSelected } : {}),
-                        tabIndex: 0,
+                        tabIndex: grid.tabIndexFor(rowIndex, dayIndex),
+                        ref: grid.registerCell(rowIndex, dayIndex),
+                        onFocus: () => grid.onCellFocus(rowIndex, dayIndex),
                         'aria-label': selectable
                           ? t('selectCellAriaLabel', { name: fullName(employee), day: dayView.day, summary })
                           : assignMode && droppable
@@ -467,6 +477,7 @@ export const ScheduleTable = memo(function ScheduleTable({
                           // regardless. Without this, Enter/Space on the focused icon would also
                           // activate the cell underneath it.
                           if (e.target !== e.currentTarget) return;
+                          if (grid.onKeyDown(e, rowIndex, dayIndex)) return;
                           if (e.key === 'Enter' && e.shiftKey) {
                             e.preventDefault();
                             if (matches.length > 0) toggleTooltip(`cell|${cellId}`);

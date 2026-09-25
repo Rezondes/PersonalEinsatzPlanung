@@ -314,7 +314,7 @@ describe('ScheduleView', () => {
 
       expect(screen.getByText('Lege zuerst eine Filiale an.')).toBeInTheDocument();
       expect(screen.getByRole('link', { name: 'Filiale anlegen' })).toHaveAttribute('href', '/de/branches');
-      expect(screen.queryByRole('table')).not.toBeInTheDocument();
+      expect(screen.queryByRole('grid')).not.toBeInTheDocument();
       expect(scheduleGetOrCreate).not.toHaveBeenCalled();
     });
 
@@ -359,7 +359,7 @@ describe('ScheduleView', () => {
       expect(
         await screen.findByText('Für diese Filiale sind noch keine Mitarbeiter angelegt. Lege zuerst Mitarbeiter unter „Mitarbeiter“ an.'),
       ).toBeInTheDocument();
-      expect(screen.queryByRole('table')).not.toBeInTheDocument();
+      expect(screen.queryByRole('grid')).not.toBeInTheDocument();
     });
 
     it('shows "Kein Mitarbeiter gefunden." when a search term matches nobody, even though rows exist', async () => {
@@ -2043,7 +2043,7 @@ describe('ScheduleView', () => {
       await screen.findByText(fullName(employeeA));
 
       const toolbar = screen.getByRole('region', { name: 'Werkzeugleiste' });
-      const table = screen.getByRole('table');
+      const table = screen.getByRole('grid');
 
       expect(!!(toolbar.compareDocumentPosition(table) & Node.DOCUMENT_POSITION_FOLLOWING)).toBe(true);
     });
@@ -2053,7 +2053,7 @@ describe('ScheduleView', () => {
       await screen.findByText(fullName(employeeA));
 
       const toolbarBar = screen.getByRole('region', { name: 'Weitere Aktionen' });
-      const table = screen.getByRole('table');
+      const table = screen.getByRole('grid');
 
       expect(!!(table.compareDocumentPosition(toolbarBar) & Node.DOCUMENT_POSITION_FOLLOWING)).toBe(true);
     });

@@ -72,6 +72,7 @@ const schedule = {
   selectCellAriaLabel: '{{name}}, {{day}}, {{summary}} auswählen',
   assignCellAriaLabel: '{{name}}, {{day}}, {{summary}} zuweisen',
   editCellAriaLabel: '{{name}}, {{day}}, {{summary}} bearbeiten',
+  gridAriaLabel: 'Wochenplan',
 
   // ScheduleToolbar.tsx
   activeChipLabel: 'aktiv',
