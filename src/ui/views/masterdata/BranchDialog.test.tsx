@@ -94,6 +94,19 @@ describe('BranchDialog', () => {
     });
   });
 
+  // Teil 8, Package 3: rendered as a <label>, the button had no onClick for Enter to call.
+  it('opens the logo file picker from the keyboard', async () => {
+    const user = userEvent.setup();
+    const click = vi.spyOn(HTMLInputElement.prototype, 'click');
+    renderDialog();
+
+    screen.getByRole('button', { name: 'Logo hochladen (optional)' }).focus();
+    await user.keyboard('{Enter}');
+
+    expect(click).toHaveBeenCalledTimes(1);
+    click.mockRestore();
+  });
+
   it('hat ein leeres alt-Attribut auf dem Logo-Vorschaubild, sobald ein Logo hochgeladen wurde', async () => {
     const user = userEvent.setup();
     renderDialog();

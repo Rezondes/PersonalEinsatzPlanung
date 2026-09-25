@@ -297,6 +297,44 @@ describe('SettingsView, silent Drive restore marker', () => {
     expect(sessionStorage.getItem('pep.drive.silentRestorePending')).toBe('1');
   });
 
+  // Teil 8, Package 3: a Button rendered as <label> turns Enter into a call of its onClick, and it
+  // had none - keyboard users could focus "Daten importieren" but never open the file picker.
+  it('opens the file picker from the keyboard', async () => {
+    const user = userEvent.setup();
+    const click = vi.spyOn(HTMLInputElement.prototype, 'click');
+    renderView();
+
+    screen.getByRole('button', { name: 'Daten importieren' }).focus();
+    await user.keyboard('{Enter}');
+
+    expect(click).toHaveBeenCalledTimes(1);
+    click.mockRestore();
+  });
+
+  it('opens the file picker exactly once on a mouse click', async () => {
+    const user = userEvent.setup();
+    const click = vi.spyOn(HTMLInputElement.prototype, 'click');
+    renderView();
+
+    await user.click(screen.getByRole('button', { name: 'Daten importieren' }));
+
+    expect(click).toHaveBeenCalledTimes(1);
+    click.mockRestore();
+  });
+
+  it('locks the import button while an import runs', async () => {
+    const user = userEvent.setup();
+    vi.mocked(services.dataExport.importAndReplace).mockReturnValueOnce(new Promise(() => {}));
+    renderView();
+
+    const file = new File([JSON.stringify(fakeExportFile)], 'backup.json', { type: 'application/json' });
+    await user.upload(document.querySelector<HTMLInputElement>('input[type="file"]')!, file);
+    await user.click(await screen.findByRole('button', { name: 'Importieren' }));
+
+    await waitFor(() => expect(services.dataExport.importAndReplace).toHaveBeenCalled());
+    expect(screen.getByRole('button', { name: 'Daten importieren', hidden: true })).toBeDisabled();
+  });
+
   it('does not mark deleteAllData\'s own, entirely separate reload', async () => {
     const user = userEvent.setup();
     renderView();

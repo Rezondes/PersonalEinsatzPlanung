@@ -521,16 +521,24 @@ export function SettingsView() {
             >
               {exporting ? t('backup.exporting') : t('backup.exportButton')}
             </Button>
-            <Button variant="outlined" component="label" startIcon={<UploadOutlinedIcon />}>
+            {/* A plain button that clicks the hidden input, not component="label": MUI turns Enter
+                on a non-button element into a call of its onClick, and a label has none, so the
+                picker never opened from the keyboard. */}
+            <Button
+              variant="outlined"
+              startIcon={<UploadOutlinedIcon />}
+              onClick={() => fileInputRef.current?.click()}
+              disabled={importing}
+            >
               {t('backup.importButton')}
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="application/json"
-                hidden
-                onChange={(e) => setImportFile(e.target.files?.[0] ?? null)}
-              />
             </Button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="application/json"
+              hidden
+              onChange={(e) => setImportFile(e.target.files?.[0] ?? null)}
+            />
           </Stack>
 
           {driveAvailable && (

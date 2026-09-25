@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import Button from '@mui/material/Button';
 import TextField from '@mui/material/TextField';
@@ -103,6 +103,7 @@ export function BranchDialog({ branch, onClose, onSaved, onError, secondaryActio
   const [form, setForm] = useState<FormState>(() => (branch ? formFromBranch(branch) : emptyForm()));
   const [saving, setSaving] = useState(false);
   const [logoReading, setLogoReading] = useState(false);
+  const logoInputRef = useRef<HTMLInputElement>(null);
   const [newSunday, setNewSunday] = useState('');
   // Flat values only (the logo is a data-URL string), so comparing the serialized state is enough.
   // A picked but not yet added Sonntag counts as input too.
@@ -218,10 +219,18 @@ export function BranchDialog({ branch, onClose, onSaved, onError, secondaryActio
             >
               <StoreOutlinedIcon sx={(theme) => ({ color: theme.palette.primary.main })} />
             </Avatar>
-            <Button variant="text" component="label" size="small" disabled={logoReading}>
+            {/* Not component="label": Enter on a label-rendered Button calls its (missing) onClick,
+                so the picker never opened from the keyboard. */}
+            <Button variant="text" size="small" disabled={logoReading} onClick={() => logoInputRef.current?.click()}>
               {logoReading ? t('branch.dialog.logoReading') : t('branch.dialog.logoUploadLabel')}
-              <input type="file" accept="image/*" hidden onChange={(e) => uploadLogo(e.target.files?.[0] ?? null)} />
             </Button>
+            <input
+              ref={logoInputRef}
+              type="file"
+              accept="image/*"
+              hidden
+              onChange={(e) => uploadLogo(e.target.files?.[0] ?? null)}
+            />
           </Stack>
           <TextField
             label={t('branch.dialog.nameLabel')}
