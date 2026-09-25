@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { ThemeProvider } from '@mui/material/styles';
 import { theme } from '@ui/app/theme';
@@ -27,6 +27,55 @@ function expectTransform(x: number, y: number, scale: number) {
 }
 
 describe('PanZoomContainer', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  // Teil 8, Package 13: React registers onWheel as passive, so its preventDefault did nothing and a
+  // trackpad pinch zoomed the whole page along with the preview.
+  it('registers its wheel listener as non-passive', () => {
+    const add = vi.spyOn(HTMLElement.prototype, 'addEventListener');
+    renderPanZoom();
+
+    expect(add).toHaveBeenCalledWith('wheel', expect.any(Function), { passive: false });
+  });
+
+  // Teil 8, Package 13: zoom and pan needed a wheel, a drag or a pinch - nothing for the keyboard.
+  it('zooms in and out with buttons', () => {
+    renderPanZoom();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Vergrößern' }));
+    expectTransform(0, 0, 1.25);
+    fireEvent.click(screen.getByRole('button', { name: 'Verkleinern' }));
+    expectTransform(0, 0, 1);
+  });
+
+  it('zooms and pans from the keyboard on the focusable preview', () => {
+    renderPanZoom();
+    const region = screen.getByRole('region', { name: 'Druckvorschau' });
+
+    fireEvent.keyDown(region, { key: '+' });
+    expectTransform(0, 0, 1.25);
+    fireEvent.keyDown(region, { key: 'ArrowRight' });
+    fireEvent.keyDown(region, { key: 'ArrowDown' });
+    expectTransform(-40, -40, 1.25);
+    fireEvent.keyDown(region, { key: '0' });
+    expectTransform(0, 0, 1);
+    expect(region).toHaveAttribute('tabindex', '0');
+  });
+
+  // Teil 8, Package 13: at 375px the 297mm sheet opened at scale 1, a third of it in view.
+  it('opens scaled to fit the width, and resets back to that', () => {
+    vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(375);
+    vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockReturnValue(1123);
+    renderPanZoom();
+    const fit = (375 - 16) / 1123;
+
+    expectTransform(0, 0, fit);
+    fireEvent.wheel(content(), { deltaY: -200 });
+    fireEvent.click(screen.getByRole('button', { name: 'Ansicht zurücksetzen' }));
+    expectTransform(0, 0, fit);
+  });
   it('renders children with a CSS transform reflecting the initial (untouched) zoom/pan state', () => {
     renderPanZoom();
 

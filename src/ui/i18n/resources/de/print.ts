@@ -31,6 +31,9 @@ const print = {
   signatureMl: 'Unterschrift ML',
   signatureVl: 'Unterschrift VL',
   resetViewLabel: 'Ansicht zurücksetzen',
+  zoomInLabel: 'Vergrößern',
+  zoomOutLabel: 'Verkleinern',
+  previewRegionLabel: 'Druckvorschau',
 } as const;
 
 export default print;
