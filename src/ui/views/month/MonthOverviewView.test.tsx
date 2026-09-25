@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, within, waitFor, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter, Routes, Route } from 'react-router-dom';
+import { MemoryRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { ThemeProvider } from '@mui/material/styles';
 import type { BranchId, EmployeeId } from '@domain/shared/ids';
 import type { Branch } from '@domain/branch/Branch';
@@ -118,10 +118,14 @@ function selectBranch() {
   useBranchSelectionStore.setState({ selectedBranchId: branch.id });
 }
 
-const renderView = () =>
+function LocationProbe() {
+  return <div data-testid="location-search">{useLocation().search}</div>;
+}
+
+const renderView = (entry = '/month') =>
   render(
     <ThemeProvider theme={theme}>
-      <MemoryRouter initialEntries={['/month']}>
+      <MemoryRouter initialEntries={[entry]}>
         <Routes>
           <Route
             path="/month"
@@ -129,6 +133,7 @@ const renderView = () =>
               <>
                 <MonthOverviewView />
                 <AppNotifications />
+                <LocationProbe />
               </>
             }
           />
@@ -367,6 +372,32 @@ describe('MonthOverviewView', () => {
 
     await user.click(previous);
     expect(screen.getByText(`Dezember ${currentYear - 1}`)).toBeInTheDocument();
+  });
+
+  // Teil 6, Package 6: the month lives in the URL (?monat=2027-03), so a link or F5 keeps it.
+  describe('month in the URL', () => {
+    it('opens the month given as ?monat=', async () => {
+      selectBranch();
+      employeeForBranch.mockResolvedValue([]);
+      scheduleForBranch.mockResolvedValue([]);
+      renderView('/month?monat=2027-03');
+
+      expect(await screen.findByText('März 2027')).toBeInTheDocument();
+    });
+
+    it('writes a month change into ?monat=, including a year change', async () => {
+      selectBranch();
+      employeeForBranch.mockResolvedValue([]);
+      scheduleForBranch.mockResolvedValue([]);
+      const user = userEvent.setup();
+      renderView('/month?monat=2026-12');
+      await screen.findByText('Dezember 2026');
+
+      await user.click(screen.getByRole('button', { name: 'Nächster Monat' }));
+
+      expect(screen.getByText('Januar 2027')).toBeInTheDocument();
+      expect(screen.getByTestId('location-search')).toHaveTextContent('?monat=2027-01');
+    });
   });
 
   describe('header (Teil 5, Package 10)', () => {

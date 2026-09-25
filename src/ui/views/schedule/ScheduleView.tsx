@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { formatWeekParam, parseWeekParam } from '@ui/app/weekSearchParam';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
@@ -38,7 +39,7 @@ import {
 } from '@domain/shared/CalendarWeek';
 import { findOverlappingAbsences } from '@domain/absence/absenceOverlap';
 import { formatISODateShortGerman, toISODate } from '@domain/shared/DateFormat';
-import type { Weekday } from '@domain/shared/CalendarWeek';
+import type { CalendarWeek, Weekday } from '@domain/shared/CalendarWeek';
 import type { EmployeeId } from '@domain/shared/ids';
 import { fullName } from '@domain/employee/Employee';
 import { formatHoursGerman, formatHoursRangeGerman } from '@domain/schedule/scheduleCalculation';
@@ -106,6 +107,44 @@ export function ScheduleView() {
   const { employeeList, loading: employeeListLoading } = useEmployeeList(branch?.id ?? null);
   const selectedWeek = useCalendarWeekStore((s) => s.selectedWeek);
   const setSelectedWeek = useCalendarWeekStore((s) => s.setSelectedWeek);
+  // The week also lives in the URL (?kw=2026-39) so a link or F5 keeps it. The store stays the
+  // source for everything below; the URL is only synced with it, in both directions:
+  // - a valid ?kw= that differs from the store leads (mount, or an edited URL while the page stays
+  //   open) - pendingUrlWeek marks that the store is still catching up with it;
+  // - a week change inside the app (arrows, Heute, week picker, a jump from the Monatsübersicht) is
+  //   written back with replace, so Back does not step through weeks. An invalid ?kw= is replaced.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const kwParam = searchParams.get('kw');
+  const kwParamRef = useRef(kwParam);
+  kwParamRef.current = kwParam;
+  const pendingUrlWeek = useRef<CalendarWeek | null>(null);
+  useEffect(() => {
+    const fromUrl = parseWeekParam(kwParam);
+    if (fromUrl && !calendarWeeksEqual(fromUrl, selectedWeek)) {
+      pendingUrlWeek.current = fromUrl;
+      setSelectedWeek(fromUrl);
+    }
+    // Only a URL change leads here; a store change is the other effect's job.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [kwParam]);
+  useEffect(() => {
+    if (pendingUrlWeek.current) {
+      // The URL already names this week; wait until the store has caught up, then stand down.
+      if (!calendarWeeksEqual(pendingUrlWeek.current, selectedWeek)) return;
+      pendingUrlWeek.current = null;
+      return;
+    }
+    const wanted = formatWeekParam(selectedWeek);
+    if (kwParamRef.current !== wanted) {
+      setSearchParams(
+        (params) => {
+          params.set('kw', wanted);
+          return params;
+        },
+        { replace: true },
+      );
+    }
+  }, [selectedWeek, setSearchParams]);
   const { schedule, loading, setSchedule } = useSchedule(branch?.id ?? null, selectedWeek);
   const {
     absences,

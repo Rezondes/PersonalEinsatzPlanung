@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { formatMonthParam, parseMonthParam } from '@ui/app/weekSearchParam';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
@@ -74,8 +75,24 @@ export function MonthOverviewView() {
   const layout = useBreakpoint();
   usePageActions({ fullBleedPage: true });
   const now = new Date();
-  const [year, setYear] = useState(now.getFullYear());
-  const [month, setMonth] = useState(now.getMonth() + 1);
+  // The month lives in the URL (?monat=2027-03) so a link or F5 keeps it; without a valid value it
+  // is today's month. Written with replace, so Back does not step through months. Year and month
+  // always go out together: setSearchParams does not queue like setState, so two separate calls
+  // (the old setYear + setMonth pair in changeMonth) would drop the first.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const monthFromUrl = parseMonthParam(searchParams.get('monat'));
+  const year = monthFromUrl?.year ?? now.getFullYear();
+  const month = monthFromUrl?.month ?? now.getMonth() + 1;
+  const setYearAndMonth = (nextYear: number, nextMonth: number) =>
+    setSearchParams(
+      (params) => {
+        params.set('monat', formatMonthParam(nextYear, nextMonth));
+        return params;
+      },
+      { replace: true },
+    );
+  const setYear = (nextYear: number) => setYearAndMonth(nextYear, month);
+  const setMonth = (nextMonth: number) => setYearAndMonth(year, nextMonth);
   const [monthPickerOpen, setMonthPickerOpen] = useState(false);
   const navigate = useNavigate();
   const locale = useLocale();
@@ -139,8 +156,7 @@ export function MonthOverviewView() {
 
   const changeMonth = (direction: -1 | 1) => {
     const next = stepMonth(year, month, direction);
-    setYear(next.year);
-    setMonth(next.month);
+    setYearAndMonth(next.year, next.month);
   };
 
   // Jahr-Bereich: aktuelles Jahr ±5 - reicht für Vor-/Rückplanung ohne eine Freitext-Eingabe zu

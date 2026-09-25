@@ -2,7 +2,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor, act, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { fireEvent } from '@testing-library/react';
-import { MemoryRouter, Routes, Route } from 'react-router-dom';
+import { MemoryRouter, Routes, Route, useLocation, useNavigate } from 'react-router-dom';
+import { formatWeekParam } from '@ui/app/weekSearchParam';
 import { ThemeProvider } from '@mui/material/styles';
 import { theme } from '@ui/app/theme';
 
@@ -661,6 +662,69 @@ describe('ScheduleView', () => {
       await screen.findByText(fullName(employeeA));
 
       expect(getComputedStyle(bar().parentElement!).position).not.toBe('sticky');
+    });
+  });
+
+  // Teil 6, Package 6: the week lives in the URL (?kw=2026-39), so a link or F5 keeps it.
+  describe('week in the URL', () => {
+    function LocationProbe() {
+      const navigate = useNavigate();
+      return (
+        <>
+          <div data-testid="location-search">{useLocation().search}</div>
+          <button type="button" onClick={() => navigate('/schedule?kw=2026-45')}>
+            url-to-kw-45
+          </button>
+        </>
+      );
+    }
+    function renderAt(entry: string) {
+      mockViewportWidth(TABLET);
+      return render(
+        <ThemeProvider theme={theme}>
+          <MemoryRouter initialEntries={[entry]}>
+            <Routes>
+              <Route path="/schedule" element={<><ScheduleView /><LocationProbe /></>} />
+            </Routes>
+          </MemoryRouter>
+        </ThemeProvider>,
+      );
+    }
+    const search = () => screen.getByTestId('location-search').textContent;
+
+    it('opens the week given as ?kw=', async () => {
+      renderAt('/schedule?kw=2026-42');
+
+      expect(await screen.findByText(formatCalendarWeekRange({ year: 2026, week: 42 }))).toBeInTheDocument();
+      await waitFor(() => expect(scheduleGetOrCreate).toHaveBeenLastCalledWith(branch.id, { year: 2026, week: 42 }));
+      expect(search()).toBe('?kw=2026-42');
+    });
+
+    it('writes a week change into ?kw=', async () => {
+      renderAt('/schedule');
+      await screen.findByText(fullName(employeeA));
+
+      await userEvent.setup().click(screen.getByRole('button', { name: 'Nächste Woche' }));
+
+      await waitFor(() => expect(search()).toBe(`?kw=${formatWeekParam(nextCalendarWeek(SELECTED_WEEK))}`));
+    });
+
+    it('follows a ?kw= change while the page stays open (edited URL, link inside the app)', async () => {
+      renderAt('/schedule');
+      await screen.findByText(fullName(employeeA));
+
+      await userEvent.setup().click(screen.getByRole('button', { name: 'url-to-kw-45' }));
+
+      expect(await screen.findByText(formatCalendarWeekRange({ year: 2026, week: 45 }))).toBeInTheDocument();
+      expect(search()).toBe('?kw=2026-45');
+    });
+
+    it('falls back to the current week and corrects the URL for an invalid ?kw=', async () => {
+      renderAt('/schedule?kw=2026-60');
+      await screen.findByText(fullName(employeeA));
+
+      expect(screen.getByText(formatCalendarWeekRange(SELECTED_WEEK))).toBeInTheDocument();
+      await waitFor(() => expect(search()).toBe(`?kw=${formatWeekParam(SELECTED_WEEK)}`));
     });
   });
 
