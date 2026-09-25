@@ -78,6 +78,13 @@ function zeroDayTotals(): Record<Weekday, number> {
 }
 
 describe('FullPartTimeForm', () => {
+  // Teil 8, Package 9: the title was a <p>, so the print route had no heading at all.
+  it('renders the sheet title as the page heading', () => {
+    render(<FullPartTimeForm branch={branch()} calendarWeek={calendarWeek} rows={[]} dayTotals={zeroDayTotals()} />);
+
+    expect(screen.getByRole('heading', { level: 1 })).toHaveClass('print-title');
+  });
+
   it('always renders exactly 9 employee column headers, padding empty slots regardless of row count', () => {
     const rows = [
       row({ employee: employee({ lastName: 'Bauer', firstName: 'Anna' }) }),

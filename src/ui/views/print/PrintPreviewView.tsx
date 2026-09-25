@@ -16,6 +16,9 @@ import { preparePrintData } from '@application/export/printDataPreparation';
 import { createHolidayCheck } from '@infrastructure/holidays/germanHolidays';
 import { services } from '@infrastructure/services';
 import { PanZoomContainer } from '@ui/components/PanZoomContainer';
+import { notify } from '@ui/app/store/notificationStore';
+import { useLocale } from '@ui/app/locale/useLocale';
+import { buildLocalizedPath } from '@ui/app/locale/locale';
 import { FullPartTimeForm } from './FullPartTimeForm';
 import { MinijobForm } from './MinijobForm';
 import './printView.css';
@@ -41,6 +44,8 @@ export function PrintPreviewView() {
   const [employeeList, setEmployeeList] = useState<Employee[]>([]);
   const [absences, setAbsences] = useState<Absence[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const locale = useLocale();
 
   useEffect(() => {
     (async () => {
@@ -66,8 +71,11 @@ export function PrintPreviewView() {
       setEmployeeList(loadedEmployees);
       setAbsences(loadedAbsences);
     })()
-      .catch(() => {
-        // Leaves schedule null, which renders the "nicht gefunden" alert below.
+      .catch((error) => {
+        // Reported, not swallowed: shown as "nicht gefunden" it sent the user looking for a plan
+        // that exists (a database failure is not a missing plan).
+        notify.report(error, t('loadFailedAlert'));
+        setLoadFailed(true);
       })
       .finally(() => setLoading(false));
   }, [scheduleId]);
@@ -85,7 +93,21 @@ export function PrintPreviewView() {
   }
 
   if (!schedule || !branch) {
-    return <Alert severity="error">{t('notFoundAlert')}</Alert>;
+    // This route has no app navigation, and the installed app no browser back button: without a
+    // way back, this alert was a dead end.
+    return (
+      <Stack spacing={2} sx={{ p: 2 }}>
+        <Box>
+          <Button
+            startIcon={<ArrowBackIcon />}
+            onClick={() => navigate(buildLocalizedPath(locale, '/schedule'))}
+          >
+            {t('toScheduleButton')}
+          </Button>
+        </Box>
+        <Alert severity="error">{loadFailed ? t('loadFailedAlert') : t('notFoundAlert')}</Alert>
+      </Stack>
+    );
   }
 
   const { fullPartTimeRows, minijobRows, dayTotals } = preparePrintData(

@@ -114,7 +114,10 @@
   .print-action-bar {
     display: none !important;
   }
+  /* !important for the same reason: in dark mode CssBaseline's dark body background is injected
+     after this file and would otherwise print dark page margins. */
   body {
-    background: #fff;
+    background: #fff !important;
+    color: #000 !important;
   }
 }

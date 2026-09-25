@@ -42,9 +42,9 @@ export function MinijobForm({ branch, calendarWeek, rows, dayTotals }: MinijobFo
       <PrintPageContent>
       <div className="print-header">
         <div className="print-header-meta" />
-        <p className="print-title">
+        <h1 className="print-title">
           {t('minijobTitle')}
-        </p>
+        </h1>
         {branch.logoBase64 ? (
           <img src={branch.logoBase64} className="print-header-logo" alt={t('logoAlt', { name: branch.name })} />
         ) : (

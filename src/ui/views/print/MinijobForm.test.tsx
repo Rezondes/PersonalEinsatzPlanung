@@ -85,6 +85,13 @@ function tbodyRows(container: HTMLElement): HTMLTableRowElement[] {
 }
 
 describe('MinijobForm', () => {
+  // Teil 8, Package 9: the title was a <p>, so the print route had no heading at all.
+  it('renders the sheet title as the page heading', () => {
+    render(<MinijobForm branch={branch} calendarWeek={calendarWeek} rows={[]} dayTotals={zeroDayTotals()} />);
+
+    expect(screen.getByRole('heading', { level: 1 })).toHaveClass('print-title');
+  });
+
   it('always renders exactly 9 employee columns, ignoring any row beyond the 9th', () => {
     const rows = Array.from({ length: 11 }, (_, i) =>
       makeRow({ employee: makeEmployee({ lastName: `Name${i}` }) }),

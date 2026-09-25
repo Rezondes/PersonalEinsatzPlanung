@@ -10,6 +10,7 @@ import type { Employee } from '@domain/employee/Employee';
 import { fullName } from '@domain/employee/Employee';
 import { services } from '@infrastructure/services';
 import { PrintPreviewView } from './PrintPreviewView';
+import { useNotificationStore } from '@ui/app/store/notificationStore';
 
 vi.mock('@infrastructure/services', () => ({
   services: {
@@ -78,6 +79,7 @@ function renderPrintPreview(initialEntries: string[], initialIndex = initialEntr
     <MemoryRouter initialEntries={initialEntries} initialIndex={initialIndex}>
       <Routes>
         <Route path="/before" element={<div>Zurück-Ziel</div>} />
+        <Route path="/de/schedule" element={<div>Wochenplan-Ziel</div>} />
         <Route path="/print" element={<PrintPreviewView />} />
         <Route path="/print/:scheduleId" element={<PrintPreviewView />} />
       </Routes>
@@ -97,6 +99,7 @@ describe('PrintPreviewView', () => {
     employeeForBranchMock.mockResolvedValue([]);
     absenceForBranchMock.mockResolvedValue([]);
     window.print = vi.fn();
+    useNotificationStore.getState().clear();
   });
 
   it('shows a loading state while the fetch is pending', () => {
@@ -129,14 +132,39 @@ describe('PrintPreviewView', () => {
     expect(branchFindMock).not.toHaveBeenCalled();
   });
 
-  it('treats a rejected fetch anywhere in the chain as not-found, without staying stuck loading', async () => {
+  // Teil 8, Package 9: a rejected fetch used to be swallowed and shown as "nicht gefunden", sending
+  // the user looking for a plan that exists.
+  it('reports a rejected fetch as a load failure, not as not-found, without staying stuck loading', async () => {
     scheduleFindMock.mockResolvedValue(makeSchedule([]));
     branchFindMock.mockRejectedValue(new Error('IndexedDB nicht verfügbar'));
 
     renderPrintPreview(['/print/s1']);
 
-    expect(await screen.findByText('Wochenplan konnte nicht gefunden werden.')).toBeInTheDocument();
+    expect(await screen.findByText('Wochenplan konnte nicht geladen werden.')).toBeInTheDocument();
+    expect(screen.queryByText('Wochenplan konnte nicht gefunden werden.')).not.toBeInTheDocument();
     expect(screen.queryByText('Wochenplan wird geladen…')).not.toBeInTheDocument();
+    expect(useNotificationStore.getState().queue).toEqual([
+      expect.objectContaining({ severity: 'error', text: expect.stringContaining('IndexedDB nicht verfügbar') }),
+    ]);
+  });
+
+  // Teil 8, Package 9: the print route has no app navigation, so a bare alert was a dead end in the
+  // installed app (no browser back button).
+  it('offers a way back to the Wochenplanung when the plan is not found', async () => {
+    const user = userEvent.setup();
+    scheduleFindMock.mockResolvedValue(null);
+    renderPrintPreview(['/print/s1']);
+
+    await user.click(await screen.findByRole('button', { name: 'Zur Wochenplanung' }));
+
+    expect(screen.getByText('Wochenplan-Ziel')).toBeInTheDocument();
+  });
+
+  it('offers a way back to the Wochenplanung when loading failed', async () => {
+    scheduleFindMock.mockRejectedValue(new Error('boom'));
+    renderPrintPreview(['/print/s1']);
+
+    expect(await screen.findByRole('button', { name: 'Zur Wochenplanung' })).toBeInTheDocument();
   });
 
   it('paginates full-/part-time employees into sheets of 9, each sheet showing the correct employees in order, and renders one MinijobForm sheet for the Minijob employee', async () => {

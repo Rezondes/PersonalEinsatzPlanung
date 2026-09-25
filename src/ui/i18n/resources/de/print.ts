@@ -5,6 +5,8 @@
 const print = {
   loadingSchedule: 'Wochenplan wird geladen…',
   notFoundAlert: 'Wochenplan konnte nicht gefunden werden.',
+  loadFailedAlert: 'Wochenplan konnte nicht geladen werden.',
+  toScheduleButton: 'Zur Wochenplanung',
   backButton: 'Zurück',
   printButton: 'Drucken',
 

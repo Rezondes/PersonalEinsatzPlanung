@@ -54,9 +54,9 @@ export function FullPartTimeForm({
           <p className="print-meta">{t('plannedRevenueMeta', { value: plannedWeeklyRevenue != null ? `${plannedWeeklyRevenue.toLocaleString('de-DE')} €` : '' })}</p>
           <p className="print-meta">{t('plannedHoursMeta', { value: plannedWeeklyHours != null ? formatHours(plannedWeeklyHours) : '' })}</p>
         </div>
-        <p className="print-title">
+        <h1 className="print-title">
           {t('fullPartTimeTitle')}
-        </p>
+        </h1>
         {branch.logoBase64 ? (
           <img src={branch.logoBase64} className="print-header-logo" alt={t('logoAlt', { name: branch.name })} />
         ) : (
