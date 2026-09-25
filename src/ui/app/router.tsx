@@ -34,19 +34,27 @@ export const routes: RouteObject[] = [
         path: '',
         element: <AppShell />,
         children: [
-          // Relative target: resolves under whichever locale is currently matched.
-          { index: true, element: <Navigate to="schedule" replace /> },
-          { path: 'schedule', element: <ScheduleView /> },
-          { path: 'month', element: <MonthOverviewView /> },
-          { path: 'branches', element: <BranchMasterDataView /> },
-          { path: 'employees', element: <EmployeeMasterDataView /> },
-          { path: 'absences', element: <AbsencesView /> },
-          { path: 'settings', element: <SettingsView /> },
-          { path: 'changelog', element: <ChangelogView /> },
-          { path: 'privacy', element: <PrivacyView /> },
-          { path: 'terms', element: <TermsView /> },
-          { path: 'more', element: <MorePage /> },
-          { path: '*', element: <RouteErrorPage notFound /> },
+          {
+            // Pathless layout route, only here for its errorElement: a view that throws renders the
+            // error page INSIDE the shell, so header and navigation stay usable. The /:locale
+            // errorElement above stays the last resort (print route, locale loader, the shell).
+            errorElement: <RouteErrorPage inShell />,
+            children: [
+              // Relative target: resolves under whichever locale is currently matched.
+              { index: true, element: <Navigate to="schedule" replace /> },
+              { path: 'schedule', element: <ScheduleView /> },
+              { path: 'month', element: <MonthOverviewView /> },
+              { path: 'branches', element: <BranchMasterDataView /> },
+              { path: 'employees', element: <EmployeeMasterDataView /> },
+              { path: 'absences', element: <AbsencesView /> },
+              { path: 'settings', element: <SettingsView /> },
+              { path: 'changelog', element: <ChangelogView /> },
+              { path: 'privacy', element: <PrivacyView /> },
+              { path: 'terms', element: <TermsView /> },
+              { path: 'more', element: <MorePage /> },
+              { path: '*', element: <RouteErrorPage notFound /> },
+            ],
+          },
         ],
       },
     ],

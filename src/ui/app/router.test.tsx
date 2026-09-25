@@ -106,6 +106,21 @@ describe('router', () => {
     consoleError.mockRestore();
   });
 
+  // Teil 8, Package 10: the only errorElement sat outside AppShell, so a crashing view took the
+  // header and navigation with it and left "Neu laden" as the only way out.
+  it('keeps the navigation when a view throws, and offers the way to Wochenplanung', async () => {
+    scheduleStub.throwOnRender = true;
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    renderAt('/de/schedule');
+
+    expect(await screen.findByRole('heading', { name: 'Etwas ist schiefgelaufen' })).toBeInTheDocument();
+    expect(screen.getByRole('navigation')).toBeInTheDocument();
+    expect(screen.getByRole('main')).toContainElement(screen.getByRole('heading', { name: 'Etwas ist schiefgelaufen' }));
+    expect(screen.getByRole('link', { name: 'Zur Wochenplanung' })).toHaveAttribute('href', '/de/schedule');
+    consoleError.mockRestore();
+  });
+
   it('redirects the bare hash root to /de/schedule', async () => {
     const router = renderAt('/');
 
