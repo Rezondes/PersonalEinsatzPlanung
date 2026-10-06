@@ -71,7 +71,8 @@ import { useScheduleValidation } from './useScheduleValidation';
 import { buildScheduleRows, canReceiveEntry, isCellLocked, isNotYetScheduled } from './scheduleRows';
 import type { ScheduleRow } from './scheduleRows';
 import type { ScheduleTool } from './scheduleTools';
-import { OFF_TOOL, toolMatchesCell, toolToAbsenceDraft, toolToDayEntry } from './scheduleTools';
+import { OFF_TOOL, cellAbsenceInput, toolMatchesCell, toolToAbsenceDraft, toolToDayEntry } from './scheduleTools';
+import type { CellAbsenceDraft } from './scheduleTools';
 import { useBreakpoint, useIsShortViewport } from '@ui/hooks/useBreakpoint';
 import { mobileSafeBottom } from '@ui/app/nav/mobileChromeOffset';
 import { usePageActions } from '@ui/app/PageActionsContext';
@@ -383,12 +384,12 @@ export function ScheduleView() {
   };
 
   /** Writes a one-day Absence into a cell: deletes any existing single-day absence there first,
-   * then creates the new one - both recorded as one undoable step. Shared by DayEditor's "Sonstige"
-   * tab (via saveAbsence below) and applyTool's Other-kind-template path, so there is exactly one
+   * then creates the new one - both recorded as one undoable step. Shared by DayEditor's absence
+   * modes (via saveAbsence below) and applyTool's absence-template path, so there is exactly one
    * place that implements "replace this cell's absence". The schedule aggregate itself is untouched
    * here; the step still carries it (before === after) so an undo restores a consistent pair. */
   const writeAbsenceToCell = useCallback(
-    (employeeId: EmployeeId, dayView: DayView, type: AbsenceType, details?: AbsenceDetails) =>
+    (employeeId: EmployeeId, dayView: DayView, draft: CellAbsenceDraft) =>
       run(async () => {
         const before = scheduleRef.current;
         if (!before) return null;
@@ -402,25 +403,7 @@ export function ScheduleView() {
           absenceOps.push({ kind: 'deleted', absence: existing });
         }
 
-        const created =
-          type === 'Other'
-            ? await services.absence.create({
-                employeeId,
-                type: 'Other',
-                from: dayView.date,
-                to: dayView.date,
-                // Both callers only reach this branch with a non-empty label; createAbsence rejects
-                // an empty one, so nothing silently falls back to a placeholder text.
-                label: details?.label ?? '',
-                hoursPerDay: details?.hoursPerDay,
-              })
-            : await services.absence.create({
-                employeeId,
-                type,
-                from: dayView.date,
-                to: dayView.date,
-                creditedMinutesOverride: details?.creditedMinutesOverride,
-              });
+        const created = await services.absence.create(cellAbsenceInput(employeeId, dayView.date, draft));
         absenceOps.push({ kind: 'created', absence: created });
         await reloadAbsences();
 
@@ -453,7 +436,7 @@ export function ScheduleView() {
 
   const saveAbsence = (type: AbsenceType, details?: AbsenceDetails) => {
     if (!editorState) return;
-    writeAbsenceToCell(editorState.employeeId, editorState.dayView, type, details);
+    writeAbsenceToCell(editorState.employeeId, editorState.dayView, { type, ...details });
   };
 
   /** Both the header fields (save on blur) and the carry-over dialog hand back an already saved
@@ -529,15 +512,16 @@ export function ScheduleView() {
     setTemplateDialog({ template: null, drafts: entry.shifts.map(shiftToDraft) });
   };
 
-  // The one place that decides which of the two write paths a tool needs: an Other-kind template
-  // has no DayEntry representation at all (see domain/schedule/ShiftTemplate.ts), so it goes
-  // through writeAbsenceToCell instead of setEntryInCell - shared by drag-and-drop (toolDrop),
-  // tap-to-assign (toolTap) and "Einfügen" (paste), which all call this one function.
+  // The one place that decides which of the two write paths a tool needs: an absence-kind template
+  // (Sonstiges, Urlaub, Krankheit, Feiertag) has no DayEntry representation at all (see
+  // domain/schedule/ShiftTemplate.ts), so it goes through writeAbsenceToCell instead of
+  // setEntryInCell - shared by tap-to-assign (toolTap) and "Einfügen" (paste), which both call
+  // this one function.
   const applyTool = useCallback(
     (tool: ScheduleTool, employeeId: EmployeeId, dayView: DayView) => {
       const absenceDraft = toolToAbsenceDraft(tool);
       if (absenceDraft) {
-        return writeAbsenceToCell(employeeId, dayView, 'Other', absenceDraft);
+        return writeAbsenceToCell(employeeId, dayView, absenceDraft);
       }
       return setEntryInCell(employeeId, dayView, toolToDayEntry(tool));
     },
@@ -613,7 +597,7 @@ export function ScheduleView() {
   /** Applies `tool` to every selected cell in one step, the selection-mode counterpart to applyTool
    * above. Never trusts the moment-of-selection eligibility: canReceiveEntry is re-checked per cell
    * against the CURRENT rows, exactly like ScheduleTable itself re-derives `droppable` on every
-   * render rather than trusting an earlier snapshot. An Other-template write is additionally skipped
+   * render rather than trusting an earlier snapshot. An absence-template write is additionally skipped
    * wherever ANY absence already covers that exact date (deliberately not excluding the cell's own
    * single-day absence the way writeAbsenceToCell's single-cell replace does - a bulk action with no
    * per-cell confirmation must never silently delete a recorded Vacation/Illness/PublicHoliday just
@@ -650,14 +634,7 @@ export function ScheduleView() {
               skipped++;
               continue;
             }
-            const created = await services.absence.create({
-              employeeId: row.view.employeeId,
-              type: 'Other',
-              from: dayView.date,
-              to: dayView.date,
-              label: absenceDraft.label,
-              hoursPerDay: absenceDraft.hoursPerDay,
-            });
+            const created = await services.absence.create(cellAbsenceInput(row.view.employeeId, dayView.date, absenceDraft));
             absenceOps.push({ kind: 'created', absence: created });
           } else {
             const existing = dayView.absence;
@@ -702,8 +679,8 @@ export function ScheduleView() {
     [run, rows, selectedCells, absences, reloadAbsences, setSchedule, finishSelecting, t],
   );
 
-  // ScheduleTable only calls this for a cell canReceiveEntry already accepted (same trust boundary
-  // as toolDrop above, which never re-checks droppable either). Tapping a cell that already shows
+  // ScheduleTable only calls this for a cell canReceiveEntry already accepted, so it does not
+  // re-check droppable. Tapping a cell that already shows
   // exactly what activeTool would write clears it instead of reapplying the same entry - the
   // tap-to-assign equivalent of the "Frei" menu item toggling an already-off cell.
   //

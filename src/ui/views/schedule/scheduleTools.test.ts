@@ -7,8 +7,11 @@ import { createShift } from '@domain/schedule/Shift';
 import { createBreak } from '@domain/schedule/Break';
 import { createShiftTemplate } from '@domain/schedule/ShiftTemplate';
 import type { DayEntry } from '@domain/schedule/EmployeeWeekAssignment';
+import { createAbsence } from '@domain/absence/Absence';
+import type { Absence } from '@domain/absence/Absence';
 import {
   OFF_TOOL,
+  cellAbsenceInput,
   dayEntryMatchesTool,
   toolKey,
   toolLabel,
@@ -28,6 +31,15 @@ function shiftWithBreak() {
 
 const template = createShiftTemplate({ branchId, name: 'Frühschicht', kind: 'Shift', shifts: [shiftWithBreak()] });
 const otherTemplate = createShiftTemplate({ branchId, name: 'Inventur', kind: 'Other', label: 'Inventur', hoursPerDay: 4 });
+const vacationTemplate = createShiftTemplate({
+  branchId,
+  name: 'Urlaub',
+  kind: 'Vacation',
+  halfDay: 'morning',
+  creditedMinutesOverride: 240,
+});
+const illnessTemplate = createShiftTemplate({ branchId, name: 'Krankheit', kind: 'Illness', creditedMinutesOverride: 480 });
+const holidayTemplate = createShiftTemplate({ branchId, name: 'Feiertag', kind: 'PublicHoliday' });
 
 describe('toolToDayEntry', () => {
   it('empties the day for the Frei tool', () => {
@@ -146,9 +158,23 @@ describe('tool labels', () => {
 describe('toolToAbsenceDraft', () => {
   it('returns the label and hours for an Other-kind template', () => {
     expect(toolToAbsenceDraft({ kind: 'template', template: otherTemplate })).toEqual({
+      type: 'Other',
       label: 'Inventur',
       hoursPerDay: 4,
     });
+  });
+
+  it('Entwurf für Urlaub mit Halbtag und Stunden', () => {
+    expect(toolToAbsenceDraft({ kind: 'template', template: vacationTemplate })).toEqual({
+      type: 'Vacation',
+      halfDay: 'morning',
+      creditedMinutesOverride: 240,
+    });
+    expect(toolToAbsenceDraft({ kind: 'template', template: illnessTemplate })).toEqual({
+      type: 'Illness',
+      creditedMinutesOverride: 480,
+    });
+    expect(toolToAbsenceDraft({ kind: 'template', template: holidayTemplate })).toEqual({ type: 'PublicHoliday' });
   });
 
   it('returns null for a Shift-kind template, the clipboard, and the Frei tool', () => {
@@ -197,5 +223,52 @@ describe('toolMatchesCell', () => {
     const applied = toolToDayEntry({ kind: 'template', template });
     expect(toolMatchesCell({ entry: applied }, { kind: 'template', template })).toBe(true);
     expect(toolMatchesCell({ entry: { type: 'Off' } }, { kind: 'template', template })).toBe(false);
+  });
+
+  it('erkennt eine passende Zelle', () => {
+    const cell = (absence: Absence) => ({ entry: { type: 'Off' as const }, absence });
+    const vacationTool = { kind: 'template' as const, template: vacationTemplate };
+    const base = { employeeId: 'e1' as EmployeeId, from: '2026-03-10', to: '2026-03-10' };
+    const vacation = (overrides: Partial<Extract<Absence, { type: 'Vacation' }>> = {}) =>
+      createAbsence({ ...base, type: 'Vacation', halfDay: { atStart: true, atEnd: false }, creditedMinutesOverride: 240, ...overrides });
+
+    expect(toolMatchesCell(cell(vacation()), vacationTool)).toBe(true);
+    // Each field that the template would write must be the same on the cell.
+    expect(toolMatchesCell(cell(vacation({ halfDay: { atStart: false, atEnd: true } })), vacationTool)).toBe(false);
+    expect(toolMatchesCell(cell(vacation({ halfDay: undefined })), vacationTool)).toBe(false);
+    expect(toolMatchesCell(cell(vacation({ creditedMinutesOverride: undefined })), vacationTool)).toBe(false);
+    expect(toolMatchesCell(cell(vacation({ to: '2026-03-11' })), vacationTool)).toBe(false);
+    // Same override, different type.
+    const illness = createAbsence({ ...base, type: 'Illness', creditedMinutesOverride: 480 });
+    expect(toolMatchesCell(cell(illness), { kind: 'template', template: illnessTemplate })).toBe(true);
+    expect(toolMatchesCell(cell({ ...illness, type: 'PublicHoliday' }), { kind: 'template', template: illnessTemplate })).toBe(false);
+    expect(toolMatchesCell(cell(createAbsence({ ...base, type: 'PublicHoliday' })), { kind: 'template', template: holidayTemplate })).toBe(true);
+  });
+});
+
+describe('cellAbsenceInput', () => {
+  const employeeId = 'e1' as EmployeeId;
+
+  it('writes a one-day absence of the draft type and turns the half day into atStart/atEnd', () => {
+    expect(cellAbsenceInput(employeeId, '2026-03-10', { type: 'Vacation', halfDay: 'morning', creditedMinutesOverride: 240 })).toEqual({
+      employeeId,
+      type: 'Vacation',
+      from: '2026-03-10',
+      to: '2026-03-10',
+      halfDay: { atStart: true, atEnd: false },
+      creditedMinutesOverride: 240,
+    });
+    expect(cellAbsenceInput(employeeId, '2026-03-10', { type: 'Vacation', halfDay: 'afternoon' })).toMatchObject({
+      halfDay: { atStart: false, atEnd: true },
+    });
+    expect(cellAbsenceInput(employeeId, '2026-03-10', { type: 'Vacation' })).not.toHaveProperty('halfDay.atStart');
+    expect(cellAbsenceInput(employeeId, '2026-03-10', { type: 'Other', label: 'Inventur', hoursPerDay: 4 })).toEqual({
+      employeeId,
+      type: 'Other',
+      from: '2026-03-10',
+      to: '2026-03-10',
+      label: 'Inventur',
+      hoursPerDay: 4,
+    });
   });
 });

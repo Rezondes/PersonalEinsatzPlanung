@@ -6,8 +6,14 @@ import Stack from '@mui/material/Stack';
 import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import CircularProgress from '@mui/material/CircularProgress';
+import FormControl from '@mui/material/FormControl';
+import FormLabel from '@mui/material/FormLabel';
+import RadioGroup from '@mui/material/RadioGroup';
+import FormControlLabel from '@mui/material/FormControlLabel';
+import Radio from '@mui/material/Radio';
 import type { BranchId } from '@domain/shared/ids';
-import type { ShiftTemplate } from '@domain/schedule/ShiftTemplate';
+import type { ShiftTemplate, VacationHalfDay } from '@domain/schedule/ShiftTemplate';
+import { minutesToDecimalHours } from '@domain/schedule/scheduleCalculation';
 import { validateShiftTemplate } from '@domain/schedule/shiftTemplateValidation';
 import type { ShiftTemplateDraft } from '@domain/schedule/shiftTemplateValidation';
 import type { ShiftDraft } from '@domain/schedule/shiftDraft';
@@ -25,9 +31,15 @@ import { FormErrorNotice } from '@ui/components/FormErrorNotice';
 import { ResponsiveDialog } from '@ui/components/ResponsiveDialog';
 import { useDiscardConfirm } from '@ui/hooks/useDiscardConfirm';
 import { DecimalTextField } from '@ui/components/DecimalTextField';
+import { useBreakpoint } from '@ui/hooks/useBreakpoint';
+import { ABSENCE_KIND_KEY } from '../scheduleTools';
 import { ShiftListEditor } from './ShiftListEditor';
+import { entryTypeToggleSx } from './entryTypeToggleSx';
 
 type TemplateKind = ShiftTemplateDraft['kind'];
+type CreditedKind = Exclude<TemplateKind, 'Shift' | 'Other'>;
+
+const isCreditedKind = (kind: TemplateKind): kind is CreditedKind => kind !== 'Shift' && kind !== 'Other';
 
 interface ShiftTemplateDialogProps {
   branchId: BranchId;
@@ -54,6 +66,8 @@ export function ShiftTemplateDialog({
 }: ShiftTemplateDialogProps) {
   const { t } = useTranslation('schedule');
   const { t: tCommon } = useTranslation();
+  const { t: tAbsences } = useTranslation('absences');
+  const isMobile = useBreakpoint() === 'mobile';
   const [kind, setKind] = useState<TemplateKind>(template?.kind ?? 'Shift');
   const [name, setName] = useState(template?.name ?? '');
   const [drafts, setDrafts] = useState<ShiftDraft[]>(() => {
@@ -65,29 +79,69 @@ export function ShiftTemplateDialog({
   const [hoursPerDay, setHoursPerDay] = useState<number | undefined>(
     template?.kind === 'Other' ? template.hoursPerDay : undefined,
   );
+  const [halfDay, setHalfDay] = useState<VacationHalfDay | undefined>(
+    template?.kind === 'Vacation' ? template.halfDay : undefined,
+  );
+  // Entered in hours like every other hours field, stored in minutes like Absence's own override.
+  const [creditedHours, setCreditedHours] = useState<number | undefined>(() =>
+    template && 'creditedMinutesOverride' in template && template.creditedMinutesOverride !== undefined
+      ? minutesToDecimalHours(template.creditedMinutesOverride)
+      : undefined,
+  );
+  const creditedMinutesOverride = creditedHours === undefined ? undefined : Math.round(creditedHours * 60);
   const [saving, setSaving] = useState(false);
   // Drafts are raw input strings, so comparing the serialized fields is enough.
-  const current = JSON.stringify({ kind, name, drafts, hoursPerDay });
+  const current = JSON.stringify({ kind, name, drafts, hoursPerDay, halfDay, creditedHours });
   const [initialState] = useState(current);
   const { requestClose, confirmDialog } = useDiscardConfirm(current !== initialState, saving ? undefined : onClose);
 
+  // An absence kind starts out named after its type ("Urlaub"). Switching kind only replaces a
+  // name that is still empty or that default, never one the user typed.
+  const defaultName = (k: TemplateKind) => (isCreditedKind(k) ? tCommon(ABSENCE_KIND_KEY[k]) : '');
+  const changeKind = (next: TemplateKind) => {
+    if (!name.trim() || name === defaultName(kind)) {
+      setName(defaultName(next));
+    }
+    setKind(next);
+  };
+
   // Other-kind templates use the single "Bezeichnung" field for both the toolbar tile's own name
   // AND the absence's label applied to a day - asking for the same text twice would be pointless
-  // friction, unlike the Shift kind where the name is toolbar-only organization and never appears
-  // on the day itself (the shift times do).
-  const validation = useFormValidation<string>(() =>
-    kind === 'Shift'
-      ? [
-          ...validateShiftTemplate({ kind: 'Shift', name, shiftCount: drafts.length }),
-          // validateShiftDrafts reports an empty list on the same field, so that one message is
-          // dropped here - the template rule above already covers it and two identical texts would
-          // be noise.
-          ...validateShiftDrafts(drafts).filter((e) => e.field !== SHIFT_LIST_FIELD),
-        ]
-      : // The 'label' field error is always identical to the 'name' one here (same value) - dropped
-        // the same way the Shift-kind branch above drops validateShiftDrafts' duplicate message.
-        validateShiftTemplate({ kind: 'Other', name, label: name, hoursPerDay }).filter((e) => e.field !== 'label'),
-  );
+  // friction, unlike the other kinds where the name is toolbar-only organization and never appears
+  // on the day itself (the shift times or the absence type do).
+  const validation = useFormValidation<string>(() => {
+    if (kind === 'Shift') {
+      return [
+        ...validateShiftTemplate({ kind: 'Shift', name, shiftCount: drafts.length }),
+        // validateShiftDrafts reports an empty list on the same field, so that one message is
+        // dropped here - the template rule above already covers it and two identical texts would
+        // be noise.
+        ...validateShiftDrafts(drafts).filter((e) => e.field !== SHIFT_LIST_FIELD),
+      ];
+    }
+    if (kind === 'Other') {
+      // The 'label' field error is always identical to the 'name' one here (same value) - dropped
+      // the same way the Shift-kind branch above drops validateShiftDrafts' duplicate message.
+      return validateShiftTemplate({ kind: 'Other', name, label: name, hoursPerDay }).filter((e) => e.field !== 'label');
+    }
+    return validateShiftTemplate({ kind, name, creditedMinutesOverride });
+  });
+
+  /** The kind's own fields. Built from scratch rather than spread over `template`: the kind may have
+   * changed while editing, and spreading would leave the old kind's fields (a stale label, shifts)
+   * on the persisted object even though TypeScript no longer names them. */
+  const kindFields = (trimmedName: string) => {
+    switch (kind) {
+      case 'Shift':
+        return { kind, shifts: shiftDraftsToShifts(drafts) };
+      case 'Other':
+        return { kind, label: trimmedName, hoursPerDay };
+      case 'Vacation':
+        return { kind, halfDay, creditedMinutesOverride };
+      default:
+        return { kind, creditedMinutesOverride };
+    }
+  };
 
   const save = async () => {
     if (!validation.submit()) return;
@@ -95,40 +149,18 @@ export function ShiftTemplateDialog({
 
     setSaving(true);
     try {
-      if (kind === 'Shift') {
-        const shifts = shiftDraftsToShifts(drafts);
-        // Built explicitly rather than {...template, ...} when template exists: template may
-        // currently be the OTHER kind (switching kind while editing), and spreading it would leave
-        // a stale label/hoursPerDay field on the persisted object even though TypeScript no longer
-        // names it once `kind` is overridden.
-        if (template) {
-          await services.shiftTemplate.update({
-            id: template.id,
-            branchId: template.branchId,
-            createdAt: template.createdAt,
-            updatedAt: template.updatedAt,
-            name: trimmedName,
-            kind: 'Shift',
-            shifts,
-          });
-        } else {
-          await services.shiftTemplate.create({ branchId, name: trimmedName, kind: 'Shift', shifts });
-        }
+      const fields = kindFields(trimmedName);
+      if (template) {
+        await services.shiftTemplate.update({
+          id: template.id,
+          branchId: template.branchId,
+          createdAt: template.createdAt,
+          updatedAt: template.updatedAt,
+          name: trimmedName,
+          ...fields,
+        });
       } else {
-        if (template) {
-          await services.shiftTemplate.update({
-            id: template.id,
-            branchId: template.branchId,
-            createdAt: template.createdAt,
-            updatedAt: template.updatedAt,
-            name: trimmedName,
-            kind: 'Other',
-            label: trimmedName,
-            hoursPerDay,
-          });
-        } else {
-          await services.shiftTemplate.create({ branchId, name: trimmedName, kind: 'Other', label: trimmedName, hoursPerDay });
-        }
+        await services.shiftTemplate.create({ branchId, name: trimmedName, ...fields });
       }
       onClose();
       await onSaved();
@@ -167,12 +199,16 @@ export function ShiftTemplateDialog({
           <ToggleButtonGroup
             value={kind}
             exclusive
-            onChange={(_e, value: TemplateKind | null) => value && setKind(value)}
+            onChange={(_e, value: TemplateKind | null) => value && changeKind(value)}
             aria-label={t('templateKindAriaLabel')}
             size="small"
+            sx={entryTypeToggleSx(isMobile)}
           >
             <ToggleButton value="Shift">{t('arbeitszeitOption')}</ToggleButton>
             <ToggleButton value="Other">{t('otherKindOption')}</ToggleButton>
+            <ToggleButton value="Vacation">{tCommon('absenceKind.vacation')}</ToggleButton>
+            <ToggleButton value="Illness">{tCommon('absenceKind.illness')}</ToggleButton>
+            <ToggleButton value="PublicHoliday">{tCommon('absenceKind.publicHoliday')}</ToggleButton>
           </ToggleButtonGroup>
           <TextField
             label={t('labelFieldLabel')}
@@ -183,9 +219,10 @@ export function ShiftTemplateDialog({
             fullWidth
             {...validation.fieldProps('name')}
           />
-          {kind === 'Shift' ? (
+          {kind === 'Shift' && (
             <ShiftListEditor drafts={drafts} onChange={setDrafts} fieldProps={validation.fieldProps} />
-          ) : (
+          )}
+          {kind === 'Other' && (
             <DecimalTextField
               label={t('hoursOptionalLabel')}
               value={hoursPerDay}
@@ -193,6 +230,33 @@ export function ShiftTemplateDialog({
               sx={{ width: 200 }}
               helperText={t('templateHoursHint')}
               {...validation.fieldProps('hoursPerDay')}
+            />
+          )}
+          {kind === 'Vacation' && (
+            // Same radio group and wording as the Abwesenheiten dialog's half day.
+            <FormControl>
+              <FormLabel id="template-half-day-label">{tAbsences('dialog.halfDayGroupLabel')}</FormLabel>
+              <RadioGroup
+                row
+                aria-labelledby="template-half-day-label"
+                value={halfDay ?? 'full'}
+                onChange={(e) => setHalfDay(e.target.value === 'full' ? undefined : (e.target.value as VacationHalfDay))}
+              >
+                <FormControlLabel value="full" control={<Radio />} label={tAbsences('dialog.halfDayNone')} />
+                <FormControlLabel value="morning" control={<Radio />} label={tAbsences('dialog.halfDayMorningCheckbox')} />
+                <FormControlLabel value="afternoon" control={<Radio />} label={tAbsences('dialog.halfDayAfternoonCheckbox')} />
+              </RadioGroup>
+            </FormControl>
+          )}
+          {isCreditedKind(kind) && (
+            <DecimalTextField
+              label={t('dayEditorCreditedHoursLabel')}
+              value={creditedHours}
+              onChange={setCreditedHours}
+              sx={{ maxWidth: 280 }}
+              // Always shrunk, same reason as in DayEditor: the label is wider than the field.
+              slotProps={{ inputLabel: { shrink: true } }}
+              {...validation.fieldProps('creditedMinutesOverride', t('dayEditorCreditedHoursHint'))}
             />
           )}
         </Stack>

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { BranchId, ShiftTemplateId } from '@domain/shared/ids';
 import { clockTime } from '@domain/shared/ClockTime';
@@ -218,6 +218,111 @@ describe('ShiftTemplateDialog', () => {
       await waitFor(() => expect(onSaved).toHaveBeenCalledTimes(1));
       expect(updateMock).toHaveBeenCalledTimes(1);
       expect(updateMock.mock.calls[0][0]).toMatchObject({ id: 't2', kind: 'Other', label: 'Feiertag', hoursPerDay: 8 });
+    });
+  });
+});
+
+describe('ShiftTemplateDialog absence kinds', () => {
+  const kindButton = (name: string) => screen.getByRole('button', { name });
+  const creditedField = () => screen.getByLabelText((t) => t.includes('Angerechnete Stunden'));
+
+  it('offers all five kinds in the plan order', () => {
+    renderDialog();
+    const group = screen.getByRole('group', { name: 'Art der Vorlage' });
+    expect(within(group).getAllByRole('button').map((b) => b.textContent)).toEqual([
+      'Arbeitszeit',
+      'Sonstiges',
+      'Urlaub',
+      'Krankheit',
+      'Feiertag',
+    ]);
+  });
+
+  it('bietet Urlaub mit Halbtag und Stunden an', async () => {
+    const user = userEvent.setup();
+    const { onSaved } = renderDialog();
+
+    await user.click(kindButton('Urlaub'));
+
+    expect(textbox('Bezeichnung')).toHaveValue('Urlaub');
+    expect(screen.getByRole('radio', { name: 'Ganzer Tag' })).toBeChecked();
+    await user.click(screen.getByRole('radio', { name: 'Nur vormittags frei' }));
+    await user.type(creditedField(), '4');
+    await user.click(save());
+
+    await waitFor(() => expect(onSaved).toHaveBeenCalledTimes(1));
+    const payload = createMock.mock.calls[0][0];
+    expect(payload).toEqual({ branchId, name: 'Urlaub', kind: 'Vacation', halfDay: 'morning', creditedMinutesOverride: 240 });
+  });
+
+  it('speichert eine Feiertagsvorlage', async () => {
+    const user = userEvent.setup();
+    const { onSaved } = renderDialog();
+
+    await user.click(kindButton('Feiertag'));
+
+    expect(textbox('Bezeichnung')).toHaveValue('Feiertag');
+    // The half day only exists for Urlaub; the credited hours for all three absence kinds.
+    expect(screen.queryByRole('radio')).not.toBeInTheDocument();
+    expect(creditedField()).toBeInTheDocument();
+    await user.click(save());
+
+    await waitFor(() => expect(onSaved).toHaveBeenCalledTimes(1));
+    expect(createMock.mock.calls[0][0]).toEqual({ branchId, name: 'Feiertag', kind: 'PublicHoliday' });
+  });
+
+  it('replaces only the prefilled name when the kind changes, never a typed one', async () => {
+    const user = userEvent.setup();
+    renderDialog();
+
+    await user.click(kindButton('Urlaub'));
+    await user.click(kindButton('Krankheit'));
+    expect(textbox('Bezeichnung')).toHaveValue('Krankheit');
+    await user.click(kindButton('Arbeitszeit'));
+    expect(textbox('Bezeichnung')).toHaveValue('');
+
+    await user.type(textbox('Bezeichnung'), 'Krank (Attest)');
+    await user.click(kindButton('Krankheit'));
+    expect(textbox('Bezeichnung')).toHaveValue('Krank (Attest)');
+  });
+
+  it('rejects more than 24 credited hours at the field and saves nothing', async () => {
+    const user = userEvent.setup();
+    renderDialog();
+
+    await user.click(kindButton('Krankheit'));
+    await user.type(creditedField(), '25');
+    await user.click(save());
+
+    expect(screen.getByText('Höchstens 24 Stunden.')).toBeInTheDocument();
+    expect(creditedField()).toHaveFocus();
+    expect(createMock).not.toHaveBeenCalled();
+  });
+
+  it('prefills and updates an existing Urlaub template', async () => {
+    const user = userEvent.setup();
+    const existing: ShiftTemplate = {
+      id: 't3' as ShiftTemplateId,
+      branchId,
+      name: 'Urlaub nachmittags',
+      kind: 'Vacation',
+      halfDay: 'afternoon',
+      creditedMinutesOverride: 210,
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    };
+    const { onSaved } = renderDialog(existing);
+
+    expect(kindButton('Urlaub')).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('radio', { name: 'Nur nachmittags frei' })).toBeChecked();
+    expect(creditedField()).toHaveValue('3,5');
+    await user.click(screen.getByRole('radio', { name: 'Ganzer Tag' }));
+    await user.click(save());
+
+    await waitFor(() => expect(onSaved).toHaveBeenCalledTimes(1));
+    expect(updateMock.mock.calls[0][0]).toEqual({
+      ...existing,
+      halfDay: undefined,
     });
   });
 });

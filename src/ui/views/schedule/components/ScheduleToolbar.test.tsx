@@ -150,6 +150,25 @@ describe('ScheduleToolbar', () => {
       expect(tileButton('Spätschicht')).toHaveAttribute('aria-pressed', 'false');
     });
 
+    it('Kachel nennt Typ und Zusatz', () => {
+      mockViewportWidth(TABLET);
+      const absenceTemplate = (id: string, name: string, fields: Partial<ShiftTemplate>) =>
+        ({ ...makeTemplate(id, name), shifts: undefined, ...fields }) as ShiftTemplate;
+      renderToolbar({
+        templates: [
+          absenceTemplate('v1', 'Urlaub vormittags', { kind: 'Vacation', halfDay: 'morning' }),
+          absenceTemplate('v2', 'Urlaub nachmittags', { kind: 'Vacation', halfDay: 'afternoon', creditedMinutesOverride: 210 }),
+          absenceTemplate('i1', 'Krank', { kind: 'Illness', creditedMinutesOverride: 480 }),
+          absenceTemplate('h1', 'Feiertag Tile', { kind: 'PublicHoliday' }),
+        ],
+      });
+
+      expect(screen.getByText('Urlaub (vormittags)')).toBeInTheDocument();
+      expect(screen.getByText('Urlaub (nachmittags), 3,5 Std.')).toBeInTheDocument();
+      expect(screen.getByText('Krankheit, 8 Std.')).toBeInTheDocument();
+      expect(screen.getByText('Feiertag')).toBeInTheDocument();
+    });
+
     it('shows the active clipboard tool as an extra tile', () => {
       mockViewportWidth(TABLET);
       renderToolbar({ activeTool: clipboardTool });

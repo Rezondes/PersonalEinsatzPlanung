@@ -197,6 +197,23 @@ function makeOtherTemplate(id: string, name: string, label: string, hoursPerDay?
   };
 }
 
+function makeAbsenceTemplate(
+  id: string,
+  name: string,
+  fields:
+    | { kind: 'Vacation'; halfDay?: 'morning' | 'afternoon'; creditedMinutesOverride?: number }
+    | { kind: 'Illness' | 'PublicHoliday'; creditedMinutesOverride?: number },
+): ShiftTemplate {
+  return {
+    id: id as ShiftTemplateId,
+    branchId,
+    name,
+    ...fields,
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+  };
+}
+
 const templateA = makeTemplate('t1', 'Frühschicht', createShift(clockTime('06:00'), clockTime('14:00')));
 const templateOther = makeOtherTemplate('t2', 'Inventur', 'Inventur', 4);
 
@@ -1562,6 +1579,39 @@ describe('ScheduleView', () => {
       expect(scheduleSetDayEntryAndSave).not.toHaveBeenCalled();
     });
 
+    it('Urlaubsvorlage legt einen halben Urlaubstag an und ist rückgängig zu machen', async () => {
+      shiftTemplateForBranch.mockResolvedValueOnce([
+        makeAbsenceTemplate('t3', 'Urlaub halbtags', { kind: 'Vacation', halfDay: 'morning', creditedMinutesOverride: 240 }),
+      ]);
+
+      const { container } = renderScheduleView(TABLET);
+      await screen.findByText(fullName(employeeA));
+      const user = userEvent.setup();
+
+      await user.click(screen.getByText('Urlaub halbtags').closest('button') as HTMLButtonElement);
+      await user.click(cellEl(container, employeeB.id, 'Montag'));
+
+      await waitFor(() =>
+        expect(absenceCreate).toHaveBeenCalledWith({
+          employeeId: employeeB.id,
+          type: 'Vacation',
+          from: MONTAG,
+          to: MONTAG,
+          halfDay: { atStart: true, atEnd: false },
+          creditedMinutesOverride: 240,
+        }),
+      );
+      expect(scheduleSetDayEntryAndSave).not.toHaveBeenCalled();
+      const created = await absenceCreate.mock.results[0].value;
+
+      await waitFor(() => expect(screen.getByRole('button', { name: 'Rückgängig' })).toBeEnabled());
+      act(() => {
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'z', ctrlKey: true, bubbles: true }));
+      });
+
+      await waitFor(() => expect(absenceDelete).toHaveBeenCalledWith(created.id));
+    });
+
     it('highlights a cell whose entry already matches the armed tool, and not a non-matching cell, with the assign-target style', async () => {
       const matchingShift = createShift(clockTime('06:00'), clockTime('14:00'));
       let schedule = createWeeklySchedule(branchId, SELECTED_WEEK, [employeeA.id, employeeB.id]);
@@ -1703,6 +1753,35 @@ describe('ScheduleView', () => {
       );
       expect(absenceCreate).not.toHaveBeenCalledWith(expect.objectContaining({ employeeId: employeeA.id }));
       expect(screen.getByText('1 von 2 aktualisiert, 1 übersprungen (gesperrt/nicht anwendbar).')).toBeInTheDocument();
+    });
+
+    it('Mehrfachauswahl mit Krankheitsvorlage überspringt belegte Tage', async () => {
+      shiftTemplateForBranch.mockResolvedValueOnce([
+        makeAbsenceTemplate('t4', 'Krank', { kind: 'Illness', creditedMinutesOverride: 480 }),
+      ]);
+      // A one-day absence, which a single-cell write would replace - a bulk write must leave it alone.
+      const existing = createAbsence({ employeeId: employeeA.id, type: 'Other', from: MONTAG, to: MONTAG, label: 'Fortbildung' });
+      absenceForBranch.mockResolvedValue([existing]);
+
+      const { container } = renderScheduleView(TABLET);
+      await screen.findByText(fullName(employeeA));
+      const user = userEvent.setup();
+
+      await user.click(screen.getByRole('button', { name: 'Mehrfachauswahl' }));
+      await user.click(cellEl(container, employeeA.id, 'Montag'));
+      await user.click(cellEl(container, employeeB.id, 'Montag'));
+      await user.click(cellEl(container, employeeB.id, 'Dienstag'));
+      await user.click(screen.getByText('Krank').closest('button') as HTMLButtonElement);
+
+      await waitFor(() => expect(screen.getByText('2 von 3 aktualisiert, 1 übersprungen (gesperrt/nicht anwendbar).')).toBeInTheDocument());
+      expect(absenceCreate).toHaveBeenCalledTimes(2);
+      for (const date of [MONTAG, DIENSTAG]) {
+        expect(absenceCreate).toHaveBeenCalledWith(
+          expect.objectContaining({ employeeId: employeeB.id, type: 'Illness', from: date, to: date, creditedMinutesOverride: 480 }),
+        );
+      }
+      expect(absenceDelete).not.toHaveBeenCalled();
+      expect(scheduleSetDayEntriesAndSave).not.toHaveBeenCalled();
     });
 
     it('"Frei" on a mixed selection (a Shift cell and a single-day-absence cell) clears both in one step', async () => {

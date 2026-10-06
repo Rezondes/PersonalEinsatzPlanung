@@ -1,8 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import type { BranchId } from '@domain/shared/ids';
+import type { BranchId, ShiftTemplateId } from '@domain/shared/ids';
 import { clockTime } from '@domain/shared/ClockTime';
 import { DomainValidationError } from '@domain/shared/DomainError';
 import { createShift } from './Shift';
+import type { ShiftTemplate } from './ShiftTemplate';
 import { compareShiftTemplatesByName, createShiftTemplate } from './ShiftTemplate';
 import { validateShiftTemplate } from './shiftTemplateValidation';
 
@@ -45,6 +46,72 @@ describe('createShiftTemplate', () => {
       DomainValidationError,
     );
   });
+
+  it('legt Urlaubs-, Krankheits- und Feiertagsvorlagen an', () => {
+    const vacation = createShiftTemplate({
+      branchId,
+      name: 'Urlaub',
+      kind: 'Vacation',
+      halfDay: 'morning',
+      creditedMinutesOverride: 240,
+    });
+    const illness = createShiftTemplate({ branchId, name: 'Krankheit', kind: 'Illness', creditedMinutesOverride: 480 });
+    const holiday = createShiftTemplate({ branchId, name: 'Feiertag', kind: 'PublicHoliday' });
+
+    expect(vacation).toMatchObject({ branchId, name: 'Urlaub', kind: 'Vacation', halfDay: 'morning', creditedMinutesOverride: 240 });
+    expect(vacation.id).toBeTruthy();
+    expect(vacation.createdAt).toBe(vacation.updatedAt);
+    expect(illness).toMatchObject({ kind: 'Illness', creditedMinutesOverride: 480 });
+    expect(holiday.kind).toBe('PublicHoliday');
+    expect(holiday.kind === 'PublicHoliday' && holiday.creditedMinutesOverride).toBeUndefined();
+    expect((vacation as { shifts?: unknown }).shifts).toBeUndefined();
+  });
+
+  it('lehnt angerechnete Stunden über 24 ab', () => {
+    for (const kind of ['Vacation', 'Illness', 'PublicHoliday'] as const) {
+      expect(() => createShiftTemplate({ branchId, name: 'X', kind, creditedMinutesOverride: 24 * 60 + 1 })).toThrow(
+        DomainValidationError,
+      );
+    }
+  });
+
+  it('verlangt einen Namen', () => {
+    for (const kind of ['Vacation', 'Illness', 'PublicHoliday'] as const) {
+      expect(() => createShiftTemplate({ branchId, name: '  ', kind })).toThrow('Bitte Bezeichnung eingeben.');
+    }
+  });
+
+  it('alte Vorlagen bleiben gültig', () => {
+    // Exactly what a formatVersion-5 backup or a Dexie v5 record holds: no field of the new kinds.
+    const oldShift: ShiftTemplate = {
+      id: 'old-shift' as ShiftTemplateId,
+      branchId,
+      name: 'Frühschicht',
+      kind: 'Shift',
+      shifts,
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    };
+    const oldOther: ShiftTemplate = {
+      id: 'old-other' as ShiftTemplateId,
+      branchId,
+      name: 'Inventur',
+      kind: 'Other',
+      label: 'Inventur',
+      hoursPerDay: 4,
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    };
+    const vacation = createShiftTemplate({ branchId, name: 'Urlaub', kind: 'Vacation' });
+
+    expect(validateShiftTemplate({ kind: 'Shift', name: oldShift.name, shiftCount: shifts.length })).toEqual([]);
+    expect(validateShiftTemplate({ kind: 'Other', name: oldOther.name, label: 'Inventur', hoursPerDay: 4 })).toEqual([]);
+    expect([vacation, oldOther, oldShift].sort(compareShiftTemplatesByName).map((t) => t.name)).toEqual([
+      'Frühschicht',
+      'Inventur',
+      'Urlaub',
+    ]);
+  });
 });
 
 describe('validateShiftTemplate', () => {
@@ -69,6 +136,15 @@ describe('validateShiftTemplate', () => {
     const errors = validateShiftTemplate({ kind: 'Other', name: 'X', label: 'Training', hoursPerDay: 30 });
     expect(errors).toHaveLength(1);
     expect(errors[0].field).toBe('hoursPerDay');
+  });
+
+  it('checks the credited minutes of an absence-kind draft against 0-24h, on their own field', () => {
+    expect(validateShiftTemplate({ kind: 'Vacation', name: 'Urlaub', creditedMinutesOverride: 24 * 60 })).toEqual([]);
+    expect(validateShiftTemplate({ kind: 'Illness', name: 'Krankheit' })).toEqual([]);
+    const tooMany = validateShiftTemplate({ kind: 'PublicHoliday', name: 'Feiertag', creditedMinutesOverride: 25 * 60 });
+    expect(tooMany.map((e) => e.field)).toEqual(['creditedMinutesOverride']);
+    const negative = validateShiftTemplate({ kind: 'Vacation', name: 'Urlaub', creditedMinutesOverride: -1 });
+    expect(negative.map((e) => e.field)).toEqual(['creditedMinutesOverride']);
   });
 });
 

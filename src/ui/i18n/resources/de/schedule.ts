@@ -104,6 +104,8 @@ const schedule = {
   shiftsSummaryText: '{{times}} · {{hours}} Std.',
   otherSummaryPlain: 'Sonstige · {{label}}',
   otherSummaryWithHours: 'Sonstige · {{label}} · {{hours}} Std.',
+  // {{kind}} is already translated, e.g. "Urlaub (vormittags)".
+  absenceSummaryWithHours: '{{kind}}, {{hours}} Std.',
   emptyDayLabel: 'Tag leeren',
 
   // ScheduleHeaderFields.tsx

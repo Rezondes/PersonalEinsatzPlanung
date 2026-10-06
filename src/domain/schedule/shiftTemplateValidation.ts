@@ -2,7 +2,7 @@ import type { FieldError } from '@domain/validation/FieldError';
 import { validateHourRange } from '@domain/validation/FieldError';
 import { SHIFT_LIST_FIELD } from './shiftDraft';
 
-export type ShiftTemplateField = 'name' | typeof SHIFT_LIST_FIELD | 'label' | 'hoursPerDay';
+export type ShiftTemplateField = 'name' | typeof SHIFT_LIST_FIELD | 'label' | 'hoursPerDay' | 'creditedMinutesOverride';
 
 export type ShiftTemplateDraft =
   | {
@@ -21,6 +21,14 @@ export type ShiftTemplateDraft =
        * absenceValidation.ts is already touched by other packages in the same plan. */
       label: string;
       hoursPerDay?: number;
+    }
+  | {
+      kind: 'Vacation' | 'Illness' | 'PublicHoliday';
+      name: string;
+      /** In minutes, like Absence.creditedMinutesOverride, with the same 0-24h rule as
+       * absenceValidation.ts (duplicated for the same reason as the Other branch above). The
+       * Vacation half day needs no rule: its type only allows 'morning' or 'afternoon'. */
+      creditedMinutesOverride?: number;
     };
 
 /** Field rules for a reusable shift template. Same shape as every other validator in the domain:
@@ -36,13 +44,15 @@ export function validateShiftTemplate(draft: ShiftTemplateDraft): FieldError<Shi
     if (draft.shiftCount === 0) {
       errors.push({ field: SHIFT_LIST_FIELD, message: 'Bitte mindestens eine Schicht anlegen.' });
     }
-  } else {
+  } else if (draft.kind === 'Other') {
     if (!draft.label.trim()) {
       errors.push({ field: 'label', message: 'Bitte Bezeichnung eingeben.' });
     }
     if (draft.hoursPerDay !== undefined) {
       errors.push(...validateHourRange(draft.hoursPerDay, 'hoursPerDay'));
     }
+  } else if (draft.creditedMinutesOverride !== undefined) {
+    errors.push(...validateHourRange(draft.creditedMinutesOverride, 'creditedMinutesOverride', 24 * 60));
   }
 
   return errors;
