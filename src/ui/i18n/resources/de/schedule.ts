@@ -188,6 +188,14 @@ const schedule = {
   noDataText: 'keine Daten',
   creditedCaption: 'davon {{hours}} angerechnet',
   carryOverInputAriaLabel: 'Übernehmen (Std.) {{name}}',
+
+  // WeekSidePanel.tsx / WeekSidePanelToggle.tsx
+  sidePanelTitle: 'Wochendetails',
+  sidePanelKpiHeading: 'Kennzahlen',
+  sidePanelWeekDataHeading: 'Wochenangaben',
+  sidePanelActionsHeading: 'Aktionen',
+  sidePanelShow: 'Wochendetails anzeigen',
+  sidePanelHide: 'Wochendetails ausblenden',
 } as const;
 
 export default schedule;
