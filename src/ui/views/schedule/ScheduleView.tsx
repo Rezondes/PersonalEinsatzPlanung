@@ -55,6 +55,7 @@ import { useSchedule } from '@ui/hooks/useSchedule';
 import { useAbsences } from '@ui/hooks/useAbsences';
 import { useCalendarWeekStore } from '@ui/app/store/calendarWeekStore';
 import { ConfirmDialog } from '@ui/components/ConfirmDialog';
+import { PageHeading } from '@ui/components/PageHeading';
 import { NoBranchSelectedAlert } from '@ui/components/NoBranchSelectedAlert';
 import { LoadErrorAlert } from '@ui/components/LoadErrorAlert';
 import { VISUALLY_HIDDEN_SX } from '@ui/components/visuallyHidden';
@@ -822,10 +823,7 @@ export function ScheduleView() {
         pb: layout === 'mobile' ? 0 : 3,
       }}
     >
-      {/* Mobile: visually hidden, the active "Woche" tab already names the page - saves a row. */}
-      <Typography variant="h5" component="h1" fontWeight={500} sx={isMobile ? VISUALLY_HIDDEN_SX : { mb: 1 }}>
-        {tNav('schedule')}
-      </Typography>
+      <PageHeading>{tNav('schedule')}</PageHeading>
       <Stack
         data-testid="schedule-nav-row"
         direction="row"

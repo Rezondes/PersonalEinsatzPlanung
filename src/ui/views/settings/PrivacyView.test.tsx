@@ -34,6 +34,12 @@ const SECTIONS: Array<{ title: string; text: string }> = [
 ];
 
 describe('PrivacyView', () => {
+  it('hat eine unsichtbare Seitenüberschrift', () => {
+    render(<PrivacyView />);
+
+    expect(screen.getByRole('heading', { level: 1, name: 'Datenschutzhinweise' })).toHaveStyle({ position: 'absolute', width: '1px' });
+  });
+
   it('renders the heading and every privacy section with its exact title and body text, in order', () => {
     render(<PrivacyView />);
 

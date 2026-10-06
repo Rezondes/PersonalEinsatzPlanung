@@ -1,6 +1,5 @@
 import { useNavigate } from 'react-router-dom';
 import Box from '@mui/material/Box';
-import Typography from '@mui/material/Typography';
 import List from '@mui/material/List';
 import ListItemButton from '@mui/material/ListItemButton';
 import ListItemIcon from '@mui/material/ListItemIcon';
@@ -13,6 +12,7 @@ import type { NavItem } from './navItems';
 import { FOOTER_NAV_ITEMS, MAIN_NAV_ITEMS } from './navItems';
 import { useLocale } from '../locale/useLocale';
 import { buildLocalizedPath } from '../locale/locale';
+import { PageHeading } from '@ui/components/PageHeading';
 
 /** Filialen leads (it's the one MAIN_NAV_ITEMS entry not otherwise reachable from this hub) unless
  * a future rename ever drops it from MAIN_NAV_ITEMS - falls back to the footer items alone rather
@@ -48,9 +48,7 @@ export function MorePage() {
         py: layout === 'mobile' ? 1.5 : 3,
       }}
     >
-      <Typography variant="h5" component="h1" fontWeight={500} sx={{ mb: 2 }}>
-        {t('more')}
-      </Typography>
+      <PageHeading>{t('more')}</PageHeading>
       <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
         <List
           sx={(theme) => ({

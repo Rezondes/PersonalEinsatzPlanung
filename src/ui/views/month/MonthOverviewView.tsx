@@ -50,6 +50,7 @@ import { useAsyncData } from '@ui/hooks/useAsyncData';
 import { useBreakpoint } from '@ui/hooks/useBreakpoint';
 import { useTapTooltip } from '@ui/hooks/useTapTooltip';
 import { VISUALLY_HIDDEN_SX } from '@ui/components/visuallyHidden';
+import { PageHeading } from '@ui/components/PageHeading';
 import { useCalendarWeekStore } from '@ui/app/store/calendarWeekStore';
 import { usePageActions } from '@ui/app/PageActionsContext';
 import { NoBranchSelectedAlert } from '@ui/components/NoBranchSelectedAlert';
@@ -225,20 +226,7 @@ export function MonthOverviewView() {
         py: layout === 'mobile' ? 1.5 : 3,
       }}
     >
-      <Stack direction="row" alignItems="center" gap={0.5} sx={{ mb: 1 }}>
-        <Typography variant="h5" component="h1" fontWeight={500}>
-          {tNav('month')}
-        </Typography>
-        {/* The ArbZG scope note is jargon for most readers, so it is shown on demand only.
-            enterTouchDelay 0: a tap opens it on a phone, where there is no hover. */}
-        {/* describeChild: the button keeps its own aria-label and gets the note as its description;
-            without it the note never reached a screen reader. */}
-        <Tooltip title={t('infoCaption')} enterTouchDelay={0} leaveTouchDelay={6000} describeChild>
-          <IconButton size="small" aria-label={t('infoHintAriaLabel')}>
-            <InfoOutlinedIcon fontSize="small" />
-          </IconButton>
-        </Tooltip>
-      </Stack>
+      <PageHeading>{tNav('month')}</PageHeading>
       <Stack direction="row" flexWrap="wrap" justifyContent="space-between" alignItems="center" gap={1} sx={{ mb: 2 }}>
         {/* One month navigation: arrows plus the label, which opens the Monat/Jahr picker - the
             same pattern as the Wochenplanung's week label. */}
@@ -264,6 +252,16 @@ export function MonthOverviewView() {
           <IconButton onClick={() => changeMonth(1)} aria-label={t('nextMonth')}>
             <ChevronRightIcon />
           </IconButton>
+          {/* The ArbZG scope note is jargon for most readers, so it is shown on demand only, next to
+              the month label (the page heading is visually hidden). enterTouchDelay 0: a tap opens
+              it on a phone, where there is no hover. */}
+          {/* describeChild: the button keeps its own aria-label and gets the note as its description;
+              without it the note never reached a screen reader. */}
+          <Tooltip title={t('infoCaption')} enterTouchDelay={0} leaveTouchDelay={6000} describeChild>
+            <IconButton size="small" aria-label={t('infoHintAriaLabel')}>
+              <InfoOutlinedIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
         </Stack>
 
         {/* Locked while loading: the rows are built from no schedules then, a CSV of zeros that

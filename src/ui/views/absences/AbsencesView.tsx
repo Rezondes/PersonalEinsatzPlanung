@@ -41,6 +41,7 @@ import { useTableSort } from '@ui/hooks/useTableSort';
 import { useListFiltersStore } from '@ui/app/store/listFiltersStore';
 import { useBreakpoint } from '@ui/hooks/useBreakpoint';
 import { ConfirmDialog } from '@ui/components/ConfirmDialog';
+import { PageHeading } from '@ui/components/PageHeading';
 import { NoBranchSelectedAlert } from '@ui/components/NoBranchSelectedAlert';
 import { LoadErrorAlert } from '@ui/components/LoadErrorAlert';
 import {
@@ -287,9 +288,7 @@ export function AbsencesView() {
         py: layout === 'mobile' ? 1.5 : 3,
       }}
     >
-      <Typography variant="h5" component="h1" fontWeight={500} sx={{ mb: 1 }}>
-        {tNav('absences')}
-      </Typography>
+      <PageHeading>{tNav('absences')}</PageHeading>
       <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
         {/* On mobile MobileFab (registered above via usePageActions, label "Erfassen" matching the
             mockup) is the primary action, so "Erfassen" is left out here. "Feiertage anlegen" has

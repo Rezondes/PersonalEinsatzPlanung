@@ -5,6 +5,7 @@ import Stack from '@mui/material/Stack';
 import { useTranslation } from 'react-i18next';
 import { usePageActions } from '@ui/app/PageActionsContext';
 import { useBreakpoint } from '@ui/hooks/useBreakpoint';
+import { PageHeading } from '@ui/components/PageHeading';
 
 export function PrivacyView() {
   const layout = useBreakpoint();
@@ -26,9 +27,7 @@ export function PrivacyView() {
         py: layout === 'mobile' ? 1.5 : 3,
       }}
     >
-      <Typography variant="h5" component="h1" fontWeight={500} sx={{ mb: 3 }}>
-        {t('heading')}
-      </Typography>
+      <PageHeading>{t('heading')}</PageHeading>
       <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
         <Stack spacing={2} data-selectable>
           {sections.map((section) => (

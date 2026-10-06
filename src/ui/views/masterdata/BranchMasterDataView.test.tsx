@@ -175,10 +175,10 @@ describe('BranchMasterDataView', () => {
     expect(screen.getByRole('button', { name: 'Weitere Aktionen für Filiale Nord' }).parentElement).toHaveStyle({ gap: '8px' });
   });
 
-  it('zeigt eine h1-Überschrift mit dem Seitentitel', () => {
+  it('hat eine unsichtbare Seitenüberschrift', () => {
     renderView();
 
-    expect(screen.getByRole('heading', { level: 1, name: 'Filialen' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: 'Filialen' })).toHaveStyle({ position: 'absolute', width: '1px' });
   });
 
   it('zeigt die inaktive Filiale Süd ohne Opacity-Verwaschung', () => {

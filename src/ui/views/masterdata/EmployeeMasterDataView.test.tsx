@@ -261,10 +261,10 @@ describe('EmployeeMasterDataView', () => {
     expect(screen.getByTitle('Minderjährig — Jugendarbeitsschutz beachten')).toBeInTheDocument();
   });
 
-  it('zeigt eine h1-Überschrift mit dem Seitentitel', async () => {
+  it('hat eine unsichtbare Seitenüberschrift', async () => {
     renderView();
 
-    expect(await screen.findByRole('heading', { level: 1, name: 'Mitarbeiter' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 1, name: 'Mitarbeiter' })).toHaveStyle({ position: 'absolute', width: '1px' });
   });
 
   it('zeigt den inaktiven Mitarbeiter david ohne Opacity-Verwaschung', async () => {

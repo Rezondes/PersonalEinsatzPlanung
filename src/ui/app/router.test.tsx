@@ -100,7 +100,9 @@ describe('router', () => {
 
     renderAt('/de/schedule');
 
-    expect(await screen.findByRole('heading', { name: 'Etwas ist schiefgelaufen' })).toBeInTheDocument();
+    const heading = await screen.findByRole('heading', { name: 'Etwas ist schiefgelaufen' });
+    // Unlike the page titles (Teil 9, Package 1) this one IS the message, so it stays visible.
+    expect(heading).not.toHaveStyle({ position: 'absolute' });
     expect(screen.getByRole('button', { name: 'Neu laden' })).toBeInTheDocument();
     expect(screen.queryByText(/Unexpected Application Error/)).not.toBeInTheDocument();
     consoleError.mockRestore();

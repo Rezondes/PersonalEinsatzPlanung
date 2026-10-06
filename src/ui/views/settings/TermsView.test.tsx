@@ -42,6 +42,12 @@ const SECTIONS: Array<{ title: string; text: string }> = [
 ];
 
 describe('TermsView', () => {
+  it('hat eine unsichtbare Seitenüberschrift', () => {
+    render(<TermsView />);
+
+    expect(screen.getByRole('heading', { level: 1, name: 'Nutzungsbedingungen' })).toHaveStyle({ position: 'absolute', width: '1px' });
+  });
+
   it('renders the heading and every terms section with its exact title and body text, in order', () => {
     render(<TermsView />);
 

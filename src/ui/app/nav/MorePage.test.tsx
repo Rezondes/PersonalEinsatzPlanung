@@ -20,6 +20,11 @@ describe('MorePage', () => {
     expect(screen.getByRole('heading', { level: 1, name: 'Mehr' })).toBeInTheDocument();
   });
 
+  it('hat eine unsichtbare Seitenüberschrift', () => {
+    renderPage();
+    expect(screen.getByRole('heading', { level: 1, name: 'Mehr' })).toHaveStyle({ position: 'absolute', width: '1px' });
+  });
+
   it('lists Filialen plus the footer nav destinations as navigable entries', () => {
     renderPage();
     expect(screen.getByText('Filialen')).toBeInTheDocument();

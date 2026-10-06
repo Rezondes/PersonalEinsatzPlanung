@@ -47,6 +47,7 @@ import i18n from '@ui/i18n/i18n';
 import { useBreakpoint } from '@ui/hooks/useBreakpoint';
 import { useActivationToggle } from '@ui/hooks/useActivationToggle';
 import { ConfirmDialog } from '@ui/components/ConfirmDialog';
+import { PageHeading } from '@ui/components/PageHeading';
 import { NoBranchSelectedAlert } from '@ui/components/NoBranchSelectedAlert';
 import { LoadErrorAlert } from '@ui/components/LoadErrorAlert';
 import {
@@ -366,9 +367,7 @@ export function EmployeeMasterDataView() {
         py: layout === 'mobile' ? 1.5 : 3,
       }}
     >
-      <Typography variant="h5" component="h1" fontWeight={500} sx={{ mb: 1 }}>
-        {tNav('employees')}
-      </Typography>
+      <PageHeading>{tNav('employees')}</PageHeading>
       <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
         {/* Hidden on mobile: MobileFab (registered above via usePageActions) is the primary
             action there, matching the mockup's mobile Mitarbeiter screen (FAB only, no inline

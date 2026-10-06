@@ -50,6 +50,13 @@ describe('ChangelogView', () => {
     expect(links[0]).toHaveAttribute('href', 'https://github.com/Rezondes/PersonalEinsatzPlanung/releases/tag/deploy-abc1234');
   });
 
+  it('hat eine unsichtbare Seitenüberschrift', () => {
+    fetchChangelogMock.mockReturnValue(new Promise(() => {}));
+    render(<ChangelogView />);
+
+    expect(screen.getByRole('heading', { level: 1, name: 'Änderungen' })).toHaveStyle({ position: 'absolute', width: '1px' });
+  });
+
   it('renders "Änderungen" as the page\'s top-level heading, with each release title one level below it (N26)', async () => {
     fetchChangelogMock.mockResolvedValue([
       {

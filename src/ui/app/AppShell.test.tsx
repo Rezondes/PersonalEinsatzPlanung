@@ -6,6 +6,7 @@ import { useBranchesStore } from '@ui/app/store/branchesStore';
 import { useBranchSelectionStore } from '@ui/app/store/branchSelectionStore';
 import { AppShell } from './AppShell';
 import { usePageActions } from './PageActionsContext';
+import { PageHeading } from '@ui/components/PageHeading';
 
 /** jsdom has no real layout engine, so `window.matchMedia` is mocked to answer as if the viewport
  * were `width` wide. Copied from useBreakpoint.test.tsx. Pinned to laptop width throughout this
@@ -33,6 +34,7 @@ function PageA() {
     <>
       <h1>Seite A</h1>
       <Link to="/page-b">zu B</Link>
+      <Link to="/page-c">zu C</Link>
       <button type="button" onClick={() => navigate('/page-a?x=1')}>
         nur Query
       </button>
@@ -55,6 +57,7 @@ function renderAt(path: string) {
           <Route path="fullbleed" element={<FullBleedStub />} />
           <Route path="page-a" element={<PageA />} />
           <Route path="page-b" element={<h1>Seite B</h1>} />
+          <Route path="page-c" element={<PageHeading>Seite C</PageHeading>} />
         </Route>
       </Routes>
     </MemoryRouter>,
@@ -122,6 +125,15 @@ describe('AppShell', () => {
 
     await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('heading', { level: 1, name: 'Seite B' })));
     expect(screen.getByRole('heading', { level: 1, name: 'Seite B' })).toHaveAttribute('tabindex', '-1');
+  });
+
+  // Teil 9, Package 1: the page headings are visually hidden now, and still have to take the focus.
+  it('fokussiert die unsichtbare Überschrift nach einem Seitenwechsel', async () => {
+    renderAt('/page-a');
+
+    await userEvent.setup().click(screen.getByRole('link', { name: 'zu C' }));
+
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('heading', { level: 1, name: 'Seite C' })));
   });
 
   it('leaves the focus alone on the first load, so the skip link stays the first stop', async () => {

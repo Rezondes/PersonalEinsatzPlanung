@@ -769,10 +769,10 @@ describe('SettingsView, Überschriften', () => {
     useNotificationStore.getState().clear();
   });
 
-  it('hat eine h1 Einstellungen', () => {
+  it('hat eine unsichtbare Seitenüberschrift', () => {
     renderView();
 
-    expect(screen.getByRole('heading', { level: 1, name: 'Einstellungen' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: 'Einstellungen' })).toHaveStyle({ position: 'absolute', width: '1px' });
   });
 
   it('gibt die Abschnitte als h2 aus, ohne ihr Aussehen zu ändern, und hat keine h6', () => {

@@ -16,6 +16,7 @@ import { usePageActions } from '@ui/app/PageActionsContext';
 import { useBreakpoint } from '@ui/hooks/useBreakpoint';
 import { useChangelog } from '@ui/hooks/useChangelog';
 import { LoadErrorAlert } from '@ui/components/LoadErrorAlert';
+import { PageHeading } from '@ui/components/PageHeading';
 import { VISUALLY_HIDDEN_SX } from '@ui/components/visuallyHidden';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 
@@ -43,9 +44,7 @@ export function ChangelogView() {
         py: layout === 'mobile' ? 1.5 : 3,
       }}
     >
-      <Typography variant="h5" component="h1" fontWeight={500} sx={{ mb: 3 }}>
-        {tNav('changelog')}
-      </Typography>
+      <PageHeading>{tNav('changelog')}</PageHeading>
       <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
         {loading ? (
           <Stack alignItems="center" spacing={2} sx={{ py: 8 }}>

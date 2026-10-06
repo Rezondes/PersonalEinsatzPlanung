@@ -165,10 +165,10 @@ describe('AbsencesView', () => {
       useBranchSelectionStore.setState({ selectedBranchId: b1 });
     });
 
-    it('zeigt eine h1-Überschrift mit dem Seitentitel', async () => {
+    it('hat eine unsichtbare Seitenüberschrift', async () => {
       renderView();
 
-      expect(await screen.findByRole('heading', { level: 1, name: 'Abwesenheiten' })).toBeInTheDocument();
+      expect(await screen.findByRole('heading', { level: 1, name: 'Abwesenheiten' })).toHaveStyle({ position: 'absolute', width: '1px' });
     });
 
     it('shows the empty-state message when there are no absences at all', async () => {

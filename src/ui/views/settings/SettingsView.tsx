@@ -44,6 +44,7 @@ import { ACCENT_COLORS } from '@ui/app/theme/accentColors';
 import type { AccentColorKey } from '@ui/app/theme/accentColors';
 import { usePageActions } from '@ui/app/PageActionsContext';
 import { ConfirmDialog } from '@ui/components/ConfirmDialog';
+import { PageHeading } from '@ui/components/PageHeading';
 import { ResponsiveDialog } from '@ui/components/ResponsiveDialog';
 import { useLocale } from '@ui/app/locale/useLocale';
 import { buildLocalizedPath } from '@ui/app/locale/locale';
@@ -500,9 +501,7 @@ export function SettingsView() {
         py: layout === 'mobile' ? 1.5 : 3,
       }}
     >
-      <Typography variant="h5" component="h1" fontWeight={500} sx={{ mb: 1 }}>
-        {tNav('settings')}
-      </Typography>
+      <PageHeading>{tNav('settings')}</PageHeading>
       <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
         <Paper sx={{ p: 3, mb: 3 }}>
           <Typography variant="subtitle1" component="h2" fontWeight={500} sx={{ mb: 1 }}>

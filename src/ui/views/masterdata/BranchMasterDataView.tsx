@@ -35,6 +35,7 @@ import { useListFiltersStore } from '@ui/app/store/listFiltersStore';
 import { useActivationToggle } from '@ui/hooks/useActivationToggle';
 import { useTableSort } from '@ui/hooks/useTableSort';
 import { ConfirmDialog } from '@ui/components/ConfirmDialog';
+import { PageHeading } from '@ui/components/PageHeading';
 import {
   stickyCornerSx,
   stickyFirstColumnSx,
@@ -207,9 +208,7 @@ export function BranchMasterDataView() {
         py: layout === 'mobile' ? 1.5 : 3,
       }}
     >
-      <Typography variant="h5" component="h1" fontWeight={500} sx={{ mb: 1 }}>
-        {tNav('branches')}
-      </Typography>
+      <PageHeading>{tNav('branches')}</PageHeading>
       <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
         {/* Hidden on mobile: MobileFab (registered above via usePageActions) is the primary
             action there, same pattern as EmployeeMasterDataView/AbsencesView. */}

@@ -310,11 +310,11 @@ describe('MonthOverviewView', () => {
     expect(cells[cells.length - 1]).toHaveTextContent('0');
   });
 
-  it('zeigt eine h1-Überschrift mit dem Seitentitel', async () => {
+  it('hat eine unsichtbare Seitenüberschrift', async () => {
     selectBranch();
     renderView();
 
-    expect(await screen.findByRole('heading', { level: 1, name: 'Monatsübersicht' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 1, name: 'Monatsübersicht' })).toHaveStyle({ position: 'absolute', width: '1px' });
   });
 
   it('shows a dash for an employee not part of the loaded schedule, and the actual total for one who is', async () => {
@@ -438,6 +438,19 @@ describe('MonthOverviewView', () => {
       expect(await screen.findByText(/Ruhezeit-Prüfung über Wochengrenzen/)).toBeInTheDocument();
       // Teil 8, Package 14: the note never reached the button's accessible description.
       expect(screen.getByRole('button', { name: 'Hinweis zur Prüfung' })).toHaveAccessibleDescription(/Ruhezeit/);
+    });
+
+    // Teil 9, Package 1: the button sat next to the page heading, which is visually hidden now.
+    it('Info-Knopf steht neben der Monatsnavigation', async () => {
+      selectBranch();
+      employeeForBranch.mockResolvedValue([]);
+      scheduleForBranch.mockResolvedValue([]);
+      renderView();
+      await screen.findByText(currentMonthLabel);
+
+      expect(screen.getByRole('button', { name: 'Hinweis zur Prüfung' }).parentElement).toBe(
+        screen.getByRole('button', { name: 'Nächster Monat' }).parentElement,
+      );
     });
 
     it('keeps "KW n" and its menu button on one line', async () => {

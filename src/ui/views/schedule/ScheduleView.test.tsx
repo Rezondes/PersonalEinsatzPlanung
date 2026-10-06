@@ -318,11 +318,11 @@ describe('ScheduleView', () => {
       expect(scheduleGetOrCreate).not.toHaveBeenCalled();
     });
 
-    it('zeigt eine h1-Überschrift mit dem Seitentitel', async () => {
+    it('hat eine unsichtbare Seitenüberschrift', async () => {
       renderScheduleView();
       await act(async () => {});
 
-      expect(screen.getByRole('heading', { level: 1, name: 'Wochenplanung' })).toBeInTheDocument();
+      expect(screen.getByRole('heading', { level: 1, name: 'Wochenplanung' })).toHaveStyle({ position: 'absolute', width: '1px' });
     });
 
     it('shows one loading overlay covering the whole multi-hook fetch window, then hides it once everything has resolved', async () => {
@@ -629,20 +629,13 @@ describe('ScheduleView', () => {
   describe('compact mobile header', () => {
     const searchBox = () => screen.queryByRole('textbox', { name: 'Mitarbeiter suchen' });
 
-    it('keeps the h1 for screen readers but hides it visually on mobile only', async () => {
+    it('keeps the h1 for screen readers but hides it visually on mobile too', async () => {
       renderScheduleView(MOBILE);
       await screen.findByText(fullName(employeeA));
 
       const h1 = screen.getByRole('heading', { level: 1, name: 'Wochenplanung' });
       expect(getComputedStyle(h1).position).toBe('absolute');
       expect(getComputedStyle(h1).width).toBe('1px');
-    });
-
-    it('keeps the visible h1 on tablet/desktop', async () => {
-      renderScheduleView(TABLET);
-      await screen.findByText(fullName(employeeA));
-
-      expect(getComputedStyle(screen.getByRole('heading', { level: 1, name: 'Wochenplanung' })).position).not.toBe('absolute');
     });
 
     it('puts the week label, Heute and Rückgängig into one non-wrapping row on mobile', async () => {
