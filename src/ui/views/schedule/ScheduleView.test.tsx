@@ -36,6 +36,7 @@ import { services } from '@infrastructure/services';
 import { useBranchesStore } from '@ui/app/store/branchesStore';
 import { useBranchSelectionStore } from '@ui/app/store/branchSelectionStore';
 import { useCalendarWeekStore } from '@ui/app/store/calendarWeekStore';
+import { useWeekSidePanelStore } from '@ui/app/store/weekSidePanelStore';
 import { AppNotifications } from '@ui/app/AppNotifications';
 import { useNotificationStore } from '@ui/app/store/notificationStore';
 import { ScheduleView } from './ScheduleView';
@@ -81,8 +82,9 @@ const restPeriodCheckWeek = vi.mocked(services.restPeriodCheck.checkWeek);
 /** jsdom has no real layout engine, so `window.matchMedia` is mocked per test to answer as if the
  * viewport were `width` x `height` - MUI's `theme.breakpoints.up(key)` produces a `(min-width:...px)`
  * query and useIsShortViewport a `(max-height:...px)` one, which this parses back out. Copied from
- * useBreakpoint.test.tsx. */
+ * useBreakpoint.test.tsx. `innerWidth` follows too: the side panel's default reads it. */
 function mockViewportWidth(width: number, height = 900) {
+  Object.defineProperty(window, 'innerWidth', { configurable: true, writable: true, value: width });
   window.matchMedia = ((query: string) => {
     const minWidth = /min-width:\s*(\d+(?:\.\d+)?)px/.exec(query);
     const maxHeight = /max-height:\s*(\d+(?:\.\d+)?)px/.exec(query);
@@ -101,6 +103,7 @@ function mockViewportWidth(width: number, height = 900) {
 
 const TABLET = 1100;
 const MOBILE = 500;
+const JSDOM_INNER_WIDTH = window.innerWidth;
 
 const branchId = 'b1' as BranchId;
 
@@ -281,12 +284,26 @@ function expectMenuItemEnabled(name: string) {
   expect(menuItem(name).getAttribute('aria-disabled')).not.toBe('true');
 }
 
+/** The desktop "Wochendetails" side panel: Kennzahlen, Wochenangaben and the week actions. */
+function sidePanel(): HTMLElement {
+  return screen.getByRole('complementary', { name: 'Wochendetails' });
+}
+
+/** The search field sits behind a magnifier button at every width; opens it and returns the field. */
+async function openSearch(user = userEvent.setup()): Promise<HTMLElement> {
+  await user.click(screen.getByRole('button', { name: 'Mitarbeiter suchen' }));
+  return screen.getByRole('textbox', { name: 'Mitarbeiter suchen' });
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   useNotificationStore.getState().clear();
   useBranchesStore.setState({ branches: [branch], loading: false, loaded: true });
   useBranchSelectionStore.setState({ selectedBranchId: branch.id });
   useCalendarWeekStore.setState({ selectedWeek: SELECTED_WEEK });
+  // Most desktop tests read the KPIs, the Wochenangaben or the week actions, which all live in the
+  // side panel. Tests about the panel's own default reset this to null.
+  useWeekSidePanelStore.setState({ open: true });
 
   branchAll.mockResolvedValue([branch]);
   employeeForBranch.mockResolvedValue([employeeA, employeeB]);
@@ -311,6 +328,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.useRealTimers();
+  Object.defineProperty(window, 'innerWidth', { configurable: true, writable: true, value: JSDOM_INNER_WIDTH });
   // @ts-expect-error -- undo the per-test stub, jsdom has no matchMedia of its own to restore
   delete window.matchMedia;
   // @ts-expect-error -- undo the per-test stub, jsdom has no elementsFromPoint of its own to restore
@@ -461,7 +479,8 @@ describe('ScheduleView', () => {
       renderScheduleView();
       await screen.findByText(fullName(employeeA));
 
-      await userEvent.setup().type(screen.getByLabelText('Mitarbeiter suchen'), 'zzz-nobody');
+      const user = userEvent.setup();
+      await user.type(await openSearch(user), 'zzz-nobody');
 
       expect(await screen.findByText('Kein Mitarbeiter gefunden.')).toBeInTheDocument();
       expect(screen.queryByText(fullName(employeeA))).not.toBeInTheDocument();
@@ -528,7 +547,8 @@ describe('ScheduleView', () => {
       expect(within(notYetScheduledChip()).getByText('0')).toBeInTheDocument();
 
       // Filters employeeB (Schulz) out of the visible rows...
-      await userEvent.setup().type(screen.getByLabelText('Mitarbeiter suchen'), 'Müller');
+      const user = userEvent.setup();
+      await user.type(await openSearch(user), 'Müller');
       await waitFor(() => expect(screen.queryByText(fullName(employeeB))).not.toBeInTheDocument());
       expect(screen.getByText(fullName(employeeA))).toBeInTheDocument();
 
@@ -553,7 +573,8 @@ describe('ScheduleView', () => {
       expect(within(notYetScheduledChip()).getByText('1')).toBeInTheDocument();
 
       // Filters employeeB (the unplanned one) out of the visible rows entirely.
-      await userEvent.setup().type(screen.getByLabelText('Mitarbeiter suchen'), 'Müller');
+      const user = userEvent.setup();
+      await user.type(await openSearch(user), 'Müller');
       await waitFor(() => expect(screen.queryByText(fullName(employeeB))).not.toBeInTheDocument());
 
       // A `visibleRows`-based bug would now show 0 here - it must stay 1.
@@ -601,7 +622,7 @@ describe('ScheduleView', () => {
       expect(screen.getByText(fullName(employeeB))).toBeInTheDocument();
 
       const user = userEvent.setup();
-      const search = screen.getByLabelText('Mitarbeiter suchen');
+      const search = await openSearch(user);
       await user.type(search, 'MÜLLER');
 
       expect(screen.getByText(fullName(employeeA))).toBeInTheDocument();
@@ -612,32 +633,38 @@ describe('ScheduleView', () => {
       expect(screen.getByText(fullName(employeeA))).toBeInTheDocument();
       expect(screen.getByText(fullName(employeeB))).toBeInTheDocument();
     });
-  });
-
-  describe('combined header row (Suche, Umsatz, Stunden)', () => {
-    it('puts the search field in the same row as the revenue/hours fields on tablet/desktop', async () => {
-      renderScheduleView(TABLET);
-      await screen.findByText(fullName(employeeA));
-
-      const headerRow = screen.getByTestId('schedule-header-row');
-      expect(within(headerRow).getByLabelText('Mitarbeiter suchen')).toBeInTheDocument();
-      expect(within(headerRow).getByLabelText('Geplanter Wochenumsatz')).toBeInTheDocument();
-      expect(within(headerRow).getByLabelText('Geplante Wochenstunden')).toBeInTheDocument();
-    });
-
-    it('does not render the combined header row on mobile', async () => {
-      renderScheduleView(MOBILE);
-      await screen.findByText(fullName(employeeA));
-
-      expect(screen.queryByTestId('schedule-header-row')).not.toBeInTheDocument();
-    });
 
     it('gives the search field a floating label instead of only a placeholder', async () => {
       renderScheduleView();
       await screen.findByText(fullName(employeeA));
 
-      const search = screen.getByLabelText('Mitarbeiter suchen');
+      const search = await openSearch();
       expect(search).not.toHaveAttribute('placeholder');
+    });
+
+    // Teil 9, Package 3: on the desktop the field folds into the header row like on a phone.
+    it('Suche klappt per Lupe auf und mit Escape zu', async () => {
+      renderScheduleView(TABLET);
+      await screen.findByText(fullName(employeeA));
+      const user = userEvent.setup();
+      const header = screen.getByTestId('schedule-nav-row');
+      const searchBox = () => screen.queryByRole('textbox', { name: 'Mitarbeiter suchen' });
+
+      expect(searchBox()).not.toBeInTheDocument();
+      await user.click(within(header).getByRole('button', { name: 'Mitarbeiter suchen' }));
+      expect(within(header).getByRole('textbox', { name: 'Mitarbeiter suchen' })).toHaveFocus();
+
+      // An active term keeps the field open, so the filter never hides behind the magnifier.
+      await user.type(searchBox()!, 'Mül');
+      await user.click(document.body);
+      expect(searchBox()).toHaveValue('Mül');
+      expect(screen.queryByText(fullName(employeeB))).not.toBeInTheDocument();
+
+      await user.click(searchBox()!);
+      await user.keyboard('{Escape}');
+      expect(searchBox()).not.toBeInTheDocument();
+      expect(screen.getByText(fullName(employeeB))).toBeInTheDocument();
+      expect(within(header).getByRole('button', { name: 'Mitarbeiter suchen' })).toHaveFocus();
     });
   });
 
@@ -729,6 +756,99 @@ describe('ScheduleView', () => {
       await screen.findByText(fullName(employeeA));
 
       expect(screen.getByRole('button', { name: 'Heute' })).toHaveClass('MuiIconButton-root');
+    });
+  });
+
+  // Teil 9, Package 3: above the desktop table only the header row and the toolbar remain; the
+  // KPIs, the Wochenangaben and the week actions moved into the "Wochendetails" side panel.
+  describe('desktop layout with the side panel', () => {
+    const follows = (a: Node, b: Node) => !!(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
+
+    it('Desktop: Kopfzeile ohne Wochenaktionen', async () => {
+      renderScheduleView(TABLET);
+      await screen.findByText(fullName(employeeA));
+
+      const header = screen.getByTestId('schedule-nav-row');
+      const names = within(header)
+        .getAllByRole('button')
+        .map((button) => button.getAttribute('aria-label') ?? button.textContent);
+      expect(names).toEqual([
+        expect.stringContaining('andere Woche auswählen'),
+        'Rückgängig',
+        'Wiederholen',
+        'Vorherige Woche',
+        'Heute',
+        'Nächste Woche',
+        'Mitarbeiter suchen',
+        'Wochendetails ausblenden',
+      ]);
+      // Each week action exists exactly once, inside the panel.
+      for (const name of ['Vorwoche übertragen', 'Vorwoche kopieren', 'Drucken']) {
+        expect(screen.getByRole('button', { name }).closest('aside')).toBe(sidePanel());
+      }
+    });
+
+    it('Desktop: Toolbar direkt vor der Tabelle, keine Kennzahlen davor', async () => {
+      renderScheduleView(TABLET);
+      await screen.findByText(fullName(employeeA));
+
+      const header = screen.getByTestId('schedule-nav-row');
+      const toolbar = screen.getByRole('region', { name: 'Werkzeugleiste' });
+      const grid = screen.getByRole('grid');
+      expect(follows(header, toolbar)).toBe(true);
+      expect(follows(toolbar, grid)).toBe(true);
+      // KPIs and Wochenangaben exist only in the panel, which comes after the table.
+      expect(follows(grid, sidePanel())).toBe(true);
+      expect(screen.getByText('Ist / Soll').closest('aside')).toBe(sidePanel());
+      expect(screen.getByText('Nicht eingeplant').closest('aside')).toBe(sidePanel());
+      expect(screen.getByRole('textbox', { name: 'Geplanter Wochenumsatz' }).closest('aside')).toBe(sidePanel());
+    });
+
+    it('Desktop: Seitenleiste lässt sich ein- und ausklappen', async () => {
+      useWeekSidePanelStore.setState({ open: null });
+      renderScheduleView(1366);
+      await screen.findByText(fullName(employeeA));
+      const user = userEvent.setup();
+
+      // Below 1600px the panel starts collapsed until the user chooses otherwise.
+      expect(screen.queryByRole('complementary', { name: 'Wochendetails' })).not.toBeInTheDocument();
+      const toggle = screen.getByRole('button', { name: 'Wochendetails anzeigen' });
+      expect(toggle).toHaveAttribute('aria-expanded', 'false');
+
+      await user.click(toggle);
+      expect(sidePanel()).toBeInTheDocument();
+      expect(screen.getByRole('grid')).toBeInTheDocument();
+      expect(useWeekSidePanelStore.getState().open).toBe(true);
+
+      await user.click(screen.getByRole('button', { name: 'Wochendetails ausblenden' }));
+      expect(screen.queryByRole('complementary', { name: 'Wochendetails' })).not.toBeInTheDocument();
+      expect(useWeekSidePanelStore.getState().open).toBe(false);
+    });
+
+    it('Desktop: Seitenleiste startet ab 1600px offen', async () => {
+      useWeekSidePanelStore.setState({ open: null });
+      renderScheduleView(1600);
+      await screen.findByText(fullName(employeeA));
+
+      expect(sidePanel()).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Wochendetails ausblenden' })).toHaveAttribute('aria-expanded', 'true');
+    });
+
+    it('Seitenleiste ist während des Wochenwechsels inert', async () => {
+      renderScheduleView(TABLET);
+      await screen.findByText(fullName(employeeA));
+      scheduleGetOrCreate.mockReturnValueOnce(new Promise(() => {}));
+
+      await userEvent.setup().click(screen.getByRole('button', { name: 'Nächste Woche' }));
+
+      const spinner = await screen.findByRole('progressbar', { name: 'Woche wird geladen' });
+      const wrapper = spinner.closest('[aria-busy="true"]')!;
+      expect(wrapper.contains(sidePanel())).toBe(true);
+      expect(sidePanel().closest('[inert]')).not.toBeNull();
+      expect(screen.getByRole('region', { name: 'Werkzeugleiste' }).closest('[inert]')).not.toBeNull();
+      expect(within(sidePanel()).getByRole('textbox', { name: 'Geplanter Wochenumsatz' })).toBeDisabled();
+      // The week navigation stays usable, so a keyboard user's focus is not dropped mid-switch.
+      expect(screen.getByTestId('schedule-nav-row').closest('[inert]')).toBeNull();
     });
   });
 
@@ -1955,79 +2075,103 @@ describe('ScheduleView', () => {
       expect(scheduleGetOrCreate).toHaveBeenLastCalledWith(branch.id, targetWeek);
     });
 
-    it('"Vorwoche übertragen" opens CarryOverPreviousWeekDialog when a schedule exists', async () => {
-      renderScheduleView();
-      await screen.findByText(fullName(employeeA));
+    // Teil 9, Package 3: the week actions and the Wochenangaben moved from the header rows into the
+    // desktop side panel; these are the former header tests, now driven through the panel.
+    describe('Wochenaktionen funktionieren aus der Seitenleiste', () => {
+      it('"Vorwoche übertragen" opens CarryOverPreviousWeekDialog when a schedule exists', async () => {
+        renderScheduleView();
+        await screen.findByText(fullName(employeeA));
 
-      await userEvent.setup().click(screen.getByRole('button', { name: 'Vorwoche übertragen' }));
+        await userEvent.setup().click(within(sidePanel()).getByRole('button', { name: 'Vorwoche übertragen' }));
 
-      expect(await screen.findByText('Mehr-/Minusstunden aus Vorwoche übertragen')).toBeInTheDocument();
-    });
+        expect(await screen.findByText('Mehr-/Minusstunden aus Vorwoche übertragen')).toBeInTheDocument();
+      });
 
-    it('"Vorwoche übertragen" does not render CarryOverPreviousWeekDialog while no schedule has loaded yet', async () => {
-      scheduleGetOrCreate.mockReturnValueOnce(new Promise<WeeklySchedule>(() => {}));
+      it('"Vorwoche übertragen" does not render CarryOverPreviousWeekDialog while no schedule has loaded yet', async () => {
+        // A failed load: while a week is still loading the panel is inert and cannot be clicked at all.
+        scheduleGetOrCreate.mockRejectedValueOnce(new Error('boom'));
 
-      renderScheduleView();
-      await userEvent.setup().click(screen.getByRole('button', { name: 'Vorwoche übertragen' }));
+        renderScheduleView();
+        await screen.findByText('Daten konnten nicht geladen werden.');
+        await userEvent.setup().click(within(sidePanel()).getByRole('button', { name: 'Vorwoche übertragen' }));
 
-      expect(screen.queryByText('Mehr-/Minusstunden aus Vorwoche übertragen')).not.toBeInTheDocument();
-    });
+        expect(screen.queryByText('Mehr-/Minusstunden aus Vorwoche übertragen')).not.toBeInTheDocument();
+      });
 
-    it('"Vorwoche kopieren" asks for confirmation, then applies the result and shows a success message (H7)', async () => {
-      renderScheduleView();
-      await screen.findByText(fullName(employeeA));
-      const user = userEvent.setup();
+      it('"Vorwoche kopieren" asks for confirmation, then applies the result and shows a success message (H7)', async () => {
+        renderScheduleView();
+        await screen.findByText(fullName(employeeA));
+        const user = userEvent.setup();
 
-      await user.click(screen.getByRole('button', { name: 'Vorwoche kopieren' }));
-      const dialog = await screen.findByRole('dialog', { name: 'Vorwoche komplett übernehmen?' });
-      expect(scheduleOverwriteWithPreviousWeek).not.toHaveBeenCalled();
+        await user.click(within(sidePanel()).getByRole('button', { name: 'Vorwoche kopieren' }));
+        const dialog = await screen.findByRole('dialog', { name: 'Vorwoche komplett übernehmen?' });
+        expect(scheduleOverwriteWithPreviousWeek).not.toHaveBeenCalled();
 
-      const copiedShift = withDayEntry(
-        createWeeklySchedule(branchId, SELECTED_WEEK, [employeeA.id, employeeB.id]),
-        employeeA.id,
-        'Montag',
-        { type: 'Shift', shifts: [createShift(clockTime('08:00'), clockTime('16:00'))] },
-      );
-      scheduleOverwriteWithPreviousWeek.mockResolvedValue(copiedShift);
+        const copiedShift = withDayEntry(
+          createWeeklySchedule(branchId, SELECTED_WEEK, [employeeA.id, employeeB.id]),
+          employeeA.id,
+          'Montag',
+          { type: 'Shift', shifts: [createShift(clockTime('08:00'), clockTime('16:00'))] },
+        );
+        scheduleOverwriteWithPreviousWeek.mockResolvedValue(copiedShift);
 
-      await user.click(within(dialog).getByRole('button', { name: 'Übernehmen' }));
+        await user.click(within(dialog).getByRole('button', { name: 'Übernehmen' }));
 
-      await waitFor(() => expect(scheduleOverwriteWithPreviousWeek).toHaveBeenCalledTimes(1));
-      expect(await screen.findByText('Schichten der Vorwoche wurden übernommen.')).toBeInTheDocument();
-      expect(screen.getByText('08:00-16:00')).toBeInTheDocument();
-      await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Vorwoche komplett übernehmen?' })).not.toBeInTheDocument());
-    });
+        await waitFor(() => expect(scheduleOverwriteWithPreviousWeek).toHaveBeenCalledTimes(1));
+        expect(await screen.findByText('Schichten der Vorwoche wurden übernommen.')).toBeInTheDocument();
+        expect(screen.getByText('08:00-16:00')).toBeInTheDocument();
+        await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Vorwoche komplett übernehmen?' })).not.toBeInTheDocument());
+      });
 
-    it('"Vorwoche kopieren" reports an info message instead of a success one when there is nothing to copy', async () => {
-      renderScheduleView();
-      await screen.findByText(fullName(employeeA));
-      const user = userEvent.setup();
+      it('"Vorwoche kopieren" reports an info message instead of a success one when there is nothing to copy', async () => {
+        renderScheduleView();
+        await screen.findByText(fullName(employeeA));
+        const user = userEvent.setup();
 
-      await user.click(screen.getByRole('button', { name: 'Vorwoche kopieren' }));
-      const dialog = await screen.findByRole('dialog', { name: 'Vorwoche komplett übernehmen?' });
-      // Default mock: overwriteWithPreviousWeek resolves with the SAME schedule reference it was
-      // given, exactly like the real service does when it finds no previous week to copy from.
-      await user.click(within(dialog).getByRole('button', { name: 'Übernehmen' }));
+        await user.click(within(sidePanel()).getByRole('button', { name: 'Vorwoche kopieren' }));
+        const dialog = await screen.findByRole('dialog', { name: 'Vorwoche komplett übernehmen?' });
+        // Default mock: overwriteWithPreviousWeek resolves with the SAME schedule reference it was
+        // given, exactly like the real service does when it finds no previous week to copy from.
+        await user.click(within(dialog).getByRole('button', { name: 'Übernehmen' }));
 
-      expect(await screen.findByText('Für die Vorwoche wurde kein Dienstplan gefunden.')).toBeInTheDocument();
-    });
+        expect(await screen.findByText('Für die Vorwoche wurde kein Dienstplan gefunden.')).toBeInTheDocument();
+      });
 
-    it('"Drucken" navigates to /print/:scheduleId and only renders when a schedule exists', async () => {
-      renderScheduleView();
-      await screen.findByText(fullName(employeeA));
+      it('"Drucken" navigates to /print/:scheduleId and only renders when a schedule exists', async () => {
+        renderScheduleView();
+        await screen.findByText(fullName(employeeA));
 
-      await userEvent.setup().click(screen.getByRole('button', { name: 'Drucken' }));
+        await userEvent.setup().click(within(sidePanel()).getByRole('button', { name: 'Drucken' }));
 
-      await waitFor(() => expect(screen.getByText('print-route-landed')).toBeInTheDocument());
-    });
+        await waitFor(() => expect(screen.getByText('print-route-landed')).toBeInTheDocument());
+      });
 
-    it('does not render "Drucken" while no schedule has loaded yet', async () => {
-      scheduleGetOrCreate.mockReturnValueOnce(new Promise<WeeklySchedule>(() => {}));
+      it('does not render "Drucken" while no schedule has loaded yet', async () => {
+        scheduleGetOrCreate.mockReturnValueOnce(new Promise<WeeklySchedule>(() => {}));
 
-      renderScheduleView();
-      await waitFor(() => expect(screen.getByRole('button', { name: 'Vorwoche übertragen' })).toBeInTheDocument());
+        renderScheduleView();
+        await waitFor(() => expect(within(sidePanel()).getByRole('button', { name: 'Vorwoche übertragen' })).toBeInTheDocument());
 
-      expect(screen.queryByRole('button', { name: 'Drucken' })).not.toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: 'Drucken' })).not.toBeInTheDocument();
+      });
+
+      it('puts the Wochenangaben into the panel on desktop, saving on blur as an undoable step', async () => {
+        renderScheduleView(TABLET);
+        await screen.findByText(fullName(employeeA));
+        const user = userEvent.setup();
+
+        expect(within(sidePanel()).getByLabelText('Geplante Wochenstunden')).toBeInTheDocument();
+        await user.type(within(sidePanel()).getByLabelText('Geplanter Wochenumsatz'), '1234');
+        await user.tab();
+
+        await waitFor(() => expect(scheduleSave).toHaveBeenCalledTimes(1));
+        expect(scheduleSave.mock.calls[0][0].plannedWeeklyRevenue).toBe(1234);
+        await waitFor(() => expect(screen.getByRole('button', { name: 'Rückgängig' })).toBeEnabled());
+      });
+
+      // The ArbZG findings button in the panel is asserted by the warnings-only test above; opening
+      // its list is WeekSidePanel.test's job. Opening that Popover in this file, even closed again,
+      // made every later test here about three times slower (measured), past their waitFor timeouts.
     });
 
     it('opens ShiftTemplateDialog blank via the toolbar\'s "Vorlage" button', async () => {
@@ -2230,6 +2374,14 @@ describe('ScheduleView', () => {
       const table = screen.getByRole('grid');
 
       expect(!!(table.compareDocumentPosition(toolbarBar) & Node.DOCUMENT_POSITION_FOLLOWING)).toBe(true);
+    });
+
+    it('has no Wochendetails side panel and no toggle on mobile', async () => {
+      renderScheduleView(MOBILE);
+      await screen.findByText(fullName(employeeA));
+
+      expect(screen.queryByRole('complementary', { name: 'Wochendetails' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /^Wochendetails/ })).not.toBeInTheDocument();
     });
 
     it('hides "Vorwoche übertragen" and "Drucken" from ScheduleView\'s own header row at mobile width', async () => {

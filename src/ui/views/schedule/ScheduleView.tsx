@@ -15,10 +15,7 @@ import InputAdornment from '@mui/material/InputAdornment';
 import Tooltip from '@mui/material/Tooltip';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
-import PrintOutlinedIcon from '@mui/icons-material/PrintOutlined';
 import TodayOutlinedIcon from '@mui/icons-material/TodayOutlined';
-import SwapHorizOutlinedIcon from '@mui/icons-material/SwapHorizOutlined';
-import ContentCopyOutlinedIcon from '@mui/icons-material/ContentCopyOutlined';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import ContentPasteIcon from '@mui/icons-material/ContentPaste';
 import EventBusyOutlinedIcon from '@mui/icons-material/EventBusyOutlined';
@@ -65,6 +62,9 @@ import { DayEditor } from './components/DayEditor';
 import type { AbsenceDetails } from './components/DayEditor';
 import type { AbsenceType } from '@domain/absence/Absence';
 import { ValidationNotices } from './components/ValidationNotices';
+import { WeekSidePanel } from './components/WeekSidePanel';
+import { WeekSidePanelToggle } from './components/WeekSidePanelToggle';
+import { resolveSidePanelOpen, useWeekSidePanelStore } from '@ui/app/store/weekSidePanelStore';
 import { WeekSelectionDialog } from './components/WeekSelectionDialog';
 import { CarryOverPreviousWeekDialog } from './components/CarryOverPreviousWeekDialog';
 import { useScheduleValidation } from './useScheduleValidation';
@@ -223,15 +223,28 @@ export function ScheduleView() {
   const [copyPreviousWeekOpen, setCopyPreviousWeekOpen] = useState(false);
   const [copyingPreviousWeek, setCopyingPreviousWeek] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  // Mobile only: the search field is collapsed behind a magnifier button to give the table room.
+  // The search field is collapsed behind a magnifier button at every width to give the table room.
   // It stays open while it holds a term, so an active filter is never invisible.
-  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const searchButtonRef = useRef<HTMLButtonElement>(null);
+  // Set by Escape only: the field it closes held the focus, which goes back to the magnifier. A
+  // close on blur must not pull the focus back from wherever the user just moved it.
+  const refocusSearchButton = useRef(false);
   // Focus moves into the field only as the direct result of tapping the magnifier (not autoFocus,
   // which would also fire on every remount).
   useEffect(() => {
-    if (mobileSearchOpen) searchInputRef.current?.focus();
-  }, [mobileSearchOpen]);
+    if (searchOpen) {
+      searchInputRef.current?.focus();
+    } else if (refocusSearchButton.current) {
+      refocusSearchButton.current = false;
+      searchButtonRef.current?.focus();
+    }
+  }, [searchOpen]);
+  // Desktop only. The user's last choice per device; before there is one, wide windows start open.
+  const storedSidePanelOpen = useWeekSidePanelStore((s) => s.open);
+  const setSidePanelOpen = useWeekSidePanelStore((s) => s.setOpen);
+  const sidePanelOpen = resolveSidePanelOpen(storedSidePanelOpen, window.innerWidth);
 
   const federalState = branch?.federalState;
   const isHoliday = useMemo(
@@ -287,6 +300,10 @@ export function ScheduleView() {
       { min: 0, max: 0 },
     );
   const notYetScheduledCount = rows.filter(isNotYetScheduled).length;
+  const notYetScheduledText = absencesLoading ? '–' : notYetScheduledCount.toLocaleString('de-DE');
+  // Caption + value at every width, the same shape as "Nicht eingeplant", so the two tiles are
+  // always equally tall (the old one-line "Ist X von Y Soll" on tablet was not).
+  const istSollText = `${formatHoursGerman(totalWorkedMinutes)} / ${formatHoursRangeGerman(totalTarget.min, totalTarget.max)}`;
 
   // Read at execution time by every queued mutation instead of from a render closure: two quick
   // edits used to both start from the same pre-edit aggregate and silently lose the first write.
@@ -744,23 +761,23 @@ export function ScheduleView() {
     ? rows.find((r) => r.view.employeeId === editorState.employeeId)
     : undefined;
 
-  // Rendered inline (non-mobile) or handed to ScheduleToolbar's mobile sheet (see the "Weitere
-  // Aktionen" restructure below) - one instance either way, never both, since `layout` decides
-  // exactly one placement each render.
+  // Only ScheduleToolbar's mobile sheet renders this (see the "Weitere Aktionen" restructure below);
+  // on the desktop WeekSidePanel brings its own copy.
   const headerFields = (
     <ScheduleHeaderFields
       schedule={schedule}
       disabled={isLoading}
       onSaved={scheduleReplaced}
       onError={notify.report}
-      fullWidth={isMobile}
+      fullWidth
     />
   );
 
-  // Shares a row with headerFields on tablet/desktop (schedule-header-row below) and stays its own
-  // standalone row on mobile - same "one JSX value, two placements" pattern as headerFields above.
-  // A floating label (not just a placeholder) so its accessible name matches the two DecimalTextFields
-  // it now sits next to.
+  const openPrint = () => schedule && navigate(buildLocalizedPath(locale, `/print/${schedule.id}`));
+
+  // Sits in the week row on tablet/desktop and in its own row on mobile - one JSX value, two
+  // placements. A floating label (not just a placeholder) so its accessible name stays the same as
+  // the magnifier button that opens it.
   const searchField = (
     <TextField
       size="small"
@@ -768,7 +785,14 @@ export function ScheduleView() {
       value={searchTerm}
       onChange={(e) => setSearchTerm(e.target.value)}
       inputRef={searchInputRef}
-      onBlur={() => layout === 'mobile' && searchTerm === '' && setMobileSearchOpen(false)}
+      onBlur={() => searchTerm === '' && setSearchOpen(false)}
+      onKeyDown={(e) => {
+        if (e.key === 'Escape') {
+          refocusSearchButton.current = true;
+          setSearchTerm('');
+          setSearchOpen(false);
+        }
+      }}
       fullWidth={layout === 'mobile'}
       sx={layout === 'mobile' ? undefined : { width: 280 }}
       InputProps={{
@@ -780,6 +804,11 @@ export function ScheduleView() {
       }}
     />
   );
+  const searchButton = (
+    <IconButton ref={searchButtonRef} aria-label={t('searchPlaceholder')} onClick={() => setSearchOpen(true)} sx={{ flexShrink: 0 }}>
+      <SearchOutlinedIcon />
+    </IconButton>
+  );
 
   // AppShell's fullBleedPage Container hands every view a bounded, zero-padding region between
   // the header and whatever fixed chrome sits below it (see PageActionsContext/AppShell) - to fill
@@ -787,6 +816,9 @@ export function ScheduleView() {
   // Container no longer supplies. Mobile omits pb deliberately: the "Weitere Aktionen" bar sits
   // flush against the fixed bottom tab bar (see its own mx:-1.5 trick), whereas tablet has no such
   // fixed bottom chrome to sit flush against, so it keeps a normal symmetric bottom padding instead.
+  // Tablet's pt (and the week row's mb) are small: with the page title hidden (PageHeading) the week
+  // row is the first thing under the app header, and the IconButtons' own 8px padding already reads
+  // as the gap. Every pixel above the table is one less employee row on a laptop.
   return (
     <Box
       sx={{
@@ -796,7 +828,7 @@ export function ScheduleView() {
         minHeight: 0,
         height: '100%',
         px: layout === 'mobile' ? 1.5 : 3,
-        pt: layout === 'mobile' ? 1.5 : 3,
+        pt: layout === 'mobile' ? 1.5 : 0.5,
         pb: layout === 'mobile' ? 0 : 3,
       }}
     >
@@ -808,7 +840,7 @@ export function ScheduleView() {
         alignItems="center"
         flexWrap={isMobile ? 'nowrap' : 'wrap'}
         gap={isMobile ? 1 : 2}
-        sx={{ mb: isMobile ? 1 : 2 }}
+        sx={{ mb: isMobile ? 1 : 0.5 }}
       >
         <Box sx={{ minWidth: 0 }}>
           {/* Branch name intentionally not repeated here - it's already shown in the header's
@@ -895,46 +927,27 @@ export function ScheduleView() {
           <IconButton onClick={() => setSelectedWeek(nextCalendarWeek(selectedWeek))} aria-label={t('nextWeekAriaLabel')}>
             <ChevronRightIcon />
           </IconButton>
-          {/* Mobile: these two move into the "Weitere Aktionen" sheet's Aktionen section instead
-              (see ScheduleToolbar) - this row has no room for 7 items on a phone, and the overflow
-              used to be silently clipped rather than scrollable (AppShell's fullBleed Container is
-              overflow:hidden on mobile). */}
-          {layout !== 'mobile' && (
-            <Button variant="outlined" startIcon={<SwapHorizOutlinedIcon />} onClick={() => setCarryOverOpen(true)}>
-              {t('carryOverButton')}
-            </Button>
-          )}
-          {layout !== 'mobile' && (
-            <Button variant="outlined" startIcon={<ContentCopyOutlinedIcon />} onClick={() => setCopyPreviousWeekOpen(true)}>
-              {t('copyPreviousWeekButton')}
-            </Button>
-          )}
-          {layout !== 'mobile' && schedule && (
-            <Button
-              variant="outlined"
-              startIcon={<PrintOutlinedIcon />}
-              onClick={() => navigate(buildLocalizedPath(locale, `/print/${schedule.id}`))}
-            >
-              {t('printButton')}
-            </Button>
+          {/* The week actions (Vorwoche übertragen/kopieren, Drucken) are not in this row at any
+              width: on a phone they live in the "Weitere Aktionen" sheet (see ScheduleToolbar), on
+              tablet/desktop in WeekSidePanel. The search folds out of its magnifier in place. */}
+          {!isMobile && rows.length > 0 && (searchOpen || searchTerm !== '' ? searchField : searchButton)}
+          {!isMobile && (
+            <WeekSidePanelToggle
+              open={sidePanelOpen}
+              onToggle={() => setSidePanelOpen(!sidePanelOpen)}
+              errorCount={errorTotal}
+              warningCount={warningTotal}
+            />
           )}
         </Stack>
       </Stack>
 
-      {layout !== 'mobile' && (
-        <Stack
-          data-testid="schedule-header-row"
-          direction="row"
-          justifyContent="space-between"
-          alignItems="flex-start"
-          flexWrap="wrap"
-          gap={2}
-          sx={{ mb: 2 }}
-        >
-          {rows.length > 0 && searchField}
-          {headerFields}
-        </Stack>
-      )}
+      {/* Always mounted, and outside both the loading wrapper and the side panel: the counts change
+          silently, so a save that adds a violation would otherwise go unannounced - also while the
+          panel is collapsed. */}
+      <Box data-testid="validation-announcer" aria-live="polite" aria-atomic="true" sx={VISUALLY_HIDDEN_SX}>
+        {validationSummaryText}
+      </Box>
 
       <Box
         aria-busy={isLoading}
@@ -962,8 +975,8 @@ export function ScheduleView() {
             or its label would never be read. display:contents keeps the flex layout as it was. */}
         <Box {...(isLoading ? { inert: '' } : {})} sx={{ display: 'contents' }}>
 
-        {(() => {
-          const notYetScheduledText = absencesLoading ? '–' : notYetScheduledCount.toLocaleString('de-DE');
+        {/* The phone's KPI chip strip; on tablet/desktop the same figures sit in WeekSidePanel. */}
+        {isMobile && (() => {
           const chipSx = {
             flexShrink: 0,
             px: 1.5,
@@ -973,12 +986,8 @@ export function ScheduleView() {
             borderRadius: 4,
           };
 
-          // Caption + value at every width, the same shape as "Nicht eingeplant" below, so the two
-          // tiles are always equally tall (the old one-line "Ist X von Y Soll" on tablet was not).
-          const istSollText = `${formatHoursGerman(totalWorkedMinutes)} / ${formatHoursRangeGerman(totalTarget.min, totalTarget.max)}`;
-
           return (
-            <Stack direction="row" gap={1} alignItems="center" sx={{ mb: isMobile ? 1 : 2 }}>
+            <Stack direction="row" gap={1} alignItems="center" sx={{ mb: 1 }}>
               <Stack direction="row" gap={1} sx={{ overflowX: 'auto', pb: 0.5, minWidth: 0, flex: 1 }}>
                 <Box sx={{ ...chipSx, backgroundColor: 'background.paper' }}>
                   <Typography variant="caption" color="text.secondary" noWrap display="block">
@@ -989,11 +998,6 @@ export function ScheduleView() {
                   </Typography>
                 </Box>
 
-                {/* Always mounted: the chip below appears and changes silently, so a save that adds
-                    a violation would otherwise go unannounced. */}
-                <Box data-testid="validation-announcer" aria-live="polite" aria-atomic="true" sx={VISUALLY_HIDDEN_SX}>
-                  {validationSummaryText}
-                </Box>
                 <ValidationNotices
                   results={validationResults}
                   employeeList={employeeList}
@@ -1034,11 +1038,7 @@ export function ScheduleView() {
                   </Typography>
                 </Box>
               </Stack>
-              {isMobile && rows.length > 0 && !mobileSearchOpen && searchTerm === '' && (
-                <IconButton aria-label={t('searchPlaceholder')} onClick={() => setMobileSearchOpen(true)} sx={{ flexShrink: 0 }}>
-                  <SearchOutlinedIcon />
-                </IconButton>
-              )}
+              {rows.length > 0 && !searchOpen && searchTerm === '' && searchButton}
             </Stack>
           );
         })()}
@@ -1055,7 +1055,7 @@ export function ScheduleView() {
         </Box>
       )}
 
-      {isMobile && rows.length > 0 && (mobileSearchOpen || searchTerm !== '') && <Box sx={{ mb: 1 }}>{searchField}</Box>}
+      {isMobile && rows.length > 0 && (searchOpen || searchTerm !== '') && <Box sx={{ mb: 1 }}>{searchField}</Box>}
 
       {(() => {
         const toolbar = (
@@ -1075,7 +1075,7 @@ export function ScheduleView() {
             onFinishSelecting={finishSelecting}
             onCarryOver={() => setCarryOverOpen(true)}
             onCopyPreviousWeek={() => setCopyPreviousWeekOpen(true)}
-            onPrint={() => schedule && navigate(buildLocalizedPath(locale, `/print/${schedule.id}`))}
+            onPrint={openPrint}
             printAvailable={!!schedule}
             onRedo={() => history.redo()}
             canRedo={history.canRedo}
@@ -1108,7 +1108,8 @@ export function ScheduleView() {
 
         // Mobile: the toolbar bar must be the LAST flex child so it lands directly above the fixed
         // bottom tab bar (see Aufgabe 2) - the grid comes first and takes the remaining flex:1
-        // space above it. Tablet keeps today's order (toolbar above the grid) unchanged.
+        // space above it. Tablet keeps the toolbar above the grid, in a column next to the side
+        // panel: the panel takes its 280px from the table's width, never from its height.
         return layout === 'mobile' ? (
           <>
             {tableSection}
@@ -1121,10 +1122,29 @@ export function ScheduleView() {
             )}
           </>
         ) : (
-          <>
-            {toolbar}
-            {tableSection}
-          </>
+          <Box sx={{ display: 'flex', flex: 1, minHeight: 0, gap: 2 }}>
+            <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0, minHeight: 0 }}>
+              {toolbar}
+              {tableSection}
+            </Box>
+            {sidePanelOpen && (
+              <WeekSidePanel
+                istSollText={istSollText}
+                notYetScheduledText={notYetScheduledText}
+                validationResults={validationResults}
+                validationSummaryText={validationSummaryText}
+                employeeList={employeeList}
+                schedule={schedule}
+                disabled={isLoading}
+                onScheduleSaved={scheduleReplaced}
+                onError={notify.report}
+                onCarryOver={() => setCarryOverOpen(true)}
+                onCopyPreviousWeek={() => setCopyPreviousWeekOpen(true)}
+                onPrint={openPrint}
+                printAvailable={!!schedule}
+              />
+            )}
+          </Box>
         );
       })()}
         </Box>

@@ -178,6 +178,41 @@ Minijob's full Min-Max band and the warning icon only fires outside it. See
 `application/CLAUDE.md` for the worked/credited split and `domain/schedule/CLAUDE.md` for why the
 override never reaches the ArbZG checks.
 
+## Desktop layout and the "Wochendetails" side panel
+
+From 1025px (`layout !== 'mobile'`) only two things sit above the table: the week row
+(`schedule-nav-row`: week label/picker, Rückgängig, Wiederholen, Vorherige/Heute/Nächste Woche, the
+search magnifier, `WeekSidePanelToggle`) and `ScheduleToolbar`. Everything else lives in
+`components/WeekSidePanel.tsx` to the right of toolbar and table: Kennzahlen (Ist/Soll, the ArbZG
+findings with their Popover, Nicht eingeplant), Wochenangaben (`ScheduleHeaderFields`) and the week
+actions (Vorwoche übertragen, Vorwoche kopieren, Drucken). The phone layout is untouched: its KPI chip
+strip and the "Weitere Aktionen" sheet carry the same things there.
+
+Order in the DOM, top to bottom: week row, the visually hidden `validation-announcer`, then the
+loading wrapper (`aria-busy`, spinner, `inert` content) holding one row of [toolbar over table] and
+the panel. Three placements are deliberate:
+
+- The week row stays **outside** the loading wrapper. Making it inert would drop a keyboard user's
+  focus from "Nächste Woche" on every week switch.
+- The announcer stays outside the wrapper **and** the panel, so a new finding is still announced while
+  the panel is collapsed. The toggle's badge is the visible counterpart.
+- The panel sits **inside** the wrapper: the Wochenangaben save on blur, so they must not be reachable
+  while another week loads (same reason they get `disabled={isLoading}`).
+
+The panel takes its 280px from the table's width, never its height, and is not rendered at all while
+collapsed (`aria-controls` on the toggle refers to its presence). Open or closed is
+`resolveSidePanelOpen(stored, window.innerWidth)`: the user's last choice per device
+(`app/store/weekSidePanelStore.ts`), otherwise open from 1600px. The width is read on render, not on
+resize - it only matters until the first click on the toggle.
+
+The search is one `searchOpen` state for both layouts: the magnifier opens and focuses the field, a
+term keeps it open, an empty blur closes it, Escape clears it, closes it and puts the focus back on
+the magnifier.
+
+Testing note: `ScheduleView.test.tsx` does not open the ArbZG findings Popover. Doing so, even
+closing it again, made every later test in that file about three times slower and broke their
+`waitFor` timeouts. `WeekSidePanel.test.tsx` covers opening it.
+
 ## Werkzeugleiste
 
 `ScheduleToolbar.tsx` is the always-visible tool palette. `scheduleTools.ts` gives all three kinds of
