@@ -29,6 +29,7 @@ import type { EmployeeId } from '@domain/shared/ids';
 import { validateBreaks } from '@domain/validation/arbzg/breakValidation';
 import { validateShiftDuration } from '@domain/validation/arbzg/shiftDurationValidation';
 import { validateDailyWorkingTime } from '@domain/validation/arbzg/maxWorkingTimeValidation';
+import { validateSundayHolidayWork } from '@domain/validation/arbzg/sundayHolidayValidation';
 import {
   validateYouthDailyWorkingTime,
   validateYouthBreaks,
@@ -101,6 +102,9 @@ interface DayEditorProps {
   /** Only relevant for the youth-protection live check below; omitted entirely for an employee
    * with no birth date on file, same as everywhere else in the app (see Employee.birthDate). */
   birthDate?: string;
+  /** The branch's open Sundays and holiday calendar, for the live Sonntags-/Feiertagsarbeit
+   * warning. Omitted, that one check is skipped (it cannot be decided without them). */
+  sundayHolidayRules?: { allowedOpenSundays: string[]; isHoliday: (date: string) => boolean };
 }
 
 export function DayEditor({
@@ -116,6 +120,7 @@ export function DayEditor({
   entry,
   absence,
   birthDate,
+  sundayHolidayRules,
 }: DayEditorProps) {
   const { t } = useTranslation('schedule');
   const { t: tCommon } = useTranslation();
@@ -225,9 +230,9 @@ export function DayEditor({
   // neither of which this single-day editor has (same reason validateWeeklyWorkingTime and the
   // async rest-period check aren't in the adult list above either).
   //
-  // validateSundayHolidayWork is missing too, for a different reason: it needs the branch's
-  // allowedOpenSundays and its holiday calendar, which this editor is not given. Its Sonntags-/
-  // Feiertagsarbeit warning therefore only shows up in the week view after saving.
+  // validateSundayHolidayWork needs the branch's allowedOpenSundays and holiday calendar, passed in
+  // as sundayHolidayRules. Like the week validation it only runs on a day with shifts, so the live
+  // panel and the week view report the same Sonntags-/Feiertagsarbeit warning for the same day.
   //
   // All live results, errors and warnings: both are shown while editing, only errors ask on Speichern.
   const liveResults = useMemo(() => {
@@ -244,8 +249,11 @@ export function DayEditor({
       ...validateYouthDailyWorkingTime(netMinutes, birthDate, context),
       ...validateYouthSundayWork(date, day, birthDate, { employeeId }),
       ...validateChildEmploymentBan(date, birthDate, { employeeId }),
+      ...(sundayHolidayRules && parsedShifts.length > 0
+        ? validateSundayHolidayWork(date, day, sundayHolidayRules, sundayHolidayRules.isHoliday, { employeeId })
+        : []),
     ];
-  }, [parsedShifts, employeeId, date, day, birthDate]);
+  }, [parsedShifts, employeeId, date, day, birthDate, sundayHolidayRules]);
   const liveErrors = liveResults.filter((e) => e.severity === 'error');
 
   const actuallySave = () => {

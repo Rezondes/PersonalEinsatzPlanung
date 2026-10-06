@@ -1402,6 +1402,18 @@ describe('ScheduleView', () => {
     });
   });
 
+  // The Tageseditor gets the branch's open Sundays and holidays, so it warns live like the week view.
+  it('passes the branch rules to the Tageseditor, which warns about Sunday work while editing', async () => {
+    const { container } = renderScheduleView();
+    await screen.findByText(fullName(employeeA));
+    const user = userEvent.setup();
+
+    await user.click(cellEl(container, employeeA.id, 'Sonntag'));
+    await screen.findByText(`${fullName(employeeA)} · Sonntag`);
+
+    expect(screen.getByTestId('arbzg-live')).toHaveTextContent(/Sonntagsarbeit/);
+  });
+
   describe('saveAbsence (DayEditor -> onAbsenceSave)', () => {
     it('Urlaub: DayEditor Speichern creates a Vacation absence, reloads absences, makes undo available, and undo deletes the just-created absence', async () => {
       const { container } = renderScheduleView();

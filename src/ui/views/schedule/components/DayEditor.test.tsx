@@ -219,6 +219,60 @@ describe('DayEditor', () => {
     expect(screen.getByTestId('arbzg-live')).toHaveTextContent(/über 8 Std/);
   });
 
+  // The live panel lacked the Sunday/holiday warning the week view shows after saving: the editor
+  // did not get the branch's open Sundays and holiday calendar.
+  describe('Sunday and holiday warnings', () => {
+    const sunday = '2026-09-13';
+    function renderSunday(sundayHolidayRules: { allowedOpenSundays: string[]; isHoliday: (d: string) => boolean }) {
+      const onSave = vi.fn();
+      render(
+        <DayEditor
+          open
+          onClose={vi.fn()}
+          onSave={onSave}
+          onAbsenceSave={vi.fn()}
+          employeeId={m1}
+          employeeName="Anna Müller"
+          employeeTitleName="Müller, Anna"
+          day="Sonntag"
+          date={sunday}
+          entry={{ type: 'Off' }}
+          sundayHolidayRules={sundayHolidayRules}
+        />,
+      );
+      // 4h: no break rule fires, so only the Sunday/holiday check can speak.
+      setTime('Ende', '10:00');
+      return { onSave };
+    }
+
+    it('warns about a Sunday that is not an open Sunday while editing', () => {
+      renderSunday({ allowedOpenSundays: [], isHoliday: () => false });
+
+      expect(screen.getByTestId('arbzg-live')).toHaveTextContent(/Sonntagsarbeit außerhalb eines verkaufsoffenen Sonntags/);
+    });
+
+    it('stays quiet on an open Sunday of the branch', () => {
+      renderSunday({ allowedOpenSundays: [sunday], isHoliday: () => false });
+
+      expect(screen.getByTestId('arbzg-live')).toBeEmptyDOMElement();
+    });
+
+    it('warns about a public holiday while editing', () => {
+      renderSunday({ allowedOpenSundays: [sunday], isHoliday: (d) => d === sunday });
+
+      expect(screen.getByTestId('arbzg-live')).toHaveTextContent(/gesetzlichen Feiertag/);
+    });
+
+    it('does not ask for confirmation, since these are warnings only', async () => {
+      const { onSave } = renderSunday({ allowedOpenSundays: [], isHoliday: () => true });
+
+      await userEvent.setup().click(save());
+
+      expect(screen.queryByText('Gesetzesverstoß trotzdem speichern?')).not.toBeInTheDocument();
+      expect(onSave).toHaveBeenCalled();
+    });
+  });
+
   it('shows nothing while the day is fine, and saving stays possible', async () => {
     const user = userEvent.setup();
     const { onSave } = renderEditor();

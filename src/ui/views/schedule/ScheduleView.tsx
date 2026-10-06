@@ -236,6 +236,13 @@ export function ScheduleView() {
     () => (federalState ? createHolidayCheck(federalState) : () => false),
     [federalState],
   );
+  // For the Tageseditor's live Sonntags-/Feiertagsarbeit warning: the same inputs the week
+  // validation uses, so both report the same thing for the same day.
+  const allowedOpenSundays = branch?.allowedOpenSundays;
+  const sundayHolidayRules = useMemo(
+    () => ({ allowedOpenSundays: allowedOpenSundays ?? [], isHoliday }),
+    [allowedOpenSundays, isHoliday],
+  );
 
   const weekStartISO = toISODate(mondayOfWeek(selectedWeek));
   const weekEndISO = toISODate(dateForWeekday(selectedWeek, 'Sonntag'));
@@ -1212,6 +1219,7 @@ export function ScheduleView() {
           entry={editorState.dayView.entry}
           absence={editorState.dayView.absence}
           birthDate={editorRow.employee.birthDate}
+          sundayHolidayRules={sundayHolidayRules}
         />
       )}
 
