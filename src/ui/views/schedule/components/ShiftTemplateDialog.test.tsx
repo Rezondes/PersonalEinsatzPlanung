@@ -6,6 +6,7 @@ import { clockTime } from '@domain/shared/ClockTime';
 import { createShift } from '@domain/schedule/Shift';
 import type { ShiftTemplate } from '@domain/schedule/ShiftTemplate';
 import { services } from '@infrastructure/services';
+import type { CellAbsenceDraft } from '../scheduleTools';
 import { ShiftTemplateDialog } from './ShiftTemplateDialog';
 
 vi.mock('@infrastructure/services', () => ({
@@ -17,7 +18,7 @@ const updateMock = vi.mocked(services.shiftTemplate.update);
 
 const branchId = 'b1' as BranchId;
 
-function renderDialog(template: ShiftTemplate | null = null) {
+function renderDialog(template: ShiftTemplate | null = null, initialAbsence?: CellAbsenceDraft) {
   const onClose = vi.fn();
   const onSaved = vi.fn();
   const onError = vi.fn();
@@ -25,6 +26,7 @@ function renderDialog(template: ShiftTemplate | null = null) {
     <ShiftTemplateDialog
       branchId={branchId}
       template={template}
+      initialAbsence={initialAbsence}
       onClose={onClose}
       onSaved={onSaved}
       onError={onError}
@@ -324,6 +326,39 @@ describe('ShiftTemplateDialog absence kinds', () => {
       ...existing,
       halfDay: undefined,
     });
+  });
+
+  it('übernimmt eine Abwesenheit als Vorbelegung', async () => {
+    const user = userEvent.setup();
+    const { onSaved } = renderDialog(null, { type: 'Vacation', halfDay: 'afternoon', creditedMinutesOverride: 210 });
+
+    expect(screen.getByText('Neue Vorlage')).toBeInTheDocument();
+    expect(kindButton('Urlaub')).toHaveAttribute('aria-pressed', 'true');
+    expect(textbox('Bezeichnung')).toHaveValue('Urlaub');
+    expect(screen.getByRole('radio', { name: 'Nur nachmittags frei' })).toBeChecked();
+    expect(creditedField()).toHaveValue('3,5');
+    await user.click(save());
+
+    await waitFor(() => expect(onSaved).toHaveBeenCalledTimes(1));
+    expect(createMock.mock.calls[0][0]).toEqual({
+      branchId,
+      name: 'Urlaub',
+      kind: 'Vacation',
+      halfDay: 'afternoon',
+      creditedMinutesOverride: 210,
+    });
+  });
+
+  it('takes a Sonstiges absence\'s Bezeichnung and hours, and counts the prefill as no change', async () => {
+    const user = userEvent.setup();
+    const { onClose } = renderDialog(null, { type: 'Other', label: 'Inventur', hoursPerDay: 4 });
+
+    expect(kindButton('Sonstiges')).toHaveAttribute('aria-pressed', 'true');
+    expect(textbox('Bezeichnung')).toHaveValue('Inventur');
+    expect(screen.getByLabelText((t) => t.includes('Stunden'))).toHaveValue('4');
+
+    await user.click(screen.getByRole('button', { name: 'Schließen' }));
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 });
 

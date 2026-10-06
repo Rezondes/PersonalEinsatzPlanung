@@ -11,6 +11,7 @@ import { createAbsence } from '@domain/absence/Absence';
 import type { Absence } from '@domain/absence/Absence';
 import {
   OFF_TOOL,
+  absenceToCellDraft,
   cellAbsenceInput,
   dayEntryMatchesTool,
   toolKey,
@@ -243,6 +244,52 @@ describe('toolMatchesCell', () => {
     expect(toolMatchesCell(cell(illness), { kind: 'template', template: illnessTemplate })).toBe(true);
     expect(toolMatchesCell(cell({ ...illness, type: 'PublicHoliday' }), { kind: 'template', template: illnessTemplate })).toBe(false);
     expect(toolMatchesCell(cell(createAbsence({ ...base, type: 'PublicHoliday' })), { kind: 'template', template: holidayTemplate })).toBe(true);
+  });
+});
+
+describe('clipboard holding an absence', () => {
+  const base = { employeeId: 'e1' as EmployeeId, from: '2026-03-10', to: '2026-03-10' };
+
+  it('Zwischenablage mit Abwesenheit liefert ihren Entwurf', () => {
+    const tool = { kind: 'clipboard' as const, absence: { type: 'Vacation' as const, halfDay: 'morning' as const } };
+
+    expect(toolToAbsenceDraft(tool)).toEqual({ type: 'Vacation', halfDay: 'morning' });
+    expect(toolKey(tool)).toBe('clipboard');
+    const halfDay = createAbsence({ ...base, type: 'Vacation', halfDay: { atStart: true, atEnd: false } });
+    expect(toolMatchesCell({ entry: { type: 'Off' }, absence: halfDay }, tool)).toBe(true);
+    expect(toolMatchesCell({ entry: { type: 'Off' } }, tool)).toBe(false);
+  });
+
+  it('Zusammenfassung nennt den Typ', () => {
+    expect(toolLabel({ kind: 'clipboard', absence: { type: 'Illness' } }, t)).toBe('Zwischenablage');
+    expect(toolSummary({ kind: 'clipboard', absence: { type: 'Vacation', halfDay: 'morning' } }, t)).toBe('Urlaub (vormittags)');
+    expect(toolSummary({ kind: 'clipboard', absence: { type: 'Illness' } }, t)).toBe('Krankheit');
+    expect(toolSummary({ kind: 'clipboard', absence: { type: 'Other', label: 'Inventur', hoursPerDay: 4 } }, t)).toBe(
+      'Sonstige · Inventur · 4 Std.',
+    );
+  });
+});
+
+describe('absenceToCellDraft', () => {
+  const base = { employeeId: 'e1' as EmployeeId, from: '2026-03-10', to: '2026-03-10' };
+
+  it('reads a one-day absence back as the draft that writes it, half day and credited hours included', () => {
+    const afternoon = createAbsence({ ...base, type: 'Vacation', halfDay: { atStart: false, atEnd: true }, creditedMinutesOverride: 210 });
+    expect(absenceToCellDraft(afternoon)).toEqual({ type: 'Vacation', halfDay: 'afternoon', creditedMinutesOverride: 210 });
+    expect(absenceToCellDraft(createAbsence({ ...base, type: 'Illness', creditedMinutesOverride: 480 }))).toEqual({
+      type: 'Illness',
+      creditedMinutesOverride: 480,
+    });
+    expect(absenceToCellDraft(createAbsence({ ...base, type: 'Other', label: 'Inventur', hoursPerDay: 4 }))).toEqual({
+      type: 'Other',
+      label: 'Inventur',
+      hoursPerDay: 4,
+    });
+  });
+
+  it('gives one plain day of a multi-day absence: its half day only marks the first or last day of the range', () => {
+    const range = createAbsence({ ...base, to: '2026-03-13', type: 'Vacation', halfDay: { atStart: true, atEnd: false } });
+    expect(absenceToCellDraft(range)).toEqual({ type: 'Vacation' });
   });
 });
 

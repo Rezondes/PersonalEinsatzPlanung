@@ -10,11 +10,13 @@ import { formatHoursGerman, shiftNetMinutes } from '@domain/schedule/scheduleCal
 /**
  * Something the user can apply to a day: the fixed "Frei" tile, whatever was last copied, or one of
  * their own saved shift templates. One type for all three, so the toolbar, the clipboard and the
- * drop target do not each grow their own three-way branch.
+ * drop target do not each grow their own three-way branch. The clipboard holds either a copied day
+ * entry or a copied absence (see ScheduleView.copy), never both.
  */
 export type ScheduleTool =
   | { kind: 'off' }
   | { kind: 'clipboard'; entry: DayEntry }
+  | { kind: 'clipboard'; absence: CellAbsenceDraft }
   | { kind: 'template'; template: ShiftTemplate };
 
 export const OFF_TOOL: ScheduleTool = { kind: 'off' };
@@ -36,10 +38,11 @@ export function toolKey(tool: ScheduleTool): string {
  * carried along: it corrects one specific day (same rule the clipboard already followed), and a
  * Shift-kind template cannot even represent one - it holds Shift[], not a DayEntry.
  *
- * An absence-kind template has no DayEntry representation at all (see domain/schedule/ShiftTemplate.ts
- * - Absence is a separate aggregate). Callers must check toolToAbsenceDraft FIRST and only fall
- * back to this function when it returns null; the 'Off' returned here for that case is a harmless
- * default that should never actually be reached in the real apply paths (ScheduleView.applyTool).
+ * An absence-kind template or a copied absence has no DayEntry representation at all (see
+ * domain/schedule/ShiftTemplate.ts - Absence is a separate aggregate). Callers must check
+ * toolToAbsenceDraft FIRST and only fall back to this function when it returns null; the 'Off'
+ * returned here for that case is a harmless default that should never actually be reached in the
+ * real apply paths (ScheduleView.applyTool).
  */
 export function toolToDayEntry(tool: ScheduleTool): DayEntry {
   switch (tool.kind) {
@@ -50,7 +53,7 @@ export function toolToDayEntry(tool: ScheduleTool): DayEntry {
         ? { type: 'Shift', shifts: withFreshShiftIds(tool.template.shifts) }
         : { type: 'Off' };
     case 'clipboard':
-      return tool.entry.type === 'Shift'
+      return 'entry' in tool && tool.entry.type === 'Shift'
         ? { type: 'Shift', shifts: withFreshShiftIds(tool.entry.shifts) }
         : { type: 'Off' };
   }
@@ -71,11 +74,12 @@ export interface CellAbsenceDraft {
   creditedMinutesOverride?: number;
 }
 
-/** The absence this tool would write, or null for every tool that writes a DayEntry instead (off,
- * clipboard, a Shift-kind template). The one place that decides which of the two different write
- * paths (schedule.setDayEntryAndSave vs. absence.create/delete) a tool needs - see
+/** The absence this tool would write, or null for every tool that writes a DayEntry instead (off, a
+ * copied day entry, a Shift-kind template). The one place that decides which of the two different
+ * write paths (schedule.setDayEntryAndSave vs. absence.create/delete) a tool needs - see
  * ScheduleView.applyTool. */
 export function toolToAbsenceDraft(tool: ScheduleTool): CellAbsenceDraft | null {
+  if (tool.kind === 'clipboard') return 'absence' in tool ? tool.absence : null;
   if (tool.kind !== 'template') return null;
   const { template } = tool;
   switch (template.kind) {
@@ -118,6 +122,24 @@ function vacationHalfDay(halfDay: { atStart: boolean; atEnd: boolean } | undefin
   if (halfDay?.atStart) return 'morning';
   if (halfDay?.atEnd) return 'afternoon';
   return undefined;
+}
+
+/** The one-day draft a cell's absence stands for, the reverse of cellAbsenceInput - what "Kopieren"
+ * and "Als Vorlage speichern" start from. A multi-day absence gives one plain day of its type: its
+ * halfDay only marks the first or last day of the range, not the day that was clicked. */
+export function absenceToCellDraft(absence: Absence): CellAbsenceDraft {
+  switch (absence.type) {
+    case 'Other':
+      return { type: 'Other', label: absence.label, hoursPerDay: absence.hoursPerDay };
+    case 'Vacation':
+      return {
+        type: 'Vacation',
+        halfDay: absence.from === absence.to ? vacationHalfDay(absence.halfDay) : undefined,
+        creditedMinutesOverride: absence.creditedMinutesOverride,
+      };
+    default:
+      return { type: absence.type, creditedMinutesOverride: absence.creditedMinutesOverride };
+  }
 }
 
 /** Whether `absence` is exactly the one-day absence `draft` would write. */
@@ -173,8 +195,8 @@ export function dayEntryMatchesTool(entry: DayEntry, tool: ScheduleTool): boolea
 /**
  * Whether a cell already shows what applying `tool` there would produce - the absence counterpart
  * to dayEntryMatchesTool, used by the same tap-to-assign toggle-off and isAssignTarget highlight.
- * Falls back to dayEntryMatchesTool unchanged for every tool that writes a DayEntry (off,
- * clipboard, a Shift-kind template), so existing callers only need to switch which function they
+ * Falls back to dayEntryMatchesTool unchanged for every tool that writes a DayEntry (off, a copied
+ * day entry, a Shift-kind template), so existing callers only need to switch which function they
  * call, not add a branch of their own.
  */
 export function toolMatchesCell(dayView: { entry: DayEntry; absence?: Absence }, tool: ScheduleTool): boolean {
@@ -251,6 +273,7 @@ export function toolSummary(tool: ScheduleTool, t: TFunction<'schedule'>): strin
       // Only a Shift-kind template is left here; every other kind returned above.
       return tool.template.kind === 'Shift' ? shiftsSummary(tool.template.shifts, t) : '';
     case 'clipboard':
-      return tool.entry.type === 'Shift' ? shiftsSummary(tool.entry.shifts, t) : t('offMenuItem');
+      // Only a copied day entry is left here; a copied absence returned above.
+      return 'entry' in tool && tool.entry.type === 'Shift' ? shiftsSummary(tool.entry.shifts, t) : t('offMenuItem');
   }
 }

@@ -71,7 +71,14 @@ import { useScheduleValidation } from './useScheduleValidation';
 import { buildScheduleRows, canReceiveEntry, isCellLocked, isNotYetScheduled } from './scheduleRows';
 import type { ScheduleRow } from './scheduleRows';
 import type { ScheduleTool } from './scheduleTools';
-import { OFF_TOOL, cellAbsenceInput, toolMatchesCell, toolToAbsenceDraft, toolToDayEntry } from './scheduleTools';
+import {
+  OFF_TOOL,
+  absenceToCellDraft,
+  cellAbsenceInput,
+  toolMatchesCell,
+  toolToAbsenceDraft,
+  toolToDayEntry,
+} from './scheduleTools';
 import type { CellAbsenceDraft } from './scheduleTools';
 import { useBreakpoint, useIsShortViewport } from '@ui/hooks/useBreakpoint';
 import { mobileSafeBottom } from '@ui/app/nav/mobileChromeOffset';
@@ -212,9 +219,9 @@ export function ScheduleView() {
   // doc comment on fullBleedPage. Every page calls this; ScheduleTable is the region below that
   // fills the bounded space and scrolls internally.
   usePageActions({ fullBleedPage: true });
-  // null = closed, otherwise the template being edited (or drafts prefilled from a day).
+  // null = closed, otherwise the template being edited (or drafts or an absence prefilled from a day).
   const [templateDialog, setTemplateDialog] = useState<
-    { template: ShiftTemplate | null; drafts?: ShiftDraft[] } | null
+    { template: ShiftTemplate | null; drafts?: ShiftDraft[]; absence?: CellAbsenceDraft } | null
   >(null);
   const [templateDeleteTarget, setTemplateDeleteTarget] = useState<ShiftTemplate | null>(null);
   const [templateDeleting, setTemplateDeleting] = useState(false);
@@ -509,29 +516,41 @@ export function ScheduleView() {
     return () => document.removeEventListener('contextmenu', handler);
   }, [visibleRows]);
 
-  // Deliberately copies only dayView.entry, never dayView.absence: the clipboard tool is a
-  // DayEntry, the same structural limit toolToDayEntry has (see domain/schedule/CLAUDE.md). A cell
-  // showing a Sonstiges absence has nothing useful to copy this way - only a saved Vorlage can
-  // (re-)apply one, via toolToAbsenceDraft.
+  // Copies what the cell shows. A cell with an absence copies the absence, never dayView.entry: on a
+  // whole-day absence the entry may still hold stale shifts the grid hides, and a half-day vacation
+  // is exactly what such a cell is for. The absence becomes a one-day draft (absenceToCellDraft:
+  // type, Sonstiges label and hours, the half day of a one-day vacation; a multi-day absence gives a
+  // plain day of its type), so pasting it goes through writeAbsenceToCell like an absence Vorlage.
+  // Credited hours stay behind, for the same reason toolToDayEntry drops a shift's manual
+  // netMinutesOverride: they correct that one specific day.
   const copy = () => {
     if (!contextMenu) return;
-    setActiveTool({ kind: 'clipboard', entry: contextMenu.dayView.entry });
+    const { entry, absence } = contextMenu.dayView;
+    setActiveTool(
+      absence
+        ? { kind: 'clipboard', absence: { ...absenceToCellDraft(absence), creditedMinutesOverride: undefined } }
+        : { kind: 'clipboard', entry },
+    );
     setContextMenu(null);
   };
 
-  /** Opens the template dialog prefilled with this day's shifts, so a working time that was just
-   * built by hand can be kept without rebuilding it. */
+  /** Opens the template dialog prefilled with this day's absence or shifts, so a day that was just
+   * built by hand can be kept without rebuilding it. The absence wins, as in copy above; unlike
+   * copy, its credited hours come along - a Vorlage is a deliberate choice the dialog shows. */
   const saveAsTemplate = () => {
     if (!contextMenu) return;
-    const { entry } = contextMenu.dayView;
+    const { entry, absence } = contextMenu.dayView;
     setContextMenu(null);
-    if (entry.type !== 'Shift') return;
-    setTemplateDialog({ template: null, drafts: entry.shifts.map(shiftToDraft) });
+    if (absence) {
+      setTemplateDialog({ template: null, absence: absenceToCellDraft(absence) });
+    } else if (entry.type === 'Shift') {
+      setTemplateDialog({ template: null, drafts: entry.shifts.map(shiftToDraft) });
+    }
   };
 
   // The one place that decides which of the two write paths a tool needs: an absence-kind template
-  // (Sonstiges, Urlaub, Krankheit, Feiertag) has no DayEntry representation at all (see
-  // domain/schedule/ShiftTemplate.ts), so it goes through writeAbsenceToCell instead of
+  // (Sonstiges, Urlaub, Krankheit, Feiertag) or a copied absence has no DayEntry representation at
+  // all (see domain/schedule/ShiftTemplate.ts), so it goes through writeAbsenceToCell instead of
   // setEntryInCell - shared by tap-to-assign (toolTap) and "Einfügen" (paste), which both call
   // this one function.
   const applyTool = useCallback(
@@ -745,13 +764,12 @@ export function ScheduleView() {
   const pasteDisabled = !activeTool || !cellWritable;
   const isAlreadyOff = !!contextMenu && contextMenu.dayView.entry.type === 'Off' && !contextMenu.dayView.absence;
   const setToOffDisabled = isAlreadyOff || !cellWritable;
-  // Saving a day as a template needs real, visible shifts: an Off day has none, and on a full-day
-  // absence the entry may still hold stale shifts the grid does not show.
+  // Saving a day as a template needs an absence or real shifts: a plain Off day has neither. Stale
+  // shifts behind a whole-day absence never count, saveAsTemplate takes the absence there.
   const saveAsTemplateDisabled =
     !contextMenu ||
-    contextMenu.dayView.entry.type !== 'Shift' ||
-    contextMenu.dayView.entry.shifts.length === 0 ||
-    contextMenu.dayView.absenceCoversWholeDay;
+    (!contextMenu.dayView.absence &&
+      (contextMenu.dayView.entry.type !== 'Shift' || contextMenu.dayView.entry.shifts.length === 0));
 
   if (!branch) {
     return <NoBranchSelectedAlert />;
@@ -1223,6 +1241,7 @@ export function ScheduleView() {
           branchId={branch.id}
           template={templateDialog.template}
           initialDrafts={templateDialog.drafts}
+          initialAbsence={templateDialog.absence}
           onClose={() => setTemplateDialog(null)}
           onSaved={reloadTemplates}
           onError={notify.report}

@@ -60,7 +60,6 @@ new export `formatVersion`. Several decisions are load-bearing:
   is why the template service may hard-delete, unlike Branch/Employee which are soft-deleted.
 - It belongs to a Branch: opening hours differ per store, so another branch's shifts would only be
   noise in the toolbar.
-- Copying a cell that holds a Sonstiges absence into the clipboard is deliberately **not**
-  supported (the clipboard tool is structurally limited to `DayEntry`, same as `toolToDayEntry`) -
-  only the toolbar's own Vorlagen apply an absence. See the comment on `saveAsTemplate`'s
-  caller in `ScheduleView.tsx`.
+- Copying a cell that holds an absence puts a one-day absence draft on the clipboard, which is
+  applied exactly like an absence-kind template (no `DayEntry` either). See the comment on `copy`
+  in `ScheduleView.tsx` and the Copy/Paste/Frei section of `ui/views/schedule/CLAUDE.md`.

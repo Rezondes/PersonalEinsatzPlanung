@@ -78,6 +78,22 @@ item greyed) for cells covered by a multi-day Absence, consistent with the read-
 behavior above. "Frei" is additionally disabled when the cell is already plain Off with no
 Absence (`isAlreadyOff`).
 
+"Kopieren" copies what the cell shows, and an absence wins over the day entry: on a whole-day
+absence the entry may still hold stale shifts the grid hides, and a half-day vacation is the thing
+worth copying from its cell. The clipboard tool then holds a `CellAbsenceDraft` instead of a
+`DayEntry` (`{ kind: 'clipboard', absence }`), built by `scheduleTools.absenceToCellDraft`: the type,
+a Sonstiges absence's label and hours, the half day of a one-day vacation (`atStart` is
+`'morning'`, `atEnd` is `'afternoon'`); a multi-day absence gives one plain day of its type, without
+half day. Credited hours (`creditedMinutesOverride`) are never copied, like a shift's manual
+`netMinutesOverride`: both correct one specific day. From there `toolToAbsenceDraft` routes it like an
+absence Vorlage: "Einfügen" and tap-to-assign go through `writeAbsenceToCell` (replacing a one-day
+absence on the target, one undo step), Mehrfachauswahl skips days that already have one.
+
+"Als Vorlage speichern" works on any cell with an absence or with real shifts, and is disabled only on
+a plain free cell. On an absence it opens `ShiftTemplateDialog` with `initialAbsence` (kind, half day,
+Sonstiges label/hours) - here the credited hours do come along, since the dialog shows them and the
+Vorlage is a deliberate choice.
+
 ## Soll vs. Ist (Punkt 3) and Vorwoche-Stundenübertrag (Punkt 6)
 
 `ScheduleTable.tsx`'s "Soll" column and the warning tooltip on "Gesamt" both use
@@ -211,7 +227,10 @@ the magnifier.
 
 Testing note: `ScheduleView.test.tsx` does not open the ArbZG findings Popover. Doing so, even
 closing it again, made every later test in that file about three times slower and broke their
-`waitFor` timeouts. `WeekSidePanel.test.tsx` covers opening it.
+`waitFor` timeouts. `WeekSidePanel.test.tsx` covers opening it. The same goes for
+`ShiftTemplateDialog` in its Urlaub mode (the half-day radio group): open it in
+`ShiftTemplateDialog.test.tsx`, and use another absence type where a `ScheduleView` test needs the
+dialog.
 
 ## Werkzeugleiste
 

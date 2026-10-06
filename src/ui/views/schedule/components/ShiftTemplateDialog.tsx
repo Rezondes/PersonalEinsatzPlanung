@@ -33,6 +33,7 @@ import { useDiscardConfirm } from '@ui/hooks/useDiscardConfirm';
 import { DecimalTextField } from '@ui/components/DecimalTextField';
 import { useBreakpoint } from '@ui/hooks/useBreakpoint';
 import { ABSENCE_KIND_KEY } from '../scheduleTools';
+import type { CellAbsenceDraft } from '../scheduleTools';
 import { ShiftListEditor } from './ShiftListEditor';
 import { entryTypeToggleSx } from './entryTypeToggleSx';
 
@@ -48,6 +49,9 @@ interface ShiftTemplateDialogProps {
   /** Prefilled shifts when the template is being created from an existing day
    * ("Als Vorlage speichern"). Ignored while editing. */
   initialDrafts?: ShiftDraft[];
+  /** Prefilled kind and fields when the template is being created from a day with an absence
+   * ("Als Vorlage speichern"). Ignored while editing. */
+  initialAbsence?: CellAbsenceDraft;
   onClose: () => void;
   onSaved: () => void | Promise<void>;
   onError: (e: unknown, context?: string) => void;
@@ -60,6 +64,7 @@ export function ShiftTemplateDialog({
   branchId,
   template,
   initialDrafts,
+  initialAbsence,
   onClose,
   onSaved,
   onError,
@@ -68,8 +73,14 @@ export function ShiftTemplateDialog({
   const { t: tCommon } = useTranslation();
   const { t: tAbsences } = useTranslation('absences');
   const isMobile = useBreakpoint() === 'mobile';
-  const [kind, setKind] = useState<TemplateKind>(template?.kind ?? 'Shift');
-  const [name, setName] = useState(template?.name ?? '');
+  // An absence kind starts out named after its type ("Urlaub"). Switching kind only replaces a
+  // name that is still empty or that default, never one the user typed.
+  const defaultName = (k: TemplateKind) => (isCreditedKind(k) ? tCommon(ABSENCE_KIND_KEY[k]) : '');
+  // An absence's type names its template kind one to one ('Other' is Sonstiges either way).
+  const initialKind: TemplateKind = template?.kind ?? initialAbsence?.type ?? 'Shift';
+  const [kind, setKind] = useState<TemplateKind>(initialKind);
+  // A Sonstiges absence's Bezeichnung is the template's name too (see the validation comment below).
+  const [name, setName] = useState(template?.name ?? initialAbsence?.label ?? defaultName(initialKind));
   const [drafts, setDrafts] = useState<ShiftDraft[]>(() => {
     if (template?.kind === 'Shift') {
       return template.shifts.map(shiftToDraft);
@@ -77,17 +88,21 @@ export function ShiftTemplateDialog({
     return initialDrafts && initialDrafts.length > 0 ? initialDrafts : [newShiftDraft()];
   });
   const [hoursPerDay, setHoursPerDay] = useState<number | undefined>(
-    template?.kind === 'Other' ? template.hoursPerDay : undefined,
+    template ? (template.kind === 'Other' ? template.hoursPerDay : undefined) : initialAbsence?.hoursPerDay,
   );
   const [halfDay, setHalfDay] = useState<VacationHalfDay | undefined>(
-    template?.kind === 'Vacation' ? template.halfDay : undefined,
+    template ? (template.kind === 'Vacation' ? template.halfDay : undefined) : initialAbsence?.halfDay,
   );
   // Entered in hours like every other hours field, stored in minutes like Absence's own override.
-  const [creditedHours, setCreditedHours] = useState<number | undefined>(() =>
-    template && 'creditedMinutesOverride' in template && template.creditedMinutesOverride !== undefined
-      ? minutesToDecimalHours(template.creditedMinutesOverride)
-      : undefined,
-  );
+  const [creditedHours, setCreditedHours] = useState<number | undefined>(() => {
+    const minutes =
+      template
+        ? 'creditedMinutesOverride' in template
+          ? template.creditedMinutesOverride
+          : undefined
+        : initialAbsence?.creditedMinutesOverride;
+    return minutes === undefined ? undefined : minutesToDecimalHours(minutes);
+  });
   const creditedMinutesOverride = creditedHours === undefined ? undefined : Math.round(creditedHours * 60);
   const [saving, setSaving] = useState(false);
   // Drafts are raw input strings, so comparing the serialized fields is enough.
@@ -95,9 +110,6 @@ export function ShiftTemplateDialog({
   const [initialState] = useState(current);
   const { requestClose, confirmDialog } = useDiscardConfirm(current !== initialState, saving ? undefined : onClose);
 
-  // An absence kind starts out named after its type ("Urlaub"). Switching kind only replaces a
-  // name that is still empty or that default, never one the user typed.
-  const defaultName = (k: TemplateKind) => (isCreditedKind(k) ? tCommon(ABSENCE_KIND_KEY[k]) : '');
   const changeKind = (next: TemplateKind) => {
     if (!name.trim() || name === defaultName(kind)) {
       setName(defaultName(next));

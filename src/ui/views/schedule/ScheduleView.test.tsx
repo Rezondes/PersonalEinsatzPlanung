@@ -1027,16 +1027,16 @@ describe('ScheduleView', () => {
       expectMenuItemDisabled('Als Vorlage speichern');
     });
 
-    it('on a cell covered by a single-day absence: Frei is enabled and "Als Vorlage speichern" is disabled', async () => {
+    it('on a cell covered by a single-day absence: Frei and "Als Vorlage speichern" are enabled', async () => {
       const { container } = await renderWithFixtures();
 
       openContextMenu(cellEl(container, employeeA.id, 'Mittwoch'));
 
       expectMenuItemEnabled('Frei');
-      expectMenuItemDisabled('Als Vorlage speichern');
+      expectMenuItemEnabled('Als Vorlage speichern');
     });
 
-    it('"Als Vorlage speichern" is disabled by absenceCoversWholeDay even though the entry itself is still type Shift (stale shift data left behind before the absence was added)', async () => {
+    it('"Als Vorlage speichern" on a whole-day absence offers the absence, never the stale shifts the entry still holds behind it', async () => {
       let schedule = buildContextMenuSchedule();
       schedule = withDayEntry(schedule, employeeA.id, 'Mittwoch', {
         type: 'Shift',
@@ -1044,18 +1044,24 @@ describe('ScheduleView', () => {
       });
       scheduleGetOrCreate.mockResolvedValueOnce(schedule);
       employeeForBranch.mockResolvedValueOnce([employeeA, employeeB, employeeLocked]);
-      // singleDayAbsence is a same-day (from === to), non-half-day Vacation on MITTWOCH, so
-      // absenceCoversWholeDay is true here despite entry.type === 'Shift'.
-      absenceForBranch.mockResolvedValueOnce([singleDayAbsence]);
+      // A same-day Illness covers the whole day, so the entry's type 'Shift' is stale data the grid
+      // hides. Not a Vacation: the dialog's Urlaub mode renders a radio group, and that alone made
+      // every later test in this file slow enough to time out (measured, like the findings Popover).
+      absenceForBranch.mockResolvedValueOnce([
+        createAbsence({ employeeId: employeeA.id, type: 'Illness', from: MITTWOCH, to: MITTWOCH }),
+      ]);
 
       const { container } = renderScheduleView();
       await screen.findByText(fullName(employeeA));
 
       openContextMenu(cellEl(container, employeeA.id, 'Mittwoch'));
-
-      expectMenuItemDisabled('Als Vorlage speichern');
       // cellWritable stays true for a same-day absence, so Frei is not disabled by this.
       expectMenuItemEnabled('Frei');
+      await userEvent.setup().click(menuItem('Als Vorlage speichern'));
+
+      expect(await screen.findByText('Neue Vorlage')).toBeInTheDocument();
+      expect(within(screen.getByRole('dialog')).getByRole('button', { name: 'Krankheit', pressed: true })).toBeInTheDocument();
+      expect(screen.queryByDisplayValue('09:00')).not.toBeInTheDocument();
     });
 
     it('"Als Vorlage speichern" stays disabled for a Shift-type entry whose shifts array is empty', async () => {
@@ -1208,6 +1214,107 @@ describe('ScheduleView', () => {
       expect(absenceDelete.mock.invocationCallOrder[0]).toBeLessThan(
         scheduleSetDayEntryAndSave.mock.invocationCallOrder[scheduleSetDayEntryAndSave.mock.invocationCallOrder.length - 1],
       );
+    });
+  });
+
+  describe('copying an absence', () => {
+    async function copyAndPaste(absences: Absence[], from: [EmployeeId, string], to: [EmployeeId, string]) {
+      absenceForBranch.mockResolvedValueOnce(absences);
+      const { container } = renderScheduleView();
+      await screen.findByText(fullName(employeeA));
+      const user = userEvent.setup();
+
+      openContextMenu(cellEl(container, ...from));
+      await user.click(menuItem('Kopieren'));
+      openContextMenu(cellEl(container, ...to));
+      await user.click(menuItem('Einfügen'));
+    }
+
+    it('kopiert einen halben Urlaubstag und fügt ihn woanders ein', async () => {
+      const halfDay = createAbsence({
+        employeeId: employeeA.id,
+        type: 'Vacation',
+        from: MONTAG,
+        to: MONTAG,
+        halfDay: { atStart: true, atEnd: false },
+      });
+      // The target's own one-day absence is replaced, in the same undo step.
+      const illness = createAbsence({ employeeId: employeeB.id, type: 'Illness', from: DIENSTAG, to: DIENSTAG });
+
+      await copyAndPaste([halfDay, illness], [employeeA.id, 'Montag'], [employeeB.id, 'Dienstag']);
+
+      await waitFor(() =>
+        expect(absenceCreate).toHaveBeenCalledWith({
+          employeeId: employeeB.id,
+          type: 'Vacation',
+          from: DIENSTAG,
+          to: DIENSTAG,
+          halfDay: { atStart: true, atEnd: false },
+        }),
+      );
+      expect(absenceDelete).toHaveBeenCalledWith(illness.id);
+      // Before this package the clipboard only knew the day entry and pasted "Frei" here.
+      expect(scheduleSetDayEntryAndSave).not.toHaveBeenCalled();
+      expect(screen.getByText('Urlaub (vormittags)')).toBeInTheDocument();
+      const created = await absenceCreate.mock.results[0].value;
+
+      await waitFor(() => expect(screen.getByRole('button', { name: 'Rückgängig' })).toBeEnabled());
+      act(() => {
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'z', ctrlKey: true, bubbles: true }));
+      });
+
+      await waitFor(() => expect(absenceDelete).toHaveBeenCalledWith(created.id));
+      await waitFor(() => expect(absenceRestore).toHaveBeenCalledWith(illness));
+    });
+
+    it('kopiert aus einer mehrtägigen Krankheit einen Tag', async () => {
+      const illness = createAbsence({ employeeId: employeeA.id, type: 'Illness', from: DONNERSTAG, to: FREITAG });
+
+      await copyAndPaste([illness], [employeeA.id, 'Donnerstag'], [employeeB.id, 'Montag']);
+
+      await waitFor(() =>
+        expect(absenceCreate).toHaveBeenCalledWith({ employeeId: employeeB.id, type: 'Illness', from: MONTAG, to: MONTAG }),
+      );
+      expect(absenceDelete).not.toHaveBeenCalled();
+    });
+
+    it('angerechnete Stunden werden nicht mitkopiert', async () => {
+      const holiday = createAbsence({
+        employeeId: employeeA.id,
+        type: 'PublicHoliday',
+        from: MONTAG,
+        to: MONTAG,
+        creditedMinutesOverride: 300,
+      });
+
+      await copyAndPaste([holiday], [employeeA.id, 'Montag'], [employeeB.id, 'Montag']);
+
+      await waitFor(() => expect(absenceCreate).toHaveBeenCalledTimes(1));
+      expect(absenceCreate.mock.calls[0][0]).toMatchObject({ employeeId: employeeB.id, type: 'PublicHoliday', from: MONTAG });
+      expect(absenceCreate.mock.calls[0][0]).not.toHaveProperty('creditedMinutesOverride', 300);
+    });
+
+    it('Als Vorlage speichern aus einer Feiertagszelle', async () => {
+      const holiday = createAbsence({
+        employeeId: employeeA.id,
+        type: 'PublicHoliday',
+        from: MITTWOCH,
+        to: MITTWOCH,
+        creditedMinutesOverride: 300,
+      });
+      absenceForBranch.mockResolvedValueOnce([holiday]);
+      const { container } = renderScheduleView();
+      await screen.findByText(fullName(employeeA));
+
+      openContextMenu(cellEl(container, employeeA.id, 'Mittwoch'));
+      await userEvent.setup().click(menuItem('Als Vorlage speichern'));
+
+      expect(await screen.findByText('Neue Vorlage')).toBeInTheDocument();
+      const dialog = within(screen.getByRole('dialog'));
+      expect(dialog.getByRole('button', { name: 'Feiertag', pressed: true })).toBeInTheDocument();
+      expect(dialog.getByRole('textbox', { name: /Bezeichnung/ })).toHaveValue('Feiertag');
+      // Unlike "Kopieren", a Vorlage is a deliberate choice, so the credited hours come along.
+      expect(dialog.getByLabelText((text) => text.includes('Angerechnete Stunden'))).toHaveValue('5');
     });
   });
 
